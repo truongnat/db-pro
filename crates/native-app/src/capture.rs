@@ -174,7 +174,16 @@ impl CaptureApp {
     }
 
     fn open_requested_surface(&mut self) {
-        if self.opened_dialog || self.frames < 2 {
+        if self.frames < 2 {
+            return;
+        }
+        if let Ok(state) = std::env::var("DB_PRO_CAPTURE_EXPLORER") {
+            // Startup catalog events may arrive after the fixture's first frame.
+            self.inner.open_explorer_for_capture(&state);
+            self.opened_dialog = true;
+            return;
+        }
+        if self.opened_dialog {
             return;
         }
         // Evidence hook: when asked, open the new-connection dialog so the capture

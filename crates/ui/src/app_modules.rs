@@ -123,7 +123,8 @@ mod explorer_table_row_view;
 #[path = "explorer_toolbar_view.rs"]
 mod explorer_toolbar_view;
 #[path = "explorer_tree.rs"]
-mod explorer_tree;
+pub(crate) mod explorer_tree;
+pub(crate) mod native_explorer_paint;
 #[path = "explorer_view.rs"]
 mod explorer_view;
 #[path = "fdw_activity_view.rs"]

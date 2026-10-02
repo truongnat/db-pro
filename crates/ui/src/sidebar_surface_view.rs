@@ -6,6 +6,42 @@ use std::{cell::RefCell, rc::Rc};
 
 const SIDEBAR_CLIP_BLEED: f32 = 1.0;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_scroll_preserves_persisted_tree_namespace() {
+        let capture = |native| {
+            let ctx = egui::Context::default();
+            let runtime = RefCell::new(crate::native_runtime_shell::RsUiShellRuntime::default());
+            let mut id = None;
+            let _ = ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(260.0, 300.0))),
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        let mut content = |ui: &mut egui::Ui| {
+                            id = Some(ui.make_persistent_id(("codex_tbl_folder", "public")));
+                        };
+                        if native {
+                            draw_explorer_scroll(&runtime, ui, &mut content);
+                        } else {
+                            egui::ScrollArea::vertical()
+                                .id_salt("codex_navigator_scroll")
+                                .show(ui, content);
+                        }
+                    });
+                },
+            );
+            id.expect("tree content ID")
+        };
+        assert_eq!(capture(false), capture(true));
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum SidebarSurfaceAction {
     Chrome(SidebarChromeAction),
@@ -131,10 +167,13 @@ pub(crate) fn draw_sidebar_scroll<F>(
     id_salt: &'static str,
     ui: &mut egui::Ui,
     mut draw_content: F,
-)
-where
+) where
     F: FnMut(&mut egui::Ui),
 {
+    if crate::native_explorer_paint::active(ui.ctx()) {
+        draw_explorer_scroll(runtime, ui, &mut draw_content);
+        return;
+    }
     let viewport = ui.available_size();
     let offset = route_sidebar_wheel(runtime, ui, viewport);
 
@@ -146,7 +185,68 @@ where
         scroll_area = scroll_area.vertical_scroll_offset(offset);
     }
     let output = scroll_area.show(ui, |ui| draw_content(ui));
-    sync_sidebar_scroll(runtime, output.inner_rect.size(), output.content_size, output.state.offset);
+    sync_sidebar_scroll(
+        runtime,
+        output.inner_rect.size(),
+        output.content_size,
+        output.state.offset,
+    );
+}
+
+fn draw_explorer_scroll<F>(
+    runtime: &RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
+    ui: &mut egui::Ui,
+    draw_content: &mut F,
+) where
+    F: FnMut(&mut egui::Ui),
+{
+    let size = ui.available_size();
+    let mut offset = route_sidebar_wheel(runtime, ui, size).unwrap_or(0.0);
+    let (viewport, _) = ui.allocate_exact_size(size, Sense::hover());
+    let previous = runtime.borrow().sidebar_scroll_state();
+    let content_height = previous.map_or(size.y, |state| state.content_size.height);
+    let scrollable = (content_height - size.y).max(0.0);
+    let track = Rect::from_min_max(Pos2::new(viewport.right() - 8.0, viewport.top()), viewport.max);
+    if scrollable > 0.0 {
+        let track_response = ui.interact(track, ui.id().with("rs-ui-explorer-track"), Sense::click());
+        let thumb_height = (size.y * size.y / content_height).max(24.0).min(size.y);
+        let thumb_top = viewport.top() + offset / scrollable * (size.y - thumb_height);
+        let thumb = Rect::from_min_size(Pos2::new(track.left(), thumb_top), vec2(8.0, thumb_height));
+        let response = ui.interact(thumb, ui.id().with("rs-ui-explorer-thumb"), Sense::drag());
+        if track_response.clicked() {
+            if let Some(pointer) = track_response.interact_pointer_pos() {
+                if !thumb.contains(pointer) && size.y > thumb_height {
+                    offset = ((pointer.y - viewport.top() - thumb_height * 0.5) / (size.y - thumb_height) * scrollable)
+                        .clamp(0.0, scrollable);
+                }
+            }
+        }
+        if response.dragged() && size.y > thumb_height {
+            offset += ui.input(|input| input.pointer.delta().y) * scrollable / (size.y - thumb_height);
+            offset = offset.clamp(0.0, scrollable);
+        }
+    }
+    let width = (size.x - 10.0).max(0.0);
+    let content_rect = Rect::from_min_size(viewport.min - vec2(0.0, offset), vec2(width, size.y));
+    // ScrollArea uses the default child namespace; retain persisted expansion IDs.
+    let mut content = ui.new_child(egui::UiBuilder::new().max_rect(content_rect));
+    content.set_clip_rect(Rect::from_min_size(viewport.min, vec2(width, size.y)).intersect(ui.clip_rect()));
+    draw_content(&mut content);
+    let content_size = vec2(width, (content.min_rect().bottom() - content_rect.top()).max(0.0));
+    sync_sidebar_scroll(runtime, size, content_size, vec2(0.0, offset));
+    let current = runtime.borrow().sidebar_scroll_offset().unwrap_or(0.0);
+    if current != offset {
+        ui.ctx().request_repaint();
+    }
+    if content_size.y > size.y {
+        let height = (size.y * size.y / content_size.y).max(24.0).min(size.y);
+        let top = viewport.top() + current / (content_size.y - size.y) * (size.y - height);
+        crate::native_explorer_paint::scrollbar(
+            ui,
+            Rect::from_min_size(Pos2::new(track.left(), top), vec2(6.0, height)),
+            ui.visuals().widgets.inactive.fg_stroke.color,
+        );
+    }
 }
 
 fn route_sidebar_wheel(
@@ -234,10 +334,7 @@ fn draw_resize_handle(
         egui::UiBuilder::new().max_rect(resize_rect),
     );
     grip_ui.set_clip_rect(egui_context.screen_rect());
-    let response = grip_ui.allocate_rect(
-        resize_rect,
-        Sense::drag().union(Sense::focusable_noninteractive()),
-    );
+    let response = grip_ui.allocate_rect(resize_rect, Sense::drag().union(Sense::focusable_noninteractive()));
     let hovering = response.hovered();
     let dragging = response.dragged();
     if hovering || dragging {
@@ -278,12 +375,8 @@ fn draw_resize_handle(
                 }
             }
             if let Some(command) = focused_resize_command(egui_context, response.has_focus()) {
-                match runtime.adjust_sidebar_width(
-                    context.sidebar_width,
-                    SIDEBAR_MIN_WIDTH,
-                    SIDEBAR_MAX_WIDTH,
-                    command,
-                ) {
+                match runtime.adjust_sidebar_width(context.sidebar_width, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, command)
+                {
                     Ok(next_width) => width = Some(next_width),
                     Err(error) => tracing::error!(%error, "rs-ui could not adjust sidebar width"),
                 }

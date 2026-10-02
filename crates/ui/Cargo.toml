@@ -21,13 +21,17 @@ rust-i18n.workspace = true
 rs-ui-runtime = {
     package = "ui-runtime",
     git = "https://github.com/truongnat/rs-ui",
-    rev = "f6e798d6cfa966b5344cf6a9de6c634563258eec",
+    rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c",
 }
 rs-ui-core = {
     package = "ui-core",
     git = "https://github.com/truongnat/rs-ui",
-    rev = "f6e798d6cfa966b5344cf6a9de6c634563258eec",
+    rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c",
 }
+rs-ui-text = { package = "ui-text", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c" }
+rs-ui-renderer = { package = "ui-renderer", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c" }
+wgpu = "30.0.1"
+pollster = "0.4"
 
 [dev-dependencies]
 criterion.workspace = true

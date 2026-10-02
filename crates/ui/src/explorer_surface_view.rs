@@ -13,9 +13,9 @@ use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext
 use super::{
     ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, SchemaExplorerState, UiConnectionSummary, UiTableInfo,
 };
+use crate::tokens::{SPACE_SM, SPACE_XS};
 use eframe::egui;
 use std::cell::RefCell;
-use crate::tokens::{SPACE_SM, SPACE_XS};
 
 const EXPLORER_SCROLL_ID: &str = "codex_navigator_scroll";
 
@@ -65,11 +65,15 @@ impl ExplorerSurfaceContext<'_> {
             ui.add_space(SPACE_XS);
         }
 
-        let tree_width = ui
+        let mut tree_width = ui
             .max_rect()
             .width()
             .max(ui.available_width())
             .min(ui.clip_rect().width());
+        let native_paint = crate::native_explorer_paint::begin(ui, self.theme);
+        if native_paint {
+            tree_width = (tree_width - 10.0).max(0.0);
+        }
         super::sidebar_view::sidebar_surface_view::draw_sidebar_scroll(
             self.native_runtime,
             EXPLORER_SCROLL_ID,
@@ -86,6 +90,11 @@ impl ExplorerSurfaceContext<'_> {
                 }
             },
         );
+        if native_paint {
+            if let Err(error) = crate::native_explorer_paint::finish(ui) {
+                tracing::error!(%error, "rs-ui Explorer rendering failed");
+            }
+        }
         if let Err(error) = self.native_runtime.borrow_mut().end_explorer_tree() {
             tracing::error!(%error, "rs-ui Explorer tree cleanup failed");
         }
@@ -134,14 +143,9 @@ impl ExplorerSurfaceContext<'_> {
                 error: self.lifecycle.connection_error(&connection.id).map(str::to_owned),
             };
             let schema_model = is_connected.then(|| self.schema_tree_model(&connection));
-            let node_actions = ExplorerConnectionNodeView::new(
-                self.theme,
-                &connection,
-                model,
-                self.modifier,
-                self.native_runtime,
-            )
-                .draw(ui, schema_model.map(|model| (&mut *self.explorer, model)));
+            let node_actions =
+                ExplorerConnectionNodeView::new(self.theme, &connection, model, self.modifier, self.native_runtime)
+                    .draw(ui, schema_model.map(|model| (&mut *self.explorer, model)));
             for action in node_actions {
                 match action {
                     ExplorerConnectionNodeAction::Connection(action) => {

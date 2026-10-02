@@ -1,5 +1,31 @@
 # Findings — rs-ui Runtime Integration
 
+## Explorer-only paint continuation — 2026-10-02
+
+- DB Pro base is `977a5dd00e656e3529e18372edbc121496cb700e`; exact local source snapshot is Git tree `e317464c083188b75c04d5be1e1a9f4517086b38` (isolated index covering Cargo.lock, crates/ui and crates/native-app; not a published commit).
+- Canonical rs-ui `727d65d3957eb7bbfbd316e68a272ca123ab411c` exposes `TextSystem::with_fonts` and `FontFamily::Named`; 95 tests pass, one diagnostic remains ignored, and fmt/check/clippy pass. The commit was pushed to origin/main and DB Pro consumes exact Git source.
+- Font family metadata is `Inter`, `Inter Medium`, and `lucide`. The adapter reuses DbProTheme font bytes/colors. Cosmic-text → swash → canonical atlas/UiRenderer remains the text pipeline; no renderer is copied into DB Pro.
+- Eframe 0.29's Glow host and canonical wgpu 30 cannot share the existing device integration. Changed scenes use an opaque sRGB offscreen framebuffer/readback/host texture upload; identical scene/size/scale reuses the texture. The cache retains visible text runs and no authoritative domain, selection or expansion state.
+- Native startup exposed a GLES/EGL `BadAccess` panic during adapter enumeration with Glow current. Native primary backends fix this conflict. Captures use Intel UHD Graphics 630 / Vulkan / Mesa 26.0.8. Simulated 2× captures do not establish physical Retina behavior.
+- Canonical ScrollState owns Explorer wheel/thumb/track offset and content bounds. The migrated viewport stores no egui ScrollArea offset. Other sidebar activities retain their host path.
+- The custom viewport initially changed persisted collapse IDs. Keeping the original ScrollArea child namespace fixes this; a regression test compares the two namespaces. Real-GPU checks cover wheel/thumb drag and equivalent row activation/expand/focus.
+- Startup catalog events could overwrite a one-shot capture fixture. The capture-only harness reapplies the Explorer fixture after each update; production state/event handling is unchanged. Capture completion alone does not prove the requested state was visible.
+- Initial native error detail clipped content. A width-constrained canonical monospace run now preserves the full error and tooltip, while the existing refresh action remains unchanged.
+- Matched-font captures show sharp placement but lighter text than egui. The canonical renderer blends coverage in linear light into sRGB; egui_glow multiplies colors in gamma space. This distinction does not prove visual superiority; sign-off remains pending.
+- Sidebar chrome/search/context menus remain host surfaces. Topbar, tabs, editor, result grid, status bar and provider logic do not migrate. The pre-existing Welcome spike remains separate WIP.
+
+## Welcome renderer spike — source audit, 2026-10-02
+
+- DB Pro baseline `977a5dd00e656e3529e18372edbc121496cb700e`; canonical rs-ui `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
+- Native-app's optional `rs-ui-spike` feature activates the five rs-ui crates, wgpu 30 and a standalone native binary. Production default binary and Glow host stay separate.
+- `UiTree::paint` emits the display list; `UiRenderer` owns rendering, physical-pixel shape snapping, sRGB output and premultiplied blending. Its default uses MSAA 4×. Text is shaped by cosmic-text and rasterized by swash into rs-ui's glyph atlas. The host passes window physical size and scale without rounding text origins.
+- Welcome uses existing `DbProTheme` semantic colors and a disconnected state snapshot with the DB Pro `UiConnectionSummary` type. Buttons are visual probes; no business actions or database worker is attached. Empty space reserves the current production shell footprint without painting other surfaces.
+- Text comparison has a font confounder: production egui uses bundled Inter/Inter Medium; the pinned `ui-text` API offers generic Sans/Serif/Monospace only and obtains fonts from the system. A renderer sharpness claim needs this limitation stated.
+- Six native runs per renderer completed at 1280×800, 1440×900 and 1920×1080 logical points, with scale 1× and 2×. wgpu selected Vulkan/llvmpipe on Xvfb. Screenshots and native-pixel comparison sheets live outside Git under `/home/vietis/.agents/outputs/db-pro/artifacts/rs-ui-welcome-spike/`.
+- Visual verdict: sharper-than-egui is **not demonstrated**. Rectangles and borders render cleanly, but the fonts and icon geometry differ; no controlled improvement claim is justified.
+- Confirmed text fallback issue at the pinned rs-ui revision on this Linux font set: an independent `TextSystem`/cosmic-text probe resolves letters in `DB Pro` to Lato and the ASCII space to Noto Color Emoji. The space advances 39.84375 logical px at font size 32; `Open in editor` measures 108.77405 px at size 13. This reproduces the excessive word gaps without DB Pro, `UiTree`, or a renderer. Spike button widths now consume actual text metrics to prevent clipping.
+- Canonical font configuration/fallback belongs in rs-ui. Do not patch strings, shape glyphs, or implement a renderer/font-selection shim in DB Pro. Repeat the same Welcome comparison with matched fonts before another production cutover. Start/Connections cards are the next small candidate after that gate passes.
+
 Baseline: `db-pro@c0c1f5525b20a810913d1eee13c7ee2dd15b6664` before the original integration. Current Stage 3 implementation/refactor: `2041a1b1534a8cf6eb6eb776795db71a7ad24ae8`; initial Stage 3 source commit: `6044bf07a2e30c2fa4dfa03f92315c2114d63ec7`; Stage 2 source: `42f14e520fa1e8bb280c1ec0399d3f523d4792da`. The available rs-ui checkout is clean at `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`.
 
 ## Evidence

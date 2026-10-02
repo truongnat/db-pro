@@ -9,6 +9,13 @@ Adopt the separate rs-ui runtime incrementally as the UI layout and behavior fou
 
 ## Scope
 
+- Owner-authorized Explorer-only paint cutover: the existing tree hitboxes and
+  state/actions feed a canonical rs-ui display list, shaped with DB Pro's
+  bundled Inter/Lucide fonts, rendered by wgpu into a cached texture for the
+  Glow host. Only the Explorer tree viewport migrates; sidebar chrome/search
+  inputs and context menus remain host surfaces. The other application paint
+  paths and provider logic stay outside this change.
+
 - Pin the rs-ui core and runtime crates to an exact Git revision.
 - Create a thin DB Pro shell layout adapter backed by `UiTree`.
 - Use rs-ui-computed sidebar geometry in the existing egui host.
@@ -21,10 +28,15 @@ Adopt the separate rs-ui runtime incrementally as the UI layout and behavior fou
   selection, expansion, focus and keyboard traversal while preserving existing
   DB Pro actions and schema state.
 - Keep the renderer boundary explicit and track the next migration stages.
+- Run a Welcome-only renderer cutover spike in an optional standalone binary:
+  DB Pro Welcome snapshot → `UiTree` → `DisplayList` → `UiRenderer` → wgpu → `UiWindow`.
+  Compare the current egui Welcome with the spike at 1280×800 and 1440×900;
+  record logical/physical dimensions, scale, font differences, and visual limits.
+  This experiment does not advance text-input or production renderer migration.
 
 ## Non-goals
 
-- Replacing the eframe window host or the current renderer.
+- Replacing the eframe window host or application-wide renderer.
 - Rewriting product state, commands, connection/query/schema logic, or editor.
 - Rewriting the result-grid painter or moving database/projection logic into rs-ui.
 - Migrating search/filter inputs or the SQL editor in this stage.
@@ -55,15 +67,21 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
 
 ## Risks
 
-- Historical blocker: rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea` lacked behavior/resize APIs used by DB Pro. That finding applies only to that SHA. The current exact pin is `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
+- Historical blocker: rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea` lacked behavior/resize APIs used by DB Pro. That finding applies only to that SHA. The current exact pin is `727d65d3957eb7bbfbd316e68a272ca123ab411c`.
 - eframe currently uses the glow renderer; rs-ui's renderer targets wgpu. Switching rendering backends is outside this adapter and needs an isolated technical spike before any full renderer migration.
 - The current host adapter rebuilds a small retained tree for the shell layout request. Measure before expanding that pattern to high-frequency surfaces.
-- Explorer rows currently use egui for painting, expansion state, and row
+- Before the Explorer paint continuation, rows used egui for painting, expansion state, and row
   viewport clipping. The adapter mirrors visible rows into rs-ui and routes
   ArrowUp/ArrowDown focus traversal through its behavior runtime; it does not
   replace Explorer rendering or expose rs-ui semantics through a native OS
   accessibility backend. Keyboard traversal can only target rows rendered in
   the current viewport.
+- The Explorer continuation uses existing expansion/selection/action owners,
+  rs-ui text/renderer and canonical scroll offset. Changed scenes incur GPU
+  readback and Glow host texture upload; unchanged scenes reuse the texture.
+  Native primary backends avoid a GLES/EGL conflict with the current Glow
+  context. Vulkan, Metal or DX12 is required. Visual text weight differs from
+  egui's gamma-space blend; screenshot acceptance remains explicit.
 - Stage 4 uses rs-ui `VirtualGrid` and `ScrollState` to calculate the vertical
   row window from egui's scroll offset while egui remains the scroll host and
   painter. DB Pro retains filtered projection, typed cells, column order,
@@ -76,7 +94,9 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
 
 ## Acceptance
 
-- The DB Pro UI crate depends only on rs-ui core/runtime crates at the same exact Git revision.
+- The DB Pro UI crate consumes canonical rs-ui core/runtime/text/renderer at
+  exact Git revision `727d65d3957eb7bbfbd316e68a272ca123ab411c`; it does not
+  implement its own renderer or text rasterizer.
 - The shell adapter uses rs-ui layout results and rejects viewports that cannot fit a usable main surface.
 - Existing domain state and command/task bridge remain unchanged.
 - Explorer semantics represent the existing visible hierarchy and clicks

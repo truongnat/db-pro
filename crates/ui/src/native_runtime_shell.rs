@@ -599,6 +599,10 @@ impl RsUiShellRuntime {
         self.tree.scroll_state(node).map(|state| state.offset.y)
     }
 
+    pub(crate) fn sidebar_scroll_state(&self) -> Option<ScrollState> {
+        self.tree.scroll_state(self.sidebar_scroll?)
+    }
+
     fn ensure_sidebar_splitter(&mut self) -> Result<NodeId, RuntimeError> {
         if let Some(node) = self.sidebar_splitter {
             return Ok(node);

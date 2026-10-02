@@ -2802,7 +2802,9 @@ fn command_palette_connection_switch_preserves_session_when_dispatch_fails() {
             environment: "Development".to_owned(),
         },
     ];
-    app.connection.lifecycle.set_active_connection_id(Some("active".to_owned()));
+    app.connection
+        .lifecycle
+        .set_active_connection_id(Some("active".to_owned()));
     app.connection.lifecycle.set_connected(true);
 
     app.switch_connection_from_palette("target".to_owned());
@@ -6774,7 +6776,9 @@ fn sidebar_resize_routes_pointer_delta_through_rs_ui_runtime() {
         events,
         ..Default::default()
     };
-    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| app.draw_sidebar(ctx));
+    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| {
+        app.draw_sidebar(ctx)
+    });
     let _ = ctx.run(
         input(vec![egui::Event::PointerButton {
             pos: pointer,
@@ -6784,9 +6788,10 @@ fn sidebar_resize_routes_pointer_delta_through_rs_ui_runtime() {
         }]),
         |ctx| app.draw_sidebar(ctx),
     );
-    let _ = ctx.run(input(vec![egui::Event::PointerMoved(egui::pos2(310.0, 200.0))]), |ctx| {
-        app.draw_sidebar(ctx)
-    });
+    let _ = ctx.run(
+        input(vec![egui::Event::PointerMoved(egui::pos2(310.0, 200.0))]),
+        |ctx| app.draw_sidebar(ctx),
+    );
 
     assert_eq!(app.workspace.sidebar_width, 310.0);
 }
@@ -6823,7 +6828,9 @@ fn navigator_tree_scrolls_with_the_mouse_wheel() {
     };
 
     let _ = ctx.run(input(Vec::new()), |ctx| app.draw_sidebar(ctx));
-    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| app.draw_sidebar(ctx));
+    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| {
+        app.draw_sidebar(ctx)
+    });
     let _ = ctx.run(
         input(vec![egui::Event::MouseWheel {
             unit: egui::MouseWheelUnit::Point,
@@ -6851,6 +6858,193 @@ fn navigator_tree_scrolls_with_the_mouse_wheel() {
         .sidebar_scroll_offset()
         .expect("rs-ui sidebar scroll state was not registered");
     assert_eq!(rs_ui_offset, offset, "rs-ui and egui scroll offsets diverged");
+}
+
+#[test]
+#[ignore = "real GPU Explorer benchmark; run explicitly with --ignored --nocapture"]
+fn explorer_renderer_runtime_benchmark() {
+    for count in [1_000, 10_000] {
+        for native in [false, true] {
+            let mut app = DbProApp::default();
+            app.connection.catalog.connections = (0..count).map(badged_connection).collect();
+            app.workspace.sidebar_width = 260.0;
+            let ctx = egui::Context::default();
+            DbProTheme::install_fonts(&ctx);
+            DbProTheme::light().apply(&ctx);
+            if native {
+                crate::native_explorer_paint::install_explorer_renderer(&ctx).expect("GPU renderer");
+            }
+            let frame = |events| egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1440.0, 900.0))),
+                events,
+                ..Default::default()
+            };
+            for _ in 0..3 {
+                let _ = ctx.run(frame(Vec::new()), |ctx| app.draw_sidebar(ctx));
+            }
+            let started = std::time::Instant::now();
+            for _ in 0..10 {
+                let _ = ctx.run(frame(Vec::new()), |ctx| app.draw_sidebar(ctx));
+            }
+            let idle = started.elapsed() / 10;
+            let started = std::time::Instant::now();
+            for _ in 0..10 {
+                let _ = ctx.run(
+                    frame(vec![
+                        egui::Event::PointerMoved(egui::pos2(100.0, 400.0)),
+                        egui::Event::MouseWheel {
+                            unit: egui::MouseWheelUnit::Point,
+                            delta: egui::vec2(0.0, -120.0),
+                            modifiers: Default::default(),
+                        },
+                    ]),
+                    |ctx| app.draw_sidebar(ctx),
+                );
+            }
+            let scroll = started.elapsed() / 10;
+            assert!(
+                app.workspace
+                    .native_runtime
+                    .borrow()
+                    .sidebar_scroll_offset()
+                    .expect("canonical offset")
+                    > 0.0
+            );
+            if native {
+                assert!(
+                    crate::native_explorer_paint::cached_run_count(&ctx) < 500,
+                    "text cache must contain only visible rows"
+                );
+                let old_scroll_id =
+                    egui::Id::new("dbpro_sidebar_content").with(egui::Id::new("codex_navigator_scroll"));
+                assert!(
+                    egui::scroll_area::State::load(&ctx, old_scroll_id).is_none(),
+                    "native Explorer must not own an egui scroll state"
+                );
+                let viewport = crate::native_explorer_paint::viewport_rect(&ctx);
+                let state = app
+                    .workspace
+                    .native_runtime
+                    .borrow()
+                    .sidebar_scroll_state()
+                    .expect("scroll state");
+                let thumb_height = (viewport.height() * viewport.height() / state.content_size.height).max(24.0);
+                let top = viewport.top() + state.offset.y / state.max_offset().y * (viewport.height() - thumb_height);
+                let pointer = egui::pos2(viewport.right() - 5.0, top + thumb_height * 0.5);
+                let _ = ctx.run(
+                    frame(vec![
+                        egui::Event::PointerMoved(pointer),
+                        egui::Event::PointerButton {
+                            pos: pointer,
+                            button: egui::PointerButton::Primary,
+                            pressed: true,
+                            modifiers: Default::default(),
+                        },
+                    ]),
+                    |ctx| app.draw_sidebar(ctx),
+                );
+                let target = pointer + egui::vec2(0.0, 40.0);
+                let _ = ctx.run(frame(vec![egui::Event::PointerMoved(target)]), |ctx| {
+                    app.draw_sidebar(ctx)
+                });
+                assert!(
+                    app.workspace
+                        .native_runtime
+                        .borrow()
+                        .sidebar_scroll_offset()
+                        .expect("drag offset")
+                        > state.offset.y,
+                    "thumb drag must update canonical scroll offset"
+                );
+            }
+            println!(
+                "Explorer nodes={count} painter={} idle_cpu={idle:?} scroll_cpu_including_readback={scroll:?}",
+                if native { "rs-ui" } else { "egui" }
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "real GPU host input regression; run explicitly with --ignored"]
+fn explorer_renderer_preserves_row_activation_expand_and_focus() {
+    for native in [false, true] {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        if native {
+            crate::native_explorer_paint::install_explorer_renderer(&ctx).expect("GPU renderer");
+        }
+        let input = |events| egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(260.0, 300.0))),
+            events,
+            ..Default::default()
+        };
+        let row_rect = std::cell::Cell::new(egui::Rect::NOTHING);
+        let clicks = std::cell::RefCell::new(Vec::new());
+        let mut draw = |ctx: &egui::Context| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let paint = crate::native_explorer_paint::begin(ui, DbProTheme::light());
+                let (response, chevron) = explorer_tree::draw_codex_tree_row(
+                    ui,
+                    &DbProTheme::light(),
+                    explorer_tree::CodexTreeRow {
+                        depth: 1,
+                        is_expandable: true,
+                        is_expanded: true,
+                        icon: lucide_icons::Icon::Folder,
+                        label: "public",
+                        icon_color: DbProTheme::light().text_primary,
+                        is_selected: true,
+                        is_dimmed: false,
+                        status_dot: None,
+                        badge_text: None,
+                        badge_accent: false,
+                        count_text: None,
+                        detail_text: None,
+                    },
+                );
+                row_rect.set(response.rect);
+                if response.clicked() {
+                    clicks.borrow_mut().push(chevron);
+                    response.request_focus();
+                }
+                if paint {
+                    crate::native_explorer_paint::finish(ui).expect("paint row");
+                }
+            });
+        };
+        let _ = ctx.run(input(Vec::new()), &mut draw);
+        let rect = row_rect.get();
+        let positions = [
+            egui::pos2(rect.left() + 4.0 + 10.0 + 7.0, rect.center().y),
+            rect.center(),
+        ];
+        for pointer in positions {
+            for pressed in [true, false] {
+                let _ = ctx.run(
+                    input(vec![
+                        egui::Event::PointerMoved(pointer),
+                        egui::Event::PointerButton {
+                            pos: pointer,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: Default::default(),
+                        },
+                    ]),
+                    &mut draw,
+                );
+            }
+        }
+        assert_eq!(
+            *clicks.borrow(),
+            vec![true, false],
+            "chevron vs label activation must match egui"
+        );
+        assert!(
+            ctx.memory(|memory| memory.focused().is_some()),
+            "host focus must survive paint cutover"
+        );
+    }
 }
 
 /// The area a shape actually covers. `Shape::rect_stroke` paints *entirely outside* its

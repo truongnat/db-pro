@@ -1,5 +1,50 @@
 # Verification — rs-ui Runtime Integration
 
+## Current Explorer paint verification — 2026-10-02
+
+Source: DB Pro base `977a5dd00e656e3529e18372edbc121496cb700e`, exact local source tree `e317464c083188b75c04d5be1e1a9f4517086b38`, canonical rs-ui `727d65d3957eb7bbfbd316e68a272ca123ab411c`. The tree was written through an isolated Git index over Cargo.lock, crates/ui and crates/native-app; it is not a published DB Pro commit. Prior Welcome spike WIP remains included, separate from Explorer scope. Historical results below apply to their stated revisions.
+
+| Gate | Executed result |
+|---|---|
+| `cargo fmt --all -- --check` | PASS |
+| `cargo check --workspace` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
+| `cargo test --workspace` | PASS: 1,619 passed, 0 failed, 43 ignored |
+| `cargo build --release --locked -p db-pro-native` | PASS |
+| `cargo build --release --locked -p db-pro-native --features capture` | PASS |
+| Stage 1–3 focused runtime shell / Explorer semantics | PASS: 13 runtime tests, 1 Explorer test, separate resize and wheel regression tests |
+| `native_scroll_preserves_persisted_tree_namespace` | PASS: custom viewport preserves existing collapse IDs |
+| `explorer_renderer_preserves_row_activation_expand_and_focus -- --ignored` | PASS: explicit GPU row activation/chevron/focus comparison against egui |
+| `explorer_renderer_runtime_benchmark --release -- --ignored --nocapture` | PASS: explicit GPU benchmark, wheel offset and actual scrollbar thumb drag assertions |
+| Clean-code scan `rust --diff --ratchet --ci` | PASS: 14 checks, 2 reviewed heuristic warnings, 0 failures; does not constitute independent review |
+| Performance scan | WARN: default binary 62.5 MiB exceeds 50 MiB target (below 100 MiB critical); no performance improvement claim |
+| `git diff --check` | PASS |
+
+Logs, runnable capture script and capture binary are outside Git at `/home/vietis/.agents/outputs/db-pro/testresults/explorer-renderer/`. The perf script assumes repo-local target; a temporary ignored symlink to configured `/data/cargo-target` was used and removed. The first scan without that target mapping failed and is retained as evidence.
+
+### Runtime measurements
+
+Ten measured warm frames per mode, three warm-up frames; synthetic 1k/10k connection roots on Intel UHD Graphics 630 / Vulkan. Measurement includes UI preparation and changed-scene canonical GPU render/readback, excludes actual Glow texture upload/presentation. No statistical significance or end-to-end improvement is asserted.
+
+| Nodes | Painter | Idle preparation | Scroll preparation including readback |
+|---|---|---|---|
+| 1,000 | egui | 3.170 ms | 3.003 ms |
+| 1,000 | rs-ui | 1.523 ms | 4.931 ms |
+| 10,000 | egui | 35.201 ms | 35.378 ms |
+| 10,000 | rs-ui | 25.202 ms | 28.900 ms |
+
+These measurements precede only the final shared-constant import cleanup and capture-only fixture persistence fix; production geometry/behavior is identical. Both 10k paths exceed a 16 ms frame budget. Readback is a temporary bridge limitation.
+
+### Native visual evidence and limitations
+
+Capture matrix completed: 48 raw native captures and 24 comparison sheets, normal/loading/error/empty at logical 1280×800, 1440×900, 1920×1080, scales 1× and 2×. Physical framebuffer sizes are respectively logical size and twice each dimension. Capture-only fixtures are reapplied after update so asynchronous startup catalog events cannot replace error/loading with empty. Actual hardware renderer: Intel UHD Graphics 630 (CML GT2), Vulkan, Mesa 26.0.8-1ubuntu0.3; Xvfb hosts the native window. This is simulated HiDPI, not a physical Retina test.
+
+Artifacts: `/home/vietis/.agents/outputs/db-pro/artifacts/explorer-renderer/`; matched native-pixel comparison names include `compare-normal-1280x800-1x.png`, `compare-normal-1440x900-2x.png`, `compare-error-1280x800-1x.png`, `compare-empty-1280x800-1x.png` (egui left, rs-ui right). Sidebar chrome/search/context menus remain egui. Only Explorer content, row fills/text/Lucide/indent/chevrons and scroll viewport use canonical rs-ui rendering. Provider calls are not exercised; PostgreSQL/SQLite business logic is unchanged.
+
+Visual inspection: placement is clean at 1×/2×, but rs-ui small text remains visibly lighter than egui. Error text wraps without clipping; empty-state button styling differs. **Visual quality ≥ current egui has not been accepted.** Native keyboard traversal beyond registered visible rows remains an existing limitation. Current slice stays `RUNTIME_VERIFY`, overall integration `IMPLEMENTING`; no further surface cutover is authorized by this result.
+
+Binary SHA-256: capture `41198988f838c264b9d0ba41241a2b5530b19e86f53864010943e7d21b61c86e`; default release `1c0dc332371dc3f3a40f8ce9c74ba6336121c1ab4f8e3a6d5076e7ae85e9ae89` (65,575,360 bytes).
+
 ## Source evidence
 
 - Stage 2 source commits: `948654524a6cd8a350a3eb972df33f2a5a1cd9ed` and `42f14e520fa1e8bb280c1ec0399d3f523d4792da`.
@@ -187,3 +232,50 @@ Source under verification: DB Pro `433afec96a24da4ec801b02ae31d3a91a749f949`; rs
 | `cargo bench -p db-pro-ui --bench result_grid_benchmarks` | PASS; latest fixed-width prepare medians: 10k rows 1.4851 µs, 100k 1.5492 µs, 1M 1.7680 µs. No comparable before baseline; no improvement claim. |
 
 Native app launch connected to saved local PostgreSQL and completed schema introspection (`tables=1110`). The UI remained on Welcome; synthetic mouse input did not activate the query tab/editor, and no SQL was submitted. Result Grid rendering, selection, resize, keyboard interaction, and accessibility therefore remain runtime-unverified. Screenshot captures are temporary under `/tmp`; no 1920×1080 artifact was produced. Stage 4 remains in verification, not complete.
+
+### Welcome renderer spike — 2026-10-02
+
+Scope: standalone, optional `rs-ui-welcome-spike` binary. Production Welcome and all other surfaces continue using their existing painter. Base DB Pro SHA `977a5dd00e656e3529e18372edbc121496cb700e` plus the uncommitted spike diff; all five rs-ui crates resolve exact Git SHA `f6e798d6cfa966b5344cf6a9de6c634563258eec`. Cargo.lock adds 55 package versions and removes/upgrades none of the existing package versions.
+
+Run:
+
+```bash
+DB_PRO_WINDOW_SIZE=1280x800 cargo run --locked -p db-pro-native --features rs-ui-spike --bin rs-ui-welcome-spike
+```
+
+| Gate | Result |
+|---|---|
+| `cargo fmt --all -- --check` | PASS |
+| `cargo check --workspace` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
+| `cargo test --workspace` | PASS: 1,618 passed / 0 failed / 41 ignored across 22 test-result summaries |
+| `cargo check -p db-pro-native --features rs-ui-spike --all-targets` | PASS |
+| `cargo clippy -p db-pro-native --features rs-ui-spike --all-targets -- -D warnings` | PASS |
+| `cargo test -p db-pro-native --features rs-ui-spike` | PASS: 31 existing native-app tests; standalone spike has no unit tests |
+| `cargo build --release --locked -p db-pro-native` | PASS; default feature set excludes the spike |
+| `cargo build --release --locked -p db-pro-native --features capture --bin db-pro-native` | PASS; existing framebuffer capture driver used for egui evidence |
+| `cargo build -p db-pro-native --features capture,rs-ui-spike --bins` | PASS; final spike rebuilt with `--features rs-ui-spike --bin rs-ui-welcome-spike` |
+| `git diff --check` | PASS |
+| Clean-code scan, changed files, ratchet/CI mode | 14 pass / 2 warning categories / 0 failure: four-argument text helper and linear scene/GPU constructors; no swallowed errors or debug printlns |
+| Performance scan | WARN: 51.4 MB default production binary exceeds 50 MB target; 3 pass / 1 warning / 0 failure. Benchmark/provider-runtime scan sections not executed; no performance claim. |
+
+Logs and reproduction scripts: `/home/vietis/.agents/outputs/db-pro/testresults/rs-ui-welcome-spike/`. Exact image hashes and dimensions: `/home/vietis/.agents/outputs/db-pro/artifacts/rs-ui-welcome-spike/capture-manifest.json`. Raw screenshots, full comparison sheets and detail crops are in that artifact directory. Comparison sheets copy native pixels; no sharpening or resampling is applied.
+
+Final performance-scan provenance: source `977a5dd00e656e3529e18372edbc121496cb700e+dirty(11)` (including a temporary `target` symlink used to locate Cargo's shared target directory); default production binary SHA256 `dd74888555250d4c30b758aad851ee1aef9002945983450c44bcbe20ee864688`, 51.4 MB. The symlink was removed afterward. Native window captures are serialized and wait for presentation to settle; an earlier concurrent capture pass produced occluded black regions on compositor-free Xvfb and was discarded/replaced. Final PNGs pass dimension, background and foreground checks and were visually inspected at native pixel size.
+
+| Logical viewport | Scale | Physical framebuffer, both renderers | egui / spike native run |
+|---|---:|---|---|
+| 1280×800 | 1 | 1280×800 | PASS / PASS |
+| 1440×900 | 1 | 1440×900 | PASS / PASS |
+| 1920×1080 | 1 | 1920×1080 | PASS / PASS |
+| 1280×800 | 2 | 2560×1600 | PASS / PASS |
+| 1440×900 | 2 | 2880×1800 | PASS / PASS |
+| 1920×1080 | 2 | 3840×2160 | PASS / PASS |
+
+Native runs used Xvfb/X11 with `WINIT_X11_SCALE_FACTOR=1/2`, not a Retina monitor. Spike reported Vulkan, `llvmpipe (LLVM 21.1.8, 256 bits)`, `Bgra8UnormSrgb`, opaque surface composition and default MSAA 4×; rs-ui pipelines use premultiplied blending. Each spike emitted 26 display commands, with glyph rasterization and atlas usage recorded in its log. Physical screenshot dimensions were independently asserted. Escape closed each spike normally (exit 0). Baseline screenshots use the release application and an isolated empty data/config directory, avoiding the debug build's developer connection preset. No SQL or database flow is part of the spike. Loading/error/provider states are n/a for this static, disconnected visual experiment.
+
+Text path is `TextSystem::shape` (cosmic-text 0.19) → `UiTree::set_text` → `UiTree::paint` → `UiRenderer::render` → swash / rs-ui glyph atlas → wgpu. Host geometry stays logical; `Viewport` receives actual physical size/scale. Canonical rs-ui snaps shape edges and retains text positioning; DB Pro does not implement glyph rasterization, snapping, atlas uploads, shaders, or a compatibility renderer.
+
+Visual verdict: **clearer-than-egui NOT DEMONSTRATED**. The renderer presents native Welcome shapes successfully at both scales. However egui uses bundled Inter/Inter Medium while rs-ui's generic family resolves through system fonts, and square/cross probes are not the original Lucide icons. A standalone text probe at the same Git revision reproduces Lato letters plus Noto Color Emoji for the space in `DB Pro`, whose advance is 39.84375 px at size 32. Button widths consume actual rs-ui text metrics so labels are not clipped, but excessive word gaps remain visible. Font-policy/fallback needs a canonical rs-ui follow-up and a matched-font repeat of this Welcome experiment before any production cutover.
+
+Source SHA256: host `d1c29a035a1e0b1c105fe80349fef099b5bf9671cdb2232d6f2fbf16d0e23b1d`; scene `20696d54c7fa253a8b1d08d3c2376a81a35a14b8ddf7044b1f179b3f6a68b5e2`. Captured spike debug binary SHA256 `4d9faa2eab4ad6b0024cd8eda07697d15a2fa2bbf143dfc4f02a6035b4717dab`; egui release capture binary `a33281078a752944b9240ea0cb643e81743f261aad46082169c7c426c82ea660`. Self-review only; this experiment does not complete the integration plan or advance Stage 5.

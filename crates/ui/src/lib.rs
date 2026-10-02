@@ -11,6 +11,7 @@ pub mod diagram;
 pub mod editor;
 pub mod i18n;
 mod native_runtime_shell;
+pub(crate) use app::native_explorer_paint;
 mod policy;
 pub mod query;
 mod result_grid;
@@ -41,6 +42,7 @@ pub use components::{
     section_label, segmented_control, sidebar_frame, sidebar_item, skeleton, spinner, status_dot, switch, tab_frame,
     tag_chip, toast, toolbar_frame,
 };
+pub use native_explorer_paint::install_explorer_renderer;
 pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
 pub use result_grid::{
     cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes,

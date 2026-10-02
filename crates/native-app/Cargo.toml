@@ -3,10 +3,16 @@ name = "db-pro-native"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
+default-run = "db-pro-native"
 
 [[bin]]
 name = "db-pro-native"
 path = "src/main.rs"
+
+[[bin]]
+name = "rs-ui-welcome-spike"
+path = "src/bin/rs-ui-welcome-spike.rs"
+required-features = ["rs-ui-spike"]
 
 [features]
 # Enables the deterministic UI evidence capture driver (`src/capture.rs`), which
@@ -15,6 +21,7 @@ path = "src/main.rs"
 # collected on a host where `screencapture` is blocked by TCC. Off by default so
 # no shipped binary carries the driver or the encoder.
 capture = ["dep:image"]
+rs-ui-spike = ["dep:rs-ui-core", "dep:rs-ui-runtime", "dep:rs-ui-renderer", "dep:rs-ui-text", "dep:rs-ui-window", "dep:wgpu", "dep:winit", "dep:pollster"]
 
 [dependencies]
 db-pro-core = { path = "../core" }
@@ -30,3 +37,11 @@ uuid.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+rs-ui-core = { package = "ui-core", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c", optional = true }
+rs-ui-runtime = { package = "ui-runtime", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c", optional = true }
+rs-ui-renderer = { package = "ui-renderer", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c", optional = true }
+rs-ui-text = { package = "ui-text", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c", optional = true }
+rs-ui-window = { package = "ui-window", git = "https://github.com/truongnat/rs-ui", rev = "727d65d3957eb7bbfbd316e68a272ca123ab411c", optional = true }
+wgpu = { version = "30.0.1", optional = true }
+winit = { version = "0.30.12", optional = true }
+pollster = { version = "0.4", optional = true }

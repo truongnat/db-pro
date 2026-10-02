@@ -409,6 +409,63 @@ impl DbProApp {
         });
     }
 
+    /// Deterministic Explorer paint evidence; does not connect to a provider.
+    pub fn open_explorer_for_capture(&mut self, state: &str) {
+        self.connection.lifecycle.mark_connections_requested();
+        self.connection.lifecycle.set_connections_request_pending(false);
+        self.workspace.activity = Activity::Explorer;
+        self.workspace.sidebar_open = true;
+        self.connection.catalog.replace(Vec::new());
+        if state == "empty" {
+            return;
+        }
+        self.connection.catalog.replace(vec![crate::UiConnectionSummary {
+            id: "explorer-capture".to_owned(),
+            name: "Local PostgreSQL".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "db_pro".to_owned(),
+            username: "developer".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: crate::UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }]);
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some("explorer-capture".to_owned()));
+        self.connection.lifecycle.set_connected(true);
+        self.schema.explorer.schema.schemas = vec!["public".to_owned()];
+        self.schema.explorer.selected_schema = Some("public".to_owned());
+        self.schema.explorer.selected_table = Some("users".to_owned());
+        self.schema.explorer.schema.table_details = std::iter::once("users".to_owned())
+            .chain((0..40).map(|i| format!("orders_{i:02}")))
+            .map(|name| crate::UiTableSummary {
+                schema: "public".to_owned(),
+                name,
+                row_count: Some(1234),
+                columns: Vec::new(),
+                foreign_keys: Vec::new(),
+            })
+            .collect();
+        self.schema.explorer.schema.tables = self
+            .schema
+            .explorer
+            .schema
+            .table_details
+            .iter()
+            .map(|table| table.name.clone())
+            .collect();
+        self.schema.explorer.explorer_nav_cache = None;
+        self.schema.explorer.schema_error = (state == "error")
+            .then(|| "Schema request failed: connection timed out.\nRefresh schema to try again.".to_owned());
+        self.schema.explorer.schema_request = (state == "loading").then_some(crate::RequestId(999_999));
+        self.schema.explorer.explorer_search = "e".to_owned();
+    }
+
     /// Capture helper: open the Diagram / ER canvas.
     pub fn open_diagram_workspace_for_capture(&mut self) {
         self.preferences.dark_mode = true;

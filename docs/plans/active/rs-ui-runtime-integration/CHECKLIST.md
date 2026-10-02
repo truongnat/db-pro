@@ -29,3 +29,23 @@
 - [ ] Stage 7: remove egui code only after replacement paths and runtime/accessibility/performance evidence pass.
 - [x] Resolve dependency pinning for CI/release builds at exact rs-ui revision `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
 - [ ] Independently review and account for wgpu/glow coexistence before renderer migration.
+
+## Welcome renderer spike
+
+Historical Welcome-only evidence below predates the authorized Explorer paint continuation.
+
+- [x] Add an optional standalone binary consuming all five canonical rs-ui crates at the pinned SHA.
+- [x] Map a disconnected DB Pro Welcome snapshot and theme tokens to a retained `UiTree`; keep egui painting out of the spike.
+- [x] Run native Welcome at 1280×800, 1440×900 and 1920×1080 and record logical/physical scale metrics at 1×/2×.
+- [x] Capture the current egui Welcome and rs-ui Welcome beside each other, including HiDPI runs.
+- [x] Run workspace and spike-feature verification; document the visual verdict and font/backend limitations before any further cutover.
+
+## Explorer paint continuation (owner authorized)
+
+- [x] Publish canonical host-font/named-family APIs at rs-ui `727d65d3957eb7bbfbd316e68a272ca123ab411c`; verify remote SHA and clean rs-ui tree.
+- [x] Pin every DB Pro rs-ui dependency to that exact SHA.
+- [x] Render tree backgrounds/text/Lucide/selection/hover/indentation/chevrons/scrollbar through canonical rs-ui, retaining host hitboxes/actions.
+- [x] Keep canonical ScrollState as Explorer offset owner, without an egui ScrollArea state in the migrated viewport.
+- [x] Run real-GPU row activation/chevron/focus regression and 1k/10k-node benchmark.
+- [x] Capture before/after at 1280×800, 1440×900 and 1920×1080, 1×/2×, normal/loading/error/empty.
+- [ ] Obtain visual acceptance for changed text weight and feedback presentation; overall integration remains open.

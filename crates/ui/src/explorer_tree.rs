@@ -6,18 +6,18 @@
 //! (see the `allocate_exact_size` + `interact` note in `components.rs`).
 
 use super::*;
-use std::cell::RefCell;
 use egui::{pos2, vec2, Align2, Color32, FontFamily, FontId, Rect, Rounding};
 use lucide_icons::Icon;
+use std::cell::RefCell;
 
 /// Row height in pixels. Also the height of the chevron hit-box.
 const CODEX_ROW_HEIGHT: f32 = 26.0;
 /// Horizontal indent added per tree depth level.
-const CODEX_ROW_INDENT: f32 = 10.0;
+pub(super) const CODEX_ROW_INDENT: f32 = 10.0;
 /// Width of the leading chevron slot.
-const CODEX_CHEVRON_SLOT: f32 = 14.0;
+pub(super) const CODEX_CHEVRON_SLOT: f32 = 14.0;
 /// Horizontal padding applied at both row edges.
-const CODEX_ROW_PADDING: f32 = 4.0;
+pub(super) const CODEX_ROW_PADDING: f32 = 4.0;
 /// Gap inserted before each trailing item.
 const CODEX_TRAILING_GAP: f32 = 4.0;
 /// Driver badge geometry. The width is measured from the label, never estimated per
@@ -157,6 +157,21 @@ pub(crate) fn draw_codex_tree_row(
     let width = ui.max_rect().width().max(ui.available_width());
     let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());
     let is_hovered = response.hovered();
+
+    if crate::native_explorer_paint::row(ui, theme, rect, &row, is_hovered) {
+        let chevron_rect = Rect::from_min_size(
+            pos2(
+                rect.min.x + CODEX_ROW_PADDING + row.depth as f32 * CODEX_ROW_INDENT,
+                rect.min.y,
+            ),
+            vec2(CODEX_CHEVRON_SLOT, CODEX_ROW_HEIGHT),
+        );
+        let chevron_clicked = response.clicked()
+            && ui
+                .input(|i| i.pointer.hover_pos())
+                .is_some_and(|pos| chevron_rect.expand(2.0).contains(pos));
+        return (response, chevron_clicked);
+    }
 
     let painter = ui.painter().with_clip_rect(rect);
 
@@ -509,8 +524,14 @@ mod tests {
 
     #[test]
     fn tree_keys_are_stable_and_keep_component_boundaries() {
-        assert_eq!(schema_tree_key("c/1", "db", "public"), schema_tree_key("c/1", "db", "public"));
-        assert_ne!(schema_tree_key("c/1", "db", "public"), schema_tree_key("c", "1/db", "public"));
+        assert_eq!(
+            schema_tree_key("c/1", "db", "public"),
+            schema_tree_key("c/1", "db", "public")
+        );
+        assert_ne!(
+            schema_tree_key("c/1", "db", "public"),
+            schema_tree_key("c", "1/db", "public")
+        );
         assert_ne!(
             table_tree_key("连接", "db", "public", "items"),
             table_tree_key("连接", "db", "public", "item")
