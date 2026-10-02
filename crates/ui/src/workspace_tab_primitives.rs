@@ -107,10 +107,6 @@ pub(super) fn draw_workspace_tab_item(
             theme.surface_app,
             egui::Stroke::new(STROKE_THIN, theme.border_subtle),
         );
-        // Top accent indicator line
-        let top_indicator_rect = egui::Rect::from_min_size(rect.left_top(), egui::vec2(rect.width(), 2.0));
-        ui.painter()
-            .rect_filled(top_indicator_rect, egui::Rounding::same(1.0), theme.accent);
     } else if hovered {
         ui.painter().rect_filled(rect, rounding, theme.surface_hover);
     }
