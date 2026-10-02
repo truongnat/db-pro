@@ -12,7 +12,7 @@ impl DbProApp {
         );
 
         let alert_content_spacing = ui.spacing().item_spacing;
-        // The Gallery shell sets horizontal item spacing to zero; restore an explicit gutter between these cards.
+        // Columns own their gutter; keep each card's content spacing independent.
         ui.spacing_mut().item_spacing.x = SPACE_SM;
         ui.columns(2, |columns| {
             for column in columns.iter_mut() {
@@ -112,82 +112,73 @@ impl DbProApp {
 
     fn draw_gallery_progress(&mut self, ui: &mut Ui) {
         let theme = self.theme;
-        ui.horizontal(|ui| {
-            // Determinate Animated Progress
-            ui.vertical(|ui| {
-                ui.set_width(320.0);
-                let pct = (self.gallery_state.progress_val * 100.0).round() as i32; // safe: progress is clamped to finite [0, 1].
-                ui.horizontal(|ui| {
+        ResponsiveGrid::new(300.0)
+            .gap(SPACE_LG)
+            .max_columns(3)
+            .show(ui, 0..3, |ui, item| match item {
+                0 => {
+                    let pct = (self.gallery_state.progress_val * 100.0).round() as i32; // safe: progress is clamped to finite [0, 1].
                     ui.label(
                         RichText::new(format!("Smooth Progress ({}%)", pct))
                             .size(12.5)
                             .strong()
                             .color(theme.text_secondary),
                     );
-                    ui.add_space(8.0);
-                    if Button::new(theme)
-                        .text("-10%")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Ghost)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.gallery_state.progress_val = (self.gallery_state.progress_val - 0.1).max(0.0);
-                    }
-                    if Button::new(theme)
-                        .text("+10%")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Ghost)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.gallery_state.progress_val = (self.gallery_state.progress_val + 0.1).min(1.0);
-                    }
-                });
-                ui.add_space(6.0);
-                Progress::new(self.gallery_state.progress_val, theme)
-                    .height(8.0)
-                    .animated(true)
-                    .show(ui);
-            });
-
-            ui.add_space(32.0);
-
-            // Indeterminate Animated Progress Beam
-            ui.vertical(|ui| {
-                ui.set_width(280.0);
-                ui.label(
-                    RichText::new("Indeterminate Animated Beam")
-                        .size(12.5)
-                        .strong()
-                        .color(theme.text_secondary),
-                );
-                ui.add_space(6.0);
-                Progress::indeterminate(theme).height(8.0).show(ui);
-            });
-
-            ui.add_space(32.0);
-
-            // Vector Spinner & Pulse
-            ui.vertical(|ui| {
-                ui.label(
-                    RichText::new("Animated Vector Spinner")
-                        .size(12.5)
-                        .strong()
-                        .color(theme.text_secondary),
-                );
-                ui.add_space(6.0);
-                ui.horizontal(|ui| {
-                    Spinner::new(theme).size(20.0).show(ui);
-                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        if Button::new(theme)
+                            .text("-10%")
+                            .size(ButtonSize::Sm)
+                            .variant(ButtonVariant::Ghost)
+                            .show(ui)
+                            .clicked()
+                        {
+                            self.gallery_state.progress_val = (self.gallery_state.progress_val - 0.1).max(0.0);
+                        }
+                        if Button::new(theme)
+                            .text("+10%")
+                            .size(ButtonSize::Sm)
+                            .variant(ButtonVariant::Ghost)
+                            .show(ui)
+                            .clicked()
+                        {
+                            self.gallery_state.progress_val = (self.gallery_state.progress_val + 0.1).min(1.0);
+                        }
+                    });
+                    ui.add_space(6.0);
+                    Progress::new(self.gallery_state.progress_val, theme)
+                        .height(8.0)
+                        .animated(true)
+                        .show(ui);
+                }
+                1 => {
                     ui.label(
-                        RichText::new("Syncing schema metadata...")
-                            .size(12.0)
-                            .color(theme.text_muted),
+                        RichText::new("Indeterminate Animated Beam")
+                            .size(12.5)
+                            .strong()
+                            .color(theme.text_secondary),
                     );
-                });
+                    ui.add_space(6.0);
+                    Progress::indeterminate(theme).height(8.0).show(ui);
+                }
+                _ => {
+                    ui.label(
+                        RichText::new("Animated Vector Spinner")
+                            .size(12.5)
+                            .strong()
+                            .color(theme.text_secondary),
+                    );
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        Spinner::new(theme).size(20.0).show(ui);
+                        ui.add_space(8.0);
+                        ui.label(
+                            RichText::new("Syncing schema metadata...")
+                                .size(12.0)
+                                .color(theme.text_muted),
+                        );
+                    });
+                }
             });
-        });
     }
 
     fn draw_gallery_shortcut_bar(&mut self, ui: &mut Ui) {
@@ -196,33 +187,30 @@ impl DbProApp {
         separator_with_text(ui, "KEYBOARD SHORTCUTS & BADGES", theme);
         ui.add_space(12.0);
 
-        ui.horizontal_wrapped(|ui| {
-            if Button::new(theme)
-                .text("Open Shortcuts Cheatsheet (Dialog)")
-                .icon(Icon::Keyboard)
-                .variant(ButtonVariant::Secondary)
-                .show(ui)
-                .clicked()
-            {
-                self.gallery_state.shortcuts_dialog_open = true;
-            }
-
-            ui.add_space(16.0);
-            ui.label(RichText::new("Quick Open:").size(12.0).color(theme.text_secondary));
-            kbd_combo(ui, &["Cmd", "P"], theme);
-            ui.add_space(12.0);
-
-            ui.label(RichText::new("Command Palette:").size(12.0).color(theme.text_secondary));
-            kbd_combo(ui, &["Shift", "Cmd", "P"], theme);
-            ui.add_space(12.0);
-
-            ui.label(RichText::new("Run Query:").size(12.0).color(theme.text_secondary));
-            kbd_combo(ui, &["Cmd", "Enter"], theme);
-            ui.add_space(12.0);
-
-            ui.label(RichText::new("Format Code:").size(12.0).color(theme.text_secondary));
-            kbd_combo(ui, &["Opt", "Shift", "F"], theme);
-        });
+        if Button::new(theme)
+            .text("Open Shortcuts Cheatsheet (Dialog)")
+            .icon(Icon::Keyboard)
+            .variant(ButtonVariant::Secondary)
+            .show(ui)
+            .clicked()
+        {
+            self.gallery_state.shortcuts_dialog_open = true;
+        }
+        let shortcuts: [(&str, &[&str]); 4] = [
+            ("Quick Open:", &["Cmd", "P"]),
+            ("Command Palette:", &["Shift", "Cmd", "P"]),
+            ("Run Query:", &["Cmd", "Enter"]),
+            ("Format Code:", &["Opt", "Shift", "F"]),
+        ];
+        ResponsiveGrid::new(220.0)
+            .gap(SPACE_MD)
+            .max_columns(4)
+            .show(ui, shortcuts, |ui, (label, keys)| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(label).size(12.0).color(theme.text_secondary));
+                    kbd_combo(ui, keys, theme);
+                });
+            });
     }
 
     fn draw_gallery_shortcut_dialog(&mut self, ui: &mut Ui) {
@@ -444,40 +432,38 @@ impl DbProApp {
         ui.add_space(16.0);
         separator_with_text(ui, "SKELETON, EMPTY STATE, TOAST", theme);
         ui.add_space(12.0);
-        ui.horizontal(|ui| {
-            ui.vertical(|ui| {
-                ui.set_width(180.0);
-                Skeleton::new(theme).size(160.0, 12.0).show(ui);
-                ui.add_space(8.0);
-                Skeleton::new(theme).size(120.0, 12.0).show(ui);
-                ui.add_space(8.0);
-                Skeleton::new(theme).size(180.0, 28.0).rounding(8.0).show(ui);
-            });
-            ui.add_space(24.0);
-            ui.vertical(|ui| {
-                ui.set_width(260.0);
-                EmptyState::new(
-                    Icon::FolderOpen,
-                    "No saved queries",
-                    "Create your first query to get started.",
-                    theme,
-                )
-                .action("New query")
-                .show(ui);
-            });
-            ui.add_space(24.0);
-            ui.vertical(|ui| {
-                ui.set_width(280.0);
-                Toast::new("Changes saved", theme)
-                    .variant(ToastVariant::Success)
+        ResponsiveGrid::new(260.0)
+            .gap(SPACE_LG)
+            .max_columns(3)
+            .show(ui, 0..3, |ui, item| match item {
+                0 => {
+                    Skeleton::new(theme).size(160.0, 12.0).show(ui);
+                    ui.add_space(8.0);
+                    Skeleton::new(theme).size(120.0, 12.0).show(ui);
+                    ui.add_space(8.0);
+                    Skeleton::new(theme).size(180.0, 28.0).rounding(8.0).show(ui);
+                }
+                1 => {
+                    EmptyState::new(
+                        Icon::FolderOpen,
+                        "No saved queries",
+                        "Create your first query to get started.",
+                        theme,
+                    )
+                    .action("New query")
                     .show(ui);
-                ui.add_space(8.0);
-                Toast::new("Failed to save changes", theme)
-                    .variant(ToastVariant::Danger)
-                    .action("Retry")
-                    .show(ui);
+                }
+                _ => {
+                    Toast::new("Changes saved", theme)
+                        .variant(ToastVariant::Success)
+                        .show(ui);
+                    ui.add_space(8.0);
+                    Toast::new("Failed to save changes", theme)
+                        .variant(ToastVariant::Danger)
+                        .action("Retry")
+                        .show(ui);
+                }
             });
-        });
     }
 
     pub(super) fn draw_gallery_navigation_section(&mut self, ui: &mut Ui) {

@@ -150,6 +150,7 @@ impl ResponsiveGrid {
         I: IntoIterator<Item = T>,
     {
         let metrics = self.metrics(ui.available_width());
+        let content_spacing = ui.spacing().item_spacing;
         ui.scope(|ui| {
             // The grid owns both axes of spacing; remove the parent row spacing so the
             // vertical gap is exactly the same token as the horizontal gap.
@@ -175,6 +176,7 @@ impl ResponsiveGrid {
                                 Vec2::new(metrics.cell_width, 0.0),
                                 Layout::top_down(Align::Min),
                                 |cell_ui| {
+                                    cell_ui.spacing_mut().item_spacing = content_spacing;
                                     cell_ui.set_max_width(metrics.cell_width);
                                     add_cell(cell_ui, item)
                                 },
@@ -324,5 +326,25 @@ mod tests {
         assert!(bounds[0].left() < bounds[1].left());
         assert_eq!(bounds[0].top(), bounds[1].top());
         assert!((bounds[2].top() - bounds[1].bottom() - 8.0).abs() < 0.1);
+    }
+    #[test]
+    fn grid_gutters_do_not_leak_into_cell_content_or_parent() {
+        let context = egui::Context::default();
+        let _ = context.run(egui::RawInput::default(), |context| {
+            egui::CentralPanel::default().show(context, |ui| {
+                let spacing = Vec2::new(8.0, 4.0);
+                ui.spacing_mut().item_spacing = spacing;
+                for gap in [0.0, 12.0, 16.0] {
+                    ResponsiveGrid::new(80.0)
+                        .gap(gap)
+                        .max_columns(2)
+                        .show(ui, 0..3, |cell, _| {
+                            assert_eq!(cell.spacing().item_spacing, spacing);
+                            cell.allocate_exact_size(Vec2::new(40.0, 10.0), Sense::hover());
+                        });
+                    assert_eq!(ui.spacing().item_spacing, spacing);
+                }
+            });
+        });
     }
 }

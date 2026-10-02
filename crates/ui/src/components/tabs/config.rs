@@ -14,7 +14,7 @@ pub(super) const SEGMENTED_ITEM_MIN_WIDTH: f32 = 48.0;
 // Horizontal padding around segmented labels, in egui points.
 pub(super) const SEGMENTED_LABEL_PAD_X: f32 = 24.0;
 // Gap between adjacent segmented items, in egui points.
-pub(super) const SEGMENTED_ITEM_GAP: f32 = 2.0;
+pub(super) const SEGMENTED_ITEM_GAP: f32 = SPACE_XS;
 // Inset between the segmented track and its selected pill, in egui points.
 pub(super) const SEGMENTED_TRACK_PAD: f32 = 3.0;
 // Shared theme radius for the segmented track.

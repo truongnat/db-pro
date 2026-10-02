@@ -454,3 +454,72 @@ fn password_eye_toggles_when_clicked() {
          click, the eye never fires and the password stays masked"
     );
 }
+
+#[test]
+fn standard_field_geometry_is_independent_of_parent_spacing_and_accessories() {
+    use crate::components::{Input, PasswordInput, Select};
+    use crate::DbProTheme;
+    use egui::{CentralPanel, Context, RawInput, Shape};
+
+    for gap in [0.0, 8.0, 16.0] {
+        for control in ["input", "clearable", "disabled-clearable", "password", "select"] {
+            let ctx = Context::default();
+            let theme = DbProTheme::light();
+            DbProTheme::install_fonts(&ctx);
+            theme.apply(&ctx);
+            let mut value = String::from("database");
+            let mut visible = false;
+            let mut selected = 0;
+            let options = vec!["PostgreSQL".to_owned()];
+            let output = ctx.run(RawInput::default(), |ctx| {
+                CentralPanel::default().show(ctx, |ui| {
+                    ui.set_width(300.0);
+                    ui.set_max_width(300.0);
+                    ui.spacing_mut().item_spacing.x = gap;
+                    match control {
+                        "password" => {
+                            PasswordInput::new(&mut value, "", &mut visible, theme)
+                                .width(300.0)
+                                .show(ui);
+                        }
+                        "select" => {
+                            // Use non-default padding to guard against a hardcoded width deduction.
+                            ui.spacing_mut().button_padding.x = 12.0;
+                            Select::new("geometry", &mut selected, &options)
+                                .theme(theme)
+                                .width(300.0)
+                                .show(ui);
+                        }
+                        _ => {
+                            Input::new(&mut value, "", theme)
+                                .clearable(control != "input")
+                                .enabled(control != "disabled-clearable")
+                                .width(300.0)
+                                .show(ui);
+                        }
+                    }
+                });
+            });
+            let fill = if control == "disabled-clearable" {
+                theme.surface_panel
+            } else {
+                theme.surface_editor
+            };
+            let frame = output
+                .shapes
+                .iter()
+                .rev()
+                .find_map(|shape| match &shape.shape {
+                    Shape::Rect(rect) if rect.fill == fill => Some(rect.rect),
+                    _ => None,
+                })
+                .expect("field frame was painted");
+            assert_eq!(frame.width(), 300.0, "{control}, gap={gap}");
+            assert_eq!(
+                frame.height(),
+                crate::tokens::component::input::INPUT_HEIGHT_DEFAULT,
+                "{control}, gap={gap}"
+            );
+        }
+    }
+}

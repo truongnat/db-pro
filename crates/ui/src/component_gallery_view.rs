@@ -225,6 +225,8 @@ impl Default for ComponentGalleryState {
 impl DbProApp {
     pub(super) fn draw_component_gallery(&mut self, ui: &mut Ui) {
         let available_height = ui.available_height();
+        // The shell is flush; Gallery content uses the theme's normal widget spacing.
+        let content_spacing = ui.ctx().style().spacing.item_spacing;
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
             self.draw_gallery_category_navigation(ui, available_height);
@@ -232,6 +234,7 @@ impl DbProApp {
             ui.separator();
 
             ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing = content_spacing;
                 ui.set_min_width(ui.available_width());
                 self.draw_gallery_header(ui);
                 ui.separator();

@@ -73,6 +73,7 @@ impl<'a> Select<'a> {
         let width = self.width.unwrap_or_else(|| ui.available_width());
 
         ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
             ui.set_width(width);
             ui.set_max_width(width);
             if let Some(ref lbl) = self.label {
@@ -93,17 +94,24 @@ impl<'a> Select<'a> {
             let popup_id = Id::new(self.id_salt);
             let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
 
+            let margin = trigger_inner_margin(ui.spacing().button_padding.x, ui.spacing().button_padding.y);
             let trigger_btn = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_default),
-                inner_margin: trigger_inner_margin(ui.spacing().button_padding.x, ui.spacing().button_padding.y),
+                inner_margin: margin,
                 rounding: ui.style().visuals.widgets.inactive.rounding,
                 ..Default::default()
             }
             .show(ui, |ui| {
-                let content_width = trigger_content_width(width, ui.available_width());
+                let content_width = trigger_content_width(width - margin.left - margin.right, ui.available_width());
                 ui.set_width(content_width);
+                ui.spacing_mut().interact_size.y =
+                    crate::tokens::component::input::INPUT_HEIGHT_DEFAULT - margin.top - margin.bottom;
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    ui.set_min_height(
+                        crate::tokens::component::input::INPUT_HEIGHT_DEFAULT - margin.top - margin.bottom,
+                    );
                     let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
                     let text_width = trigger_text_width(ui.available_width());
                     let text_response = ui.allocate_ui_with_layout(

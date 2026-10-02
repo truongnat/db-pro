@@ -2,9 +2,10 @@ use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, 
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_AUX_GAP, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE};
+use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE};
 use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::components::interact::{button_info, text_input_info};
+use crate::tokens::component::input::INPUT_HEIGHT_DEFAULT;
 use crate::tokens::LABEL_HELPER_GAP;
 use crate::tokens::{RADIUS_XS, SPACE_SM, SPACE_XS};
 use crate::DbProTheme;
@@ -98,15 +99,13 @@ impl<'a> Input<'a> {
         let width = resolve_field_width(self.width, ui.available_width());
 
         ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
             ui.set_width(width);
             ui.set_max_width(width);
             if let Some(label) = &self.label {
-                ui.label(
-                    RichText::new(label.as_ref())
-                        .size(INPUT_LABEL_FONT_SIZE)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
+                crate::components::Label::new(label.as_ref(), self.theme)
+                    .enabled(self.enabled)
+                    .show(ui);
                 ui.add_space(LABEL_HELPER_GAP);
             }
 
@@ -129,7 +128,10 @@ impl<'a> Input<'a> {
             let frame_output = frame.show(ui, |ui| {
                 ui.set_width(frame_w);
                 ui.set_max_width(frame_w);
+                ui.spacing_mut().interact_size.y = INPUT_HEIGHT_DEFAULT - SPACE_XS * 2.0;
                 ui.horizontal(|ui| {
+                    ui.set_min_height(INPUT_HEIGHT_DEFAULT - SPACE_XS * 2.0);
+                    ui.spacing_mut().item_spacing.x = SPACE_SM;
                     if let Some(icon) = self.leading_icon {
                         ui.label(
                             RichText::new(char::from(icon).to_string())
@@ -140,11 +142,15 @@ impl<'a> Input<'a> {
                                     self.theme.border_subtle
                                 }),
                         );
-                        ui.add_space(SPACE_XS);
                     }
 
                     let has_text = !self.value.is_empty();
-                    let extra_width = if self.clearable && has_text { 24.0 } else { 0.0 };
+                    let show_clear = self.clearable && has_text && self.enabled;
+                    let extra_width = if show_clear {
+                        24.0 + ui.spacing().item_spacing.x
+                    } else {
+                        0.0
+                    };
                     let edit_w = (ui.available_width() - extra_width).max(40.0);
                     let mut text_edit = TextEdit::singleline(self.value);
                     if let Some(id_salt) = self.id_salt {
@@ -164,7 +170,7 @@ impl<'a> Input<'a> {
                             }),
                     );
 
-                    if self.clearable && has_text && self.enabled {
+                    if show_clear {
                         let (clear_rect, clear_response) = ui.allocate_at_least(
                             Vec2::new(24.0, ui.spacing().interact_size.y),
                             Sense {
@@ -224,14 +230,14 @@ impl<'a> Input<'a> {
             );
 
             if let Some(err) = &self.error_text {
-                ui.add_space(2.0);
+                ui.add_space(LABEL_HELPER_GAP);
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = SPACE_SM;
                     ui.label(
                         RichText::new(char::from(Icon::AlertCircle).to_string())
                             .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
                             .color(self.theme.danger),
                     );
-                    ui.add_space(INPUT_AUX_GAP);
                     ui.label(
                         RichText::new(err.as_ref())
                             .size(INPUT_AUX_FONT_SIZE)
@@ -239,7 +245,7 @@ impl<'a> Input<'a> {
                     );
                 });
             } else if let Some(helper) = &self.helper_text {
-                ui.add_space(INPUT_AUX_GAP);
+                ui.add_space(LABEL_HELPER_GAP);
                 ui.label(
                     RichText::new(helper.as_ref())
                         .size(INPUT_AUX_FONT_SIZE)

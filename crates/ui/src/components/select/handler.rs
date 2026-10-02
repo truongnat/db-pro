@@ -5,7 +5,7 @@ use super::config::{
     TRIGGER_TEXT_RESERVED_WIDTH, VERTICAL_CENTER_FACTOR,
 };
 use crate::tokens::component::table::TABLE_ROW_HEIGHT_COMPACT;
-use crate::tokens::{ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XL, SPACE_XS};
+use crate::tokens::{ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XS};
 
 pub fn dropdown_should_open_above(space_below: f32, space_above: f32, menu_h: f32) -> bool {
     space_below < menu_h && space_above > space_below
@@ -66,7 +66,7 @@ pub fn trigger_accessibility_label(label: Option<&str>, selected: &str) -> Strin
 }
 
 pub fn trigger_content_width(width: f32, available: f32) -> f32 {
-    (width - SPACE_XL).min(available).max(MIN_TRIGGER_WIDTH)
+    width.max(MIN_TRIGGER_WIDTH).min(available).max(0.0)
 }
 
 pub fn trigger_text_width(available: f32) -> f32 {

@@ -16,7 +16,11 @@ pub(super) struct TabChromeAction {
 pub(super) const TAB_MIN_WIDTH: f32 = 72.0;
 pub(super) const TAB_MAX_WIDTH: f32 = 220.0;
 pub(super) const TAB_TITLE_MAX_WIDTH: f32 = 160.0;
-pub(super) const TAB_HEIGHT: f32 = 28.0;
+pub(super) const TAB_HEIGHT: f32 = 32.0;
+const TAB_PAD_X: f32 = SPACE_MD;
+const TAB_ICON_SIZE: f32 = ICON_XS;
+const TAB_CLOSE_SIZE: f32 = 16.0;
+const TAB_TITLE_INSET: f32 = TAB_PAD_X + TAB_ICON_SIZE + SPACE_XS;
 
 pub(super) fn truncate_tab_title(
     ui: &egui::Ui,
@@ -73,11 +77,12 @@ pub(super) fn draw_workspace_tab_item(
     let full_title_galley = ui
         .painter()
         .layout_no_wrap(item.title.to_owned(), font_id.clone(), text_color);
-    let close_slot = if item.show_close { 22.0 } else { 0.0 };
-    let unsaved_slot = if item.unsaved { 10.0 } else { 0.0 };
+    let close_slot = if item.show_close { TAB_CLOSE_SIZE + SPACE_SM } else { 0.0 };
+    let unsaved_slot = if item.unsaved { SPACE_MD } else { 0.0 };
     let title_width = full_title_galley.size().x.min(TAB_TITLE_MAX_WIDTH);
-    let item_width = (18.0 + title_width + unsaved_slot + close_slot + 18.0).clamp(TAB_MIN_WIDTH, TAB_MAX_WIDTH);
-    let title_available_width = item_width - 18.0 - unsaved_slot - close_slot - 18.0;
+    let item_width =
+        (TAB_TITLE_INSET + title_width + unsaved_slot + close_slot + TAB_PAD_X).clamp(TAB_MIN_WIDTH, TAB_MAX_WIDTH);
+    let title_available_width = item_width - TAB_TITLE_INSET - unsaved_slot - close_slot - TAB_PAD_X;
     let display_title = truncate_tab_title(ui, item.title, font_id.clone(), text_color, title_available_width);
     let title_galley = ui.painter().layout_no_wrap(display_title, font_id, text_color);
 
@@ -112,30 +117,35 @@ pub(super) fn draw_workspace_tab_item(
     }
 
     // Icon
-    let icon_pos = egui::pos2(rect.left() + 8.0, rect.center().y);
+    let icon_pos = egui::pos2(rect.left() + TAB_PAD_X, rect.center().y);
     ui.painter().text(
         icon_pos,
         egui::Align2::LEFT_CENTER,
         char::from(item.icon).to_string(),
-        egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())),
+        egui::FontId::new(TAB_ICON_SIZE, egui::FontFamily::Name("lucide".into())),
         icon_color,
     );
 
     // Title text
-    let title_pos = egui::pos2(rect.left() + 24.0, rect.center().y - title_galley.size().y * 0.5);
+    let title_pos = egui::pos2(
+        rect.left() + TAB_TITLE_INSET,
+        rect.center().y - title_galley.size().y * 0.5,
+    );
     ui.painter().galley(title_pos, title_galley, text_color);
 
     // Unsaved dirty dot
     if item.unsaved {
-        let dot_pos = egui::pos2(rect.right() - close_slot - 6.0, rect.center().y);
+        let dot_pos = egui::pos2(rect.right() - TAB_PAD_X - close_slot - SPACE_XS, rect.center().y);
         ui.painter().circle_filled(dot_pos, 2.5, theme.accent);
     }
 
     // Close Button
     let mut close_clicked = false;
     if item.show_close {
-        let close_rect =
-            egui::Rect::from_center_size(egui::pos2(rect.right() - 12.0, rect.center().y), egui::vec2(16.0, 16.0));
+        let close_rect = egui::Rect::from_center_size(
+            egui::pos2(rect.right() - TAB_PAD_X - TAB_CLOSE_SIZE * 0.5, rect.center().y),
+            egui::vec2(TAB_CLOSE_SIZE, TAB_CLOSE_SIZE),
+        );
         let pointer_pos = ui.input(|i| i.pointer.hover_pos().or(i.pointer.interact_pos()));
         let close_hovered = pointer_pos.is_some_and(|p| close_rect.contains(p));
 
@@ -170,5 +180,68 @@ pub(super) fn draw_workspace_tab_item(
     TabChromeAction {
         clicked: resp.clicked() && !close_clicked && !context_clicked,
         close_clicked: close_clicked || (middle_clicked && item.show_close),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tab_padding_keeps_title_and_close_target_separate() {
+        for title in [
+            "Query 1",
+            "Component Gallery",
+            "A very long query document title that needs truncation",
+        ] {
+            let ctx = egui::Context::default();
+            let theme = DbProTheme::light();
+            DbProTheme::install_fonts(&ctx);
+            theme.apply(&ctx);
+            let output = ctx.run(egui::RawInput::default(), |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    draw_workspace_tab_item(
+                        ui,
+                        theme,
+                        WorkspaceTabItem {
+                            selected: true,
+                            icon: Icon::FileCode,
+                            title,
+                            unsaved: true,
+                            show_close: true,
+                        },
+                        |_, _| {},
+                    );
+                });
+            });
+            let tab = output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::Shape::Rect(rect) if rect.fill == theme.surface_app => Some(rect.rect),
+                    _ => None,
+                })
+                .expect("selected tab background");
+            assert_eq!(tab.height(), TAB_HEIGHT);
+            assert!(tab.width() <= TAB_MAX_WIDTH);
+            let label = output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::Shape::Text(text) if text.galley.text().starts_with(title.chars().next().unwrap()) => {
+                        Some(text)
+                    }
+                    _ => None,
+                })
+                .expect("tab title");
+            assert_eq!(label.pos.x - tab.left(), TAB_TITLE_INSET);
+            let close_left = tab.right() - TAB_PAD_X - TAB_CLOSE_SIZE;
+            assert!(
+                label.pos.x + label.galley.size().x + SPACE_MD <= close_left,
+                "title overlaps dirty/close slot"
+            );
+            assert!(label.pos.y >= tab.top());
+            assert!(label.pos.y + label.galley.size().y <= tab.bottom());
+        }
     }
 }

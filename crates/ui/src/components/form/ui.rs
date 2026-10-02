@@ -39,24 +39,30 @@ impl<'a> Label<'a> {
         } else {
             self.theme.text_disabled
         };
-        ui.horizontal(|ui| {
-            let response = ui.label(
-                RichText::new(self.text.as_ref())
-                    .size(LABEL_FONT_SIZE)
-                    .strong()
-                    .color(color),
-            );
-            if self.required {
-                ui.add_space(LABEL_HELPER_GAP);
-                ui.label(
-                    RichText::new("*")
+        // Labels are noninteractive: use their font height rather than a button-sized row.
+        let height = ui.fonts(|fonts| fonts.row_height(&egui::FontId::proportional(LABEL_FONT_SIZE)));
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), height),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.spacing_mut().item_spacing.x = LABEL_HELPER_GAP;
+                let response = ui.label(
+                    RichText::new(self.text.as_ref())
                         .size(LABEL_FONT_SIZE)
                         .strong()
-                        .color(self.theme.danger),
+                        .color(color),
                 );
-            }
-            response
-        })
+                if self.required {
+                    ui.label(
+                        RichText::new("*")
+                            .size(LABEL_FONT_SIZE)
+                            .strong()
+                            .color(self.theme.danger),
+                    );
+                }
+                response
+            },
+        )
         .inner
     }
 }
@@ -123,6 +129,7 @@ impl<'a> FormField<'a> {
             self.error_text.as_deref(),
         );
         ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
             Label::new(self.label.as_ref(), self.theme)
                 .required(self.required)
                 .enabled(self.enabled)
@@ -140,5 +147,56 @@ impl<'a> FormField<'a> {
             field.show(ui)
         })
         .inner
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn field_label_marker_and_helper_gaps_have_one_spacing_owner() {
+        for spacing in [egui::vec2(0.0, 0.0), egui::vec2(8.0, 4.0), egui::vec2(16.0, 16.0)] {
+            let ctx = egui::Context::default();
+            let theme = DbProTheme::light();
+            DbProTheme::install_fonts(&ctx);
+            theme.apply(&ctx);
+            let mut value = String::from("database");
+            let output = ctx.run(egui::RawInput::default(), |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.set_width(300.0);
+                    ui.spacing_mut().item_spacing = spacing;
+                    FormField::new("Host", &mut value, "", theme)
+                        .required(true)
+                        .helper_text("Helper")
+                        .show(ui);
+                    assert_eq!(ui.spacing().item_spacing, spacing);
+                });
+            });
+            let text = |name: &str| {
+                output
+                    .shapes
+                    .iter()
+                    .find_map(|shape| match &shape.shape {
+                        egui::Shape::Text(text) if text.galley.text() == name => Some(text),
+                        _ => None,
+                    })
+                    .expect("painted text")
+            };
+            let label = text("Host");
+            let star = text("*");
+            let helper = text("Helper");
+            let frame = output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::Shape::Rect(rect) if rect.fill == theme.surface_editor => Some(rect.rect),
+                    _ => None,
+                })
+                .expect("field frame");
+            assert_eq!(star.pos.x - label.pos.x - label.galley.size().x, LABEL_HELPER_GAP);
+            assert_eq!(frame.top() - label.pos.y - label.galley.size().y, LABEL_HELPER_GAP);
+            assert_eq!(helper.pos.y - frame.bottom(), LABEL_HELPER_GAP);
+        }
     }
 }

@@ -1,3 +1,4 @@
+use super::workspace_tab_primitives::TAB_HEIGHT;
 use super::workspace_tab_primitives::{draw_workspace_tab_item, WorkspaceTabItem};
 use super::*;
 
@@ -48,16 +49,16 @@ impl<'a> WorkspaceTabsViewContext<'a> {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) -> Vec<WorkspaceTabsAction> {
         let modifier = Self::primary_modifier_label();
 
-        // Tab strip flush with CentralPanel; tiny top breath only.
+        // Keep a small gutter around the strip and between independent tab targets.
         let tabs_width = ui.available_width();
         ui.set_min_width(tabs_width);
         egui::Frame {
             fill: self.theme.surface_panel,
             inner_margin: egui::Margin {
-                left: SPACE_XS,
-                right: SPACE_XS,
-                top: SPACE_XXS,
-                bottom: 0.0,
+                left: SPACE_SM,
+                right: SPACE_SM,
+                top: SPACE_XS,
+                bottom: SPACE_XS,
             },
             stroke: egui::Stroke::NONE,
             rounding: egui::Rounding::ZERO,
@@ -66,9 +67,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         }
         .show(ui, |ui| {
             let inner = ui.max_rect();
-            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(28.0)));
+            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(TAB_HEIGHT)));
             ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+                ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, 0.0);
 
                 egui::ScrollArea::horizontal()
                     .id_salt("workspace-tabs-scroll")
@@ -76,7 +77,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     .auto_shrink([false, true])
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+                            ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, 0.0);
 
                             let mut close_all_requested = false;
                             self.draw_welcome_tab(ui, &mut close_all_requested);
@@ -86,9 +87,14 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             self.draw_static_tab(ui, WorkspaceTab::Diagram, Icon::ArrowRightLeft, "ER Diagram");
                             self.draw_static_tab(ui, WorkspaceTab::SchemaWorkbench, Icon::Boxes, "Schema Workbench");
                             self.draw_static_tab(ui, WorkspaceTab::SchemaCompare, Icon::GitCompare, "Schema Compare");
-                            self.draw_static_tab(ui, WorkspaceTab::ComponentGallery, Icon::Palette, "Component Gallery");
+                            self.draw_static_tab(
+                                ui,
+                                WorkspaceTab::ComponentGallery,
+                                Icon::Palette,
+                                "Component Gallery",
+                            );
                             // 7. Plus Button for New Query
-                            ui.add_space(2.0);
+                            ui.add_space(SPACE_XS);
                             if compact_icon_button(ui, Icon::Plus, self.theme)
                                 .on_hover_text(format!("New Query Tab ({modifier}N)"))
                                 .clicked()
