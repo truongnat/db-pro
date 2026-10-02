@@ -12,12 +12,15 @@ pub(super) enum GridHeaderAction {
         shift: bool,
     },
     StartResize {
+        column_index: usize,
         widths: Vec<f32>,
+        pointer: rs_ui_core::Point,
     },
     Resize {
         column_index: usize,
-        delta: f32,
+        pointer: rs_ui_core::Point,
     },
+    EndResize,
     CopyColumnName(usize),
     CopyColumnValues(usize),
     MoveLeft(usize),
@@ -241,15 +244,24 @@ impl<'a> GridHeaderViewContext<'a> {
                 }
 
                 if divider.drag_started() {
-                    actions.push(GridHeaderAction::StartResize {
-                        widths: widths.to_vec(),
-                    });
+                    if let Some(pointer) = divider.interact_pointer_pos() {
+                        actions.push(GridHeaderAction::StartResize {
+                            column_index: col_idx,
+                            widths: widths.to_vec(),
+                            pointer: rs_ui_core::Point::new(pointer.x, pointer.y),
+                        });
+                    }
                 }
                 if divider.dragged() {
-                    actions.push(GridHeaderAction::Resize {
-                        column_index: col_idx,
-                        delta: divider.drag_delta().x,
-                    });
+                    if let Some(pointer) = divider.interact_pointer_pos() {
+                        actions.push(GridHeaderAction::Resize {
+                            column_index: col_idx,
+                            pointer: rs_ui_core::Point::new(pointer.x, pointer.y),
+                        });
+                    }
+                }
+                if divider.drag_stopped() {
+                    actions.push(GridHeaderAction::EndResize);
                 }
                 if divider.double_clicked() {
                     auto_size_req = Some(col_idx);

@@ -81,4 +81,63 @@ mod tests {
 
         assert_eq!(window.positions, 49..53);
     }
+
+    #[test]
+    fn virtual_window_handles_empty_and_single_row_projections() {
+        let mut runtime = ResultGridVirtualRuntime::default();
+        for row_count in [0, 1] {
+            let window = adapt_virtual_grid_window(
+                &mut runtime,
+                VirtualGridAdapterInput {
+                    row_count,
+                    viewport_height: RESULT_GRID_ROW_HEIGHT * 2.0,
+                    scroll_offset_y: 0.0,
+                },
+            )
+            .unwrap();
+            assert_eq!(window.positions, 0..row_count);
+        }
+    }
+
+    #[test]
+    fn virtual_window_clamps_middle_and_end_offsets_and_limits_overscan() {
+        let mut runtime = ResultGridVirtualRuntime::default();
+        let input = |scroll_offset_y| VirtualGridAdapterInput {
+            row_count: 10,
+            viewport_height: RESULT_GRID_ROW_HEIGHT * 2.0,
+            scroll_offset_y,
+        };
+
+        let first = adapt_virtual_grid_window(&mut runtime, input(0.0)).unwrap();
+        assert_eq!(first.positions, 0..3);
+        let middle = adapt_virtual_grid_window(
+            &mut runtime,
+            input(RESULT_GRID_ROW_HEIGHT * 3.0),
+        )
+        .unwrap();
+        assert_eq!(middle.positions, 2..6);
+        let end = adapt_virtual_grid_window(&mut runtime, input(f32::MAX)).unwrap();
+        assert_eq!(end.positions, 7..10);
+        assert!(end.positions.end <= 10);
+    }
+
+    #[test]
+    fn virtual_window_arithmetic_stays_in_bounds_through_one_million_rows() {
+        for row_count in [10_000, 100_000, 1_000_000] {
+            let mut runtime = ResultGridVirtualRuntime::default();
+            let offset = row_count as f32 * RESULT_GRID_ROW_HEIGHT * 0.5;
+            let window = adapt_virtual_grid_window(
+                &mut runtime,
+                VirtualGridAdapterInput {
+                    row_count,
+                    viewport_height: RESULT_GRID_ROW_HEIGHT * 2.0,
+                    scroll_offset_y: offset,
+                },
+            )
+            .unwrap();
+            assert!(window.positions.start < window.positions.end);
+            assert!(window.positions.end <= row_count);
+            assert!(window.positions.len() <= 4);
+        }
+    }
 }

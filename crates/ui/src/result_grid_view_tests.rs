@@ -18,13 +18,12 @@ fn selection_lookup_is_reachable_from_the_crate_root() {
 fn row_range_selection_follows_filtered_sort_order() {
     let mut app = DbProApp::default();
     let indexes = [4, 1, 7, 2];
-    let lookup = GridSelectionLookup::new(&indexes, &[]);
     app.table
         .data
-        .select_visible_row(&indexes, &lookup.row_positions, 1, false, false);
+        .select_visible_row(&indexes, 1, false, false);
     app.table
         .data
-        .select_visible_row(&indexes, &lookup.row_positions, 3, true, false);
+        .select_visible_row(&indexes, 3, true, false);
 
     assert_eq!(
         app.table.data.selected_rows.into_iter().collect::<Vec<_>>(),
@@ -38,13 +37,12 @@ fn row_range_selection_follows_filtered_sort_order() {
 fn toggling_last_row_keeps_a_non_empty_selection() {
     let mut app = DbProApp::default();
     let indexes = [3];
-    let lookup = GridSelectionLookup::new(&indexes, &[]);
     app.table
         .data
-        .select_visible_row(&indexes, &lookup.row_positions, 0, false, false);
+        .select_visible_row(&indexes, 0, false, false);
     app.table
         .data
-        .select_visible_row(&indexes, &lookup.row_positions, 0, false, true);
+        .select_visible_row(&indexes, 0, false, true);
 
     assert_eq!(app.table.data.selected_rows.into_iter().collect::<Vec<_>>(), vec![3]);
     assert_eq!(app.table.data.selected_row, Some(3));
@@ -60,7 +58,7 @@ fn cell_range_selection_uses_visible_row_and_column_order() {
     app.table.data.select_single_cell((1, 0));
     app.table
         .data
-        .select_cell_range(&indexes, &lookup.row_positions, (2, 1), true);
+        .select_cell_range(&indexes, (2, 1), true);
 
     assert_eq!(app.table.data.selected_cell, Some((2, 1)));
     assert_eq!(

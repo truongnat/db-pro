@@ -12,7 +12,7 @@
 - `crates/ui/src/native_runtime_shell.rs` computes shell geometry using `UiTree` and owns sidebar `Resizable` and `ScrollState`. The Explorer scroll adapter preserves `codex_navigator_scroll`; the app-level test confirms rs-ui and egui offsets match after a wheel event.
 - No database-facing behavior changed; PostgreSQL and SQLite impact is N/A.
 - DB Pro baseline before the Stage 4 continuation: `5c1f42bad87c69f3cbfddcb921c557987706201e`; Stage 4 implementation source: `b224ec376ee50a93516d2c5691b700bcd9c63f8f`. At rs-ui SHA `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`, `VirtualGrid` and `ScrollState` are exported; `VirtualGrid::new_fixed` accepts one fixed column extent, while `ui-runtime` has no `SelectionModel` or `Resizable`. The same rs-ui revision lacks `BehaviorCommand`, `ResizeAxis`, `ResizeConfig`, `dispatch_behavior_command`, and `register_resizable`, which are already referenced by DB Pro Stages 1–3. A pin to that SHA therefore fails compilation and was not retained.
-- Stage 4 working-tree adapter calculates a vertical visible row range with rs-ui and leaves egui as input host/painter; DB Pro still owns projection, typed cells, widths and selection. Horizontal virtualization and rs-ui selection/resize routing remain incomplete because the available API cannot preserve variable-width columns or existing interactions.
+- Historical Stage 4 adapter finding: the vertical range adapter left egui as host/painter and DB Pro owned projection, typed cells, widths, and selection. The current exact pin and Stage 4.2 implementation are recorded below.
 
 ### Stage 3 — Explorer tree adapter
 
@@ -81,7 +81,7 @@
 | `git diff --check` | PASS, exit 0 |
 | `cargo build --release --locked -p db-pro-native --features capture` | NOT RUN in this continuation; it passed during the prior shell-layout pass. |
 
-### Stage 4 current continuation — 2026-10-02
+### Historical Stage 4 continuation before compatible rs-ui pin — 2026-10-02
 
 | Command / evidence | Result |
 |---|---|
@@ -106,8 +106,8 @@
 | Visible rows | Prior implementation: egui `ScrollArea::vertical().show_rows`. Working-tree adapter: rs-ui `ScrollState` / retained `VirtualGrid` calculates row range plus one-row overscan from egui's vertical scroll offset. egui remains scroll input/offset owner. |
 | Column widths / order | DB Pro `TableDataState` owns persisted widths and order; defaults 180 px, width state clamps 60–520 px. |
 | Horizontal scroll / columns | egui `ScrollArea::horizontal` owns scroll; all ordered columns are still painted because rs-ui's current grid API is fixed-width only. |
-| Selection / keyboard | DB Pro `TableDataState`, grid interaction handlers, and `handle_grid_keyboard` own cell/row/range selection, navigation and clipboard. No rs-ui selection model is present in the available checkout. |
-| Resize | Existing DB Pro grid/header interaction and persisted width state remain authoritative; no rs-ui grid `Resizable` API is present. |
+| Selection / keyboard | DB Pro `TableDataState` owns selected cell/row/rows and anchors. rs-ui `SelectionModel` calculates projected-key single/toggle/range operations; existing keyboard navigation and clipboard remain DB Pro-owned. |
+| Resize | rs-ui `Resizable` calculates result-column pointer movement and clamped width. DB Pro `TableDataState` owns and persists the returned width. |
 | Typed cells / formatting | `UiCell` remains typed through projection and visible row paint; formatting occurs in the per-cell painter. No dataset-wide stringify or row clone was added. |
 | Paint path | `UiQueryResult` → `GridProjectionCache` → filtered/sorted indexes → adapter visible row range → `GridRows` → egui row/cell painter. |
 
@@ -135,8 +135,34 @@ At source SHA `2041a1b1534a8cf6eb6eb776795db71a7ad24ae8`, the clean-code scan re
 
 - Sidebar and query-output splitter resize use rs-ui `Resizable`; egui remains responsible for pointer capture and painting. Tab selection activation goes through rs-ui `Pressable`, while DB Pro retains the existing action dispatch.
 - Native keyboard focus/accessibility behavior remains unverified. Native app smoke and 1920×1080 capture are still outstanding.
-- Result-grid vertical virtualization has a working-tree adapter but no passing integration test or runtime evidence yet. Horizontal virtualization, rs-ui selection/resize routing, and search/filter migration remain incomplete. Explorer connection/database/schema/Tables/table rows now have source-level TreeItem adapters, but other schema-object folders/rows are not represented.
+- Result-grid vertical virtualization has focused tests and benchmark evidence, but no native runtime capture yet. Horizontal virtualization and search/filter migration remain incomplete. Explorer connection/database/schema/Tables/table rows now have source-level TreeItem adapters, but other schema-object folders/rows are not represented.
 - The rs-ui semantic tree remains internal to the UI adapter; native OS accessibility output for Explorer has not been verified.
-- The local sibling rs-ui source is clean at `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`, but is API-incompatible with current Stages 1–3. No compatible immutable dependency pin is available in the local refs.
+- Historical only: rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea` is API-incompatible with Stages 1–3. Current Cargo dependencies and lockfile pin `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
 - Full rs-ui renderer/window integration is not implemented; DB Pro remains on eframe/egui glow.
 - 1920×1080 capture and native end-to-end smoke remain pending.
+
+### Current continuation — exact pin and Stage 4.2 — 2026-10-02
+
+Source under verification: DB Pro base commit `00a077e837fced6104bd34003340440847fe2f2a` plus the uncommitted changes in this working tree. rs-ui dependency revision: `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
+
+| Gate | Result |
+|---|---|
+| `cargo check -p db-pro-ui` | PASS |
+| `cargo check --workspace` | PASS |
+| Stage 1–3 focused shell/Explorer/resize/scroll tests | PASS: 15 tests across the requested commands |
+| `cargo test -p db-pro-ui result_grid_virtual_adapter --no-fail-fast` | PASS: 4 tests |
+| Stage 4.2 SelectionModel single/toggle/range tests | PASS: 2 focused tests |
+| Stage 4.2 Resizable integration test | PASS: 1 focused test |
+| `cargo fmt --all -- --check` | PASS after Stage 4.2 changes. |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS after Stage 4.2 changes. |
+| `cargo test --workspace --no-fail-fast` | PASS: 961 passed, 0 failed. |
+| `cargo build --release --locked -p db-pro-native` | PASS after Stage 4.2 changes. |
+| `git diff --check` | PASS after Stage 4.2 changes and plan updates. |
+
+Cargo.lock records `git+https://github.com/truongnat/rs-ui?rev=f6e798d6cfa966b5344cf6a9de6c634563258eec#f6e798d6cfa966b5344cf6a9de6c634563258eec` for `ui-core`, `ui-runtime`, and `ui-text`. Release build compiled `ui-core` and `ui-runtime` from that Git source.
+
+Perf scan: WARN, 3 passed / 1 warning / 0 failed; binary is 51.4 MB against the 50 MB target threshold (same rounded size as the pre-Stage-4.2 scan, so no size change is observed at scan precision). The scan could not initially locate the artifact because Cargo uses `/data/cargo-target`; a temporary symlink allowed artifact measurement and was removed afterward. No CI files were changed. Native/backend/DB runtime portions were not run by the scan.
+
+Criterion `result_grid_benchmarks` PASS (no comparable before baseline): fixed-width `VirtualGrid` set-scroll plus visible-cell materialization measured 10k rows at 1.4926–1.5049 µs, 100k at 1.6940–1.7063 µs, and 1M at 1.8787–1.8969 µs. With 560 px viewport, 28 px rows, 600 px width, 120 px columns and overscan 1, this benchmark produces 22 rows × 6 columns = 132 virtual cells. DB Pro currently paints all 50 ordered columns for those 22 rows (about 1,100 cells); column virtualization remains blocked on variable-width virtual-axis support.
+
+Stage 4.2 maps current DB Pro row/cell selection operations through rs-ui `SelectionModel` using projected source-row keys, then stores results in `TableDataState`. Column drag maps cumulative pointer delta to rs-ui `Resizable`; returned widths are stored only in DB Pro state. Clipboard and sort/filter behavior are unchanged. Native result-grid interaction, accessibility, and 1920×1080 evidence remain unverified.

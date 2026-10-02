@@ -1,6 +1,6 @@
 # rs-ui Runtime Integration
 
-State: BLOCKED
+State: IMPLEMENTING
 Branch: `main` (repository owner workflow override)
 
 ## Goal
@@ -9,7 +9,7 @@ Adopt the separate rs-ui runtime incrementally as the UI layout and behavior fou
 
 ## Scope
 
-- Add local path dependencies to the rs-ui core and runtime crates.
+- Pin the rs-ui core and runtime crates to an exact Git revision.
 - Create a thin DB Pro shell layout adapter backed by `UiTree`.
 - Use rs-ui-computed sidebar geometry in the existing egui host.
 - Route sidebar resizing and focused keyboard adjustment through rs-ui behavior
@@ -55,7 +55,7 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
 
 ## Risks
 
-- The available rs-ui checkout is clean at `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`, but that revision lacks behavior/resize APIs already called by Stages 1–3. Keep the dependency unpinned until a compatible immutable revision exists; do not pin a revision that makes the current UI fail to compile.
+- Historical blocker: rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea` lacked behavior/resize APIs used by DB Pro. That finding applies only to that SHA. The current exact pin is `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
 - eframe currently uses the glow renderer; rs-ui's renderer targets wgpu. Switching rendering backends is outside this adapter and needs an isolated technical spike before any full renderer migration.
 - The current host adapter rebuilds a small retained tree for the shell layout request. Measure before expanding that pattern to high-frequency surfaces.
 - Explorer rows currently use egui for painting, expansion state, and row
@@ -68,17 +68,15 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
   row window from egui's scroll offset while egui remains the scroll host and
   painter. DB Pro retains filtered projection, typed cells, column order,
   variable widths, selection, and persisted width state. Horizontal
-  virtualization is deferred because the available `VirtualGrid` API only
-  accepts one fixed column extent. Resize/selection routing and measurements
-  remain incomplete.
-- The available rs-ui revision does not contain APIs already used by Stages
-  1–3, so it cannot be pinned without breaking the current UI build.
-- Stage 4 verification and remaining runtime/interaction work are blocked until
-  a compatible immutable rs-ui revision is available.
+  virtualization is deferred because the pinned `VirtualGrid` API only accepts
+  one fixed column extent. SelectionModel and Resizable now handle behavior;
+  DB Pro remains the source of truth for selected rows/cells and widths.
+- Stage 4 source/tests and build gates pass against the exact Git pin. Native
+  result-grid runtime evidence remains outstanding.
 
 ## Acceptance
 
-- The DB Pro UI crate depends only on rs-ui core/runtime crates by local path.
+- The DB Pro UI crate depends only on rs-ui core/runtime crates at the same exact Git revision.
 - The shell adapter uses rs-ui layout results and rejects viewports that cannot fit a usable main surface.
 - Existing domain state and command/task bridge remain unchanged.
 - Explorer semantics represent the existing visible hierarchy and clicks

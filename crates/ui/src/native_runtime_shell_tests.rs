@@ -78,6 +78,27 @@ fn output_splitters_apply_resizable_behavior_in_database_dock_direction() {
 }
 
 #[test]
+fn result_column_resizer_returns_runtime_width_for_db_pro_to_persist() {
+    let mut runtime = RsUiShellRuntime::default();
+    runtime
+        .begin_grid_column_resize(2, 180.0, rs_ui_core::Point::new(100.0, 50.0))
+        .unwrap();
+    assert_eq!(
+        runtime
+            .update_grid_column_resize(rs_ui_core::Point::new(145.0, 50.0))
+            .unwrap(),
+        Some(225.0)
+    );
+    assert_eq!(
+        runtime
+            .update_grid_column_resize(rs_ui_core::Point::new(2000.0, 50.0))
+            .unwrap(),
+        Some(1000.0)
+    );
+    runtime.end_grid_column_resize().unwrap();
+}
+
+#[test]
 fn sidebar_scroll_state_clamps_wheel_input_to_content_extent() {
     let mut runtime = RsUiShellRuntime::default();
     runtime

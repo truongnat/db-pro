@@ -2,6 +2,7 @@
 
 use super::*;
 use super::result_grid_virtual_adapter::ResultGridVirtualRuntime;
+use rs_ui_runtime::SelectionModel;
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -350,7 +351,6 @@ impl TableDataState {
     pub(crate) fn select_visible_row(
         &mut self,
         indexes: &[usize],
-        row_positions: &HashMap<usize, usize>,
         position: usize,
         extend: bool,
         toggle: bool,
@@ -361,24 +361,24 @@ impl TableDataState {
 
         if extend {
             let anchor = self.selection_anchor_row.or(self.selected_row).unwrap_or(row_index);
-            let anchor_position = row_positions.get(&anchor).copied().unwrap_or(position);
-            let (start, end) = if anchor_position <= position {
-                (anchor_position, position)
-            } else {
-                (position, anchor_position)
-            };
-            self.selected_rows.clear();
-            self.selected_rows.extend(indexes[start..=end].iter().copied());
+            let mut selection = SelectionModel::multiple();
+            selection.select(anchor);
+            selection.select_range(indexes, row_index);
+            self.selected_rows = selection.selected().iter().copied().collect();
         } else if toggle {
-            if !self.selected_rows.remove(&row_index) {
-                self.selected_rows.insert(row_index);
+            let mut selection = SelectionModel::multiple();
+            for row in &self.selected_rows {
+                selection.toggle(*row);
             }
-            if self.selected_rows.is_empty() {
-                self.selected_rows.insert(row_index);
+            selection.toggle(row_index);
+            if selection.selected().is_empty() {
+                selection.select(row_index);
             }
+            self.selected_rows = selection.selected().iter().copied().collect();
         } else {
-            self.selected_rows.clear();
-            self.selected_rows.insert(row_index);
+            let mut selection = SelectionModel::single();
+            selection.select(row_index);
+            self.selected_rows = selection.selected().iter().copied().collect();
         }
 
         self.selected_row = if self.selected_rows.contains(&row_index) {
@@ -392,8 +392,9 @@ impl TableDataState {
     }
 
     pub(crate) fn select_single_row(&mut self, row_index: usize) {
-        self.selected_rows.clear();
-        self.selected_rows.insert(row_index);
+        let mut selection = SelectionModel::single();
+        selection.select(row_index);
+        self.selected_rows = selection.selected().iter().copied().collect();
         self.selected_row = Some(row_index);
         self.selection_anchor_row = Some(row_index);
         self.selection_anchor_cell = None;
@@ -401,8 +402,9 @@ impl TableDataState {
 
     pub(crate) fn select_single_cell(&mut self, selection: (usize, usize)) {
         self.selected_cell = Some(selection);
-        self.selected_rows.clear();
-        self.selected_rows.insert(selection.0);
+        let mut row_selection = SelectionModel::single();
+        row_selection.select(selection.0);
+        self.selected_rows = row_selection.selected().iter().copied().collect();
         self.selected_row = Some(selection.0);
         self.selection_anchor_row = Some(selection.0);
         self.selection_anchor_cell = Some(selection);
@@ -411,7 +413,6 @@ impl TableDataState {
     pub(crate) fn select_cell_range(
         &mut self,
         indexes: &[usize],
-        row_positions: &HashMap<usize, usize>,
         focus: (usize, usize),
         extend: bool,
     ) {
@@ -421,15 +422,10 @@ impl TableDataState {
         }
 
         let anchor = self.selection_anchor_cell.or(self.selected_cell).unwrap_or(focus);
-        let anchor_row = row_positions.get(&anchor.0).copied().unwrap_or(0);
-        let focus_row = row_positions.get(&focus.0).copied().unwrap_or(anchor_row);
-        let (row_start, row_end) = if anchor_row <= focus_row {
-            (anchor_row, focus_row)
-        } else {
-            (focus_row, anchor_row)
-        };
-        self.selected_rows.clear();
-        self.selected_rows.extend(indexes[row_start..=row_end].iter().copied());
+        let mut row_selection = SelectionModel::multiple();
+        row_selection.select(anchor.0);
+        row_selection.select_range(indexes, focus.0);
+        self.selected_rows = row_selection.selected().iter().copied().collect();
         self.selected_row = Some(focus.0);
         self.selected_cell = Some(focus);
         self.selection_anchor_row = Some(anchor.0);
@@ -689,6 +685,33 @@ mod tests {
             state.navigation_target(&indexes, &order, &lookup, egui::Key::ArrowDown, false),
             Some((7, 0))
         );
+    }
+
+    #[test]
+    fn selection_model_adapter_preserves_sorted_row_range_and_toggle_behavior() {
+        let mut state = TableDataState::default();
+        let indexes = [9, 2, 7, 4];
+
+        state.select_visible_row(&indexes, 1, false, false);
+        state.select_visible_row(&indexes, 3, true, false);
+        assert_eq!(state.selected_rows, [2, 7, 4].into_iter().collect());
+        assert_eq!(state.selection_anchor_row, Some(2));
+
+        state.select_visible_row(&indexes, 0, false, true);
+        assert_eq!(state.selected_rows, [2, 4, 7, 9].into_iter().collect());
+    }
+
+    #[test]
+    fn cell_range_selection_uses_projection_order_and_preserves_cell_anchor() {
+        let mut state = TableDataState::default();
+        let indexes = [8, 3, 6, 1];
+
+        state.select_single_cell((3, 2));
+        state.select_cell_range(&indexes, (1, 2), true);
+
+        assert_eq!(state.selected_rows, [3, 6, 1].into_iter().collect());
+        assert_eq!(state.selected_cell, Some((1, 2)));
+        assert_eq!(state.selection_anchor_cell, Some((3, 2)));
     }
 
     #[test]

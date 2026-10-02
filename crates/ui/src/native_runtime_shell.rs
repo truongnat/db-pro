@@ -204,6 +204,8 @@ pub(crate) struct RsUiShellRuntime {
     tree: UiTree,
     sidebar_splitter: Option<NodeId>,
     output_splitters: [Option<NodeId>; 2],
+    grid_column_resizers: std::collections::HashMap<usize, NodeId>,
+    resizing_grid_column: Option<usize>,
     sidebar_scroll: Option<NodeId>,
     tabs_root: Option<NodeId>,
     tab_nodes: std::collections::HashMap<String, NodeId>,
@@ -221,6 +223,8 @@ impl Default for RsUiShellRuntime {
             tree,
             sidebar_splitter: None,
             output_splitters: [None, None],
+            grid_column_resizers: std::collections::HashMap::new(),
+            resizing_grid_column: None,
             sidebar_scroll: None,
             tabs_root: None,
             tab_nodes: std::collections::HashMap::new(),
@@ -234,6 +238,64 @@ impl Default for RsUiShellRuntime {
 }
 
 impl RsUiShellRuntime {
+    fn ensure_grid_column_resizer(&mut self, column_index: usize) -> Result<NodeId, RuntimeError> {
+        if let Some(node) = self.grid_column_resizers.get(&column_index) {
+            return Ok(*node);
+        }
+        let root = self
+            .tree
+            .create_node(None, LayoutStyle::default(), PaintState::default())?;
+        let node = self
+            .tree
+            .create_node(Some(root), LayoutStyle::default(), PaintState::default())?;
+        self.grid_column_resizers.insert(column_index, node);
+        Ok(node)
+    }
+
+    pub(crate) fn begin_grid_column_resize(
+        &mut self,
+        column_index: usize,
+        width: f32,
+        pointer: rs_ui_core::Point,
+    ) -> Result<(), RuntimeError> {
+        let node = self.ensure_grid_column_resizer(column_index)?;
+        self.tree.register_resizable(
+            node,
+            ResizeConfig {
+                axis: ResizeAxis::Horizontal,
+                min: 60.0,
+                max: 1000.0,
+                step: 8.0,
+                reset: width.clamp(60.0, 1000.0),
+            },
+            width,
+            Some("Result column width".to_owned()),
+        )?;
+        self.tree.begin_resize(node, pointer)?;
+        self.resizing_grid_column = Some(column_index);
+        Ok(())
+    }
+
+    pub(crate) fn update_grid_column_resize(
+        &mut self,
+        pointer: rs_ui_core::Point,
+    ) -> Result<Option<f32>, RuntimeError> {
+        let Some(column_index) = self.resizing_grid_column else {
+            return Ok(None);
+        };
+        let node = self.ensure_grid_column_resizer(column_index)?;
+        self.tree.update_resize(node, pointer)?;
+        Ok(self.tree.resizable_value(node))
+    }
+
+    pub(crate) fn end_grid_column_resize(&mut self) -> Result<(), RuntimeError> {
+        if let Some(column_index) = self.resizing_grid_column.take() {
+            let node = self.ensure_grid_column_resizer(column_index)?;
+            self.tree.end_resize(node)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn begin_explorer_tree(&mut self) {
         self.explorer_tree_runtime.begin();
     }

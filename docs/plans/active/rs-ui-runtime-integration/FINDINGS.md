@@ -15,11 +15,11 @@ Baseline: `db-pro@c0c1f5525b20a810913d1eee13c7ee2dd15b6664` before the original 
 - The shell and tabs continue to paint through egui. Tab and close-button activation are normalized through `Pressable`; native accessibility/focus behavior has not been verified.
 - At DB Pro SHA `2041a1b1534a8cf6eb6eb776795db71a7ad24ae8`, connection/database/schema/Tables/table rows register stable-keyed `TreeItem` semantics with existing expanded/selected state; row activation is dispatched through rs-ui then returned to existing DB Pro interaction handlers. Explorer runtime ownership and its focused tests are isolated in `native_explorer_tree_runtime.rs`.
 - At that same SHA, ArrowUp/ArrowDown map to rs-ui `MovePrevious`/`MoveNext`; only rows registered from the currently rendered viewport can participate. Native focus and accessibility remain unverified, and other schema-object folders/rows are not in the semantic tree.
-- At rs-ui SHA `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`, `VirtualGrid` only accepts one fixed column extent, so it cannot calculate the viewport for DB Pro's variable column widths. The Stage 4 working-tree adapter routes vertical range calculation through `VirtualGrid`/`ScrollState`; egui remains the host scroll input and painter. Horizontal virtualization and rs-ui selection/resize integration remain deferred.
+- Historical finding at rs-ui SHA `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`: `VirtualGrid` accepts one fixed column extent, so horizontal virtualization for DB Pro's variable widths is not supported. The current pinned revision still has this fixed-width limitation; Stage 4.2 selection/resize integration is recorded below.
 
 ### Stage 4A — current result-grid ownership audit
 
-Baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; Stage 4 adapter implementation: `b224ec376ee50a93516d2c5691b700bcd9c63f8f`.
+Historical baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; initial Stage 4 adapter implementation: `b224ec376ee50a93516d2c5691b700bcd9c63f8f`. Current DB Pro base SHA: `00a077e837fced6104bd34003340440847fe2f2a` plus the uncommitted working-tree changes for this continuation. Canonical rs-ui SHA: `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
 
 | Concern | Current owner / behavior |
 |---|---|
@@ -27,30 +27,42 @@ Baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; Stage 4 adapter
 | Visible row calculation | Before this continuation, `egui::ScrollArea::vertical().show_rows` chose the row range. The Stage 4 adapter now derives a range from the egui vertical scroll offset using rs-ui `ScrollState` and retained `VirtualGrid`; the egui scroll area still owns scroll input and offset. Only that range plus one-row overscan is sent to the row painter. |
 | Column order / widths | DB Pro `TableDataState` owns persisted column order and widths. Widths default to 180 px and resize state clamps stored widths to 60–520 px. |
 | Horizontal scrolling | egui `ScrollArea::horizontal` owns it. All ordered columns are still painted; horizontal virtualization is not implemented. |
-| Selection and keyboard | DB Pro `TableDataState` owns selected cell/row/rows and range anchors. `handle_grid_keyboard` and existing grid interaction handlers own navigation, range behavior and clipboard actions. No rs-ui `SelectionModel` is available in the current checkout. |
-| Resize | DB Pro's existing width state and grid header interactions remain authoritative. No rs-ui `Resizable` grid API is available in the current checkout. |
+| Selection and keyboard | DB Pro `TableDataState` owns selected cell/row/rows and range anchors. `SelectionModel` calculates row single/toggle/range operations from projection keys; DB Pro persists their result. `handle_grid_keyboard` and existing handlers retain navigation and clipboard ownership. |
+| Resize | rs-ui `Resizable` calculates pointer delta and clamped value for result-column drag. DB Pro `TableDataState` remains authoritative for widths and persistence. |
 | Typed-cell formatting | Rows keep `UiCell` references; the existing cell painter formats values as each visible cell is drawn. The adapter does not stringify or clone the dataset. |
 | Paint path | `GridProjectionCache` → filtered/sorted indexes → virtual row range → `GridRows` → `draw_grid_row` / `draw_grid_cell` in egui. |
 
-The new benchmark cases cover retained `VirtualGrid` visible-range preparation at 10k, 100k and 1M rows with 50 fixed-width columns. They have not compiled or produced timing/allocation results; there is no before/after performance claim. The current benchmark does not establish variable-width horizontal virtualization or measure end-to-end frame preparation.
+The benchmark covers fixed-width `VirtualGrid` window preparation at 10k, 100k and 1M rows with 50 columns. It measures `set_scroll_offset` plus `visible_cells()` allocation, not end-to-end frame preparation. Current timings and materialized-cell estimate are recorded in `VERIFICATION.md`; there is no compatible before/after baseline.
 
 ## Failure scenario / severity
 
 - P2 integration risk: a future renderer cutover from eframe's current glow path needs separate startup, accessibility, and capture validation. This change does not perform that cutover.
-- P1 dependency/build blocker: the available immutable rs-ui revision lacks APIs already called by Stages 1–3; the focused DB Pro test fails to compile when resolving against that revision. `/data/dev/projects/ui-runtime-foundation` is absent, so the compatible source used for the earlier Stage 1–3 verification is unavailable here.
+- Historical P1 dependency/build blocker: rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea` lacked APIs already called by Stages 1–3. It is resolved for this continuation by the exact Git pin `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
 - P2 tree-navigation limitation: rows omitted by egui viewport clipping are not registered for rs-ui focus traversal, so traversal across a large clipped tree is not established.
-- P1 Stage 4 verification blocker: the adapter and benchmark cannot be compiled or measured until DB Pro can resolve a compatible rs-ui revision containing APIs already consumed by Stages 1–3.
-- P2 Stage 4 limitation: fixed-width `VirtualGrid` cannot safely virtualize variable-width columns; the available runtime also has no selection or resize models.
+- P2 Stage 4 limitation: fixed-width `VirtualGrid` cannot safely virtualize DB Pro's variable-width columns. Horizontal virtualization remains blocked on a variable-width virtual-axis API.
 - No proven defect in DB Pro business or database behavior was found in this integration audit.
 
 ## Decision
 
 Use rs-ui core/runtime as the shell layout authority through a thin adapter, retaining egui for host input and painting. Do not depend on `ui-renderer` or `ui-window` in the first slice.
 
-For Stage 4, keep the current local dependency while the required rs-ui API is unavailable. Do not pin `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`: it lacks APIs used by Stages 1–3. Pin after a compatible rs-ui commit is published and confirms variable-width grid support if horizontal virtualization is in scope.
+For Stage 4, pin rs-ui core/runtime to exact Git revision `f6e798d6cfa966b5344cf6a9de6c634563258eec`; Cargo.lock resolves that same source. The older `db3cf2bf...` incompatibility finding applies only to that historical revision.
 
-Keep Stage 4 incremental: DB Pro remains the source of truth for result projection, typed cells, order, widths, selection and clipboard; egui remains host/painter. Complete resize, selection, horizontal virtualization and measured correctness/performance only after a compatible rs-ui API is available.
+Keep Stage 4 incremental: DB Pro remains the source of truth for result projection, typed cells, order, widths, selection and clipboard; egui remains host/painter. Vertical windowing, selection behavior, column resizing and benchmark execution are implemented; native runtime verification and variable-width horizontal virtualization remain open.
 
 ## Provider impact and runtime testability
 
 PostgreSQL: N/A; SQLite: N/A. This change does not touch database behavior. Shell screenshots from the earlier layout pass exist at 1280×800 and a constrained 1440×838 logical capture; 1920×1080 was not captured. Native product smoke is still pending. The adapter unit and app-level drag tests are not OS-level input proof.
+
+## Current continuation — rs-ui pin and Stage 4.2
+
+Source: DB Pro base commit `00a077e837fced6104bd34003340440847fe2f2a` plus the uncommitted working-tree changes; rs-ui exact revision `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
+
+- `draw_body` passes `indexes.len()` from `GridProjectionCache` to the retained adapter; virtual total rows therefore match the filtered/sorted projection rather than raw `UiQueryResult.rows`.
+- The adapter returns a clamped visible range with one-row overscan. Tests cover zero/single row, middle/end offsets, huge offsets, and 10k/100k/1M arithmetic; returned ranges remain within the projection.
+- `GridRows` borrows projection indexes/result/order/widths. The painter reads and formats only visible typed `UiCell` values; it does not clone the projection or stringify the dataset.
+- `ResultGridVirtualRuntime` is retained in `TableDataState` across frames. It replaces `VirtualGrid` only when row count changes; viewport and offset are refreshed on each call.
+- egui `ScrollArea` remains the vertical input/offset owner. The adapter derives the visible window from that offset and its spacer cancels the egui content transform for painting; it does not add an independent second scroll offset.
+- `SelectionModel` operates on projected source-row keys for single, toggle and range operations. Selected cells/rows/anchors remain stored in DB Pro `TableDataState`; clipboard and keyboard commands remain on the existing path.
+- Column drag passes absolute pointer positions into rs-ui `Resizable`; the returned clamped value is written into DB Pro's persisted width vector. The rs-ui node stores only transient drag behavior state.
+- Horizontal virtualization remains blocked on variable-width virtual-axis support. Runtime UI evidence is still needed before Stage 4 can advance beyond IMPLEMENTING.

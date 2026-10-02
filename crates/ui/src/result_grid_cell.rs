@@ -112,7 +112,6 @@ impl DbProApp {
             let modifiers = ui.input(|input| input.modifiers);
             self.table.data.select_cell_range(
                 interaction.visible_indexes,
-                &interaction.selection_lookup.row_positions,
                 (interaction.row_index, interaction.column_index),
                 modifiers.shift,
             );

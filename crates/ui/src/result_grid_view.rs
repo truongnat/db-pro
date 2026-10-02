@@ -466,7 +466,6 @@ impl result_grid_row_view::GridRowSurfaceRenderer for GridRowRenderer<'_> {
         let modifiers = ui.input(|input| input.modifiers);
         self.app.table.data.select_visible_row(
             rows.indexes,
-            &rows.selection_lookup.row_positions,
             position,
             modifiers.shift,
             modifiers.command || modifiers.ctrl,

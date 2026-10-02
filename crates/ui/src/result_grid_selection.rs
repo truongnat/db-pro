@@ -58,7 +58,6 @@ pub(super) fn handle_grid_navigation(
     {
         context.data.select_cell_range(
             indexes,
-            &selection_lookup.row_positions,
             selection,
             ui.input(|input| input.modifiers.shift),
         );
