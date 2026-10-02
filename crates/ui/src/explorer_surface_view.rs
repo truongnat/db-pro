@@ -48,6 +48,7 @@ pub(super) struct ExplorerSurfaceContext<'a> {
 
 impl ExplorerSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerSurfaceAction> {
+        self.native_runtime.borrow_mut().begin_explorer_tree();
         let mut actions = Vec::new();
         if !self.catalog.is_empty() {
             actions.extend(self.draw_toolbar(ui));
@@ -85,6 +86,9 @@ impl ExplorerSurfaceContext<'_> {
                 }
             },
         );
+        if let Err(error) = self.native_runtime.borrow_mut().end_explorer_tree() {
+            tracing::error!(%error, "rs-ui Explorer tree cleanup failed");
+        }
         actions
     }
 
@@ -130,7 +134,13 @@ impl ExplorerSurfaceContext<'_> {
                 error: self.lifecycle.connection_error(&connection.id).map(str::to_owned),
             };
             let schema_model = is_connected.then(|| self.schema_tree_model(&connection));
-            let node_actions = ExplorerConnectionNodeView::new(self.theme, &connection, model, self.modifier)
+            let node_actions = ExplorerConnectionNodeView::new(
+                self.theme,
+                &connection,
+                model,
+                self.modifier,
+                self.native_runtime,
+            )
                 .draw(ui, schema_model.map(|model| (&mut *self.explorer, model)));
             for action in node_actions {
                 match action {

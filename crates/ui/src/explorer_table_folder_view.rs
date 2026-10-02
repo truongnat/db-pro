@@ -4,6 +4,7 @@ use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
 use super::{DbProTheme, EXPLORER_ROW_HEIGHT};
 use eframe::egui;
 use lucide_icons::Icon;
+use std::cell::RefCell;
 
 pub(crate) struct TableFolderContext<'a> {
     pub(crate) theme: DbProTheme,
@@ -11,6 +12,9 @@ pub(crate) struct TableFolderContext<'a> {
     pub(crate) total_tables: usize,
     pub(crate) matching_tables: usize,
     pub(crate) search_query: &'a str,
+    pub(crate) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
+    pub(crate) tree_key: String,
+    pub(crate) tree_parent_key: String,
 }
 
 pub(crate) struct TableFolderRender {
@@ -29,7 +33,22 @@ impl TableFolderContext<'_> {
         }
         let is_open = collapsing.is_open();
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
-        if response.clicked() || chevron_clicked {
+        let activated = super::explorer_tree::sync_explorer_tree_item(
+            self.native_runtime,
+            crate::native_runtime_shell::ExplorerTreeItem {
+                key: &self.tree_key,
+                parent_key: Some(&self.tree_parent_key),
+                label: "Tables",
+                expanded: is_open,
+                selected: false,
+                bounds: response.rect,
+                focused: response.has_focus(),
+                clicked: response.clicked() || chevron_clicked,
+            },
+            ui,
+            &response,
+        );
+        if activated || chevron_clicked {
             collapsing.set_open(!is_open);
             collapsing.store(ui.ctx());
         }

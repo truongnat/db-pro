@@ -4,6 +4,7 @@ use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme};
 use eframe::egui;
 use lucide_icons::Icon;
+use std::cell::RefCell;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TableRowAction {
@@ -51,6 +52,9 @@ pub(crate) struct TableRowContext<'a> {
     pub(crate) table: &'a str,
     pub(crate) is_selected: bool,
     pub(crate) has_details: bool,
+    pub(crate) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
+    pub(crate) tree_key: &'a str,
+    pub(crate) tree_parent_key: &'a str,
 }
 
 impl TableRowContext<'_> {
@@ -62,8 +66,23 @@ impl TableRowContext<'_> {
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
         let is_context_menu = is_context_menu_triggered(&response, ui);
         let actions = table_context_menu(ui, &response, self.theme);
+        let activated = super::explorer_tree::sync_explorer_tree_item(
+            self.native_runtime,
+            crate::native_runtime_shell::ExplorerTreeItem {
+                key: self.tree_key,
+                parent_key: Some(self.tree_parent_key),
+                label: self.table,
+                expanded: is_open && self.has_details,
+                selected: self.is_selected,
+                bounds: response.rect,
+                focused: response.has_focus(),
+                clicked: response.clicked() && !is_context_menu,
+            },
+            ui,
+            &response,
+        );
         let should_select = !chevron_clicked
-            && ((response.clicked() && !is_context_menu) || actions.iter().any(|action| action.selects_table()));
+            && ((activated && !is_context_menu) || actions.iter().any(|action| action.selects_table()));
 
         if chevron_clicked && self.has_details {
             collapsing.set_open(!is_open);

@@ -11,6 +11,7 @@ use super::explorer_table_folder_view::TableFolderContext;
 use super::explorer_table_row_view::{TableRowAction, TableRowContext};
 use super::{DbProTheme, SchemaExplorerState, UiTableInfo, EXPLORER_ROW_HEIGHT};
 use eframe::egui;
+use std::cell::RefCell;
 
 pub(super) enum ExplorerSchemaObjectsAction {
     SelectTable(String),
@@ -22,6 +23,7 @@ pub(super) struct ExplorerSchemaObjectsModel {
     pub(super) selected_table: Option<String>,
     pub(super) table_info: Option<UiTableInfo>,
     pub(super) connection_id: String,
+    pub(super) database: String,
     pub(super) functions_enabled: bool,
 }
 
@@ -29,6 +31,7 @@ pub(super) struct ExplorerSchemaObjectsView<'a> {
     theme: DbProTheme,
     explorer: &'a mut SchemaExplorerState,
     model: ExplorerSchemaObjectsModel,
+    native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
 }
 
 impl<'a> ExplorerSchemaObjectsView<'a> {
@@ -36,8 +39,14 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
         theme: DbProTheme,
         explorer: &'a mut SchemaExplorerState,
         model: ExplorerSchemaObjectsModel,
+        native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     ) -> Self {
-        Self { theme, explorer, model }
+        Self {
+            theme,
+            explorer,
+            model,
+            native_runtime,
+        }
     }
 
     pub(super) fn draw(&mut self, ui: &mut egui::Ui, schema: &str) -> Vec<ExplorerSchemaObjectsAction> {
@@ -87,6 +96,17 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
             total_tables,
             matching_tables: matching_table_count,
             search_query,
+            native_runtime: self.native_runtime,
+            tree_key: super::explorer_tree::tables_folder_tree_key(
+                &self.model.connection_id,
+                &self.model.database,
+                schema,
+            ),
+            tree_parent_key: super::explorer_tree::schema_tree_key(
+                &self.model.connection_id,
+                &self.model.database,
+                schema,
+            ),
         };
         let render = folder.draw_header(ui);
         if !render.is_open {
@@ -110,20 +130,34 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
                 folder.draw_offscreen_row_spacer(ui);
                 continue;
             }
-            actions.extend(self.draw_table_row(ui, table));
+            actions.extend(self.draw_table_row(ui, schema, table));
         }
         folder.draw_overflow_hint(ui, tables.len());
         actions
     }
 
-    fn draw_table_row(&self, ui: &mut egui::Ui, table: &str) -> Vec<ExplorerSchemaObjectsAction> {
+    fn draw_table_row(&self, ui: &mut egui::Ui, schema: &str, table: &str) -> Vec<ExplorerSchemaObjectsAction> {
         let is_selected = self.model.selected_table.as_deref() == Some(table);
         let has_details = is_selected && self.model.table_info.is_some();
+        let key = super::explorer_tree::table_tree_key(
+            &self.model.connection_id,
+            &self.model.database,
+            schema,
+            table,
+        );
+        let parent_key = super::explorer_tree::tables_folder_tree_key(
+            &self.model.connection_id,
+            &self.model.database,
+            schema,
+        );
         let render = TableRowContext {
             theme: self.theme,
             table,
             is_selected,
             has_details,
+            native_runtime: self.native_runtime,
+            tree_key: &key,
+            tree_parent_key: &parent_key,
         }
         .draw(ui);
 

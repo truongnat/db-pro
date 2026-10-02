@@ -6,6 +6,7 @@ use super::explorer_tree::draw_hint_row;
 use super::{DbProTheme, SchemaExplorerState, UiConnectionSummary};
 use eframe::egui;
 use lucide_icons::Icon;
+use std::cell::RefCell;
 
 pub(super) enum ExplorerConnectionNodeAction {
     Connection(ConnectionRowAction),
@@ -24,6 +25,7 @@ pub(super) struct ExplorerConnectionNodeView<'a> {
     connection: &'a UiConnectionSummary,
     model: ExplorerConnectionNodeModel,
     modifier: &'static str,
+    native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
 }
 
 impl<'a> ExplorerConnectionNodeView<'a> {
@@ -32,12 +34,14 @@ impl<'a> ExplorerConnectionNodeView<'a> {
         connection: &'a UiConnectionSummary,
         model: ExplorerConnectionNodeModel,
         modifier: &'static str,
+        native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     ) -> Self {
         Self {
             theme,
             connection,
             model,
             modifier,
+            native_runtime,
         }
     }
 
@@ -53,6 +57,7 @@ impl<'a> ExplorerConnectionNodeView<'a> {
             is_connecting: self.model.is_connecting,
             is_failed: self.model.is_failed,
             modifier: self.modifier,
+            native_runtime: self.native_runtime,
         }
         .draw(ui);
         let mut actions = render
@@ -65,7 +70,7 @@ impl<'a> ExplorerConnectionNodeView<'a> {
             if self.model.is_connected {
                 if let Some((explorer, model)) = schema {
                     actions.extend(
-                        ExplorerSchemaTreeView::new(self.theme, explorer, model)
+                        ExplorerSchemaTreeView::new(self.theme, explorer, model, self.native_runtime)
                             .draw(ui)
                             .into_iter()
                             .map(ExplorerConnectionNodeAction::Schema),

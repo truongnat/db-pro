@@ -8,6 +8,7 @@ use super::explorer_schema_objects_view::{
 };
 use super::{is_user_visible_schema, DbProTheme, SchemaExplorerState, UiTableInfo};
 use eframe::egui;
+use std::cell::RefCell;
 
 pub(super) enum ExplorerSchemaTreeAction {
     RefreshSchema,
@@ -31,6 +32,7 @@ pub(super) struct ExplorerSchemaTreeView<'a> {
     theme: DbProTheme,
     explorer: &'a mut SchemaExplorerState,
     model: ExplorerSchemaTreeModel,
+    native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
 }
 
 impl<'a> ExplorerSchemaTreeView<'a> {
@@ -38,8 +40,14 @@ impl<'a> ExplorerSchemaTreeView<'a> {
         theme: DbProTheme,
         explorer: &'a mut SchemaExplorerState,
         model: ExplorerSchemaTreeModel,
+        native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     ) -> Self {
-        Self { theme, explorer, model }
+        Self {
+            theme,
+            explorer,
+            model,
+            native_runtime,
+        }
     }
 
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerSchemaTreeAction> {
@@ -48,6 +56,7 @@ impl<'a> ExplorerSchemaTreeView<'a> {
             theme: self.theme,
             connection_id: &self.model.connection_id,
             database: &self.model.database,
+            native_runtime: self.native_runtime,
         }
         .draw(ui);
 
@@ -95,9 +104,11 @@ impl<'a> ExplorerSchemaTreeView<'a> {
         let render = SchemaNodeContext {
             theme: self.theme,
             connection_id: &self.model.connection_id,
+            database: &self.model.database,
             schema,
             is_active,
             table_count,
+            native_runtime: self.native_runtime,
         }
         .draw(ui);
 
@@ -128,9 +139,10 @@ impl<'a> ExplorerSchemaTreeView<'a> {
             selected_table: self.model.selected_table.clone(),
             table_info: self.model.table_info.clone(),
             connection_id: self.model.connection_id.clone(),
+            database: self.model.database.clone(),
             functions_enabled: self.model.functions_enabled,
         };
-        ExplorerSchemaObjectsView::new(self.theme, self.explorer, model)
+                ExplorerSchemaObjectsView::new(self.theme, self.explorer, model, self.native_runtime)
             .draw(ui, schema)
             .into_iter()
             .map(ExplorerSchemaTreeAction::SchemaObjects)

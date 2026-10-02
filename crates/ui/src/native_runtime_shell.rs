@@ -204,8 +204,27 @@ pub(crate) struct RsUiShellRuntime {
     tab_nodes: std::collections::HashMap<String, NodeId>,
     active_tab_keys: std::collections::HashSet<String>,
     focused_tab_seen: bool,
+    explorer_tree_runtime: UiTree,
+    explorer_tree_root: Option<NodeId>,
+    explorer_tree_nodes: std::collections::HashMap<String, NodeId>,
+    explorer_tree_parents: std::collections::HashMap<String, Option<String>>,
+    active_explorer_tree_keys: std::collections::HashSet<String>,
+    focused_explorer_item_seen: bool,
+    pending_explorer_tree_command: Option<BehaviorCommand>,
     sidebar_width: f32,
     resizing_sidebar: bool,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ExplorerTreeItem<'a> {
+    pub(crate) key: &'a str,
+    pub(crate) parent_key: Option<&'a str>,
+    pub(crate) label: &'a str,
+    pub(crate) expanded: bool,
+    pub(crate) selected: bool,
+    pub(crate) bounds: egui::Rect,
+    pub(crate) focused: bool,
+    pub(crate) clicked: bool,
 }
 
 impl Default for RsUiShellRuntime {
@@ -220,6 +239,13 @@ impl Default for RsUiShellRuntime {
             tab_nodes: std::collections::HashMap::new(),
             active_tab_keys: std::collections::HashSet::new(),
             focused_tab_seen: false,
+            explorer_tree_runtime: UiTree::new(),
+            explorer_tree_root: None,
+            explorer_tree_nodes: std::collections::HashMap::new(),
+            explorer_tree_parents: std::collections::HashMap::new(),
+            active_explorer_tree_keys: std::collections::HashSet::new(),
+            focused_explorer_item_seen: false,
+            pending_explorer_tree_command: None,
             sidebar_width: 260.0,
             resizing_sidebar: false,
         }
@@ -227,6 +253,142 @@ impl Default for RsUiShellRuntime {
 }
 
 impl RsUiShellRuntime {
+    fn ensure_explorer_tree_root(&mut self) -> Result<NodeId, RuntimeError> {
+        if let Some(node) = self.explorer_tree_root {
+            return Ok(node);
+        }
+        let root = self
+            .explorer_tree_runtime
+            .create_node(None, LayoutStyle::default(), PaintState::default())?;
+        self.explorer_tree_runtime
+            .set_accessibility_semantics(root, AccessibilitySemantics::new(AccessibilityRole::Tree))?;
+        self.explorer_tree_root = Some(root);
+        Ok(root)
+    }
+
+    pub(crate) fn begin_explorer_tree(&mut self) {
+        self.active_explorer_tree_keys.clear();
+        self.focused_explorer_item_seen = false;
+    }
+
+    pub(crate) fn queue_explorer_tree_navigation(&mut self, command: BehaviorCommand) {
+        if matches!(command, BehaviorCommand::MoveNext | BehaviorCommand::MovePrevious) {
+            self.pending_explorer_tree_command = Some(command);
+        }
+    }
+
+    pub(crate) fn explorer_item_has_focus(&self, key: &str) -> bool {
+        self.explorer_tree_nodes
+            .get(key)
+            .is_some_and(|node| self.explorer_tree_runtime.focus_manager().focused() == Some(*node))
+    }
+
+    pub(crate) fn register_explorer_tree_item(&mut self, item: ExplorerTreeItem<'_>) -> Result<bool, RuntimeError> {
+        let root = self.ensure_explorer_tree_root()?;
+        let parent = match item.parent_key {
+            Some(parent_key) => self
+                .explorer_tree_nodes
+                .get(parent_key)
+                .copied()
+                .ok_or(RuntimeError::UnknownNode(root))?,
+            None => root,
+        };
+        let node = self.ensure_explorer_tree_node(parent, item)?;
+        let mut semantics = AccessibilitySemantics::new(AccessibilityRole::TreeItem);
+        semantics.label = Some(item.label.to_owned());
+        semantics.state.expanded = Some(item.expanded);
+        self.explorer_tree_runtime
+            .set_accessibility_semantics(node, semantics)?;
+        self.explorer_tree_runtime.apply_selection_state(node, item.selected)?;
+        self.explorer_tree_runtime.set_hit_test_state(
+            node,
+            HitTestState {
+                bounds: rs_ui_core::Rect::from_min_max(
+                    rs_ui_core::Point::new(item.bounds.min.x, item.bounds.min.y),
+                    rs_ui_core::Point::new(item.bounds.max.x, item.bounds.max.y),
+                ),
+                pointer_events: PointerEvents::Auto,
+                ..HitTestState::default()
+            },
+        )?;
+        self.active_explorer_tree_keys.insert(item.key.to_owned());
+        self.explorer_tree_parents
+            .insert(item.key.to_owned(), item.parent_key.map(str::to_owned));
+        if item.focused {
+            self.focused_explorer_item_seen = true;
+            let _ = self.explorer_tree_runtime.request_focus(node)?;
+        }
+        if !item.clicked {
+            return Ok(false);
+        }
+        let _ = self.explorer_tree_runtime.request_focus(node)?;
+        let event =
+            self.explorer_tree_runtime
+                .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
+        Ok(event.default_prevented())
+    }
+
+    fn ensure_explorer_tree_node(
+        &mut self,
+        parent: NodeId,
+        item: ExplorerTreeItem<'_>,
+    ) -> Result<NodeId, RuntimeError> {
+        if let Some(node) = self.explorer_tree_nodes.get(item.key).copied() {
+            return Ok(node);
+        }
+        let node =
+            self.explorer_tree_runtime
+                .create_node(Some(parent), LayoutStyle::default(), PaintState::default())?;
+        self.explorer_tree_runtime
+            .register_pressable(node, Some(item.label.to_owned()), false)?;
+        self.explorer_tree_nodes.insert(item.key.to_owned(), node);
+        Ok(node)
+    }
+
+    pub(crate) fn end_explorer_tree(&mut self) -> Result<(), RuntimeError> {
+        let root = self.ensure_explorer_tree_root()?;
+        let focused_item = self
+            .explorer_tree_runtime
+            .focus_manager()
+            .focused()
+            .is_some_and(|focused| self.explorer_tree_nodes.values().any(|node| *node == focused));
+        if focused_item && !self.focused_explorer_item_seen {
+            self.explorer_tree_runtime.clear_focus();
+        }
+        let stale = self
+            .explorer_tree_nodes
+            .keys()
+            .filter(|key| !self.active_explorer_tree_keys.contains(*key))
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
+        let stale_roots = stale
+            .iter()
+            .filter(|key| {
+                self.explorer_tree_parents
+                    .get(*key)
+                    .and_then(Option::as_ref)
+                    .is_none_or(|parent| !stale.contains(parent))
+            })
+            .filter_map(|key| self.explorer_tree_nodes.get(key).copied())
+            .collect::<Vec<_>>();
+        for node in stale_roots {
+            self.explorer_tree_runtime.remove_subtree(node)?;
+        }
+        self.explorer_tree_nodes
+            .retain(|key, _| self.active_explorer_tree_keys.contains(key));
+        self.explorer_tree_parents
+            .retain(|key, _| self.active_explorer_tree_keys.contains(key));
+        self.active_explorer_tree_keys.clear();
+        if let Some(command) = self.pending_explorer_tree_command.take() {
+            self.explorer_tree_runtime
+                .dispatch_behavior_command(root, command, Duration::ZERO)?;
+        }
+        if self.explorer_tree_runtime.node(root).is_none() {
+            return Err(RuntimeError::UnknownNode(root));
+        }
+        Ok(())
+    }
+
     fn ensure_output_splitter(&mut self, horizontal: bool) -> Result<NodeId, RuntimeError> {
         let index = usize::from(horizontal);
         if let Some(node) = self.output_splitters[index] {
@@ -794,5 +956,191 @@ mod tests {
         assert_eq!(close_semantic.role, AccessibilityRole::Button);
         assert_eq!(close_semantic.label.as_deref(), Some("Close Query 1"));
         assert_eq!(close_semantic.state.focused, Some(true));
+    }
+
+    #[test]
+    fn explorer_tree_items_keep_parentage_and_selected_expanded_state() {
+        let mut runtime = RsUiShellRuntime::default();
+        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(160.0, 26.0));
+        runtime.begin_explorer_tree();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "connection",
+                parent_key: None,
+                label: "local",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "database",
+                parent_key: Some("connection"),
+                label: "app",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "schema",
+                parent_key: Some("database"),
+                label: "public",
+                expanded: true,
+                selected: true,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "tables",
+                parent_key: Some("schema"),
+                label: "Tables",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "table",
+                parent_key: Some("tables"),
+                label: "users",
+                expanded: false,
+                selected: true,
+                bounds,
+                focused: true,
+                clicked: false,
+            })
+            .unwrap();
+
+        let root = runtime.explorer_tree_root.unwrap();
+        let schema_node = runtime.explorer_tree_nodes["schema"];
+        let tables_node = runtime.explorer_tree_nodes["tables"];
+        let table_node = runtime.explorer_tree_nodes["table"];
+        let mut semantic_tree = rs_ui_runtime::SemanticTree::default();
+        semantic_tree.update(&mut runtime.explorer_tree_runtime, root).unwrap();
+        let schema_id = semantic_tree.accessibility_id(schema_node).unwrap();
+        let tables_id = semantic_tree.accessibility_id(tables_node).unwrap();
+        let table_id = semantic_tree.accessibility_id(table_node).unwrap();
+        let schema_semantic = semantic_tree.nodes().get(&schema_id).unwrap();
+        let tables_semantic = semantic_tree.nodes().get(&tables_id).unwrap();
+        let table_semantic = semantic_tree.nodes().get(&table_id).unwrap();
+
+        assert_eq!(schema_semantic.role, AccessibilityRole::TreeItem);
+        assert_eq!(schema_semantic.state.selected, Some(true));
+        assert_eq!(schema_semantic.state.expanded, Some(true));
+        assert!(schema_semantic.children.contains(&tables_id));
+        assert!(tables_semantic.children.contains(&table_id));
+        assert_eq!(table_semantic.label.as_deref(), Some("users"));
+        assert_eq!(table_semantic.state.selected, Some(true));
+        assert_eq!(table_semantic.state.focused, Some(true));
+    }
+
+    #[test]
+    fn explorer_tree_cleanup_removes_stale_descendants_without_removing_live_parent() {
+        let mut runtime = RsUiShellRuntime::default();
+        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(160.0, 26.0));
+        runtime.begin_explorer_tree();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "connection",
+                parent_key: None,
+                label: "local",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "database",
+                parent_key: Some("connection"),
+                label: "app",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "schema",
+                parent_key: Some("database"),
+                label: "public",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime.end_explorer_tree().unwrap();
+
+        runtime.begin_explorer_tree();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "connection",
+                parent_key: None,
+                label: "local",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime.end_explorer_tree().unwrap();
+
+        assert_eq!(runtime.explorer_tree_nodes.len(), 1);
+        assert_eq!(runtime.explorer_tree_runtime.node_count(), 2);
+    }
+
+    #[test]
+    fn explorer_tree_navigation_uses_rendered_focus_order() {
+        let mut runtime = RsUiShellRuntime::default();
+        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(160.0, 26.0));
+        runtime.begin_explorer_tree();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "first",
+                parent_key: None,
+                label: "first",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: true,
+                clicked: false,
+            })
+            .unwrap();
+        runtime
+            .register_explorer_tree_item(ExplorerTreeItem {
+                key: "second",
+                parent_key: None,
+                label: "second",
+                expanded: true,
+                selected: false,
+                bounds,
+                focused: false,
+                clicked: false,
+            })
+            .unwrap();
+        runtime.queue_explorer_tree_navigation(BehaviorCommand::MoveNext);
+        runtime.end_explorer_tree().unwrap();
+
+        assert!(runtime.explorer_item_has_focus("second"));
     }
 }
