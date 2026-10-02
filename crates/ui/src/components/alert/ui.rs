@@ -93,6 +93,9 @@ impl<'a> Alert<'a> {
                     Vec2::new(text_avail, 0.0),
                     egui::Layout::top_down(egui::Align::LEFT),
                     |ui| {
+                        // Short copy must still occupy its reserved column so dismiss
+                        // stays at the trailing edge of the full-width alert.
+                        ui.set_min_width(text_avail);
                         ui.add(
                             egui::Label::new(
                                 RichText::new(self.title.as_ref())

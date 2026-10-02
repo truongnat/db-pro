@@ -29,4 +29,38 @@ mod tests {
         assert!(!alert.dismissable);
         assert_eq!(alert.variant, AlertVariant::Success);
     }
+
+    #[test]
+    fn dismiss_stays_at_trailing_edge_for_short_and_wrapped_copy() {
+        for width in [280.0, 800.0] {
+            for description in [
+                "Short",
+                "Correct the highlighted fields, then save again. ".repeat(5).as_str(),
+            ] {
+                let ctx = egui::Context::default();
+                crate::DbProTheme::install_fonts(&ctx);
+                let _ = ctx.run(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 600.0))),
+                        ..Default::default()
+                    },
+                    |ctx| {
+                        egui::CentralPanel::default().show(ctx, |ui| {
+                            let right = ui.available_rect_before_wrap().right();
+                            let dismiss = Alert::new("Attention", description, DbProTheme::light())
+                                .dismissable(true)
+                                .show(ui)
+                                .unwrap();
+                            let expected = right - super::config::ALERT_FRAME_PADDING_X;
+                            assert!(
+                                (dismiss.rect.right() - expected).abs() < 1.0,
+                                "{width}: {:?}, expected {expected}",
+                                dismiss.rect
+                            );
+                        });
+                    },
+                );
+            }
+        }
+    }
 }

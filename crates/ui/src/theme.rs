@@ -395,6 +395,7 @@ impl DbProTheme {
     }
 
     pub fn apply(self, ctx: &egui::Context) {
+        crate::text_selection_style::install(ctx);
         let mut visuals = if self.dark_mode {
             Visuals::dark()
         } else {
@@ -410,10 +411,10 @@ impl DbProTheme {
         visuals.hyperlink_color = self.accent;
         visuals.warn_fg_color = self.warning;
         visuals.error_fg_color = self.danger;
-        // Selection stays a muted blue wash so the active cell is visible without
-        // turning a dense result grid into a wall of saturated color.
-        visuals.selection.bg_fill = self.accent_soft;
-        visuals.selection.stroke = Stroke::new(STROKE_THIN, self.accent);
+        // Text selection uses the same solid blue/white pair in both themes.
+        let selection = Self::light();
+        visuals.selection.bg_fill = selection.accent_hover;
+        visuals.selection.stroke = Stroke::new(STROKE_THIN, selection.accent_foreground);
         visuals.window_rounding = Rounding::same(RADIUS_EGUI_WINDOW);
         visuals.window_shadow = Shadow {
             offset: egui::vec2(0.0, SHADOW_OFFSET_Y),

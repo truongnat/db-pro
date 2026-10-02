@@ -5,7 +5,7 @@ use crate::tokens::{ICON_TEXT_GAP, RADIUS_BUTTON};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2,
+    Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Shape, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
 use std::borrow::Cow;
@@ -52,6 +52,7 @@ struct InteractiveAllocation<'a> {
 
 struct InteractiveLayout<'a> {
     paint_rect: Rect,
+    scale: f32,
     fill: Color32,
     stroke: Stroke,
     galley: &'a std::sync::Arc<egui::Galley>,
@@ -293,7 +294,8 @@ impl<'a> Button<'a> {
         paint_interactive_surface(
             ui,
             InteractiveLayout {
-                paint_rect: pressed_rect(rect, press),
+                paint_rect: rect,
+                scale: press_scale(press),
                 fill,
                 stroke,
                 galley: &label_layout,
@@ -364,10 +366,6 @@ fn interactive_animation_state(ui: &Ui, response: &Response, enabled: bool, redu
     (hover, press)
 }
 
-fn pressed_rect(rect: Rect, press: f32) -> Rect {
-    Rect::from_center_size(rect.center(), rect.size() * press_scale(press))
-}
-
 fn add_tooltip(response: Response, tooltip_text: Option<&str>, theme: DbProTheme) -> Response {
     let Some(tooltip_text) = tooltip_text else {
         return response;
@@ -377,9 +375,9 @@ fn add_tooltip(response: Response, tooltip_text: Option<&str>, theme: DbProTheme
 
 fn paint_interactive_surface(ui: &mut Ui, layout: InteractiveLayout<'_>) {
     let rounding = Rounding::same(RADIUS_BUTTON);
-    ui.painter().rect_filled(layout.paint_rect, rounding, layout.fill);
+    let mut shapes = vec![Shape::rect_filled(layout.paint_rect, rounding, layout.fill)];
     if layout.stroke != Stroke::NONE {
-        ui.painter().rect_stroke(layout.paint_rect, rounding, layout.stroke);
+        shapes.push(Shape::rect_stroke(layout.paint_rect, rounding, layout.stroke));
     }
 
     let text_x = leading_content_x(
@@ -390,18 +388,31 @@ fn paint_interactive_surface(ui: &mut Ui, layout: InteractiveLayout<'_>) {
         layout.horizontal_padding,
     );
     let text_pos = centered_content_pos(text_x, layout.paint_rect.center().y, layout.galley.size().y);
-    ui.painter()
-        .galley(text_pos, std::sync::Arc::clone(layout.galley), layout.text_color);
+    shapes.push(Shape::galley(
+        text_pos,
+        std::sync::Arc::clone(layout.galley),
+        layout.text_color,
+    ));
     if layout.underline {
         let underline_y = text_pos.y + layout.galley.size().y;
-        ui.painter().line_segment(
+        shapes.push(Shape::line_segment(
             [
                 Pos2::new(text_pos.x, underline_y),
                 Pos2::new(text_pos.x + layout.galley.size().x, underline_y),
             ],
             Stroke::new(LINK_UNDERLINE_WIDTH, layout.text_color),
-        );
+        ));
     }
+    // Transform the whole painted button around one center, including glyph meshes.
+    // Allocation and hit testing retain their original bounds throughout the press.
+    let mut shape = Shape::Vec(shapes);
+    if layout.scale != 1.0 {
+        shape.transform(egui::emath::TSTransform::new(
+            layout.paint_rect.center().to_vec2() * (1.0 - layout.scale),
+            layout.scale,
+        ));
+    }
+    ui.painter().add(shape);
 }
 
 fn button_label_layout_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) -> LayoutJob {
@@ -437,6 +448,62 @@ fn button_label_layout_job(button: &Button<'_>, tokens: &SizeTokens, text_color:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn press_scales_background_icon_text_and_underline_together() {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let _ = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let button = Button::new(DbProTheme::light()).icon(Icon::Play).text("Run");
+                let tokens = SizeTokens::from_size(button.size);
+                let galley =
+                    ui.fonts(|fonts| fonts.layout_job(button_label_layout_job(&button, &tokens, Color32::WHITE)));
+                let original = galley.rows[0].visuals.mesh.vertices.clone();
+                let rect = Rect::from_min_size(Pos2::new(20.0, 20.0), Vec2::new(140.0, 40.0));
+                let scale = press_scale(1.0);
+                for left_aligned in [false, true] {
+                    let index = ui.painter().add(Shape::Noop);
+                    paint_interactive_surface(
+                        ui,
+                        InteractiveLayout {
+                            paint_rect: rect,
+                            scale,
+                            fill: Color32::BLUE,
+                            stroke: Stroke::NONE,
+                            galley: &galley,
+                            text_color: Color32::WHITE,
+                            left_aligned,
+                            horizontal_padding: 12.0,
+                            underline: true,
+                        },
+                    );
+                    ui.ctx().graphics(|graphics| {
+                        let list = graphics.get(ui.layer_id()).unwrap();
+                        let shape = &list.all_entries().nth(index.0 + 1).unwrap().shape;
+                        let Shape::Vec(shapes) = shape else {
+                            panic!("button shapes")
+                        };
+                        let Shape::Rect(background) = &shapes[0] else {
+                            panic!("background")
+                        };
+                        assert_eq!(background.rect.center(), rect.center());
+                        assert!((background.rect.size() - rect.size() * scale).length() < 0.001);
+                        let Shape::Text(text) = &shapes[1] else { panic!("text") };
+                        for (before, after) in original.iter().zip(&text.galley.rows[0].visuals.mesh.vertices) {
+                            assert!((after.pos.to_vec2() - before.pos.to_vec2() * scale).length() < 0.001);
+                            assert_eq!(after.uv, before.uv);
+                        }
+                        let Shape::LineSegment { points, .. } = &shapes[2] else {
+                            panic!("underline")
+                        };
+                        assert!(((points[1].x - points[0].x) - galley.size().x * scale).abs() < 0.001);
+                    });
+                }
+                assert_eq!(galley.rows[0].visuals.mesh.vertices, original);
+            });
+        });
+    }
 
     /// Visible or explicit labels provide stable accessibility names; a tooltip is only a fallback.
     #[test]

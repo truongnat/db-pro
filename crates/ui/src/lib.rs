@@ -14,6 +14,7 @@ mod policy;
 pub mod query;
 mod result_grid;
 mod runtime;
+mod text_selection_style;
 mod theme;
 pub mod tokens;
 
