@@ -71,14 +71,36 @@ mod tests {
     }
 
     #[test]
-    fn palette_preserves_outline_border_and_disabled_text() {
+    fn action_variants_stay_borderless_through_hover_loading_and_disabled_states() {
         let theme = DbProTheme::dark();
         let outline = ButtonPalette::from_variant(ButtonVariant::Outline, theme);
         assert_eq!(outline.fill_rest, Color32::TRANSPARENT);
-        assert_eq!(outline.stroke_rest, Stroke::new(1.0, theme.border_default));
+
+        for variant in [
+            ButtonVariant::Default,
+            ButtonVariant::Secondary,
+            ButtonVariant::Outline,
+            ButtonVariant::Ghost,
+            ButtonVariant::Destructive,
+            ButtonVariant::Link,
+        ] {
+            let palette = ButtonPalette::from_variant(variant, theme);
+            assert_eq!(palette.stroke_rest, Stroke::NONE, "{variant:?} rest");
+            assert_eq!(palette.stroke_hover, Stroke::NONE, "{variant:?} hover");
+            for step in 0..=10 {
+                let (_, stroke) = palette.resolve_state(step as f32 / 10.0);
+                assert_eq!(stroke, Stroke::NONE, "{variant:?} step {step}");
+            }
+            assert_eq!(
+                palette.loading_colors(variant, theme).2,
+                Stroke::NONE,
+                "{variant:?} loading"
+            );
+        }
 
         let disabled = ButtonPalette::disabled(theme);
         assert_eq!(disabled.text_color, theme.text_disabled);
-        assert_eq!(disabled.stroke_rest, Stroke::new(1.0, theme.border_subtle));
+        assert_eq!(disabled.stroke_rest, Stroke::NONE);
+        assert_eq!(disabled.stroke_hover, Stroke::NONE);
     }
 }

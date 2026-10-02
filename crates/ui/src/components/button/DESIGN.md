@@ -8,11 +8,11 @@ The component receives the current `DbProTheme` from its caller. Shared color ro
 
 ## UI design
 
-The default variant uses the accent fill so one main action is easy to locate. Secondary, Outline, and Ghost reduce visual weight for supporting actions; Destructive uses the danger role; Link is text-only with a hover/focus underline. Each variant uses semantic theme colors, so light and dark modes keep the same meaning. The palette is resolved in `handlers/palette.rs`, while `ui/button.rs` paints it.
+The default variant uses the accent fill so one main action is easy to locate. Secondary, Outline, and Ghost reduce visual weight for supporting actions; Destructive uses the danger role; Link is text-only with a hover/focus underline. Action variants do not draw decorative strokes; Outline remains as a compatibility name for a transparent supporting action. Each variant uses semantic theme colors, so light and dark modes keep the same meaning. The palette is resolved in `handlers/palette.rs`, while `ui/button.rs` paints it.
 
 Sizes are fixed presets from the core button contract: small, default, large, icon, and compact icon. The control measures text with egui, adds the preset padding, and keeps at least the preset width. `full_width(true)` fills the current UI region. Text and icons are centered by default; `left_aligned()` starts content at the leading padding. The rounded surface follows the shared `RADIUS_BUTTON` token. `ButtonGroup` uses the shared `SPACE_XS` gap so adjacent 2-point focus rings do not overlap.
 
-The control distinguishes rest, hover, press, focus, loading, and disabled states. Hover blends fill and stroke; press scales the background, border, icon, text and underline together around the button center, while its layout and hit target stay fixed; focus keeps a visible ring. Loading shows a spinner and wait cursor. Disabled keeps muted text and a quiet bordered surface. These states make the action and its availability visible in dense IDE screens without adding heavy decoration.
+The control distinguishes rest, hover, press, focus, loading, and disabled states. Hover blends the fill without introducing a border; press scales the background, icon, text and underline together around the button center, while its layout and hit target stay fixed; keyboard focus keeps a visible ring. Loading shows a spinner and wait cursor. Disabled keeps muted text without a bordered surface. These states make the action and its availability visible in dense IDE screens without adding heavy decoration.
 
 ## Logic design
 

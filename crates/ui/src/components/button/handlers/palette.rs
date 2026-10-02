@@ -1,6 +1,5 @@
 use super::ButtonVariant;
 use crate::components::animation::lerp_color;
-use crate::tokens::STROKE_THIN;
 use crate::DbProTheme;
 use egui::{Color32, Stroke};
 
@@ -35,8 +34,8 @@ impl ButtonPalette {
             ButtonVariant::Outline => Self {
                 fill_rest: Color32::TRANSPARENT,
                 fill_hover: theme.surface_hover,
-                stroke_rest: Stroke::new(STROKE_THIN, theme.border_default),
-                stroke_hover: Stroke::new(STROKE_THIN, theme.border_strong),
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
                 text_color: theme.text_primary,
             },
             ButtonVariant::Ghost => Self {
@@ -67,8 +66,8 @@ impl ButtonPalette {
         Self {
             fill_rest: theme.surface_2,
             fill_hover: theme.surface_2,
-            stroke_rest: Stroke::new(STROKE_THIN, theme.border_subtle),
-            stroke_hover: Stroke::new(STROKE_THIN, theme.border_subtle),
+            stroke_rest: Stroke::NONE,
+            stroke_hover: Stroke::NONE,
             text_color: theme.text_disabled,
         }
     }
@@ -86,11 +85,7 @@ impl ButtonPalette {
         match variant {
             ButtonVariant::Default => (self.text_color, self.fill_rest, Stroke::NONE),
             ButtonVariant::Secondary => (theme.text_secondary, theme.surface_hover, Stroke::NONE),
-            ButtonVariant::Outline => (
-                theme.text_secondary,
-                Color32::TRANSPARENT,
-                Stroke::new(STROKE_THIN, theme.border_default),
-            ),
+            ButtonVariant::Outline => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
             ButtonVariant::Ghost => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
             ButtonVariant::Destructive => (self.text_color, self.fill_rest, Stroke::NONE),
             ButtonVariant::Link => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),

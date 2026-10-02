@@ -62,6 +62,15 @@ const AGENT_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_AGENT";
 /// When set, switch to the native Component Gallery before capturing.
 const COMPONENT_GALLERY_ENV: &str = "DB_PRO_CAPTURE_COMPONENT_GALLERY";
 
+/// When set, open Quick Open with its Schema filter selected before capturing.
+const QUICK_OPEN_ENV: &str = "DB_PRO_CAPTURE_QUICK_OPEN";
+
+/// When set with [`QUICK_OPEN_ENV`], use the light theme for the Quick Open capture.
+const QUICK_OPEN_LIGHT_ENV: &str = "DB_PRO_CAPTURE_QUICK_OPEN_LIGHT";
+
+/// When set with [`QUICK_OPEN_ENV`], show the Quick Open empty state.
+const QUICK_OPEN_EMPTY_ENV: &str = "DB_PRO_CAPTURE_QUICK_OPEN_EMPTY";
+
 /// Environment variable pinning the viewport size for evidence runs (the same key
 /// `main.rs` reads for the initial window). The capture driver re-asserts it each
 /// frame so the window cannot maximize itself away from the requested size.
@@ -211,6 +220,12 @@ impl CaptureApp {
             self.opened_dialog = true;
         } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
             self.inner.open_component_gallery_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(QUICK_OPEN_ENV).is_some() {
+            self.inner.open_quick_open_for_capture(
+                std::env::var_os(QUICK_OPEN_LIGHT_ENV).is_some(),
+                std::env::var_os(QUICK_OPEN_EMPTY_ENV).is_some(),
+            );
             self.opened_dialog = true;
         }
     }

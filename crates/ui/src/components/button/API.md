@@ -47,8 +47,8 @@ Builder methods consume and return `Self`, so they can be chained. `text`, `acce
 |---|---|---|
 | `Default` | Main action | Accent fill and on-accent text. |
 | `Secondary` | Supporting action | Hover-surface fill. |
-| `Outline` | Bordered alternative | Transparent fill and default border. |
-| `Ghost` | Low-emphasis action | Transparent fill without border. |
+| `Outline` | Transparent supporting action (legacy variant name) | Transparent at rest; uses the quiet hover fill without a stroke. |
+| `Ghost` | Low-emphasis action | Transparent fill without a stroke. |
 | `Destructive` | Destructive action | Danger fill. |
 | `Link` | Inline text action | Transparent fill; underline on hover or focus. |
 

@@ -469,6 +469,16 @@ impl DbProApp {
         self.workspace.active_tab = WorkspaceTab::ComponentGallery;
     }
 
+    /// Capture helper: open Quick Open with the Schema filter selected.
+    pub fn open_quick_open_for_capture(&mut self, light: bool, empty: bool) {
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+        self.palette.open_with_scope(PaletteMode::QuickOpen, SearchScope::Schema);
+        if empty {
+            self.palette.query = "__no_matching_quick_open_item__".to_owned();
+        }
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {

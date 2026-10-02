@@ -15,6 +15,15 @@ pub(super) struct PaletteSurfaceContext<'a> {
     pub(super) description: &'a str,
 }
 
+fn scope_filter_label(ui: &mut egui::Ui, theme: DbProTheme, selected: bool, label: &str) -> egui::Response {
+    let foreground = if selected {
+        ui.visuals().selection.stroke.color
+    } else {
+        theme.text_primary
+    };
+    ui.selectable_label(selected, RichText::new(label).color(foreground))
+}
+
 impl<'a> PaletteSurfaceContext<'a> {
     pub(super) fn draw(&mut self, ctx: &egui::Context) -> Vec<PaletteSurfaceAction> {
         let items = self.items;
@@ -42,9 +51,11 @@ impl<'a> PaletteSurfaceContext<'a> {
 
                 ui.add_space(6.0);
                 ui.horizontal_wrapped(|ui| {
+                    ui.style_mut().visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
+                    ui.style_mut().visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
                     for scope in SearchScope::all() {
                         let selected = self.palette.scope == *scope;
-                        if ui.selectable_label(selected, scope.label()).clicked() {
+                        if scope_filter_label(ui, self.theme, selected, scope.label()).clicked() {
                             self.palette.scope = *scope;
                             self.palette.selected = 0;
                         }
@@ -93,13 +104,6 @@ impl<'a> PaletteSurfaceContext<'a> {
 
                         if selected || item_resp.hovered() {
                             ui.painter().rect_filled(rect, egui::Rounding::same(6.0), item_fill);
-                            if selected {
-                                ui.painter().rect_stroke(
-                                    rect,
-                                    egui::Rounding::same(6.0),
-                                    egui::Stroke::new(1.0, self.theme.border_subtle),
-                                );
-                            }
                         }
 
                         // Icon
@@ -172,5 +176,33 @@ impl<'a> PaletteSurfaceContext<'a> {
             actions.push(PaletteSurfaceAction::Activate(self.palette.selected));
         }
         actions
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selected_scope_label_uses_the_theme_selection_foreground() {
+        for theme in [DbProTheme::light(), DbProTheme::dark()] {
+            let ctx = egui::Context::default();
+            theme.apply(&ctx);
+            let output = ctx.run(Default::default(), |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let _ = scope_filter_label(ui, theme, true, "Schema");
+                });
+            });
+
+            let selected_foreground = ctx.style().visuals.selection.stroke.color;
+            let actual_foreground = output.shapes.iter().find_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) if text.galley.job.text == "Schema" => {
+                    text.galley.job.sections.first().map(|section| section.format.color)
+                }
+                _ => None,
+            });
+
+            assert_eq!(actual_foreground, Some(selected_foreground), "dark_mode={}", theme.dark_mode);
+        }
     }
 }
