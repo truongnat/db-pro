@@ -13,9 +13,8 @@ use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext
 use super::{
     ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, SchemaExplorerState, UiConnectionSummary, UiTableInfo,
 };
-use crate::tokens::{SPACE_SM, SPACE_XS};
 use eframe::egui;
-use std::cell::RefCell;
+use crate::tokens::{SPACE_SM, SPACE_XS};
 
 const EXPLORER_SCROLL_ID: &str = "codex_navigator_scroll";
 
@@ -35,7 +34,6 @@ pub(super) enum ExplorerSurfaceAction {
 
 pub(super) struct ExplorerSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
-    pub(super) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     pub(super) catalog: &'a ConnectionCatalogState,
     pub(super) lifecycle: &'a ConnectionLifecycleState,
     pub(super) explorer: &'a mut SchemaExplorerState,
@@ -48,7 +46,6 @@ pub(super) struct ExplorerSurfaceContext<'a> {
 
 impl ExplorerSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerSurfaceAction> {
-        self.native_runtime.borrow_mut().begin_explorer_tree();
         let mut actions = Vec::new();
         if !self.catalog.is_empty() {
             actions.extend(self.draw_toolbar(ui));
@@ -65,20 +62,17 @@ impl ExplorerSurfaceContext<'_> {
             ui.add_space(SPACE_XS);
         }
 
-        let mut tree_width = ui
+        let tree_width = ui
             .max_rect()
             .width()
             .max(ui.available_width())
             .min(ui.clip_rect().width());
-        let native_paint = crate::native_explorer_paint::begin(ui, self.theme);
-        if native_paint {
-            tree_width = (tree_width - 10.0).max(0.0);
-        }
-        super::sidebar_view::sidebar_surface_view::draw_sidebar_scroll(
-            self.native_runtime,
-            EXPLORER_SCROLL_ID,
-            ui,
-            |ui| {
+        let scroll_h = ui.available_height();
+        egui::ScrollArea::vertical()
+            .id_salt(EXPLORER_SCROLL_ID)
+            .auto_shrink([false, false])
+            .max_height(scroll_h)
+            .show(ui, |ui| {
                 ui.set_min_width(tree_width);
                 ui.set_max_width(tree_width);
                 ui.expand_to_include_x(ui.max_rect().left() + tree_width);
@@ -88,16 +82,7 @@ impl ExplorerSurfaceContext<'_> {
                 } else {
                     actions.extend(self.draw_connections(ui));
                 }
-            },
-        );
-        if native_paint {
-            if let Err(error) = crate::native_explorer_paint::finish(ui) {
-                tracing::error!(%error, "rs-ui Explorer rendering failed");
-            }
-        }
-        if let Err(error) = self.native_runtime.borrow_mut().end_explorer_tree() {
-            tracing::error!(%error, "rs-ui Explorer tree cleanup failed");
-        }
+            });
         actions
     }
 
@@ -143,9 +128,8 @@ impl ExplorerSurfaceContext<'_> {
                 error: self.lifecycle.connection_error(&connection.id).map(str::to_owned),
             };
             let schema_model = is_connected.then(|| self.schema_tree_model(&connection));
-            let node_actions =
-                ExplorerConnectionNodeView::new(self.theme, &connection, model, self.modifier, self.native_runtime)
-                    .draw(ui, schema_model.map(|model| (&mut *self.explorer, model)));
+            let node_actions = ExplorerConnectionNodeView::new(self.theme, &connection, model, self.modifier)
+                .draw(ui, schema_model.map(|model| (&mut *self.explorer, model)));
             for action in node_actions {
                 match action {
                     ExplorerConnectionNodeAction::Connection(action) => {

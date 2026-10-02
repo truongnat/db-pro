@@ -49,14 +49,6 @@ impl ExplorerToolbarContext<'_> {
     }
 
     pub(super) fn draw_empty_state(&self, ui: &mut egui::Ui) -> Vec<ExplorerToolbarAction> {
-        if crate::native_explorer_paint::active(ui.ctx()) {
-            let button = crate::native_explorer_paint::empty_state(ui, self.theme);
-            return if button.clicked() {
-                vec![ExplorerToolbarAction::NewConnection]
-            } else {
-                Vec::new()
-            };
-        }
         let mut actions = Vec::new();
         ui.add_space(36.0);
         ui.vertical_centered(|ui| {

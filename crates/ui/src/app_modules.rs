@@ -123,8 +123,7 @@ mod explorer_table_row_view;
 #[path = "explorer_toolbar_view.rs"]
 mod explorer_toolbar_view;
 #[path = "explorer_tree.rs"]
-pub(crate) mod explorer_tree;
-pub(crate) mod native_explorer_paint;
+mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
 #[path = "fdw_activity_view.rs"]
@@ -411,8 +410,6 @@ mod result_grid_row_view;
 mod result_grid_selection;
 #[path = "result_grid_toolbar_view.rs"]
 mod result_grid_toolbar_view;
-#[path = "result_grid_virtual_adapter.rs"]
-mod result_grid_virtual_adapter;
 #[path = "result_grid_view.rs"]
 pub(crate) mod result_grid_view;
 #[path = "runtime_event_handlers.rs"]

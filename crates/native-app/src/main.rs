@@ -372,19 +372,12 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
                     .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
             }
             DbProTheme::install_fonts(&creation_context.egui_ctx);
-            if !explorer_baseline_capture() {
-                db_pro_ui::install_explorer_renderer(&creation_context.egui_ctx)?;
-            }
             creation_context.egui_ctx.enable_accesskit();
             let app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
             Ok(wrap_for_capture(app))
         }),
     )?;
     Ok(())
-}
-
-fn explorer_baseline_capture() -> bool {
-    cfg!(feature = "capture") && std::env::var_os("DB_PRO_EXPLORER_EGUI_BASELINE").is_some()
 }
 
 /// Wraps the app in the evidence capture driver when one was requested.

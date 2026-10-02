@@ -375,12 +375,8 @@ impl DbProApp {
 
     /// Scrollable grid: continuous spreadsheet header plus visible slice of rows.
     fn draw_grid_body(&mut self, ui: &mut egui::Ui, context: result_grid_body_view::ResultGridBodyContext<'_>) {
-        let mut virtual_runtime = std::mem::take(&mut self.table.data.result_grid_virtual_runtime);
-        {
-            let mut renderer = GridBodyRenderer { app: self };
-            result_grid_body_view::draw_body(ui, context, &mut virtual_runtime, &mut renderer);
-        }
-        self.table.data.result_grid_virtual_runtime = virtual_runtime;
+        let mut renderer = GridBodyRenderer { app: self };
+        result_grid_body_view::draw_body(ui, context, &mut renderer);
     }
 
     /// One grid row: the row-number gutter plus every visible cell with continuous borders.
@@ -466,6 +462,7 @@ impl result_grid_row_view::GridRowSurfaceRenderer for GridRowRenderer<'_> {
         let modifiers = ui.input(|input| input.modifiers);
         self.app.table.data.select_visible_row(
             rows.indexes,
+            &rows.selection_lookup.row_positions,
             position,
             modifiers.shift,
             modifiers.command || modifiers.ctrl,

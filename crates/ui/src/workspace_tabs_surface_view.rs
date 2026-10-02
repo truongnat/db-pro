@@ -46,15 +46,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
     }
 
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) -> Vec<WorkspaceTabsAction> {
-        self.workspace.native_runtime.borrow_mut().begin_workspace_tabs();
         let modifier = Self::primary_modifier_label();
-        let viewport = ui.ctx().screen_rect();
-        let tabs_height = crate::native_runtime_shell::layout_shell(
-            rs_ui_core::Size::new(viewport.width(), viewport.height()),
-            self.workspace.sidebar_width,
-        )
-        .map(|regions| regions.tabs.height())
-        .unwrap_or(crate::native_runtime_shell::TABS_HEIGHT);
 
         // Tab strip flush with CentralPanel; tiny top breath only.
         let tabs_width = ui.available_width();
@@ -74,7 +66,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         }
         .show(ui, |ui| {
             let inner = ui.max_rect();
-            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(tabs_height)));
+            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(28.0)));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
 
@@ -108,10 +100,6 @@ impl<'a> WorkspaceTabsViewContext<'a> {
             });
         });
 
-        if let Err(error) = self.workspace.native_runtime.borrow_mut().end_workspace_tabs() {
-            tracing::error!(%error, "rs-ui workspace tab cleanup failed");
-        }
-
         std::mem::take(&mut self.actions)
     }
 
@@ -124,8 +112,6 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 ui,
                 self.theme,
                 WorkspaceTabItem {
-                    key: "welcome",
-                    runtime: &self.workspace.native_runtime,
                     selected: welcome_selected,
                     icon: Icon::House,
                     title: "Welcome",
@@ -181,13 +167,13 @@ impl<'a> WorkspaceTabsViewContext<'a> {
 
     fn draw_query_tabs(&mut self, ui: &mut egui::Ui, modifier: &str, close_all_requested: &mut bool) {
         // 2. Query Documents Tabs
-        let documents: Vec<(usize, String, String, String)> = self
+        let documents: Vec<(usize, String, String)> = self
             .query
             .session
             .documents
             .iter()
             .enumerate()
-            .map(|(index, doc)| (index, doc.id.clone(), doc.title.clone(), doc.content().to_owned()))
+            .map(|(index, doc)| (index, doc.title.clone(), doc.content().to_owned()))
             .collect();
 
         let mut switch_query_idx = None;
@@ -197,7 +183,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         let mut close_right_idx = None;
         let mut run_query_idx = None;
 
-        for (index, document_id, title, content) in &documents {
+        for (index, title, content) in &documents {
             let idx = *index;
             let selected =
                 self.workspace.active_tab == WorkspaceTab::Query && self.query.session.active_document_index == idx;
@@ -219,8 +205,6 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 ui,
                 self.theme,
                 WorkspaceTabItem {
-                    key: &format!("query:{document_id}"),
-                    runtime: &self.workspace.native_runtime,
                     selected,
                     icon,
                     title,
@@ -389,8 +373,6 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 ui,
                 self.theme,
                 WorkspaceTabItem {
-                    key: &format!("table:{table_name}"),
-                    runtime: &self.workspace.native_runtime,
                     selected,
                     icon: Icon::Table2,
                     title: &table_name,
@@ -486,8 +468,6 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 ui,
                 self.theme,
                 WorkspaceTabItem {
-                    key: &format!("schema-object:{name}"),
-                    runtime: &self.workspace.native_runtime,
                     selected,
                     icon,
                     title: &name,
@@ -545,13 +525,10 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         }
 
         let mut close_requested = false;
-        let key = format!("static:{tab:?}");
         let action = draw_workspace_tab_item(
             ui,
             self.theme,
             WorkspaceTabItem {
-                key: &key,
-                runtime: &self.workspace.native_runtime,
                 selected: true,
                 icon,
                 title,

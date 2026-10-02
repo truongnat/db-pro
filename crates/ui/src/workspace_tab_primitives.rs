@@ -1,8 +1,6 @@
 use super::*;
 
 pub(super) struct WorkspaceTabItem<'a> {
-    pub(super) key: &'a str,
-    pub(super) runtime: &'a std::cell::RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     pub(super) selected: bool,
     pub(super) icon: Icon,
     pub(super) title: &'a str,
@@ -88,16 +86,6 @@ pub(super) fn draw_workspace_tab_item(
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .on_hover_text(item.title);
     let hovered = resp.hovered();
-    if let Err(error) = item.runtime.borrow_mut().register_workspace_tab(
-        item.key,
-        item.title,
-        item.selected,
-        rect,
-        resp.has_focus(),
-        false,
-    ) {
-        tracing::error!(%error, key = item.key, "rs-ui tab semantics update failed");
-    }
 
     let context_clicked = is_context_menu_triggered(&resp, ui);
 
@@ -152,16 +140,8 @@ pub(super) fn draw_workspace_tab_item(
     if item.show_close {
         let close_rect =
             egui::Rect::from_center_size(egui::pos2(rect.right() - 12.0, rect.center().y), egui::vec2(16.0, 16.0));
-        let close_key = format!("close:{}", item.key);
-        let close_response = ui.interact(
-            close_rect,
-            ui.id().with(("workspace-tab-close", item.key)),
-            egui::Sense::click(),
-        );
-        if item.runtime.borrow().workspace_item_has_focus(&close_key) {
-            close_response.request_focus();
-        }
-        let close_hovered = close_response.hovered();
+        let pointer_pos = ui.input(|i| i.pointer.hover_pos().or(i.pointer.interact_pos()));
+        let close_hovered = pointer_pos.is_some_and(|p| close_rect.contains(p));
 
         if close_hovered {
             ui.painter()
@@ -184,38 +164,15 @@ pub(super) fn draw_workspace_tab_item(
             close_color,
         );
 
-        close_clicked = match item.runtime.borrow_mut().register_workspace_close_button(
-            item.key,
-            &close_key,
-            &format!("Close {}", item.title),
-            close_rect,
-            close_response.has_focus(),
-            close_response.clicked(),
-        ) {
-            Ok(activated) => activated,
-            Err(error) => {
-                tracing::error!(%error, key = close_key, "rs-ui close button activation failed");
-                close_response.clicked()
-            }
-        };
+        if resp.clicked() && close_hovered {
+            close_clicked = true;
+        }
     }
 
     let middle_clicked = resp.middle_clicked();
-    let egui_clicked = resp.clicked() && !close_clicked && !context_clicked;
-    let clicked = match egui_clicked
-        .then(|| item.runtime.borrow_mut().activate_workspace_item(item.key))
-        .transpose()
-    {
-        Ok(Some(activated)) => activated,
-        Ok(None) => false,
-        Err(error) => {
-            tracing::error!(%error, key = item.key, "rs-ui tab activation failed; keeping egui activation");
-            egui_clicked
-        }
-    };
 
     TabChromeAction {
-        clicked,
+        clicked: resp.clicked() && !close_clicked && !context_clicked,
         close_clicked: close_clicked || (middle_clicked && item.show_close),
     }
 }

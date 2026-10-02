@@ -4,13 +4,11 @@ use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::DbProTheme;
 use eframe::egui;
 use lucide_icons::Icon;
-use std::cell::RefCell;
 
 pub(crate) struct DatabaseNodeContext<'a> {
     pub(crate) theme: DbProTheme,
     pub(crate) connection_id: &'a str,
     pub(crate) database: &'a str,
-    pub(crate) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
 }
 
 impl DatabaseNodeContext<'_> {
@@ -38,24 +36,7 @@ impl DatabaseNodeContext<'_> {
             },
         );
 
-        let key = super::explorer_tree::database_tree_key(self.connection_id, self.database);
-        let parent_key = super::explorer_tree::connection_tree_key(self.connection_id);
-        let activated = super::explorer_tree::sync_explorer_tree_item(
-            self.native_runtime,
-            crate::native_runtime_shell::ExplorerTreeItem {
-                key: &key,
-                parent_key: Some(&parent_key),
-                label: self.database_label(),
-                expanded: is_open,
-                selected: false,
-                bounds: response.rect,
-                focused: response.has_focus(),
-                clicked: response.clicked() || chevron_clicked,
-            },
-            ui,
-            &response,
-        );
-        if activated || chevron_clicked {
+        if response.clicked() || chevron_clicked {
             collapsing.set_open(!is_open);
             collapsing.store(ui.ctx());
         }

@@ -19,10 +19,10 @@ const EGUI_WINDOW_MARGIN: f32 = SPACE_MD;
 const EGUI_MENU_MARGIN: f32 = 5.0;
 const EGUI_INDENT: f32 = 13.0;
 
-pub(crate) const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
-pub(crate) const INTER_REGULAR_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular-ext.ttf");
-pub(crate) const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
-pub(crate) const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Medium-ext.ttf");
+const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
+const INTER_REGULAR_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular-ext.ttf");
+const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
+const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Medium-ext.ttf");
 
 /// Product-owned visual tokens for the native shell.
 ///

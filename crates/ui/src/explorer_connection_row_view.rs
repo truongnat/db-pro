@@ -8,7 +8,6 @@ use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme, UiConnectionSummary};
 use eframe::egui;
 use lucide_icons::Icon;
-use std::cell::RefCell;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ConnectionRowAction {
@@ -39,7 +38,6 @@ pub(crate) struct ConnectionRowContext<'a> {
     pub(crate) is_connecting: bool,
     pub(crate) is_failed: bool,
     pub(crate) modifier: &'static str,
-    pub(crate) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
 }
 
 impl ConnectionRowContext<'_> {
@@ -55,28 +53,12 @@ impl ConnectionRowContext<'_> {
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
         let is_context_menu = is_context_menu_triggered(&response, ui);
         let mut actions = connection_context_menu(ui, &response, self.is_connected, self.theme, self.modifier);
-        let key = super::explorer_tree::connection_tree_key(&connection.id);
-        let activated = super::explorer_tree::sync_explorer_tree_item(
-            self.native_runtime,
-            crate::native_runtime_shell::ExplorerTreeItem {
-                key: &key,
-                parent_key: None,
-                label: &connection.name,
-                expanded: is_open,
-                selected: self.is_connected,
-                bounds: response.rect,
-                focused: response.has_focus(),
-                clicked: response.clicked() && !is_context_menu,
-            },
-            ui,
-            &response,
-        );
         self.apply_row_interaction(
             ui,
             &mut collapsing,
             is_open,
             chevron_clicked,
-            activated && !is_context_menu,
+            response.clicked() && !is_context_menu,
             &mut actions,
         );
 

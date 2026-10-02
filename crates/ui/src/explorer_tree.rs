@@ -8,16 +8,15 @@
 use super::*;
 use egui::{pos2, vec2, Align2, Color32, FontFamily, FontId, Rect, Rounding};
 use lucide_icons::Icon;
-use std::cell::RefCell;
 
 /// Row height in pixels. Also the height of the chevron hit-box.
 const CODEX_ROW_HEIGHT: f32 = 26.0;
 /// Horizontal indent added per tree depth level.
-pub(super) const CODEX_ROW_INDENT: f32 = 10.0;
+const CODEX_ROW_INDENT: f32 = 10.0;
 /// Width of the leading chevron slot.
-pub(super) const CODEX_CHEVRON_SLOT: f32 = 14.0;
+const CODEX_CHEVRON_SLOT: f32 = 14.0;
 /// Horizontal padding applied at both row edges.
-pub(super) const CODEX_ROW_PADDING: f32 = 4.0;
+const CODEX_ROW_PADDING: f32 = 4.0;
 /// Gap inserted before each trailing item.
 const CODEX_TRAILING_GAP: f32 = 4.0;
 /// Driver badge geometry. The width is measured from the label, never estimated per
@@ -27,68 +26,6 @@ const CODEX_BADGE_HEIGHT: f32 = 16.0;
 pub(super) const CODEX_BADGE_PAD_X: f32 = 4.0;
 const CODEX_BADGE_FONT_SIZE: f32 = 9.5;
 const CODEX_BADGE_ROUNDING: f32 = 3.0;
-
-pub(super) fn connection_tree_key(connection_id: &str) -> String {
-    stable_tree_key("connection", &[connection_id])
-}
-
-pub(super) fn database_tree_key(connection_id: &str, database: &str) -> String {
-    stable_tree_key("database", &[connection_id, database])
-}
-
-pub(super) fn schema_tree_key(connection_id: &str, database: &str, schema: &str) -> String {
-    stable_tree_key("schema", &[connection_id, database, schema])
-}
-
-pub(super) fn tables_folder_tree_key(connection_id: &str, database: &str, schema: &str) -> String {
-    stable_tree_key("tables", &[connection_id, database, schema])
-}
-
-pub(super) fn table_tree_key(connection_id: &str, database: &str, schema: &str, table: &str) -> String {
-    stable_tree_key("table", &[connection_id, database, schema, table])
-}
-
-fn stable_tree_key(kind: &str, parts: &[&str]) -> String {
-    let mut key = kind.to_owned();
-    for part in parts {
-        use std::fmt::Write as _;
-        let _ = write!(key, "/{}:{part}", part.len());
-    }
-    key
-}
-
-pub(super) fn sync_explorer_tree_item(
-    runtime: &RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
-    item: crate::native_runtime_shell::ExplorerTreeItem<'_>,
-    ui: &egui::Ui,
-    response: &egui::Response,
-) -> bool {
-    let result = runtime.borrow_mut().register_explorer_tree_item(item);
-    if response.has_focus() {
-        let command = ui.input(|input| {
-            if input.key_pressed(egui::Key::ArrowDown) {
-                Some(rs_ui_runtime::BehaviorCommand::MoveNext)
-            } else if input.key_pressed(egui::Key::ArrowUp) {
-                Some(rs_ui_runtime::BehaviorCommand::MovePrevious)
-            } else {
-                None
-            }
-        });
-        if let Some(command) = command {
-            runtime.borrow_mut().queue_explorer_tree_navigation(command);
-        }
-    }
-    if runtime.borrow().explorer_item_has_focus(item.key) {
-        response.request_focus();
-    }
-    match result {
-        Ok(activated) => activated,
-        Err(error) => {
-            tracing::error!(%error, key = item.key, "rs-ui Explorer tree item sync failed; keeping egui interaction");
-            item.clicked
-        }
-    }
-}
 
 /// Shortens verbose database types into clean, compact identifiers (e.g. DBeaver style).
 pub(super) fn shorten_data_type(data_type: &str) -> String {
@@ -157,21 +94,6 @@ pub(crate) fn draw_codex_tree_row(
     let width = ui.max_rect().width().max(ui.available_width());
     let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());
     let is_hovered = response.hovered();
-
-    if crate::native_explorer_paint::row(ui, theme, rect, &row, is_hovered) {
-        let chevron_rect = Rect::from_min_size(
-            pos2(
-                rect.min.x + CODEX_ROW_PADDING + row.depth as f32 * CODEX_ROW_INDENT,
-                rect.min.y,
-            ),
-            vec2(CODEX_CHEVRON_SLOT, CODEX_ROW_HEIGHT),
-        );
-        let chevron_clicked = response.clicked()
-            && ui
-                .input(|i| i.pointer.hover_pos())
-                .is_some_and(|pos| chevron_rect.expand(2.0).contains(pos));
-        return (response, chevron_clicked);
-    }
 
     let painter = ui.painter().with_clip_rect(rect);
 
@@ -515,26 +437,5 @@ pub(super) fn column_icon_and_color(data_type: &str, is_pk: bool, is_fk: bool, t
         } else {
             (Icon::Columns3, theme.text_muted)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tree_keys_are_stable_and_keep_component_boundaries() {
-        assert_eq!(
-            schema_tree_key("c/1", "db", "public"),
-            schema_tree_key("c/1", "db", "public")
-        );
-        assert_ne!(
-            schema_tree_key("c/1", "db", "public"),
-            schema_tree_key("c", "1/db", "public")
-        );
-        assert_ne!(
-            table_tree_key("连接", "db", "public", "items"),
-            table_tree_key("连接", "db", "public", "item")
-        );
     }
 }

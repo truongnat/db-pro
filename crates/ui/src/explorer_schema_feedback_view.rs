@@ -18,46 +18,6 @@ pub(super) struct ExplorerSchemaFeedbackContext<'a> {
 
 impl ExplorerSchemaFeedbackContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<ExplorerSchemaFeedbackAction> {
-        if crate::native_explorer_paint::active(ui.ctx()) {
-            if let Some(error) = self.error {
-                crate::native_explorer_paint::message(
-                    ui,
-                    "Schema load failed",
-                    self.theme.danger,
-                    Icon::TriangleAlert,
-                    false,
-                );
-                crate::native_explorer_paint::error_detail(ui, error, self.theme);
-                if self.has_active_connection
-                    && crate::native_explorer_paint::message(
-                        ui,
-                        "Refresh schema",
-                        self.theme.accent,
-                        Icon::RotateCcw,
-                        true,
-                    )
-                    .clicked()
-                {
-                    return vec![ExplorerSchemaFeedbackAction::RefreshSchema];
-                }
-            } else if self.loading {
-                crate::native_explorer_paint::message(
-                    ui,
-                    "Loading schema…",
-                    self.theme.accent,
-                    Icon::LoaderCircle,
-                    false,
-                );
-                crate::native_explorer_paint::message(
-                    ui,
-                    "Large databases may take a moment.",
-                    self.theme.text_muted,
-                    Icon::Info,
-                    false,
-                );
-            }
-            return Vec::new();
-        }
         if let Some(error) = self.error {
             return self.draw_error(ui, error);
         }

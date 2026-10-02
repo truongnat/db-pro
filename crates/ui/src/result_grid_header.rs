@@ -39,37 +39,13 @@ impl DbProApp {
             GridHeaderAction::CycleTableSort { column_index, shift } => {
                 self.cycle_table_data_sort(result, column_index, shift);
             }
-            GridHeaderAction::StartResize {
-                column_index,
-                widths,
-                pointer,
-            } => {
+            GridHeaderAction::StartResize { widths } => {
                 self.table.data.grid_column_widths = widths;
                 self.table.data.grid_columns_user_resized = true;
-                let width = self.table.data.grid_column_widths.get(column_index).copied().unwrap_or(180.0);
-                if let Err(error) = self
-                    .workspace
-                    .native_runtime
-                    .borrow_mut()
-                    .begin_grid_column_resize(column_index, width, pointer)
-                {
-                    tracing::error!(%error, "rs-ui result column resize could not start");
-                }
             }
-            GridHeaderAction::Resize { column_index, pointer } => {
-                match self.workspace.native_runtime.borrow_mut().update_grid_column_resize(pointer) {
-                    Ok(Some(width)) => {
-                        if let Some(stored_width) = self.table.data.grid_column_widths.get_mut(column_index) {
-                            *stored_width = width;
-                        }
-                    }
-                    Ok(None) => {}
-                    Err(error) => tracing::error!(%error, "rs-ui result column resize failed"),
-                }
-            }
-            GridHeaderAction::EndResize => {
-                if let Err(error) = self.workspace.native_runtime.borrow_mut().end_grid_column_resize() {
-                    tracing::error!(%error, "rs-ui result column resize could not end");
+            GridHeaderAction::Resize { column_index, delta } => {
+                if let Some(width) = self.table.data.grid_column_widths.get_mut(column_index) {
+                    *width = (*width + delta).clamp(60.0, 1000.0);
                 }
             }
             GridHeaderAction::CopyColumnName(column_index) => {

@@ -4,16 +4,13 @@ use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::DbProTheme;
 use eframe::egui;
 use lucide_icons::Icon;
-use std::cell::RefCell;
 
 pub(crate) struct SchemaNodeContext<'a> {
     pub(crate) theme: DbProTheme,
     pub(crate) connection_id: &'a str,
-    pub(crate) database: &'a str,
     pub(crate) schema: &'a str,
     pub(crate) is_active: bool,
     pub(crate) table_count: usize,
-    pub(crate) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
 }
 
 pub(crate) struct SchemaNodeRender {
@@ -28,24 +25,7 @@ impl SchemaNodeContext<'_> {
             egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), schema_id, self.is_active);
         let is_open = collapsing.is_open();
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
-        let key = super::explorer_tree::schema_tree_key(self.connection_id, self.database, self.schema);
-        let parent_key = super::explorer_tree::database_tree_key(self.connection_id, self.database);
-        let activated = super::explorer_tree::sync_explorer_tree_item(
-            self.native_runtime,
-            crate::native_runtime_shell::ExplorerTreeItem {
-                key: &key,
-                parent_key: Some(&parent_key),
-                label: self.schema,
-                expanded: is_open,
-                selected: self.is_active,
-                bounds: response.rect,
-                focused: response.has_focus(),
-                clicked: response.clicked() || chevron_clicked,
-            },
-            ui,
-            &response,
-        );
-        let should_activate = self.apply_interaction(ui, &mut collapsing, is_open, chevron_clicked, activated);
+        let should_activate = self.apply_interaction(ui, &mut collapsing, is_open, chevron_clicked, response.clicked());
 
         SchemaNodeRender {
             is_open: collapsing.is_open(),
