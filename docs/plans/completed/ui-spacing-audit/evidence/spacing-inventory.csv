@@ -1,0 +1,977 @@
+file,line,area,direct_numeric,expression
+crates/ui/src/activity_bar_view.rs,29,view,False,"inner_margin: egui::Margin::ZERO,"
+crates/ui/src/activity_bar_view.rs,30,view,False,"outer_margin: egui::Margin::ZERO,"
+crates/ui/src/activity_bar_view.rs,48,view,False,ui.add_space((ui.available_height() - 44.0).max(0.0));
+crates/ui/src/activity_bar_view.rs,52,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/activity_bar_view.rs,61,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/activity_bar_view.rs,78,view,True,ui.add_space(2.0);
+crates/ui/src/activity_bar_view.rs,81,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/activity_bar_view.rs,83,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/activity_bar_view.rs,103,view,True,ui.add_space(2.0);
+crates/ui/src/activity_bar_view.rs,106,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/activity_bar_view.rs,108,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/agent_context_actions_view.rs,34,view,True,ui.add_space(8.0);
+crates/ui/src/agent_settings_view.rs,44,view,True,ui.add_space(8.0);
+crates/ui/src/agent_settings_view.rs,69,view,True,ui.add_space(4.0);
+crates/ui/src/agent_settings_view.rs,75,view,True,ui.add_space(6.0);
+crates/ui/src/agent_settings_view.rs,81,view,True,ui.add_space(8.0);
+crates/ui/src/agent_settings_view.rs,96,view,True,ui.add_space(6.0);
+crates/ui/src/agent_settings_view.rs,100,view,True,ui.add_space(6.0);
+crates/ui/src/agent_settings_view.rs,118,view,True,ui.add_space(6.0);
+crates/ui/src/agent_settings_view.rs,159,view,True,ui.add_space(8.0);
+crates/ui/src/agent_settings_view.rs,161,view,True,ui.add_space(8.0);
+crates/ui/src/agent_settings_view.rs,163,view,True,ui.add_space(4.0);
+crates/ui/src/agent_surface_view.rs,163,view,True,ui.add_space(6.0);
+crates/ui/src/agent_surface_view.rs,172,view,True,ui.add_space(8.0);
+crates/ui/src/agent_thread_surface_view.rs,57,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/agent_thread_surface_view.rs,59,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/agent_thread_surface_view.rs,64,view,True,ui.add_space(18.0);
+crates/ui/src/agent_thread_surface_view.rs,67,view,True,ui.add_space(6.0);
+crates/ui/src/agent_thread_surface_view.rs,75,view,True,ui.add_space(18.0);
+crates/ui/src/agent_thread_surface_view.rs,103,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/agent_thread_surface_view.rs,193,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/agent_thread_surface_view.rs,318,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/agent_thread_surface_view.rs,332,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/audit_surface_view.rs,30,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/audit_surface_view.rs,32,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/audit_surface_view.rs,160,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_agent.rs,67,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_agent.rs,76,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_agent.rs,95,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_agent.rs,120,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_agent.rs,265,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_agent.rs,338,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_agent.rs,340,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_feedback.rs,14,view,False,let alert_content_spacing = ui.spacing().item_spacing;
+crates/ui/src/component_gallery_feedback.rs,16,view,False,ui.spacing_mut().item_spacing.x = SPACE_SM;
+crates/ui/src/component_gallery_feedback.rs,19,view,False,column.spacing_mut().item_spacing = alert_content_spacing;
+crates/ui/src/component_gallery_feedback.rs,31,view,True,ui.add_space(10.0);
+crates/ui/src/component_gallery_feedback.rs,84,view,True,ui.add_space(10.0);
+crates/ui/src/component_gallery_feedback.rs,94,view,False,ui.spacing_mut().item_spacing = alert_content_spacing;
+crates/ui/src/component_gallery_feedback.rs,127,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,147,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_feedback.rs,154,view,True,ui.add_space(32.0);
+crates/ui/src/component_gallery_feedback.rs,165,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_feedback.rs,169,view,True,ui.add_space(32.0);
+crates/ui/src/component_gallery_feedback.rs,179,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_feedback.rs,182,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,195,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_feedback.rs,197,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,210,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_feedback.rs,213,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,217,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,221,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,285,view,True,ui.add_space(10.0);
+crates/ui/src/component_gallery_feedback.rs,287,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_feedback.rs,296,view,True,ui.add_space(3.0);
+crates/ui/src/component_gallery_feedback.rs,300,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_feedback.rs,317,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,327,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,339,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_feedback.rs,415,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,444,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_feedback.rs,446,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,451,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,453,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,456,view,True,ui.add_space(24.0);
+crates/ui/src/component_gallery_feedback.rs,468,view,True,ui.add_space(24.0);
+crates/ui/src/component_gallery_feedback.rs,474,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,494,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,502,view,True,ui.add_space(20.0);
+crates/ui/src/component_gallery_feedback.rs,510,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_feedback.rs,519,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_feedback.rs,524,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,531,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,535,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_feedback.rs,546,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_inputs.rs,28,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/component_gallery_inputs.rs,40,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_inputs.rs,45,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/component_gallery_inputs.rs,66,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/component_gallery_inputs.rs,73,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/component_gallery_inputs.rs,75,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_inputs.rs,89,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/component_gallery_inputs.rs,100,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/component_gallery_inputs.rs,108,view,False,let grid = ResponsiveGrid::new(280.0).gap(SPACE_LG).max_columns(2);
+crates/ui/src/component_gallery_inputs.rs,264,view,False,ui.spacing_mut().item_spacing.y = SPACE_MD;
+crates/ui/src/component_gallery_inputs.rs,270,view,False,ui.spacing_mut().item_spacing.x = SPACE_MD;
+crates/ui/src/component_gallery_inputs.rs,358,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_inputs.rs,362,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_inputs.rs,366,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_inputs.rs,381,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_inputs.rs,386,view,True,ui.add_space(10.0);
+crates/ui/src/component_gallery_inputs.rs,392,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_inputs.rs,398,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_inputs.rs,408,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_inputs.rs,414,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_inputs.rs,435,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_inputs.rs,442,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_inputs.rs,450,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_inputs.rs,462,view,False,.gap(SPACE_LG)
+crates/ui/src/component_gallery_inputs.rs,494,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_inputs.rs,502,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_inputs.rs,504,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_inputs.rs,529,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_inputs.rs,533,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/component_gallery_inputs.rs,563,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_inputs.rs,565,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/component_gallery_inputs.rs,571,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_inputs.rs,573,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_inputs.rs,591,view,False,.inner_margin(egui::Margin::same(SPACE_MD))
+crates/ui/src/component_gallery_inputs.rs,602,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/component_gallery_inputs.rs,604,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_overlays.rs,21,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,32,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,42,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,52,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,62,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,75,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_overlays.rs,82,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,96,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_overlays.rs,102,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,110,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,119,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,129,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,139,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,149,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,164,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_overlays.rs,175,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_overlays.rs,227,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_overlays.rs,249,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_overlays.rs,255,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_overlays.rs,257,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_overlays.rs,371,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,400,view,True,ui.add_space(10.0);
+crates/ui/src/component_gallery_overlays.rs,502,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_overlays.rs,575,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_overlays.rs,585,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_overlays.rs,606,view,True,ui.add_space(4.0);
+crates/ui/src/component_gallery_overlays.rs,615,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_rendering.rs,31,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/component_gallery_rendering.rs,34,view,False,ui.add_space(SPACE_2XL);
+crates/ui/src/component_gallery_rendering.rs,36,view,False,ui.add_space(SPACE_2XL);
+crates/ui/src/component_gallery_rendering.rs,38,view,False,ui.add_space(SPACE_2XL);
+crates/ui/src/component_gallery_rendering.rs,70,view,True,ui.add_space(100.0);
+crates/ui/src/component_gallery_rendering.rs,171,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_surfaces.rs,21,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_surfaces.rs,27,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,32,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,37,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,39,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,45,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,52,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_surfaces.rs,54,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_surfaces.rs,57,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,62,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,64,view,True,ui.add_space(10.0);
+crates/ui/src/component_gallery_surfaces.rs,71,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,80,view,True,ui.add_space(16.0);
+crates/ui/src/component_gallery_surfaces.rs,87,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_surfaces.rs,101,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_surfaces.rs,113,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_surfaces.rs,119,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_surfaces.rs,126,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_surfaces.rs,142,view,False,"ui.spacing_mut().item_spacing = egui::vec2(SPACE_MD, SPACE_SM);"
+crates/ui/src/component_gallery_surfaces.rs,184,view,False,.gap(SPACE_MD)
+crates/ui/src/component_gallery_surfaces.rs,242,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,250,view,True,ui.add_space(14.0);
+crates/ui/src/component_gallery_surfaces.rs,259,view,False,ui.add_space(SPACE_XL);
+crates/ui/src/component_gallery_surfaces.rs,266,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/component_gallery_surfaces.rs,282,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/component_gallery_surfaces.rs,288,view,False,.inner_margin(egui::Margin::same(SPACE_SM));
+crates/ui/src/component_gallery_surfaces.rs,353,view,True,ui.add_space(20.0);
+crates/ui/src/component_gallery_surfaces.rs,357,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,380,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,386,view,True,ui.add_space(20.0);
+crates/ui/src/component_gallery_surfaces.rs,409,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,421,view,True,ui.add_space(20.0);
+crates/ui/src/component_gallery_surfaces.rs,428,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,436,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,439,view,True,ui.add_space(12.0);
+crates/ui/src/component_gallery_surfaces.rs,465,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,469,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,471,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,473,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,477,view,True,ui.add_space(14.0);
+crates/ui/src/component_gallery_surfaces.rs,524,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_surfaces.rs,530,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_surfaces.rs,536,view,True,ui.add_space(8.0);
+crates/ui/src/component_gallery_surfaces.rs,547,view,True,ui.add_space(20.0);
+crates/ui/src/component_gallery_surfaces.rs,556,view,True,ui.add_space(6.0);
+crates/ui/src/component_gallery_view.rs,229,view,False,ui.spacing_mut().item_spacing.x = 0.0;
+crates/ui/src/component_gallery_view.rs,244,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_view.rs,246,view,False,.gutter(SPACE_LG)
+crates/ui/src/component_gallery_view.rs,250,view,False,ui.add_space(SPACE_2XL);
+crates/ui/src/component_gallery_view.rs,263,view,False,".inner_margin(egui::Margin::symmetric(SPACE_LG, SPACE_SM))"
+crates/ui/src/component_gallery_view.rs,272,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_view.rs,311,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_view.rs,332,view,False,.inner_margin(egui::Margin::same(SPACE_SM))
+crates/ui/src/component_gallery_view.rs,343,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/component_gallery_view.rs,357,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_view.rs,363,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_view.rs,374,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/component_gallery_view.rs,380,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/component_gallery_view.rs,418,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/component_gallery_view.rs,444,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/components/agent_composer/ui.rs,49,component,False,".inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM));"
+crates/ui/src/components/agent_composer/ui.rs,77,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/agent_composer/ui.rs,90,component,False,ui.add_space(model_rect.width() + SPACE_XS);
+crates/ui/src/components/agent_composer/ui.rs,99,component,False,ui.add_space(mode_rect.width());
+crates/ui/src/components/agent_composer/ui.rs,102,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/agent_primitives/approval_ui.rs,37,component,False,.inner_margin(egui::Margin::same(config::APPROVAL_PADDING));
+crates/ui/src/components/agent_primitives/approval_ui.rs,57,component,False,ui.add_space(config::APPROVAL_TITLE_GAP);
+crates/ui/src/components/agent_primitives/approval_ui.rs,72,component,False,ui.add_space(config::APPROVAL_CODE_GAP);
+crates/ui/src/components/agent_primitives/approval_ui.rs,78,component,False,.inner_margin(egui::Margin::same(config::APPROVAL_CODE_PADDING));
+crates/ui/src/components/agent_primitives/approval_ui.rs,88,component,False,ui.add_space(config::APPROVAL_ACTION_GAP);
+crates/ui/src/components/agent_primitives/approval_ui.rs,98,component,False,ui.add_space(config::APPROVAL_BUTTON_GAP);
+crates/ui/src/components/agent_primitives/approval_ui.rs,105,component,False,ui.add_space(config::APPROVAL_BUTTON_GAP);
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,51,component,False,.inner_margin(egui::Margin::symmetric(
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,127,component,False,ui.add_space(config::THINKING_BODY_GAP);
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,132,component,False,.inner_margin(egui::Margin::same(config::THINKING_BODY_PADDING));
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,160,component,False,.inner_margin(egui::Margin::same(config::PLAN_PADDING));
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,179,component,False,ui.add_space(config::PLAN_PROGRESS_GAP);
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,199,component,False,ui.add_space(config::PLAN_TASK_LIST_TOP_SPACE);
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,209,component,False,ui.add_space(config::PLAN_TASK_ICON_TEXT_GAP);
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,224,component,False,ui.add_space(config::PLAN_TASK_GAP);
+crates/ui/src/components/agent_primitives/ui.rs,192,component,True,.inner_margin(egui::Margin::same(0.0));
+crates/ui/src/components/agent_primitives/ui.rs,306,component,False,ui.add_space(config::TOOL_SECTION_TOP_SPACE);
+crates/ui/src/components/agent_primitives/ui.rs,308,component,False,ui.add_space(config::TOOL_SECTION_INSET);
+crates/ui/src/components/agent_primitives/ui.rs,316,component,False,ui.add_space(config::TOOL_SECTION_LABEL_GAP);
+crates/ui/src/components/agent_primitives/ui.rs,321,component,False,.inner_margin(egui::Margin::same(config::TOOL_CODE_PADDING));
+crates/ui/src/components/agent_primitives/ui.rs,333,component,False,ui.add_space(config::TOOL_OUTPUT_GAP);
+crates/ui/src/components/agent_primitives/ui.rs,340,component,False,ui.add_space(config::TOOL_SECTION_LABEL_GAP);
+crates/ui/src/components/agent_primitives/ui.rs,345,component,False,.inner_margin(egui::Margin::same(config::TOOL_CODE_PADDING));
+crates/ui/src/components/agent_primitives/ui.rs,357,component,False,ui.add_space(config::TOOL_SECTION_INSET);
+crates/ui/src/components/agent_primitives/ui.rs,359,component,False,ui.add_space(config::TOOL_SECTION_BOTTOM_SPACE);
+crates/ui/src/components/alert/ui.rs,72,component,False,"inner_margin: Margin::symmetric(config::ALERT_FRAME_PADDING_X, config::ALERT_FRAME_PADDING_Y),"
+crates/ui/src/components/alert/ui.rs,84,component,False,ui.add_space(config::ALERT_ICON_GAP);
+crates/ui/src/components/alert/ui.rs,108,component,False,ui.add_space(config::ALERT_DESCRIPTION_GAP);
+crates/ui/src/components/alert/ui.rs,239,component,False,"inner_margin: Margin::same(config::DIALOG_PADDING),"
+crates/ui/src/components/alert/ui.rs,258,component,False,ui.add_space(config::DIALOG_TITLE_GAP);
+crates/ui/src/components/alert/ui.rs,269,component,False,ui.add_space(config::DIALOG_ACTIONS_GAP);
+crates/ui/src/components/alert/ui.rs,290,component,False,ui.add_space(config::DIALOG_ACTION_GAP);
+crates/ui/src/components/button/ui/group.rs,20,component,False,"ui.spacing_mut().item_spacing = Vec2::new(SPACE_XS, 0.0);"
+crates/ui/src/components/calendar/ui.rs,106,component,False,"inner_margin: Margin::same(config::CALENDAR_INNER_MARGIN),"
+crates/ui/src/components/calendar/ui.rs,129,component,False,ui.spacing_mut().item_spacing = Vec2::ZERO;
+crates/ui/src/components/calendar/ui.rs,232,component,False,ui.add_space(config::SECTION_GAP);
+crates/ui/src/components/calendar/ui.rs,236,component,False,"ui.spacing_mut().item_spacing = Vec2::new(pad, 0.0);"
+crates/ui/src/components/calendar/ui.rs,250,component,False,ui.add_space(config::GRID_GAP);
+crates/ui/src/components/calendar/ui.rs,265,component,False,"ui.spacing_mut().item_spacing = Vec2::new(pad, pad);"
+crates/ui/src/components/card/ui.rs,26,component,False,"inner_margin: Margin::same(CARD_INNER_PAD),"
+crates/ui/src/components/card/ui.rs,54,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/card/ui.rs,62,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/card/ui.rs,70,component,False,ui.add_space(SPACE_MD);
+crates/ui/src/components/card/ui.rs,77,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/card/ui.rs,180,component,False,ui.add_space(METRIC_VALUE_TOP_GAP);
+crates/ui/src/components/card/ui.rs,223,component,False,ui.add_space(METRIC_TREND_TOP_GAP);
+crates/ui/src/components/card/ui.rs,226,component,False,ui.spacing_mut().item_spacing.x = 0.0;
+crates/ui/src/components/chrome/ui.rs,215,component,False,ui.add_space(EMPTY_STATE_TOP_SPACE);
+crates/ui/src/components/chrome/ui.rs,221,component,False,ui.add_space(EMPTY_STATE_ICON_GAP);
+crates/ui/src/components/chrome/ui.rs,228,component,False,ui.add_space(EMPTY_STATE_TITLE_GAP);
+crates/ui/src/components/chrome/ui.rs,238,component,False,ui.add_space(EMPTY_STATE_ACTION_GAP);
+crates/ui/src/components/chrome/ui.rs,241,component,False,ui.add_space(EMPTY_STATE_BOTTOM_SPACE);
+crates/ui/src/components/chrome/ui.rs,260,component,False,"inner_margin: Margin::symmetric(TOOLBAR_MARGIN_X, TOOLBAR_MARGIN_Y),"
+crates/ui/src/components/chrome/ui.rs,266,component,False,"ui.spacing_mut().item_spacing = Vec2::new(TOOLBAR_ITEM_GAP, 0.0);"
+crates/ui/src/components/code/ui.rs,97,component,True,.inner_margin(egui::Margin::same(0.0));
+crates/ui/src/components/code/ui.rs,184,component,False,ui.add_space(CODE_BLOCK_BODY_PADDING_Y);
+crates/ui/src/components/code/ui.rs,233,component,False,ui.add_space(CODE_BLOCK_BODY_PADDING_Y);
+crates/ui/src/components/command/ui.rs,237,component,False,ui.add_space(GROUP_TOP_GAP);
+crates/ui/src/components/command/ui.rs,243,component,False,ui.add_space(GROUP_CONTENT_GAP);
+crates/ui/src/components/command/ui.rs,271,component,False,ui.add_space(EMPTY_STATE_VERTICAL_SPACE);
+crates/ui/src/components/command/ui.rs,277,component,False,ui.add_space(EMPTY_STATE_VERTICAL_SPACE);
+crates/ui/src/components/database/ui.rs,65,component,False,.inner_margin(egui::Margin::same(CARD_INNER_PAD));
+crates/ui/src/components/database/ui.rs,78,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/database/ui.rs,86,component,False,"remaining_content_width(ui.available_width(), status_width, ui.spacing().item_spacing.x);"
+crates/ui/src/components/database/ui.rs,102,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/database/ui.rs,123,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/database/ui.rs,129,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/database/ui.rs,155,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/database/ui.rs,173,component,False,ui.add_space(SPACE_MD);
+crates/ui/src/components/database/ui.rs,215,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/dev_tools/ui.rs,39,component,True,.inner_margin(egui::Margin::same(0.0));
+crates/ui/src/components/dev_tools/ui.rs,88,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/dev_tools/ui.rs,93,component,False,ui.add_space(SPACE_MD);
+crates/ui/src/components/dev_tools/ui.rs,100,component,False,ui.add_space(SPACE_MD);
+crates/ui/src/components/dev_tools/ui.rs,103,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/dialog/frame.rs,29,component,False,self.ui.add_space(DIALOG_FOOTER_SPACING);
+crates/ui/src/components/dialog/frame.rs,31,component,False,self.ui.add_space(DIALOG_FOOTER_SPACING);
+crates/ui/src/components/dialog/sheet.rs,111,component,False,"inner_margin: Margin::same(SHEET_PADDING),"
+crates/ui/src/components/dialog/sheet.rs,155,component,False,ui.add_space(super::config::DIALOG_SECTION_SPACING);
+crates/ui/src/components/dialog/ui.rs,225,component,False,"inner_margin: Margin::symmetric(DIALOG_CONTENT_HORIZONTAL_PADDING, DIALOG_CONTENT_VERTICAL_PADDING),"
+crates/ui/src/components/dialog/ui.rs,246,component,False,ui.add_space(DIALOG_SECTION_SPACING);
+crates/ui/src/components/dialog/ui.rs,248,component,False,ui.add_space(DIALOG_SECTION_SPACING);
+crates/ui/src/components/dialog/ui.rs,283,component,True,ui.add_space(2.0);
+crates/ui/src/components/dialog/ui.rs,321,component,False,ui.add_space(DIALOG_FOOTER_SPACING);
+crates/ui/src/components/diff/ui.rs,32,component,True,.inner_margin(egui::Margin::same(0.0));
+crates/ui/src/components/diff/ui.rs,201,component,False,ui.add_space(DIFF_BOTTOM_PADDING_Y);
+crates/ui/src/components/explain/ui.rs,58,component,False,.inner_margin(egui::Margin::same(SPACE_MD));
+crates/ui/src/components/explain/ui.rs,94,component,False,ui.add_space(badge_rect.width() + SPACE_XS);
+crates/ui/src/components/explain/ui.rs,121,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/components/explain/ui.rs,147,component,False,ui.add_space(indent);
+crates/ui/src/components/explain/ui.rs,215,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/explain/ui.rs,234,component,False,ui.add_space(badge_rect.width() + SPACE_XS);
+crates/ui/src/components/explain/ui.rs,257,component,False,ui.add_space(badge_rect.width() + SPACE_XS);
+crates/ui/src/components/explain/ui.rs,290,component,False,ui.add_space(indent + EXPLAIN_FINDING_INDENT_OFFSET);
+crates/ui/src/components/explain/ui.rs,299,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/explain/ui.rs,307,component,False,ui.add_space(indent + EXPLAIN_FINDING_INDENT_OFFSET);
+crates/ui/src/components/feedback/ui.rs,176,component,False,"inner_margin: Margin::symmetric(KBD_PAD_X, KBD_PAD_Y),"
+crates/ui/src/components/feedback/ui.rs,197,component,False,"ui.spacing_mut().item_spacing = Vec2::new(KBD_COMBO_GAP, 0.0);"
+crates/ui/src/components/form/ui.rs,50,component,False,ui.add_space(LABEL_HELPER_GAP);
+crates/ui/src/components/form/ui.rs,130,component,False,ui.add_space(LABEL_HELPER_GAP);
+crates/ui/src/components/hover_card/ui.rs,141,component,False,"inner_margin: Margin::same(FRAME_INNER_MARGIN),"
+crates/ui/src/components/input/password.rs,95,component,False,ui.add_space(LABEL_HELPER_GAP);
+crates/ui/src/components/input/password.rs,104,component,False,ui.add_space(LABEL_HELPER_GAP);
+crates/ui/src/components/input/password.rs,112,component,False,"inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),"
+crates/ui/src/components/input/password.rs,125,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/input/password.rs,129,component,False,let toggle_and_gap = 26.0 + ui.spacing().item_spacing.x;
+crates/ui/src/components/input/password.rs,139,component,False,.margin(Margin::ZERO)
+crates/ui/src/components/input/password.rs,200,component,True,ui.add_space(2.0);
+crates/ui/src/components/input/password.rs,207,component,False,ui.add_space(INPUT_AUX_GAP);
+crates/ui/src/components/input/password.rs,215,component,False,ui.add_space(INPUT_AUX_GAP);
+crates/ui/src/components/input/search.rs,50,component,False,"inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),"
+crates/ui/src/components/input/search.rs,69,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/input/search.rs,83,component,False,let reserved = icon.rect.width() + SPACE_XS + ui.spacing().item_spacing.x * 2.0 + extra_width;
+crates/ui/src/components/input/search.rs,89,component,False,.margin(Margin::ZERO)
+crates/ui/src/components/input/search.rs,117,component,True,"inner_margin: Margin::symmetric(4.0, 1.0),"
+crates/ui/src/components/input/text.rs,110,component,False,ui.add_space(LABEL_HELPER_GAP);
+crates/ui/src/components/input/text.rs,123,component,False,"inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),"
+crates/ui/src/components/input/text.rs,143,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/input/text.rs,158,component,False,.margin(Margin::ZERO)
+crates/ui/src/components/input/text.rs,227,component,True,ui.add_space(2.0);
+crates/ui/src/components/input/text.rs,234,component,False,ui.add_space(INPUT_AUX_GAP);
+crates/ui/src/components/input/text.rs,242,component,False,ui.add_space(INPUT_AUX_GAP);
+crates/ui/src/components/input/textarea.rs,65,component,False,ui.add_space(LABEL_HELPER_GAP);
+crates/ui/src/components/input/textarea.rs,71,component,False,"inner_margin: Margin::symmetric(SPACE_SM, TEXTAREA_INNER_MARGIN_Y),"
+crates/ui/src/components/input/textarea.rs,82,component,False,.margin(Margin::ZERO)
+crates/ui/src/components/legacy.rs,52,component,True,"inner_margin: Margin::symmetric(12.0, 7.0),"
+crates/ui/src/components/legacy.rs,62,component,True,"inner_margin: Margin::symmetric(10.0, 7.0),"
+crates/ui/src/components/legacy.rs,63,component,False,"outer_margin: Margin::ZERO,"
+crates/ui/src/components/legacy.rs,74,component,True,"inner_margin: Margin::symmetric(5.0, 8.0),"
+crates/ui/src/components/legacy.rs,75,component,False,"outer_margin: Margin::ZERO,"
+crates/ui/src/components/legacy.rs,105,component,True,"inner_margin: Margin::symmetric(10.0, 5.0),"
+crates/ui/src/components/legacy.rs,126,component,False,"inner_margin: Margin::same(CARD_INNER_PAD),"
+crates/ui/src/components/legacy.rs,127,component,False,"outer_margin: Margin::ZERO,"
+crates/ui/src/components/legacy.rs,141,component,True,"inner_margin: Margin::symmetric(10.0, 8.0),"
+crates/ui/src/components/legacy.rs,188,component,True,ui.add_space(8.0);
+crates/ui/src/components/legacy.rs,198,component,True,ui.add_space(8.0);
+crates/ui/src/components/legacy.rs,211,component,True,".margin(Margin::symmetric(8.0, 5.0))"
+crates/ui/src/components/legacy.rs,229,component,True,".margin(Margin::symmetric(8.0, 5.0))"
+crates/ui/src/components/logs/ui.rs,51,component,False,".inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM))"
+crates/ui/src/components/logs/ui.rs,71,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/logs/ui.rs,84,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/nav/ui.rs,182,component,False,ui.add_space(PAGE_HEADER_GAP);
+crates/ui/src/components/nav/ui.rs,224,component,False,ui.add_space(SECTION_HEADER_GAP);
+crates/ui/src/components/overlay/toast.rs,160,component,False,"Margin::symmetric(config::TOAST_HORIZONTAL_PADDING, config::TOAST_VERTICAL_PADDING),"
+crates/ui/src/components/overlay/toast.rs,169,component,True,ui.add_space(8.0);
+crates/ui/src/components/overlay/toast.rs,177,component,True,ui.add_space(10.0);
+crates/ui/src/components/overlay/toast.rs,194,component,True,ui.add_space(6.0);
+crates/ui/src/components/overlay/tooltip.rs,126,component,True,"floating_surface(theme, 6.0, Margin::symmetric(8.0, 5.0)).show(ui, |ui| {"
+crates/ui/src/components/overlay/tooltip.rs,128,component,True,"ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);"
+crates/ui/src/components/overlay/ui.rs,51,component,True,"floating_surface(self.theme, config::POPOVER_RADIUS, Margin::same(10.0))"
+crates/ui/src/components/overlay/ui.rs,140,component,True,"floating_surface(self.theme, config::DROPDOWN_RADIUS, Margin::symmetric(4.0, 6.0))"
+crates/ui/src/components/overlay/ui.rs,219,component,True,ui.add_space(6.0);
+crates/ui/src/components/overlay/ui.rs,344,component,False,Margin::symmetric(
+crates/ui/src/components/radio_group/handler.rs,6,component,False,pub fn radio_group_item_spacing(horizontal: bool) -> Vec2 {
+crates/ui/src/components/radio_group/ui.rs,5,component,False,"use super::handler::{handle_radio_option_click, next_enabled_option_index, radio_group_item_spacing};"
+crates/ui/src/components/radio_group/ui.rs,99,component,False,let spacing = radio_group_item_spacing(horizontal);
+crates/ui/src/components/radio_group/ui.rs,102,component,False,ui.spacing_mut().item_spacing = spacing;
+crates/ui/src/components/radio_group/ui.rs,107,component,False,ui.spacing_mut().item_spacing = spacing;
+crates/ui/src/components/responsive_layout/ui.rs,156,component,False,ui.spacing_mut().item_spacing.y = 0.0;
+crates/ui/src/components/responsive_layout/ui.rs,166,component,False,ui.add_space(metrics.gap);
+crates/ui/src/components/responsive_layout/ui.rs,171,component,False,ui.spacing_mut().item_spacing.x = metrics.gap;
+crates/ui/src/components/select/handler.rs,77,component,False,"Margin::symmetric(padding_x, padding_y + crate::tokens::SPACE_XXS)"
+crates/ui/src/components/select/handler.rs,81,component,False,"Margin::symmetric(menu_margin_left, RADIUS_DROPDOWN)"
+crates/ui/src/components/select/ui/select.rs,87,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/select/ui/select.rs,126,component,False,ui.add_space(ICON_TEXT_GAP);
+crates/ui/src/components/selection/ui.rs,431,component,True,ui.add_space(4.0);
+crates/ui/src/components/sql_editor/ui.rs,65,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/sql_editor/ui.rs,71,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/sql_editor/ui.rs,76,component,False,ui.add_space(SPACE_XXS);
+crates/ui/src/components/table/ui.rs,46,component,False,"inner_margin: Margin::ZERO,"
+crates/ui/src/components/table/ui.rs,202,component,False,ui.add_space(SORT_ICON_GAP);
+crates/ui/src/components/table/ui.rs,212,component,False,ui.add_space(SORT_ICON_GAP);
+crates/ui/src/components/table/ui.rs,248,component,False,ui.add_space(EMPTY_BODY_TOP_SPACE);
+crates/ui/src/components/table/ui.rs,257,component,False,ui.add_space(EMPTY_ICON_GAP);
+crates/ui/src/components/tabs/layout.rs,24,component,False,"ui.spacing_mut().item_spacing = egui::vec2(item_gap, 0.0);"
+crates/ui/src/components/tabs/ui/segmented.rs,42,component,False,"inner_margin: Margin::same(SEGMENTED_TRACK_PAD),"
+crates/ui/src/components/tabs/ui/underline.rs,35,component,False,"ui.spacing_mut().item_spacing = Vec2::new(UNDERLINE_ITEM_GAP, 0.0);"
+crates/ui/src/components/toggle/ui.rs,183,component,False,ui.spacing_mut().item_spacing = Vec2::ZERO;
+crates/ui/src/components/transaction/ui.rs,62,component,False,".inner_margin(egui::Margin::symmetric(BAR_MARGIN_X, BAR_MARGIN_Y));"
+crates/ui/src/components/transaction/ui.rs,69,component,False,ui.add_space(STATUS_DOT_GAP);
+crates/ui/src/components/transaction/ui.rs,78,component,False,ui.add_space(PENDING_BEFORE_GAP);
+crates/ui/src/components/transaction/ui.rs,111,component,False,ui.add_space(badge_rect.width() + PENDING_AFTER_GAP);
+crates/ui/src/components/transaction/ui.rs,114,component,False,ui.add_space(ISOLATION_GAP);
+crates/ui/src/components/transaction/ui.rs,131,component,False,ui.add_space(ACTION_GAP);
+crates/ui/src/components/transaction/ui.rs,207,component,False,ui.add_space(DIALOG_TOP_SPACE);
+crates/ui/src/components/transaction/ui.rs,217,component,False,.inner_margin(egui::Margin::same(DIALOG_BANNER_MARGIN));
+crates/ui/src/components/transaction/ui.rs,226,component,False,ui.add_space(DIALOG_ICON_GAP);
+crates/ui/src/components/transaction/ui.rs,234,component,False,ui.add_space(DIALOG_TITLE_GAP);
+crates/ui/src/components/transaction/ui.rs,244,component,False,ui.add_space(DIALOG_SECTION_GAP);
+crates/ui/src/components/transaction/ui.rs,254,component,False,ui.add_space(DIALOG_TARGET_GAP);
+crates/ui/src/components/transaction/ui.rs,263,component,False,ui.add_space(DIALOG_SECTION_GAP);
+crates/ui/src/components/transaction/ui.rs,272,component,False,ui.add_space(DIALOG_INPUT_GAP);
+crates/ui/src/components/transaction/ui.rs,276,component,False,ui.add_space(DIALOG_ACTION_GAP);
+crates/ui/src/components/transaction/ui.rs,291,component,False,ui.add_space(DIALOG_BUTTON_GAP);
+crates/ui/src/components/workspace/ui.rs,241,component,False,".inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM));"
+crates/ui/src/components/workspace/ui.rs,253,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/workspace/ui.rs,264,component,False,ui.add_space(SPACE_XS);
+crates/ui/src/components/workspace/ui.rs,274,component,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/advanced_panels.rs,22,view,True,"inner_margin: Margin::symmetric(12.0, 8.0),"
+crates/ui/src/connection/advanced_panels.rs,32,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,65,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,82,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,90,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/advanced_panels.rs,107,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/advanced_panels.rs,126,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/advanced_panels.rs,131,view,True,"inner_margin: Margin::symmetric(12.0, 8.0),"
+crates/ui/src/connection/advanced_panels.rs,140,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,145,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,147,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/advanced_panels.rs,181,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/advanced_panels.rs,186,view,True,"inner_margin: Margin::symmetric(12.0, 8.0),"
+crates/ui/src/connection/advanced_panels.rs,196,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/advanced_panels.rs,206,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/advanced_panels.rs,214,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/advanced_panels.rs,224,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/advanced_panels.rs,262,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/advanced_panels.rs,274,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,289,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/advanced_panels.rs,330,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/advanced_panels.rs,335,view,True,"inner_margin: Margin::symmetric(12.0, 8.0),"
+crates/ui/src/connection/advanced_panels.rs,345,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/delete_dialog.rs,40,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/form_fields.rs,23,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/form_fields.rs,29,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/form_fields.rs,70,view,True,ui.add_space(3.0);
+crates/ui/src/connection/form_fields.rs,95,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/form_fields.rs,101,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/form_fields.rs,111,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/form_fields.rs,127,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/form_fields.rs,140,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/connection/form_fields.rs,153,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/form_fields.rs,158,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/form_fields.rs,181,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/form_fields.rs,186,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/form_fields.rs,211,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/form_fields.rs,215,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/form_fields.rs,251,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/form_fields.rs,257,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/form_fields.rs,276,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/form_fields.rs,290,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/connection/view.rs,289,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/view.rs,295,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/view.rs,322,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/connection/view.rs,333,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/view.rs,338,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/view.rs,344,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/view.rs,377,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/view.rs,384,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/connection/view.rs,453,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/connection/view.rs,458,view,False,ui.spacing_mut().item_spacing.x = gap;
+crates/ui/src/connection/view.rs,473,view,True,ui.add_space(20.0); // Align with input below label
+crates/ui/src/connection/view.rs,487,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/connection/view.rs,494,view,True,"inner_margin: Margin::same(10.0),"
+crates/ui/src/connection/view.rs,504,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/diagram_canvas_view.rs,18,view,False,"inner_margin: egui::Margin::ZERO,"
+crates/ui/src/diagram_canvas_view.rs,26,view,False,ui.add_space(top_space);
+crates/ui/src/diagram_canvas_view.rs,38,view,True,ui.add_space(8.0);
+crates/ui/src/diagram_canvas_view.rs,50,view,True,ui.add_space(10.0);
+crates/ui/src/diagram_canvas_view.rs,55,view,True,ui.add_space(56.0);
+crates/ui/src/diagram_canvas_view.rs,79,view,False,"inner_margin: egui::Margin::ZERO,"
+crates/ui/src/diagram_design_panel_view.rs,10,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/diagram_design_panel_view.rs,95,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/diagram_view.rs,81,view,True,ui.add_space(10.0);
+crates/ui/src/diagram_view.rs,92,view,True,ui.add_space(10.0);
+crates/ui/src/diagram_view.rs,101,view,True,ui.add_space(10.0);
+crates/ui/src/diagram_view.rs,216,view,True,ui.add_space(8.0);
+crates/ui/src/diagram_view.rs,253,view,True,ui.add_space(4.0);
+crates/ui/src/diagram_view.rs,631,view,True,"inner_margin: egui::Margin::symmetric(5.0, 4.0),"
+crates/ui/src/event_trigger_surface_view.rs,43,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/event_trigger_surface_view.rs,45,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/event_trigger_surface_view.rs,119,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/event_trigger_surface_view.rs,123,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/explorer_schema_feedback_view.rs,43,view,True,ui.add_space(6.0);
+crates/ui/src/explorer_schema_feedback_view.rs,53,view,True,ui.add_space(8.0);
+crates/ui/src/explorer_schema_feedback_view.rs,73,view,True,ui.add_space(8.0);
+crates/ui/src/explorer_surface_view.rs,52,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/explorer_surface_view.rs,54,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/explorer_surface_view.rs,62,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/explorer_surface_view.rs,150,view,True,ui.add_space(2.0);
+crates/ui/src/explorer_toolbar_view.rs,53,view,True,ui.add_space(36.0);
+crates/ui/src/explorer_toolbar_view.rs,61,view,True,ui.add_space(8.0);
+crates/ui/src/explorer_toolbar_view.rs,63,view,True,ui.add_space(3.0);
+crates/ui/src/explorer_toolbar_view.rs,69,view,True,ui.add_space(12.0);
+crates/ui/src/fdw_surface_view.rs,43,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/fdw_surface_view.rs,45,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/fdw_surface_view.rs,141,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/fdw_surface_view.rs,145,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/files_activity_view.rs,27,view,True,ui.add_space(10.0);
+crates/ui/src/files_agent_context_view.rs,35,view,False,"inner_margin: egui::Margin::same(SPACE_SM),"
+crates/ui/src/files_agent_context_view.rs,91,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/files_agent_context_view.rs,94,view,False,"ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XXS);"
+crates/ui/src/files_agent_context_view.rs,143,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/files_agent_context_view.rs,153,view,False,"ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XS);"
+crates/ui/src/files_git_view.rs,63,view,True,ui.add_space(4.0);
+crates/ui/src/files_git_view.rs,97,view,True,ui.add_space(6.0);
+crates/ui/src/files_git_view.rs,120,view,True,ui.add_space(6.0);
+crates/ui/src/files_git_view.rs,135,view,True,ui.add_space(8.0);
+crates/ui/src/files_git_view.rs,159,view,True,ui.add_space(4.0);
+crates/ui/src/files_git_view.rs,218,view,True,ui.add_space(8.0);
+crates/ui/src/files_git_view.rs,220,view,True,ui.add_space(4.0);
+crates/ui/src/files_search_view.rs,42,view,True,ui.add_space(4.0);
+crates/ui/src/files_search_view.rs,48,view,True,ui.add_space(4.0);
+crates/ui/src/files_search_view.rs,83,view,True,ui.add_space(6.0);
+crates/ui/src/files_search_view.rs,112,view,True,ui.add_space(6.0);
+crates/ui/src/files_search_view.rs,131,view,True,ui.add_space(6.0);
+crates/ui/src/files_search_view.rs,133,view,True,ui.add_space(4.0);
+crates/ui/src/files_surface_view.rs,69,view,True,ui.add_space(6.0);
+crates/ui/src/files_surface_view.rs,78,view,True,ui.add_space(8.0);
+crates/ui/src/files_surface_view.rs,92,view,True,ui.add_space(12.0);
+crates/ui/src/files_surface_view.rs,94,view,True,ui.add_space(6.0);
+crates/ui/src/files_surface_view.rs,111,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/files_surface_view.rs,119,view,False,"inner_margin: egui::Margin::same(SPACE_SM),"
+crates/ui/src/files_surface_view.rs,166,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/files_surface_view.rs,176,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/files_surface_view.rs,180,view,False,"ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XXS);"
+crates/ui/src/files_surface_view.rs,219,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/files_surface_view.rs,221,view,False,"ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XXS);"
+crates/ui/src/files_surface_view.rs,238,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/files_surface_view.rs,242,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/files_surface_view.rs,323,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/files_tasks_view.rs,31,view,True,ui.add_space(4.0);
+crates/ui/src/files_tasks_view.rs,48,view,True,ui.add_space(6.0);
+crates/ui/src/files_tasks_view.rs,78,view,True,ui.add_space(8.0);
+crates/ui/src/files_tree_view.rs,28,view,True,ui.add_space(6.0);
+crates/ui/src/files_tree_view.rs,31,view,True,ui.add_space(4.0);
+crates/ui/src/files_tree_view.rs,34,view,True,ui.add_space(6.0);
+crates/ui/src/files_tree_view.rs,70,view,False,ui.add_space(indent);
+crates/ui/src/maintenance_activity_view.rs,8,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/maintenance_activity_view.rs,10,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_activity_view.rs,23,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_header_view.rs,23,view,False,"inner_margin: egui::Margin::same(SPACE_MD),"
+crates/ui/src/monitoring_header_view.rs,40,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_sessions_view.rs,29,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_sessions_view.rs,37,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_sessions_view.rs,39,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_sessions_view.rs,48,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_sessions_view.rs,62,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_snapshot_view.rs,20,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_snapshot_view.rs,34,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_snapshot_view.rs,36,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_snapshot_view.rs,82,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_snapshot_view.rs,95,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_snapshot_view.rs,125,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_snapshot_view.rs,127,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_snapshot_view.rs,156,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_snapshot_view.rs,158,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_snapshot_view.rs,184,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_snapshot_view.rs,186,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_surface_view.rs,43,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_surface_view.rs,46,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_workload_view.rs,26,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/monitoring_workload_view.rs,28,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_workload_view.rs,46,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/monitoring_workload_view.rs,86,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/navigation_view.rs,6,view,True,ui.add_space(8.0);
+crates/ui/src/navigation_view.rs,8,view,True,ui.add_space(4.0);
+crates/ui/src/navigation_view.rs,27,view,True,ui.add_space(12.0);
+crates/ui/src/navigation_view.rs,29,view,True,ui.add_space(12.0);
+crates/ui/src/navigation_view.rs,32,view,True,ui.add_space(8.0);
+crates/ui/src/navigation_view.rs,38,view,True,ui.add_space(10.0);
+crates/ui/src/palette_surface_view.rs,34,view,True,".margin(egui::Margin::symmetric(12.0, 8.0))"
+crates/ui/src/palette_surface_view.rs,43,view,True,ui.add_space(6.0);
+crates/ui/src/palette_surface_view.rs,68,view,True,ui.add_space(8.0);
+crates/ui/src/palette_surface_view.rs,71,view,True,ui.add_space(16.0);
+crates/ui/src/palette_surface_view.rs,75,view,True,ui.add_space(16.0);
+crates/ui/src/palette_surface_view.rs,144,view,True,ui.add_space(8.0);
+crates/ui/src/palette_surface_view.rs,153,view,True,ui.add_space(8.0);
+crates/ui/src/pg_settings_surface_view.rs,33,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/pg_settings_surface_view.rs,35,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/pg_settings_surface_view.rs,44,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/pg_settings_surface_view.rs,147,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/query_actions_surface_view.rs,45,view,True,"inner_margin: egui::Margin::same(8.0),"
+crates/ui/src/query_actions_surface_view.rs,58,view,True,ui.add_space(4.0);
+crates/ui/src/query_actions_surface_view.rs,62,view,True,ui.add_space(4.0);
+crates/ui/src/query_completion_popup_view.rs,80,view,True,"inner_margin: egui::Margin::same(4.0),"
+crates/ui/src/query_completion_popup_view.rs,115,view,True,".inner_margin(egui::Margin::symmetric(8.0, 4.0))"
+crates/ui/src/query_completion_popup_view.rs,135,view,True,".inner_margin(egui::Margin::symmetric(4.0, 1.0))"
+crates/ui/src/query_completion_popup_view.rs,143,view,True,ui.add_space(6.0);
+crates/ui/src/query_context_picker_view.rs,33,view,True,"inner_margin: egui::Margin::same(8.0),"
+crates/ui/src/query_context_picker_view.rs,46,view,True,ui.add_space(4.0);
+crates/ui/src/query_context_picker_view.rs,62,view,True,ui.add_space(4.0);
+crates/ui/src/query_context_view.rs,47,view,True,"ui.spacing_mut().item_spacing = egui::vec2(6.0, 0.0);"
+crates/ui/src/query_context_view.rs,119,view,True,"ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);"
+crates/ui/src/query_context_view.rs,179,view,False,".inner_margin(egui::Margin::symmetric(SPACE_XS + 2.0, 2.0))"
+crates/ui/src/query_context_view.rs,197,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_dialog_surface_view.rs,41,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/query_dialog_surface_view.rs,53,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/query_dialog_surface_view.rs,58,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/query_dialog_surface_view.rs,135,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_editor_support.rs,24,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_editor_support.rs,30,view,True,".inner_margin(egui::Margin::symmetric(3.0, 1.0))"
+crates/ui/src/query_editor_support.rs,38,view,True,".inner_margin(egui::Margin::symmetric(3.0, 1.0))"
+crates/ui/src/query_editor_support.rs,43,view,True,ui.add_space(24.0);
+crates/ui/src/query_editor_support.rs,59,view,True,ui.add_space(4.0);
+crates/ui/src/query_editor_support.rs,107,view,True,.inner_margin(egui::Margin::same(10.0))
+crates/ui/src/query_editor_support.rs,131,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_editor_support.rs,140,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,165,view,True,ui.add_space(6.0);
+crates/ui/src/query_editor_support.rs,172,view,True,ui.add_space(2.0);
+crates/ui/src/query_editor_support.rs,187,view,True,ui.add_space(6.0);
+crates/ui/src/query_editor_support.rs,189,view,True,ui.add_space(2.0);
+crates/ui/src/query_editor_support.rs,215,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_editor_support.rs,219,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,231,view,True,ui.add_space(4.0);
+crates/ui/src/query_editor_support.rs,233,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);"
+crates/ui/src/query_editor_support.rs,238,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,252,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,261,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,272,view,True,ui.add_space(4.0);
+crates/ui/src/query_editor_support.rs,296,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_editor_support.rs,300,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,316,view,True,ui.add_space(4.0);
+crates/ui/src/query_editor_support.rs,339,view,True,ui.add_space(4.0);
+crates/ui/src/query_editor_support.rs,352,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_editor_support.rs,356,view,True,".inner_margin(egui::Margin::symmetric(5.0, 2.0))"
+crates/ui/src/query_editor_support.rs,375,view,True,ui.add_space(4.0);
+crates/ui/src/query_editor_support.rs,379,view,True,ui.add_space(6.0);
+crates/ui/src/query_editor_support.rs,381,view,True,ui.add_space(2.0);
+crates/ui/src/query_editor_support.rs,385,view,True,.inner_margin(egui::Margin::same(6.0))
+crates/ui/src/query_editor_support.rs,430,view,True,.inner_margin(egui::Margin::same(8.0))
+crates/ui/src/query_folder_delete_dialog.rs,38,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/query_output_actions_view.rs,55,view,True,ui.add_space(8.0);
+crates/ui/src/query_output_actions_view.rs,77,view,True,ui.add_space(8.0);
+crates/ui/src/query_output_actions_view.rs,85,view,True,ui.add_space(4.0);
+crates/ui/src/query_output_actions_view.rs,96,view,True,ui.add_space(6.0);
+crates/ui/src/query_output_actions_view.rs,137,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/query_output_actions_view.rs,155,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/query_output_actions_view.rs,189,view,True,.inner_margin(egui::Margin::same(8.0))
+crates/ui/src/query_output_actions_view.rs,233,view,True,ui.add_space(2.0);
+crates/ui/src/query_output_actions_view.rs,242,view,True,ui.add_space(4.0);
+crates/ui/src/query_output_panes_view.rs,179,view,True,ui.add_space(8.0);
+crates/ui/src/query_output_tabs_view.rs,17,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_output_tabs_view.rs,84,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_output_tabs_view.rs,115,view,False,".inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))"
+crates/ui/src/query_output_tabs_view.rs,123,view,True,ui.add_space(2.0);
+crates/ui/src/query_output_tabs_view.rs,154,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_parameters_view.rs,19,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_results_surface_view.rs,86,view,True,"ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);"
+crates/ui/src/query_search_view.rs,31,view,True,"inner_margin: egui::Margin::symmetric(8.0, 6.0),"
+crates/ui/src/query_search_view.rs,132,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/query_shell_surface_view.rs,11,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_shell_surface_view.rs,15,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_status_bar_surface_view.rs,43,view,True,"ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);"
+crates/ui/src/query_status_bar_surface_view.rs,44,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_status_bar_surface_view.rs,74,view,True,"ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);"
+crates/ui/src/query_status_bar_surface_view.rs,75,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/query_transaction_surface_view.rs,18,view,True,ui.add_space(4.0);
+crates/ui/src/replication_surface_view.rs,39,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/replication_surface_view.rs,41,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/replication_surface_view.rs,104,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/replication_surface_view.rs,143,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/replication_surface_view.rs,162,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/result_grid_body_view.rs,47,view,False,ui.spacing_mut().item_spacing = Vec2::ZERO;
+crates/ui/src/result_grid_body_view.rs,49,view,False,ui.spacing_mut().item_spacing = Vec2::ZERO;
+crates/ui/src/result_grid_body_view.rs,66,view,False,ui.spacing_mut().item_spacing = Vec2::ZERO;
+crates/ui/src/result_grid_cell_editor_surface_view.rs,46,view,True,".margin(egui::Margin::symmetric(6.0, 2.0))"
+crates/ui/src/result_grid_header_surface_view.rs,60,view,False,ui.spacing_mut().item_spacing = Vec2::ZERO;
+crates/ui/src/result_grid_inspector_surface_view.rs,42,view,True,ui.add_space(6.0);
+crates/ui/src/result_grid_row_view.rs,27,view,False,ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+crates/ui/src/result_grid_toolbar_view.rs,177,view,True,ui.add_space(4.0);
+crates/ui/src/routine_workbench_surface_view.rs,35,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/routine_workbench_surface_view.rs,59,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,66,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,106,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,116,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,169,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,180,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,187,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/routine_workbench_surface_view.rs,269,view,True,ui.add_space(4.0);
+crates/ui/src/saved_tasks_surface_view.rs,30,view,True,ui.add_space(10.0);
+crates/ui/src/saved_tasks_surface_view.rs,32,view,True,ui.add_space(8.0);
+crates/ui/src/saved_tasks_surface_view.rs,63,view,True,ui.add_space(8.0);
+crates/ui/src/saved_tasks_surface_view.rs,68,view,True,ui.add_space(6.0);
+crates/ui/src/saved_tasks_surface_view.rs,76,view,True,ui.add_space(8.0);
+crates/ui/src/saved_tasks_surface_view.rs,97,view,True,ui.add_space(8.0);
+crates/ui/src/saved_tasks_surface_view.rs,203,view,True,ui.add_space(6.0);
+crates/ui/src/saved_tasks_surface_view.rs,268,view,True,ui.add_space(6.0);
+crates/ui/src/schema_compare_view.rs,25,view,True,ui.add_space(6.0);
+crates/ui/src/schema_compare_view.rs,31,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,42,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,69,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_compare_view.rs,88,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_compare_view.rs,122,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,155,view,True,ui.add_space(4.0);
+crates/ui/src/schema_compare_view.rs,163,view,True,ui.add_space(6.0);
+crates/ui/src/schema_compare_view.rs,168,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,172,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,178,view,True,ui.add_space(6.0);
+crates/ui/src/schema_compare_view.rs,196,view,True,ui.add_space(4.0);
+crates/ui/src/schema_compare_view.rs,214,view,False,ui.add_space(r.width() + 4.0);
+crates/ui/src/schema_compare_view.rs,225,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,236,view,True,ui.add_space(4.0);
+crates/ui/src/schema_compare_view.rs,244,view,True,ui.add_space(6.0);
+crates/ui/src/schema_compare_view.rs,261,view,True,ui.add_space(8.0);
+crates/ui/src/schema_compare_view.rs,286,view,True,ui.add_space(6.0);
+crates/ui/src/schema_compare_view.rs,338,view,True,ui.add_space(4.0);
+crates/ui/src/schema_object_surface_view.rs,32,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_object_view.rs,49,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,38,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,47,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,117,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,203,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,227,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,237,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,251,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,260,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,279,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,292,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,301,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,309,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,324,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,344,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,360,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,362,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,391,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,411,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,414,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,424,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,438,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,447,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,463,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,495,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,505,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,516,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,526,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,535,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,543,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,552,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,567,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,591,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,602,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,652,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,662,view,True,.inner_margin(egui::Margin::same(8.0))
+crates/ui/src/schema_workbench_form.rs,667,view,True,ui.add_space(4.0);
+crates/ui/src/schema_workbench_form.rs,669,view,True,ui.add_space(75.0);
+crates/ui/src/schema_workbench_form.rs,671,view,True,ui.add_space(55.0);
+crates/ui/src/schema_workbench_form.rs,673,view,True,ui.add_space(10.0);
+crates/ui/src/schema_workbench_form.rs,675,view,True,ui.add_space(10.0);
+crates/ui/src/schema_workbench_form.rs,677,view,True,ui.add_space(10.0);
+crates/ui/src/schema_workbench_form.rs,752,view,True,ui.add_space(2.0);
+crates/ui/src/schema_workbench_form.rs,782,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_form.rs,812,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/schema_workbench_form.rs,816,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,820,view,True,.inner_margin(egui::Margin::same(10.0))
+crates/ui/src/schema_workbench_form.rs,853,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_form.rs,855,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_secondary_view.rs,26,view,True,ui.add_space(4.0);
+crates/ui/src/schema_workbench_secondary_view.rs,31,view,True,ui.add_space(6.0);
+crates/ui/src/schema_workbench_secondary_view.rs,74,view,True,ui.add_space(4.0);
+crates/ui/src/schema_workbench_secondary_view.rs,107,view,True,ui.add_space(6.0);
+crates/ui/src/schema_workbench_secondary_view.rs,137,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_secondary_view.rs,157,view,True,.inner_margin(egui::Margin::same(10.0))
+crates/ui/src/schema_workbench_secondary_view.rs,192,view,True,ui.add_space(4.0);
+crates/ui/src/schema_workbench_secondary_view.rs,194,view,True,ui.add_space(4.0);
+crates/ui/src/schema_workbench_secondary_view.rs,218,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_surface_view.rs,23,view,True,ui.add_space(6.0);
+crates/ui/src/schema_workbench_surface_view.rs,29,view,True,ui.add_space(10.0);
+crates/ui/src/schema_workbench_surface_view.rs,35,view,True,ui.add_space(2.0);
+crates/ui/src/schema_workbench_surface_view.rs,47,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_surface_view.rs,57,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/schema_workbench_surface_view.rs,119,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/schema_workbench_surface_view.rs,129,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_rls_view.rs,42,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_rls_view.rs,150,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_role_details_view.rs,39,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_role_details_view.rs,41,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_role_details_view.rs,81,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_role_details_view.rs,83,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_role_details_view.rs,107,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_role_details_view.rs,109,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_role_details_view.rs,149,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_role_details_view.rs,151,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_role_details_view.rs,198,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_roles_view.rs,25,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_roles_view.rs,27,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/security_roles_view.rs,35,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_roles_view.rs,80,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/security_surface_view.rs,26,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/settings_appearance_view.rs,14,view,True,ui.add_space(10.0);
+crates/ui/src/settings_backup_view.rs,33,view,True,ui.add_space(10.0);
+crates/ui/src/settings_backup_view.rs,35,view,True,ui.add_space(10.0);
+crates/ui/src/settings_backup_view.rs,37,view,True,ui.add_space(14.0);
+crates/ui/src/settings_backup_view.rs,101,view,True,ui.add_space(10.0);
+crates/ui/src/settings_diagnostics_view.rs,31,view,True,ui.add_space(10.0);
+crates/ui/src/settings_diagnostics_view.rs,76,view,True,ui.add_space(8.0);
+crates/ui/src/settings_editor_view.rs,16,view,True,ui.add_space(10.0);
+crates/ui/src/settings_editor_view.rs,38,view,True,ui.add_space(8.0);
+crates/ui/src/settings_editor_view.rs,54,view,True,ui.add_space(8.0);
+crates/ui/src/settings_editor_view.rs,79,view,True,ui.add_space(12.0);
+crates/ui/src/settings_editor_view.rs,81,view,True,ui.add_space(6.0);
+crates/ui/src/settings_general_view.rs,33,view,True,ui.add_space(10.0);
+crates/ui/src/settings_general_view.rs,49,view,True,ui.add_space(8.0);
+crates/ui/src/settings_general_view.rs,62,view,True,ui.add_space(12.0);
+crates/ui/src/settings_general_view.rs,64,view,True,ui.add_space(6.0);
+crates/ui/src/settings_general_view.rs,82,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/settings_general_view.rs,88,view,True,ui.add_space(6.0);
+crates/ui/src/settings_keybindings_view.rs,29,view,True,ui.add_space(10.0);
+crates/ui/src/settings_keybindings_view.rs,36,view,True,ui.add_space(6.0);
+crates/ui/src/settings_keybindings_view.rs,51,view,True,ui.add_space(8.0);
+crates/ui/src/settings_keybindings_view.rs,70,view,True,ui.add_space(4.0);
+crates/ui/src/settings_navigation_view.rs,27,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/settings_navigation_view.rs,72,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/settings_navigation_view.rs,74,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/settings_navigation_view.rs,100,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/settings_surface_view.rs,44,view,False,"inner_margin: egui::Margin::ZERO,"
+crates/ui/src/settings_surface_view.rs,45,view,False,"outer_margin: egui::Margin::ZERO,"
+crates/ui/src/settings_surface_view.rs,117,view,False,ui.add_space(SPACE_3XL);
+crates/ui/src/settings_surface_view.rs,124,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/settings_surface_view.rs,130,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/settings_surface_view.rs,132,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/settings_surface_view.rs,139,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/settings_surface_view.rs,141,view,False,ui.add_space(SPACE_2XL);
+crates/ui/src/settings_surface_view.rs,151,view,False,ui.add_space(SPACE_3XL);
+crates/ui/src/settings_system_view.rs,26,view,True,ui.add_space(10.0);
+crates/ui/src/settings_system_view.rs,45,view,True,ui.add_space(10.0);
+crates/ui/src/settings_system_view.rs,65,view,True,ui.add_space(10.0);
+crates/ui/src/settings_system_view.rs,88,view,True,ui.add_space(10.0);
+crates/ui/src/settings_system_view.rs,103,view,True,ui.add_space(10.0);
+crates/ui/src/shell_frame_view.rs,31,view,False,"outer_margin: egui::Margin::ZERO,"
+crates/ui/src/shell_frame_view.rs,37,view,False,ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+crates/ui/src/shell_statusbar_view.rs,33,view,False,"inner_margin: egui::Margin::symmetric(SPACE_MD, SPACE_XXS),"
+crates/ui/src/shell_statusbar_view.rs,62,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/shell_topbar_view.rs,150,view,False,"inner_margin: egui::Margin::symmetric(SPACE_MD, 4.0),"
+crates/ui/src/shell_topbar_view.rs,158,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/shell_topbar_view.rs,160,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/shell_topbar_view.rs,190,view,True,ui.add_space(2.0);
+crates/ui/src/shell_topbar_view.rs,429,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/sidebar_chrome_view.rs,24,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/sidebar_chrome_view.rs,35,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/sidebar_chrome_view.rs,37,view,False,"ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);"
+crates/ui/src/sidebar_chrome_view.rs,38,view,False,let selector_w = (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
+crates/ui/src/sidebar_data_view.rs,26,view,True,ui.add_space(8.0);
+crates/ui/src/sidebar_data_view.rs,39,view,True,ui.add_space(16.0);
+crates/ui/src/sidebar_data_view.rs,41,view,True,ui.add_space(8.0);
+crates/ui/src/sidebar_data_view.rs,54,view,True,ui.add_space(12.0);
+crates/ui/src/sidebar_problems_view.rs,29,view,True,ui.add_space(8.0);
+crates/ui/src/sidebar_problems_view.rs,45,view,True,ui.add_space(6.0);
+crates/ui/src/sidebar_problems_view.rs,86,view,False,ui.spacing_mut().item_spacing.x = 6.0;
+crates/ui/src/sidebar_problems_view.rs,127,view,True,ui.add_space(24.0);
+crates/ui/src/sidebar_problems_view.rs,130,view,True,ui.add_space(8.0);
+crates/ui/src/sidebar_problems_view.rs,163,view,True,ui.add_space(12.0);
+crates/ui/src/sidebar_queries_surface_view.rs,85,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/sidebar_queries_surface_view.rs,87,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/sidebar_queries_surface_view.rs,94,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/sidebar_queries_surface_view.rs,96,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/sidebar_queries_surface_view.rs,111,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/sidebar_queries_view.rs,26,view,True,ui.add_space(8.0);
+crates/ui/src/sidebar_query_library_view.rs,65,view,True,ui.add_space(2.0);
+crates/ui/src/sidebar_query_library_view.rs,93,view,True,ui.add_space(6.0);
+crates/ui/src/sidebar_query_library_view.rs,100,view,True,ui.add_space(8.0);
+crates/ui/src/sidebar_query_shortcuts_view.rs,18,view,True,ui.add_space(14.0);
+crates/ui/src/sidebar_query_shortcuts_view.rs,20,view,True,ui.add_space(6.0);
+crates/ui/src/sidebar_query_shortcuts_view.rs,35,view,True,ui.add_space(6.0);
+crates/ui/src/sidebar_surface_view.rs,53,view,False,"inner_margin: egui::Margin::ZERO,"
+crates/ui/src/sidebar_surface_view.rs,54,view,False,"outer_margin: egui::Margin::ZERO,"
+crates/ui/src/sidebar_surface_view.rs,102,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/sidebar_surface_view.rs,104,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/sidebar_view.rs,59,view,True,ui.add_space(4.0);
+crates/ui/src/table_conflict_dialog_surface.rs,39,view,True,ui.add_space(4.0);
+crates/ui/src/table_conflict_dialog_surface.rs,62,view,True,ui.add_space(8.0);
+crates/ui/src/table_conflict_dialog_surface.rs,84,view,True,ui.add_space(12.0);
+crates/ui/src/table_conflict_dialog_surface.rs,86,view,True,ui.add_space(8.0);
+crates/ui/src/table_conflict_dialog_surface.rs,174,view,True,ui.add_space(8.0);
+crates/ui/src/table_conflict_dialog_surface.rs,179,view,True,ui.add_space(12.0);
+crates/ui/src/table_conflict_dialog_surface.rs,202,view,True,ui.add_space(12.0);
+crates/ui/src/table_data_filter_view.rs,43,view,True,"inner_margin: Margin::symmetric(8.0, 3.0),"
+crates/ui/src/table_data_placeholder_view.rs,23,view,True,ui.add_space(28.0);
+crates/ui/src/table_data_placeholder_view.rs,38,view,True,ui.add_space(8.0);
+crates/ui/src/table_data_placeholder_view.rs,50,view,True,ui.add_space(12.0);
+crates/ui/src/table_data_placeholder_view.rs,61,view,True,ui.add_space(28.0);
+crates/ui/src/table_data_surface_view.rs,16,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/table_ddl_surface_view.rs,89,view,True,ui.add_space(28.0);
+crates/ui/src/table_ddl_surface_view.rs,100,view,True,ui.add_space(8.0);
+crates/ui/src/table_ddl_surface_view.rs,113,view,True,ui.add_space(28.0);
+crates/ui/src/table_ddl_surface_view.rs,129,view,True,ui.add_space(8.0);
+crates/ui/src/table_ddl_surface_view.rs,180,view,True,ui.add_space(6.0);
+crates/ui/src/table_ddl_view.rs,19,view,True,ui.add_space(8.0);
+crates/ui/src/table_ddl_view.rs,28,view,True,ui.add_space(8.0);
+crates/ui/src/table_indexes_surface_view.rs,33,view,True,ui.add_space(8.0);
+crates/ui/src/table_indexes_surface_view.rs,54,view,True,ui.add_space(8.0);
+crates/ui/src/table_insert_row_surface_view.rs,43,view,True,ui.add_space(8.0);
+crates/ui/src/table_insert_row_surface_view.rs,45,view,True,ui.add_space(8.0);
+crates/ui/src/table_insert_row_surface_view.rs,48,view,True,ui.add_space(12.0);
+crates/ui/src/table_insert_row_surface_view.rs,50,view,True,ui.add_space(10.0);
+crates/ui/src/table_insert_row_surface_view.rs,126,view,True,ui.add_space(6.0);
+crates/ui/src/table_insert_row_surface_view.rs,142,view,True,"inner_margin: Margin::symmetric(12.0, 8.0),"
+crates/ui/src/table_insert_row_surface_view.rs,147,view,True,ui.add_space(4.0);
+crates/ui/src/table_insert_row_surface_view.rs,278,view,True,".margin(Margin::symmetric(8.0, 6.0))"
+crates/ui/src/table_insert_row_surface_view.rs,302,view,True,ui.add_space(8.0);
+crates/ui/src/table_metadata_surface_view.rs,132,view,True,ui.add_space(8.0);
+crates/ui/src/table_metadata_surface_view.rs,134,view,True,ui.add_space(12.0);
+crates/ui/src/table_metadata_surface_view.rs,147,view,True,ui.add_space(8.0);
+crates/ui/src/table_metadata_surface_view.rs,153,view,True,ui.add_space(8.0);
+crates/ui/src/table_metadata_surface_view.rs,156,view,True,ui.add_space(6.0);
+crates/ui/src/table_metadata_surface_view.rs,167,view,True,ui.add_space(12.0);
+crates/ui/src/table_metadata_surface_view.rs,174,view,True,ui.add_space(8.0);
+crates/ui/src/table_profile_surface_view.rs,47,view,True,ui.add_space(8.0);
+crates/ui/src/table_profile_surface_view.rs,164,view,False,ui.add_space(r.width() + 2.0);
+crates/ui/src/table_relations_surface_view.rs,56,view,True,ui.add_space(8.0);
+crates/ui/src/table_relations_surface_view.rs,78,view,True,ui.add_space(8.0);
+crates/ui/src/table_structure_surface_view.rs,27,view,True,ui.add_space(28.0);
+crates/ui/src/table_structure_surface_view.rs,38,view,True,ui.add_space(8.0);
+crates/ui/src/table_structure_surface_view.rs,53,view,True,ui.add_space(28.0);
+crates/ui/src/table_structure_surface_view.rs,61,view,True,ui.add_space(8.0);
+crates/ui/src/table_structure_surface_view.rs,112,view,True,ui.add_space(8.0);
+crates/ui/src/table_structure_surface_view.rs,132,view,True,ui.add_space(8.0);
+crates/ui/src/table_structure_surface_view.rs,260,view,True,ui.add_space(4.0);
+crates/ui/src/table_view.rs,32,view,True,ui.add_space(8.0);
+crates/ui/src/table_workspace_surface_view.rs,23,view,True,ui.add_space(6.0);
+crates/ui/src/theme.rs,461,view,False,style.spacing.item_spacing = EGUI_ITEM_SPACING;
+crates/ui/src/theme.rs,464,view,False,style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN);
+crates/ui/src/theme.rs,465,view,False,style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN);
+crates/ui/src/transfer_activity_surface_view.rs,41,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/transfer_activity_surface_view.rs,47,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/transfer_activity_surface_view.rs,60,view,True,ui.add_space(6.0);
+crates/ui/src/transfer_activity_surface_view.rs,65,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/transfer_activity_surface_view.rs,78,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/transfer_activity_surface_view.rs,93,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/transfer_activity_surface_view.rs,175,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/transfer_activity_surface_view.rs,259,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/transfer_activity_surface_view.rs,295,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/visual_query_builder_surface_view.rs,23,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/visual_query_builder_surface_view.rs,29,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/visual_query_builder_surface_view.rs,55,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/visual_query_builder_surface_view.rs,57,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/visual_query_builder_surface_view.rs,125,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/visual_query_builder_surface_view.rs,127,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/visual_query_builder_surface_view.rs,163,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/visual_query_builder_surface_view.rs,193,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/visual_query_builder_surface_view.rs,236,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,80,view,False,ui.add_space(inset);
+crates/ui/src/welcome_surface_view.rs,82,view,False,ui.add_space(welcome_top_inset(available.y));
+crates/ui/src/welcome_surface_view.rs,84,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/welcome_surface_view.rs,86,view,False,ui.add_space(SPACE_LG);
+crates/ui/src/welcome_surface_view.rs,92,view,False,ui.add_space(SPACE_2XL);
+crates/ui/src/welcome_surface_view.rs,97,view,False,ui.add_space(SPACE_XL);
+crates/ui/src/welcome_surface_view.rs,134,view,False,ui.add_space(SPACE_XS);
+crates/ui/src/welcome_surface_view.rs,138,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,147,view,False,"ui.spacing_mut().item_spacing = Vec2::new(SPACE_XS, 0.0);"
+crates/ui/src/welcome_surface_view.rs,179,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,181,view,False,"ui.spacing_mut().item_spacing = Vec2::new(SPACE_XS, 0.0);"
+crates/ui/src/welcome_surface_view.rs,204,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,252,view,False,"ui.spacing_mut().item_spacing = Vec2::new(gap, 0.0);"
+crates/ui/src/welcome_surface_view.rs,268,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,288,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/welcome_surface_view.rs,300,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/welcome_surface_view.rs,318,view,False,"inner_margin: egui::Margin::same(SPACE_MD),"
+crates/ui/src/welcome_surface_view.rs,427,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,462,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/welcome_surface_view.rs,469,view,False,ui.add_space(SPACE_SM);
+crates/ui/src/welcome_surface_view.rs,476,view,False,ui.add_space(SPACE_XXS);
+crates/ui/src/welcome_surface_view.rs,482,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/welcome_surface_view.rs,494,view,False,ui.add_space(SPACE_MD);
+crates/ui/src/workspace_tabs_surface_view.rs,64,view,False,"outer_margin: egui::Margin::ZERO,"
+crates/ui/src/workspace_tabs_surface_view.rs,71,view,True,"ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);"
+crates/ui/src/workspace_tabs_surface_view.rs,79,view,True,"ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);"
+crates/ui/src/workspace_tabs_surface_view.rs,91,view,True,ui.add_space(2.0);

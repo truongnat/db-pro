@@ -1,0 +1,218 @@
+[
+  {
+    "name": "gallery-buttons",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-form",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-form-error",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-selection",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-cards",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-layout",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-alerts",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-feedback",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-overlays",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-navigation",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-tables",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-database-shell",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-agent",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "query",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "table",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "settings",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "diagram",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "new-connection",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "connection-error",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "loading",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      2560,
+      1600
+    ]
+  },
+  {
+    "name": "gallery-buttons-1440x900",
+    "exit": -15,
+    "captured": true,
+    "physical_size": [
+      2880,
+      1676
+    ]
+  },
+  {
+    "name": "gallery-buttons-1920x1080",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      3840,
+      1676
+    ]
+  },
+  {
+    "name": "gallery-form-error-1440x900",
+    "exit": -15,
+    "captured": true,
+    "physical_size": [
+      2880,
+      1676
+    ]
+  },
+  {
+    "name": "gallery-form-error-1920x1080",
+    "exit": 0,
+    "captured": true,
+    "physical_size": [
+      3840,
+      1676
+    ]
+  }
+]

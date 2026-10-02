@@ -1,0 +1,308 @@
+file,line,expression
+crates/ui/src/activity_bar_view.rs,120,"let (rect, _) = ui.allocate_exact_size(egui::vec2(24.0, 1.0), egui::Sense::hover());"
+crates/ui/src/activity_bar_view.rs,135,"let (rect, resp) = ui.allocate_exact_size(egui::vec2(36.0, 34.0), egui::Sense::click());"
+crates/ui/src/agent_surface_view.rs,34,ui.set_min_size(ui.available_size());
+crates/ui/src/component_gallery_feedback.rs,118,ui.set_width(320.0);
+crates/ui/src/component_gallery_feedback.rs,158,ui.set_width(280.0);
+crates/ui/src/component_gallery_feedback.rs,449,ui.set_width(180.0);
+crates/ui/src/component_gallery_feedback.rs,458,ui.set_width(260.0);
+crates/ui/src/component_gallery_feedback.rs,470,ui.set_width(280.0);
+crates/ui/src/component_gallery_overlays.rs,89,ui.set_min_width(220.0);
+crates/ui/src/component_gallery_overlays.rs,183,ui.set_max_width(520.0);
+crates/ui/src/component_gallery_overlays.rs,355,let _ = ui.allocate_ui_with_layout(
+crates/ui/src/component_gallery_rendering.rs,102,"let (rect, _) = ui.allocate_exact_size(Vec2::new(168.0, 38.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,108,"let (rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 38.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,114,"let (rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 38.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,117,"let (rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 38.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,120,"let (rect, _) = ui.allocate_exact_size(Vec2::new(120.0, 38.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,152,ui.set_min_width(220.0);
+crates/ui/src/component_gallery_rendering.rs,189,"let (rect, response) = ui.allocate_exact_size(Vec2::new(180.0, 72.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,201,"let (rect, _) = ui.allocate_exact_size(Vec2::new(180.0, 72.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,212,"let (rect, _) = ui.allocate_exact_size(Vec2::new(180.0, 72.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,227,"let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width().min(620.0), 120.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_rendering.rs,258,"let (rect, _) = ui.allocate_exact_size(Vec2::new(72.0, 34.0), egui::Sense::hover());"
+crates/ui/src/component_gallery_view.rs,235,ui.set_min_width(ui.available_width());
+crates/ui/src/component_gallery_view.rs,243,ui.set_min_width(ui.available_width());
+crates/ui/src/component_gallery_view.rs,265,ui.set_min_height(TOOLBAR_HEIGHT);
+crates/ui/src/component_gallery_view.rs,335,"ui.set_min_size(egui::vec2(196.0, available_height));"
+crates/ui/src/component_gallery_view.rs,336,ui.set_max_width(196.0);
+crates/ui/src/components/accordion/ui.rs,34,"let (rect, response) = ui.allocate_exact_size("
+crates/ui/src/components/agent_composer/ui.rs,52,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/approval_ui.rs,41,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/approval_ui.rs,80,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,57,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,58,"let (header_rect, header_resp) = ui.allocate_exact_size("
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,134,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,163,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/disclosure_ui.rs,181,"let (bar_rect, _) = ui.allocate_exact_size("
+crates/ui/src/components/agent_primitives/ui.rs,46,"let (rect, response) = ui.allocate_exact_size(size, Sense::hover());"
+crates/ui/src/components/agent_primitives/ui.rs,122,"let (rect, response) = ui.allocate_exact_size(size, Sense::hover());"
+crates/ui/src/components/agent_primitives/ui.rs,196,ui.set_width(ui.available_width());
+crates/ui/src/components/agent_primitives/ui.rs,200,"let (header_rect, header_resp) = ui.allocate_exact_size("
+crates/ui/src/components/agent_primitives/ui.rs,323,ui.set_width(ui.available_width() - config::TOOL_CODE_HORIZONTAL_INSET);
+crates/ui/src/components/agent_primitives/ui.rs,347,ui.set_width(ui.available_width() - config::TOOL_CODE_HORIZONTAL_INSET);
+crates/ui/src/components/alert/ui.rs,77,ui.set_width(ui.available_width());
+crates/ui/src/components/alert/ui.rs,92,ui.allocate_ui_with_layout(
+crates/ui/src/components/alert/ui.rs,98,ui.set_min_width(text_avail);
+crates/ui/src/components/alert/ui.rs,217,"let (_, response) = ui.allocate_exact_size(screen_rect.size(), Sense::click());"
+crates/ui/src/components/alert/ui.rs,250,ui.set_width(content_width.max(0.0).min(modal_width));
+crates/ui/src/components/aspect_ratio/ui.rs,30,"let (rect, response) = ui.allocate_exact_size(aspect_size(available_w, self.ratio), Sense::hover());"
+crates/ui/src/components/badge/ui.rs,61,"let (rect, response) = ui.allocate_exact_size(badge_size, Sense::hover());"
+crates/ui/src/components/button/ui/button.rs,193,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), Sense::hover());"
+crates/ui/src/components/button/ui/button.rs,333,"let (rect, mut response) = ui.allocate_exact_size(Vec2::new(allocation.width, allocation.min_height), sense);"
+crates/ui/src/components/calendar/ui.rs,117,"ui.allocate_ui_with_layout(Vec2::new(frame_width, 0.0), Layout::top_down(egui::Align::Min), |ui| {"
+crates/ui/src/components/calendar/ui.rs,120,ui.set_width(content_width);
+crates/ui/src/components/calendar/ui.rs,125,ui.allocate_ui_with_layout(
+crates/ui/src/components/calendar/ui.rs,131,"ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());"
+crates/ui/src/components/calendar/ui.rs,174,ui.allocate_ui_with_layout(
+crates/ui/src/components/calendar/ui.rs,189,"ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());"
+crates/ui/src/components/calendar/ui.rs,239,".allocate_exact_size(Vec2::new(cell_size, config::DAY_ROW_HEIGHT), Sense::hover());"
+crates/ui/src/components/calendar/ui.rs,269,"ui.allocate_exact_size(Vec2::splat(cell_size), Sense::click());"
+crates/ui/src/components/calendar/ui.rs,513,"let (rect, mut response) = ui.allocate_exact_size("
+crates/ui/src/components/card/ui.rs,72,"let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(avail_w, FOOTER_SEPARATOR_SIZE), egui::Sense::hover());"
+crates/ui/src/components/card/ui.rs,177,ui.set_min_height(METRIC_CARD_MIN_HEIGHT);
+crates/ui/src/components/card/ui.rs,202,"let (rect, _) = ui.allocate_exact_size("
+crates/ui/src/components/chrome/ui.rs,78,"let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());"
+crates/ui/src/components/chrome/ui.rs,162,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::hover());"
+crates/ui/src/components/code/ui.rs,37,"let (rect, response) = ui.allocate_exact_size(size, Sense::hover());"
+crates/ui/src/components/code/ui.rs,101,ui.set_width(ui.available_width());
+crates/ui/src/components/code/ui.rs,210,".allocate_exact_size(Vec2::new(content_width, CODE_BLOCK_LINE_HEIGHT), Sense::hover());"
+crates/ui/src/components/command/ui.rs,46,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, INPUT_HEIGHT), Sense::click());"
+crates/ui/src/components/command/ui.rs,148,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, ITEM_HEIGHT), sense);"
+crates/ui/src/components/database/ui.rs,68,ui.set_width(ui.available_width());
+crates/ui/src/components/database/ui.rs,87,ui.allocate_ui_with_layout(
+crates/ui/src/components/database/ui.rs,91,ui.set_width(identity_width);
+crates/ui/src/components/database/ui.rs,116,ui.allocate_ui_with_layout(
+crates/ui/src/components/database/ui.rs,120,"let (rect, _) = ui.allocate_exact_size(Vec2::splat(STATUS_DOT_BOX_SIZE), Sense::hover());"
+crates/ui/src/components/database/ui.rs,157,"ui.allocate_exact_size(Vec2::new(ssl_width, SSL_BADGE_HEIGHT), Sense::hover());"
+crates/ui/src/components/database/ui.rs,251,"ui.allocate_exact_size(Vec2::new(DATABASE_BADGE_WIDTH, DATABASE_BADGE_HEIGHT), Sense::hover());"
+crates/ui/src/components/dev_tools/ui.rs,43,ui.set_width(ui.available_width());
+crates/ui/src/components/dev_tools/ui.rs,47,"ui.allocate_exact_size(Vec2::new(ui.available_width(), TERMINAL_HEADER_HEIGHT), Sense::hover());"
+crates/ui/src/components/dev_tools/ui.rs,127,"let (rect, resp) = ui.allocate_exact_size(size, Sense::hover());"
+crates/ui/src/components/dialog/frame.rs,21,body_ui.set_max_width(inner_w);
+crates/ui/src/components/dialog/sheet.rs,88,ui.set_min_size(screen.size());
+crates/ui/src/components/dialog/sheet.rs,106,ui.set_width(width);
+crates/ui/src/components/dialog/sheet.rs,107,ui.set_min_height(screen.height());
+crates/ui/src/components/dialog/sheet.rs,123,ui.set_width(inner_width);
+crates/ui/src/components/dialog/sheet.rs,124,ui.set_max_width(inner_width);
+crates/ui/src/components/dialog/sheet.rs,125,ui.set_min_height((screen.height() - SHEET_TOTAL_PADDING).max(SHEET_CONTENT_MIN_SIZE));
+crates/ui/src/components/dialog/sheet.rs,134,ui.allocate_ui_with_layout(
+crates/ui/src/components/dialog/sheet.rs,138,ui.set_width(title_width);
+crates/ui/src/components/dialog/sheet.rs,139,ui.set_max_width(title_width);
+crates/ui/src/components/dialog/ui.rs,134,dim_ui.set_min_size(screen.size());
+crates/ui/src/components/dialog/ui.rs,158,card_ui.set_width(layout.width);
+crates/ui/src/components/dialog/ui.rs,159,card_ui.set_max_width(layout.width);
+crates/ui/src/components/dialog/ui.rs,241,ui.set_width(inner_w);
+crates/ui/src/components/dialog/ui.rs,242,ui.set_max_width(inner_w);
+crates/ui/src/components/dialog/ui.rs,268,ui.allocate_ui_with_layout(
+crates/ui/src/components/diff/ui.rs,39,ui.set_width(ui.available_width());
+crates/ui/src/components/diff/ui.rs,120,ui.allocate_ui_with_layout(
+crates/ui/src/components/diff/ui.rs,136,"ui.allocate_exact_size(Vec2::new(row_width, DIFF_LINE_HEIGHT), Sense::hover());"
+crates/ui/src/components/explain/ui.rs,62,ui.set_width(ui.available_width());
+crates/ui/src/components/explain/ui.rs,191,"ui.allocate_exact_size(Vec2::new(EXPLAIN_BAR_WIDTH, EXPLAIN_BAR_HEIGHT), Sense::hover());"
+crates/ui/src/components/feedback/ui.rs,64,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, self.height), egui::Sense::hover());"
+crates/ui/src/components/feedback/ui.rs,150,"let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), egui::Sense::hover());"
+crates/ui/src/components/feedback/ui.rs,218,"let (rect_left, _) = ui.allocate_exact_size(Vec2::new(line_width, SEPARATOR_HEIGHT), egui::Sense::hover());"
+crates/ui/src/components/feedback/ui.rs,227,"let (rect_right, _) = ui.allocate_exact_size(Vec2::new(line_width, SEPARATOR_HEIGHT), egui::Sense::hover());"
+crates/ui/src/components/hover_card/ui.rs,154,ui.set_width(content_width);
+crates/ui/src/components/input/password.rs,84,ui.set_width(width);
+crates/ui/src/components/input/password.rs,85,ui.set_max_width(width);
+crates/ui/src/components/input/password.rs,117,ui.set_width(frame_w);
+crates/ui/src/components/input/password.rs,118,ui.set_max_width(frame_w);
+crates/ui/src/components/input/search.rs,55,ui.set_min_width(inner_w);
+crates/ui/src/components/input/search.rs,56,ui.set_max_width(inner_w);
+crates/ui/src/components/input/text.rs,101,ui.set_width(width);
+crates/ui/src/components/input/text.rs,102,ui.set_max_width(width);
+crates/ui/src/components/input/text.rs,130,ui.set_width(frame_w);
+crates/ui/src/components/input/text.rs,131,ui.set_max_width(frame_w);
+crates/ui/src/components/input/text.rs,168,"let (clear_rect, clear_response) = ui.allocate_at_least("
+crates/ui/src/components/legacy.rs,438,"let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,488,"let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,526,"let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,559,"let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,597,"let (rect, response) = ui.allocate_exact_size("
+crates/ui/src/components/legacy.rs,660,"let (bar_rect, _) = ui.allocate_exact_size(egui::vec2(total_width, height), egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,718,"let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,743,"let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,801,"let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());"
+crates/ui/src/components/legacy.rs,839,"let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());"
+crates/ui/src/components/logs/ui.rs,53,ui.set_width(ui.available_width());
+crates/ui/src/components/overlay/ui.rs,139,ui.set_min_width(trigger.rect.width().max(180.0));
+crates/ui/src/components/overlay/ui.rs,164,"let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), config::DROPDOWN_ITEM_HEIGHT), sense);"
+crates/ui/src/components/overlay/ui.rs,350,ui.set_min_width(config::CONTEXT_MENU_MIN_WIDTH);
+crates/ui/src/components/overlay/ui.rs,384,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, config::CONTEXT_MENU_ITEM_HEIGHT), Sense::click());"
+crates/ui/src/components/responsive_layout/ui.rs,170,"ui.allocate_ui_with_layout(Vec2::new(row_width, 0.0), Layout::left_to_right(Align::Min), |ui| {"
+crates/ui/src/components/responsive_layout/ui.rs,174,let cell_resp = ui.allocate_ui_with_layout(
+crates/ui/src/components/responsive_layout/ui.rs,178,cell_ui.set_max_width(metrics.cell_width);
+crates/ui/src/components/select/ui/option.rs,17,"let (rect, response) = ui.allocate_exact_size("
+crates/ui/src/components/select/ui/select.rs,76,ui.set_width(width);
+crates/ui/src/components/select/ui/select.rs,77,ui.set_max_width(width);
+crates/ui/src/components/select/ui/select.rs,105,ui.set_width(content_width);
+crates/ui/src/components/select/ui/select.rs,109,let text_response = ui.allocate_ui_with_layout(
+crates/ui/src/components/select/ui/select.rs,113,text_ui.set_min_width(text_width);
+crates/ui/src/components/select/ui/select.rs,213,ui.set_min_width(menu_min_content_width(geo.menu_width));
+crates/ui/src/components/select/ui/select.rs,214,ui.set_max_width(geo.menu_width);
+crates/ui/src/components/selection/ui.rs,79,"let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), sense);"
+crates/ui/src/components/selection/ui.rs,202,"let (row_rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());"
+crates/ui/src/components/selection/ui.rs,319,"let (rect, response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());"
+crates/ui/src/components/selection/ui.rs,435,"let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());"
+crates/ui/src/components/separator/ui.rs,95,"let (rect, resp) = ui.allocate_exact_size("
+crates/ui/src/components/separator/ui.rs,137,"let (rect, resp) = ui.allocate_exact_size("
+crates/ui/src/components/tabs/ui/segmented.rs,91,"let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, SEGMENTED_ITEM_HEIGHT), sense);"
+crates/ui/src/components/tabs/ui/underline.rs,69,"let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, UNDERLINE_ITEM_HEIGHT), Sense::click());"
+crates/ui/src/components/toggle/ui.rs,63,"let (rect, mut response) = ui.allocate_exact_size(Vec2::new(total_width, size.height), sense);"
+crates/ui/src/components/toggle/ui.rs,190,"let (rect, response) = ui.allocate_exact_size(Vec2::new(width, size.height), Sense::click());"
+crates/ui/src/components/transaction/ui.rs,64,ui.set_width(ui.available_width());
+crates/ui/src/components/transaction/ui.rs,66,"let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(STATUS_DOT_SIZE), Sense::hover());"
+crates/ui/src/components/tree/ui.rs,56,"ui.allocate_exact_size(Vec2::new(ui.available_width(), row_height()), Sense::click());"
+crates/ui/src/components/tree/ui.rs,158,"let (rect, _) = ui.allocate_exact_size(Vec2::new(width, reveal.clip_height), Sense::hover());"
+crates/ui/src/components/workspace/ui.rs,33,"let (rect, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), STATUS_BAR_HEIGHT), Sense::hover());"
+crates/ui/src/components/workspace/ui.rs,127,"let (rect, _) = ui.allocate_exact_size(Vec2::new(ACTIVITY_BAR_WIDTH, ui.available_height()), Sense::hover());"
+crates/ui/src/components/workspace/ui.rs,247,"let (dot_rect, _) = ui.allocate_exact_size("
+crates/ui/src/connection/advanced_panels.rs,150,ui.set_width(panel_half_w);
+crates/ui/src/connection/advanced_panels.rs,151,ui.set_max_width(panel_half_w);
+crates/ui/src/connection/advanced_panels.rs,163,ui.set_width(w);
+crates/ui/src/connection/advanced_panels.rs,164,ui.set_max_width(w);
+crates/ui/src/connection/advanced_panels.rs,227,ui.set_width(host_w);
+crates/ui/src/connection/advanced_panels.rs,228,ui.set_max_width(host_w);
+crates/ui/src/connection/advanced_panels.rs,236,ui.set_width(port_w);
+crates/ui/src/connection/advanced_panels.rs,237,ui.set_max_width(port_w);
+crates/ui/src/connection/advanced_panels.rs,245,ui.set_width(user_w);
+crates/ui/src/connection/advanced_panels.rs,246,ui.set_max_width(user_w);
+crates/ui/src/connection/advanced_panels.rs,254,ui.set_width(key_w);
+crates/ui/src/connection/advanced_panels.rs,255,ui.set_max_width(key_w);
+crates/ui/src/connection/advanced_panels.rs,267,ui.set_width(key_input_w);
+crates/ui/src/connection/advanced_panels.rs,268,ui.set_max_width(key_input_w);
+crates/ui/src/connection/advanced_panels.rs,366,"let (rect, response) = ui.allocate_exact_size("
+crates/ui/src/connection/form_fields.rs,31,ui.set_width(name_w);
+crates/ui/src/connection/form_fields.rs,32,ui.set_max_width(name_w);
+crates/ui/src/connection/form_fields.rs,47,ui.set_width(group_w);
+crates/ui/src/connection/form_fields.rs,48,ui.set_max_width(group_w);
+crates/ui/src/connection/form_fields.rs,62,ui.set_width(fav_w);
+crates/ui/src/connection/form_fields.rs,63,ui.set_max_width(fav_w);
+crates/ui/src/connection/form_fields.rs,103,ui.set_width(env_w);
+crates/ui/src/connection/form_fields.rs,104,ui.set_max_width(env_w);
+crates/ui/src/connection/form_fields.rs,119,ui.set_width(ro_w);
+crates/ui/src/connection/form_fields.rs,120,ui.set_max_width(ro_w);
+crates/ui/src/connection/form_fields.rs,160,ui.set_width(host_w);
+crates/ui/src/connection/form_fields.rs,161,ui.set_max_width(host_w);
+crates/ui/src/connection/form_fields.rs,170,ui.set_width(port_w);
+crates/ui/src/connection/form_fields.rs,171,ui.set_max_width(port_w);
+crates/ui/src/connection/form_fields.rs,188,ui.set_width(half_w);
+crates/ui/src/connection/form_fields.rs,189,ui.set_max_width(half_w);
+crates/ui/src/connection/form_fields.rs,200,ui.set_width(half_w);
+crates/ui/src/connection/form_fields.rs,201,ui.set_max_width(half_w);
+crates/ui/src/connection/form_fields.rs,217,ui.set_width(half_w);
+crates/ui/src/connection/form_fields.rs,218,ui.set_max_width(half_w);
+crates/ui/src/connection/form_fields.rs,243,ui.set_width(half_w);
+crates/ui/src/connection/form_fields.rs,244,ui.set_max_width(half_w);
+crates/ui/src/connection/view.rs,42,"let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 52.0), egui::Sense::click());"
+crates/ui/src/connection/view.rs,460,ui.set_width(input_w);
+crates/ui/src/connection/view.rs,461,ui.set_max_width(input_w);
+crates/ui/src/connection/view.rs,471,ui.set_width(button_w);
+crates/ui/src/connection/view.rs,472,ui.set_max_width(button_w);
+crates/ui/src/diagram_canvas_view.rs,22,ui.set_min_size(canvas_size);
+crates/ui/src/editor/renderer.rs,188,"let (viewport, _) = ui.allocate_exact_size(available_size, Sense::hover());"
+crates/ui/src/explorer_surface_view.rs,76,ui.set_min_width(tree_width);
+crates/ui/src/explorer_surface_view.rs,77,ui.set_max_width(tree_width);
+crates/ui/src/explorer_surface_view.rs,79,"ui.allocate_exact_size(egui::vec2(tree_width, 0.0), egui::Sense::hover());"
+crates/ui/src/explorer_table_folder_view.rs,51,let _ = ui.allocate_exact_size(
+crates/ui/src/explorer_toolbar_view.rs,21,"ui.allocate_ui_with_layout(ui.available_size(), Layout::right_to_left(Align::Center), |ui| {"
+crates/ui/src/explorer_tree.rs,95,"let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());"
+crates/ui/src/files_surface_view.rs,266,"let (rect, resp) = ui.allocate_exact_size(vec2(col_w, 28.0), egui::Sense::click());"
+crates/ui/src/palette_surface_view.rs,85,"ui.allocate_exact_size(egui::vec2(ui.available_width(), 44.0), egui::Sense::click());"
+crates/ui/src/query_actions_surface_view.rs,51,ui.set_min_width(menu_width);
+crates/ui/src/query_completion_popup_view.rs,84,ui.set_max_width(popup_width);
+crates/ui/src/query_completion_popup_view.rs,85,ui.set_max_height(popup_height);
+crates/ui/src/query_completion_popup_view.rs,119,ui.set_width(row_w);
+crates/ui/src/query_completion_popup_view.rs,186,ui.set_max_width(320.0);
+crates/ui/src/query_completion_popup_view.rs,204,ui.allocate_ui_with_layout(
+crates/ui/src/query_context_picker_view.rs,39,ui.set_min_width(280.0);
+crates/ui/src/query_context_view.rs,85,"let (rule, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());"
+crates/ui/src/query_editor_support.rs,109,ui.set_max_width(popup_width);
+crates/ui/src/query_editor_support.rs,387,ui.set_width(ui.available_width());
+crates/ui/src/query_editor_support.rs,432,ui.set_width(POPUP_WIDTH);
+crates/ui/src/query_output_actions_view.rs,37,ui.set_min_width(output_width.max(0.0));
+crates/ui/src/query_output_actions_view.rs,134,ui.set_min_width(output_width.max(0.0));
+crates/ui/src/query_output_dock_surface_view.rs,36,ui.allocate_ui_with_layout(
+crates/ui/src/query_output_dock_surface_view.rs,56,"let (grip_rect, grip_response) = ui.allocate_exact_size("
+crates/ui/src/query_output_dock_surface_view.rs,83,"let (grip_rect, grip_response) = ui.allocate_exact_size("
+crates/ui/src/query_output_panes_view.rs,15,ui.set_min_width(output_width.max(0.0));
+crates/ui/src/query_output_panes_view.rs,41,ui.set_min_width(output_width.max(0.0));
+crates/ui/src/query_results_surface_view.rs,35,ui.set_min_width(results_width.max(0.0));
+crates/ui/src/query_search_view.rs,38,ui.set_width(width);
+crates/ui/src/query_shell_surface_view.rs,22,ui.allocate_ui_with_layout(
+crates/ui/src/query_status_bar_surface_view.rs,30,"let (rect, _) = ui.allocate_exact_size("
+crates/ui/src/query_status_bar_surface_view.rs,42,ui.set_min_height(QUERY_STATUS_HEIGHT);
+crates/ui/src/query_view.rs,57,ui.allocate_ui_with_layout(
+crates/ui/src/query_view.rs,72,ui.allocate_ui_with_layout(
+crates/ui/src/query_view.rs,264,ui.allocate_ui_with_layout(
+crates/ui/src/result_grid_body_view.rs,43,ui.allocate_ui_with_layout(
+crates/ui/src/result_grid_body_view.rs,51,ui.set_min_width(content_width);
+crates/ui/src/result_grid_cell.rs,48,"let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());"
+crates/ui/src/result_grid_header_surface_view.rs,61,"let (gutter_rect, _) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 34.0), Sense::hover());"
+crates/ui/src/result_grid_header_surface_view.rs,87,"let (col_rect, col_resp) = ui.allocate_exact_size(egui::vec2(width, 34.0), Sense::click());"
+crates/ui/src/result_grid_row_gutter_view.rs,11,"let (gutter_rect, response) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::click());"
+crates/ui/src/result_grid_view.rs,75,ui.allocate_ui_with_layout(
+crates/ui/src/result_grid_view.rs,95,ui.allocate_ui_with_layout(
+crates/ui/src/schema_compare_view.rs,68,ui.set_min_width(ui.available_width());
+crates/ui/src/schema_compare_view.rs,91,ui.set_min_width((ui.available_width() - 8.0).max(0.0));
+crates/ui/src/schema_object_surface_view.rs,30,ui.set_min_width(ui.available_width());
+crates/ui/src/schema_object_surface_view.rs,42,ui.set_min_width(ui.available_width().max(0.0));
+crates/ui/src/schema_workbench_form.rs,32,ui.set_width(220.0);
+crates/ui/src/schema_workbench_form.rs,40,ui.set_width(280.0);
+crates/ui/src/schema_workbench_form.rs,231,ui.set_width(200.0);
+crates/ui/src/schema_workbench_form.rs,239,ui.set_width(140.0);
+crates/ui/src/schema_workbench_form.rs,253,ui.set_width(220.0);
+crates/ui/src/schema_workbench_form.rs,295,ui.set_width(160.0);
+crates/ui/src/schema_workbench_form.rs,303,ui.set_width(160.0);
+crates/ui/src/schema_workbench_form.rs,418,ui.set_width(200.0);
+crates/ui/src/schema_workbench_form.rs,426,ui.set_width(140.0);
+crates/ui/src/schema_workbench_form.rs,440,ui.set_width(260.0);
+crates/ui/src/schema_workbench_form.rs,499,ui.set_width(200.0);
+crates/ui/src/schema_workbench_form.rs,507,ui.set_width(280.0);
+crates/ui/src/schema_workbench_form.rs,529,ui.set_width(160.0);
+crates/ui/src/schema_workbench_form.rs,537,ui.set_width(200.0);
+crates/ui/src/schema_workbench_form.rs,545,ui.set_width(200.0);
+crates/ui/src/schema_workbench_form.rs,556,ui.set_width(180.0);
+crates/ui/src/schema_workbench_form.rs,569,ui.set_width(180.0);
+crates/ui/src/schema_workbench_surface_view.rs,42,ui.set_min_width(ui.available_width());
+crates/ui/src/schema_workbench_surface_view.rs,46,ui.set_min_width(ui.available_width());
+crates/ui/src/schema_workbench_surface_view.rs,112,ui.allocate_ui_with_layout(
+crates/ui/src/schema_workbench_surface_view.rs,117,ui.set_min_width(form_width - 8.0);
+crates/ui/src/settings_navigation_view.rs,20,ui.set_width(ui.available_width());
+crates/ui/src/settings_surface_view.rs,40,ui.set_min_size(available);
+crates/ui/src/settings_surface_view.rs,51,ui.set_min_size(ui.available_size());
+crates/ui/src/settings_surface_view.rs,69,ui.allocate_ui_with_layout(
+crates/ui/src/settings_surface_view.rs,86,ui.set_min_size(ui.available_size());
+crates/ui/src/settings_surface_view.rs,92,"let (divider, _) = ui.allocate_exact_size(egui::vec2(STROKE_THIN, available_height), egui::Sense::hover());"
+crates/ui/src/settings_surface_view.rs,103,ui.allocate_ui_with_layout(
+crates/ui/src/settings_surface_view.rs,116,ui.set_width((ui.available_width() - SPACE_4XL * 2.0).max(0.0));
+crates/ui/src/shell_frame_view.rs,36,ui.set_min_size(ui.available_size());
+crates/ui/src/shell_output_panel_view.rs,29,ui.set_min_size(ui.available_size());
+crates/ui/src/shell_statusbar_view.rs,38,ui.set_min_size(ui.available_size());
+crates/ui/src/shell_topbar_view.rs,155,ui.set_min_size(ui.available_size());
+crates/ui/src/shell_topbar_view.rs,321,"let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 28.0), Sense::click());"
+crates/ui/src/shell_topbar_view.rs,431,"let (rect, response) = ui.allocate_exact_size(egui::vec2(search_width, 26.0), Sense::click());"
+crates/ui/src/sidebar_chrome_view.rs,40,"ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());"
+crates/ui/src/sidebar_surface_view.rs,129,ui.set_min_size(content_rect.size());
+crates/ui/src/sidebar_surface_view.rs,130,ui.set_max_size(content_rect.size());
+crates/ui/src/table_data_surface_view.rs,19,ui.set_min_width(data_width.max(0.0));
+crates/ui/src/table_indexes_surface_view.rs,31,ui.set_min_width(ui.available_width());
+crates/ui/src/table_metadata_surface_view.rs,28,ui.set_min_width(ui.available_width());
+crates/ui/src/table_metadata_surface_view.rs,71,ui.set_min_width(ui.available_width());
+crates/ui/src/table_profile_surface_view.rs,131,"let (rect, _) = ui.allocate_exact_size(Vec2::new(bar_w, bar_h), egui::Sense::hover());"
+crates/ui/src/table_relations_surface_view.rs,29,ui.set_min_width(ui.available_width());
+crates/ui/src/table_structure_surface_view.rs,110,ui.set_min_width(ui.available_width());
+crates/ui/src/welcome_surface_view.rs,81,"ui.allocate_ui_with_layout(Vec2::new(column_w, available.y), Layout::top_down(Align::Min), |ui| {"
+crates/ui/src/welcome_surface_view.rs,135,"let (mark, _) = ui.allocate_exact_size(Vec2::new(36.0, 3.0), Sense::hover());"
+crates/ui/src/welcome_surface_view.rs,215,"let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 36.0), Sense::click());"
+crates/ui/src/welcome_surface_view.rs,253,ui.allocate_ui_with_layout(
+crates/ui/src/welcome_surface_view.rs,258,ui.allocate_ui_with_layout(
+crates/ui/src/welcome_surface_view.rs,271,ui.set_min_height(WELCOME_CARD_MIN_HEIGHT);
+crates/ui/src/welcome_surface_view.rs,335,"let (rect, resp) = ui.allocate_exact_size(Vec2::new(width, ACTION_ROW_HEIGHT), Sense::click());"
+crates/ui/src/welcome_surface_view.rs,430,ui.set_min_height(WELCOME_CARD_MIN_HEIGHT);
+crates/ui/src/welcome_surface_view.rs,499,"let (rect, resp) = ui.allocate_exact_size(Vec2::new(width, CONNECTION_ROW_HEIGHT), Sense::click());"
+crates/ui/src/workspace_tab_primitives.rs,84,"let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, TAB_HEIGHT), egui::Sense::click());"
+crates/ui/src/workspace_tabs_surface_view.rs,53,ui.set_min_width(tabs_width);
+crates/ui/src/workspace_tabs_surface_view.rs,69,"ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(28.0)));"

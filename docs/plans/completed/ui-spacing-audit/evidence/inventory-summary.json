@@ -1,0 +1,62 @@
+{
+  "scanned_production_files": 559,
+  "spacing_sites": 976,
+  "files_with_spacing": 162,
+  "direct_numeric_sites": 431,
+  "areas": {
+    "view": 773,
+    "component": 203
+  },
+  "hotspots": [
+    [
+      "crates/ui/src/schema_workbench_form.rs",
+      48
+    ],
+    [
+      "crates/ui/src/component_gallery_surfaces.rs",
+      45
+    ],
+    [
+      "crates/ui/src/component_gallery_feedback.rs",
+      42
+    ],
+    [
+      "crates/ui/src/component_gallery_inputs.rs",
+      36
+    ],
+    [
+      "crates/ui/src/query_editor_support.rs",
+      31
+    ],
+    [
+      "crates/ui/src/component_gallery_overlays.rs",
+      27
+    ],
+    [
+      "crates/ui/src/connection/advanced_panels.rs",
+      23
+    ],
+    [
+      "crates/ui/src/welcome_surface_view.rs",
+      23
+    ],
+    [
+      "crates/ui/src/schema_compare_view.rs",
+      19
+    ],
+    [
+      "crates/ui/src/connection/form_fields.rs",
+      18
+    ],
+    [
+      "crates/ui/src/components/transaction/ui.rs",
+      16
+    ],
+    [
+      "crates/ui/src/component_gallery_view.rs",
+      15
+    ]
+  ],
+  "sizing_lines": 307,
+  "spacing_contracts": 251
+}
