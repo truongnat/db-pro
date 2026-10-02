@@ -1,0 +1,48 @@
+Clean Code Scan — DB Pro
+  root : /Users/truongdq/tx/GitHub/db-pro
+  scope: rust (chỉ file thay đổi so với main)
+  refs : .skills/clean-code/references/
+
+═══ Rust — Code Health ═══
+
+  Quét 32 file production (bỏ qua tests/benches)
+
+  ✓ println!/dbg!/eprintln! ngoài main.rs: không có
+  ✓ unwrap()/expect() ngoài test: không có
+  ✓ let _ = <fallible> không comment lý do: không có
+  ✓ .ok(); bỏ qua Result không comment lý do: không có
+  ✓ unwrap_or_default() trên Result (heuristic): không có
+  ✓ todo!()/unimplemented!(): không có
+  ✓ #[allow(...)] không có comment lý do ngay trên: không có
+  ✓ unsafe không có // SAFETY:: không có
+  ✓ cast 'as' giữa kiểu số có thể mất dữ liệu: không có
+  ✓ TODO/FIXME/HACK/XXX không có (#issue|owner): không có
+  ✓ code bị comment-out (heuristic): không có
+  ✓ crates/core import driver DB (sqlx/rusqlite): không có
+  ⚠ fn > 3 tham số (không tính self, heuristic một dòng): 3 chỗ — gom thành struct options / builder (functions.md §3)
+      crates/ui/src/explorer_tree.rs:140:fn paint_row_background(painter: &egui::Painter, rect: Rect, theme: &DbProTheme, is_selected: bool, is_hovered: bool) {
+      crates/ui/src/explorer_tree.rs:416:pub(super) fn column_icon_and_color(data_type: &str, is_pk: bool, is_fk: bool, theme: &DbProTheme) -> (Icon, Color32) {
+      crates/ui/src/workspace_tabs_surface_view.rs:522:    fn draw_static_tab(&mut self, ui: &mut egui::Ui, tab: WorkspaceTab, icon: Icon, title: &str) {
+  ⚠ fn dài (> 50 dòng, heuristic): 11 vượt ngưỡng; ratchet giữ nợ kích thước cũ ở mức cảnh báo
+      crates/ui/src/result_grid_cell.rs:16  (74 dòng)  pub(super) fn draw_grid_cell(&mut self, ui: &mut egui::Ui, result: &Ui…
+      crates/ui/src/result_grid_header_surface_view.rs:47  (243 dòng)  pub(super) fn draw_header(&self, ui: &mut egui::Ui, input: GridHeaderI…
+      crates/ui/src/result_grid_view.rs:44  (78 dòng)  pub(super) fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &…
+      crates/ui/src/theme.rs:257  (139 dòng)  pub fn install_fonts(ctx: &egui::Context) {
+      crates/ui/src/theme.rs:397  (83 dòng)  pub fn apply(self, ctx: &egui::Context) {
+      crates/ui/src/workspace_actions.rs:308  (103 dòng)  pub fn open_table_workspace_for_capture(&mut self) {
+      crates/ui/src/workspace_tabs_surface_view.rs:48  (57 dòng)  pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) -> Vec…
+      crates/ui/src/workspace_tabs_surface_view.rs:106  (61 dòng)  fn draw_welcome_tab(&mut self, ui: &mut egui::Ui, close_all_requested:…
+      crates/ui/src/workspace_tabs_surface_view.rs:168  (196 dòng)  fn draw_query_tabs(&mut self, ui: &mut egui::Ui, modifier: &str, close…
+      crates/ui/src/workspace_tabs_surface_view.rs:365  (91 dòng)  fn draw_table_tab(&mut self, ui: &mut egui::Ui) {
+      crates/ui/src/workspace_tabs_surface_view.rs:457  (64 dòng)  fn draw_schema_object_tab(&mut self, ui: &mut egui::Ui) {
+  ✓ file dài (> 800 dòng): trong ngưỡng
+  ✓ file có > 15 .clone() (heuristic): không có
+
+═══ Tổng kết ═══
+
+  ✓ pass: 14   ⚠ warn: 2   ✗ fail: 0
+
+  ✗ = sửa trước khi mở PR · ⚠ = giải thích trong PR nếu giữ nguyên
+  Heuristic grep/awk có thể báo nhầm — dùng như bộ lọc, không phải phán quyết.
+  Checklist review thủ công: .skills/clean-code/references/review-checklist.md
+

@@ -1,0 +1,48 @@
+    Finished `bench` profile [optimized] target(s) in 0.53s
+     Running benches/result_grid_benchmarks.rs (target/release/deps/result_grid_benchmarks-3d4e0ce1d350f608)
+Gnuplot not found, using plotters backend
+Benchmarking result_grid_million_rows/project_without_filter_or_sort
+Benchmarking result_grid_million_rows/project_without_filter_or_sort: Analyzing
+result_grid_million_rows/project_without_filter_or_sort
+                        time:   [3.3454 ms 3.3891 ms 3.4000 ms]
+                        thrpt:  [294.12 Melem/s 295.07 Melem/s 298.92 Melem/s]
+
+Benchmarking result_grid_projection_sorted/sort_plain_text_column
+Benchmarking result_grid_projection_sorted/sort_plain_text_column: Analyzing
+result_grid_projection_sorted/sort_plain_text_column
+                        time:   [2.7201 ms 2.7424 ms 2.7480 ms]
+                        thrpt:  [72.780 Melem/s 72.928 Melem/s 73.527 Melem/s]
+Benchmarking result_grid_projection_sorted/sort_temporal_text_column
+Benchmarking result_grid_projection_sorted/sort_temporal_text_column: Analyzing
+result_grid_projection_sorted/sort_temporal_text_column
+                        time:   [782.68 ms 786.25 ms 800.51 ms]
+                        thrpt:  [249.84 Kelem/s 254.37 Kelem/s 255.53 Kelem/s]
+Benchmarking result_grid_projection_sorted/filter_and_sort
+Benchmarking result_grid_projection_sorted/filter_and_sort: Analyzing
+result_grid_projection_sorted/filter_and_sort
+                        time:   [6.6386 ms 6.6686 ms 6.7885 ms]
+                        thrpt:  [29.462 Melem/s 29.991 Melem/s 30.127 Melem/s]
+
+Benchmarking result_grid_scroll_window/materialize_100_visible_rows
+Benchmarking result_grid_scroll_window/materialize_100_visible_rows: Analyzing
+result_grid_scroll_window/materialize_100_visible_rows
+                        time:   [45.033 ns 45.034 ns 45.041 ns]
+                        thrpt:  [2.2202 Gelem/s 2.2205 Gelem/s 2.2206 Gelem/s]
+
+Benchmarking result_grid_requested_sizes/build_visual_maps_1000_rows_50_columns
+Benchmarking result_grid_requested_sizes/build_visual_maps_1000_rows_50_columns: Analyzing
+result_grid_requested_sizes/build_visual_maps_1000_rows_50_columns
+                        time:   [66.738 µs 66.816 µs 67.126 µs]
+                        thrpt:  [744.87 Melem/s 748.33 Melem/s 749.20 Melem/s]
+Benchmarking result_grid_requested_sizes/build_visual_maps_10000_rows_50_columns
+Benchmarking result_grid_requested_sizes/build_visual_maps_10000_rows_50_columns: Analyzing
+result_grid_requested_sizes/build_visual_maps_10000_rows_50_columns
+                        time:   [648.66 µs 650.52 µs 650.98 µs]
+                        thrpt:  [768.07 Melem/s 768.62 Melem/s 770.82 Melem/s]
+
+Benchmarking result_grid_selection_lookup/build_200k_rows_4_columns
+Benchmarking result_grid_selection_lookup/build_200k_rows_4_columns: Analyzing
+result_grid_selection_lookup/build_200k_rows_4_columns
+                        time:   [16.085 ms 16.543 ms 16.658 ms]
+                        thrpt:  [12.007 Melem/s 12.090 Melem/s 12.434 Melem/s]
+

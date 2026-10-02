@@ -1,7 +1,11 @@
 # rs-ui Runtime Integration
 
-State: IMPLEMENTING
+State: BACKLOG — deferred by owner on 2026-10-02
 Branch: `main` (repository owner workflow override)
+
+## Owner decision (2026-10-02)
+
+All executable rs-ui integration is removed from DB Pro in favor of the existing egui UI. The independent rs-ui repository is retained. Prior implementation and verification records below are historical, not the shipping state. Restoration evidence: `../restore-egui-ui/`.
 
 ## Goal
 

@@ -1,5 +1,7 @@
 # rs-ui Integration Plan
 
+> Deferred by owner on 2026-10-02. DB Pro executable integration/dependencies have been removed and the existing egui UI restored. This document describes the historical migration plan. Current evidence: `docs/plans/active/restore-egui-ui/`.
+
 ## Current DB Pro UI architecture
 
 - `crates/native-app/src/main.rs` launches the native `DbProApp` through eframe.
