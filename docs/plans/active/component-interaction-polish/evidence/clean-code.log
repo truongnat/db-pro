@@ -1,0 +1,40 @@
+[1mClean Code Scan — DB Pro[0m
+  root : /Users/truongdq/tx/GitHub/db-pro
+  scope: rust (chỉ file thay đổi so với main)
+  refs : .skills/clean-code/references/
+
+[0;34m[1m═══ Rust — Code Health ═══[0m
+
+  Quét 6 file production (bỏ qua tests/benches)
+
+  [0;32m✓[0m println!/dbg!/eprintln! ngoài main.rs: không có
+  [0;32m✓[0m unwrap()/expect() ngoài test: không có
+  [0;32m✓[0m let _ = <fallible> không comment lý do: không có
+  [0;32m✓[0m .ok(); bỏ qua Result không comment lý do: không có
+  [0;32m✓[0m unwrap_or_default() trên Result (heuristic): không có
+  [0;32m✓[0m todo!()/unimplemented!(): không có
+  [0;32m✓[0m #[allow(...)] không có comment lý do ngay trên: không có
+  [0;32m✓[0m unsafe không có // SAFETY:: không có
+  [0;32m✓[0m cast 'as' giữa kiểu số có thể mất dữ liệu: không có
+  [0;32m✓[0m TODO/FIXME/HACK/XXX không có (#issue|owner): không có
+  [0;32m✓[0m code bị comment-out (heuristic): không có
+  [0;32m✓[0m crates/core import driver DB (sqlx/rusqlite): không có
+  [1;33m⚠[0m fn > 3 tham số (không tính self, heuristic một dòng): 1 chỗ — gom thành struct options / builder (functions.md §3)
+      crates/ui/src/components/button/ui/button.rs:341:fn interactive_animation_state(ui: &Ui, response: &Response, enabled: bool, reduce_motion: bool) -> (f32, f32) {
+  [1;33m⚠[0m fn dài (> 50 dòng, heuristic): 5 vượt ngưỡng; ratchet giữ nợ kích thước cũ ở mức cảnh báo
+      crates/ui/src/components/alert/ui.rs:65  (77 dòng)  pub fn show(self, ui: &mut Ui) -> Option<Response> {
+      crates/ui/src/components/alert/ui.rs:196  (116 dòng)  pub fn show(self, ctx: &egui::Context, open: &mut bool) -> Option<Aler…
+      crates/ui/src/components/button/ui/button.rs:253  (65 dòng)  fn show_interactive(self, ui: &mut Ui, tokens: &SizeTokens) -> Respons…
+      crates/ui/src/theme.rs:257  (139 dòng)  pub fn install_fonts(ctx: &egui::Context) {
+      crates/ui/src/theme.rs:397  (84 dòng)  pub fn apply(self, ctx: &egui::Context) {
+  [0;32m✓[0m file dài (> 800 dòng): trong ngưỡng
+  [0;32m✓[0m file có > 15 .clone() (heuristic): không có
+
+[0;34m[1m═══ Tổng kết ═══[0m
+
+  [0;32m✓ pass: 14[0m   [1;33m⚠ warn: 2[0m   [0;31m✗ fail: 0[0m
+
+  ✗ = sửa trước khi mở PR · ⚠ = giải thích trong PR nếu giữ nguyên
+  Heuristic grep/awk có thể báo nhầm — dùng như bộ lọc, không phải phán quyết.
+  Checklist review thủ công: .skills/clean-code/references/review-checklist.md
+
