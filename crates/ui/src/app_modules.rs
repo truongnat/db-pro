@@ -410,6 +410,8 @@ mod result_grid_row_view;
 mod result_grid_selection;
 #[path = "result_grid_toolbar_view.rs"]
 mod result_grid_toolbar_view;
+#[path = "result_grid_virtual_adapter.rs"]
+mod result_grid_virtual_adapter;
 #[path = "result_grid_view.rs"]
 pub(crate) mod result_grid_view;
 #[path = "runtime_event_handlers.rs"]

@@ -1,5 +1,9 @@
 //! Result-grid viewport composition and virtualized row presentation.
 use super::super::*;
+use super::super::result_grid_virtual_adapter::{
+    adapt_virtual_grid_window, VirtualGridAdapterInput, RESULT_GRID_ROW_HEIGHT,
+    ResultGridVirtualRuntime,
+};
 use super::{GridRows, GridSelectionLookup};
 use egui::Vec2;
 
@@ -35,6 +39,7 @@ pub(super) trait ResultGridBodyRenderer {
 pub(super) fn draw_body(
     ui: &mut egui::Ui,
     context: ResultGridBodyContext<'_>,
+    virtual_runtime: &mut ResultGridVirtualRuntime,
     renderer: &mut dyn ResultGridBodyRenderer,
 ) {
     let grid_height = ui.available_height().max(180.0);
@@ -59,12 +64,30 @@ pub(super) fn draw_body(
                     row_offset: context.row_offset,
                     selection_lookup: context.selection_lookup,
                 };
-                let row_height = 28.0;
+                let row_height = RESULT_GRID_ROW_HEIGHT;
+                let viewport_top = ui.cursor().min.y;
                 egui::ScrollArea::vertical()
                     .max_height((grid_height - 34.0).max(140.0))
-                    .show_rows(ui, row_height, context.indexes.len(), |ui, range| {
+                    .show(ui, |ui| {
                         ui.spacing_mut().item_spacing = Vec2::ZERO;
-                        for position in range {
+                        let scroll_offset_y = (viewport_top - ui.max_rect().top()).max(0.0);
+                        let window = match adapt_virtual_grid_window(
+                            virtual_runtime,
+                            VirtualGridAdapterInput {
+                                row_count: rows.indexes.len(),
+                                viewport_height: (grid_height - 34.0).max(140.0),
+                                scroll_offset_y,
+                            },
+                        ) {
+                            Ok(window) => window,
+                            Err(error) => {
+                                tracing::error!(?error, "could not prepare result-grid viewport");
+                                return;
+                            }
+                        };
+                        let visible_end = window.positions.end;
+                        ui.add_space(window.positions.start as f32 * row_height);
+                        for position in window.positions {
                             renderer.draw_row(
                                 ui,
                                 ResultGridRowInput {
@@ -74,6 +97,9 @@ pub(super) fn draw_body(
                                 },
                             );
                         }
+                        ui.add_space(
+                            context.indexes.len().saturating_sub(visible_end) as f32 * row_height,
+                        );
                     });
             });
         },

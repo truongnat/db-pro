@@ -1,6 +1,7 @@
 //! Feature-owned state for the table/data grid interaction surface.
 
 use super::*;
+use super::result_grid_virtual_adapter::ResultGridVirtualRuntime;
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -20,6 +21,7 @@ pub(crate) struct TableDataState {
     pub(super) grid_projection_epoch: u64,
     pub(super) grid_projection_cache: GridProjectionCache,
     pub(super) grid_selection_cache: GridSelectionCache,
+    pub(super) result_grid_virtual_runtime: ResultGridVirtualRuntime,
     pub(super) grid_columns_user_resized: bool,
     pub(super) selected_cell: Option<(usize, usize)>,
     pub(super) selected_row: Option<usize>,

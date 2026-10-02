@@ -19,9 +19,13 @@
 - [x] Mirror existing expansion/selection and route Explorer row activation into existing DB Pro interactions.
 - [x] Route ArrowUp/ArrowDown through rs-ui focus traversal; cover hierarchy, stable keys, focus order, and stale-subtree cleanup with tests.
 - [ ] Verify schema-tree focus and accessibility semantics in the native app; current adapter targets rendered rows only.
-- [ ] Stage 4: evaluate rs-ui VirtualGrid against DB Pro's typed cells, filtered row projection, variable column widths, and current virtualization before routing visible-cell materialization.
+- [x] Stage 4A: trace filtered projection, typed cells, visible rows, widths, scroll ownership, selection, keyboard behavior, and painting.
+- [ ] Stage 4C: route vertical row-window calculation through rs-ui `VirtualGrid`/`ScrollState`; adapter code is present, but its focused test cannot compile because the available rs-ui revision lacks APIs used by Stages 1–3.
+- [ ] Stage 4D: virtualize columns with actual variable widths. The available rs-ui `VirtualGrid` accepts only a uniform column extent.
+- [ ] Stage 4E–4F: route resize/selection through rs-ui models when those APIs are available; DB Pro width and selection remain authoritative meanwhile.
+- [ ] Stage 4H: run comparative grid benchmarks; cases cover 10k/100k/1M rows and 50 columns, but compilation is blocked by the same rs-ui API mismatch, so no measurements exist.
 - [ ] Stage 5: integrate rs-ui text behavior into search/filter inputs without changing DB Pro query/filter state ownership.
 - [ ] Stage 6: document whether SQL editor migration is warranted; preserve the existing editor until a measured compatibility case supports a change.
 - [ ] Stage 7: remove egui code only after replacement paths and runtime/accessibility/performance evidence pass.
-- [ ] Resolve local dependency pinning for CI/release builds.
+- [ ] Resolve local dependency pinning for CI/release builds after rs-ui provides the behavior and resize APIs consumed by Stages 1–3.
 - [ ] Independently review and account for wgpu/glow coexistence before renderer migration.

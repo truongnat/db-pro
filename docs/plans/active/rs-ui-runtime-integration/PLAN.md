@@ -1,6 +1,6 @@
 # rs-ui Runtime Integration
 
-State: IMPLEMENTING
+State: BLOCKED
 Branch: `main` (repository owner workflow override)
 
 ## Goal
@@ -26,7 +26,8 @@ Adopt the separate rs-ui runtime incrementally as the UI layout and behavior fou
 
 - Replacing the eframe window host or the current renderer.
 - Rewriting product state, commands, connection/query/schema logic, or editor.
-- Migrating the result grid, search/filter inputs, or SQL editor in this stage.
+- Rewriting the result-grid painter or moving database/projection logic into rs-ui.
+- Migrating search/filter inputs or the SQL editor in this stage.
 - Copying rs-ui source into DB Pro.
 
 ## Current architecture and boundary
@@ -54,7 +55,7 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
 
 ## Risks
 
-- The source rs-ui checkout is currently modified and uncommitted. A local path dependency follows those live files and is not reproducible outside a machine with the sibling checkout. Pin a commit or publish a version before release/CI use.
+- The available rs-ui checkout is clean at `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`, but that revision lacks behavior/resize APIs already called by Stages 1–3. Keep the dependency unpinned until a compatible immutable revision exists; do not pin a revision that makes the current UI fail to compile.
 - eframe currently uses the glow renderer; rs-ui's renderer targets wgpu. Switching rendering backends is outside this adapter and needs an isolated technical spike before any full renderer migration.
 - The current host adapter rebuilds a small retained tree for the shell layout request. Measure before expanding that pattern to high-frequency surfaces.
 - Explorer rows currently use egui for painting, expansion state, and row
@@ -63,6 +64,17 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
   replace Explorer rendering or expose rs-ui semantics through a native OS
   accessibility backend. Keyboard traversal can only target rows rendered in
   the current viewport.
+- Stage 4 uses rs-ui `VirtualGrid` and `ScrollState` to calculate the vertical
+  row window from egui's scroll offset while egui remains the scroll host and
+  painter. DB Pro retains filtered projection, typed cells, column order,
+  variable widths, selection, and persisted width state. Horizontal
+  virtualization is deferred because the available `VirtualGrid` API only
+  accepts one fixed column extent. Resize/selection routing and measurements
+  remain incomplete.
+- The available rs-ui revision does not contain APIs already used by Stages
+  1–3, so it cannot be pinned without breaking the current UI build.
+- Stage 4 verification and remaining runtime/interaction work are blocked until
+  a compatible immutable rs-ui revision is available.
 
 ## Acceptance
 
@@ -71,5 +83,7 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
 - Existing domain state and command/task bridge remain unchanged.
 - Explorer semantics represent the existing visible hierarchy and clicks
   continue through DB Pro's existing selection and action paths.
+- Stage 4 must preserve the existing projection, typed cells, column widths,
+  selection, clipboard, and egui cell painter while measuring visible work.
 - Targeted tests and Rust checks are recorded honestly.
 - Runtime screenshots and end-to-end smoke evidence remain required before marking this integration complete.

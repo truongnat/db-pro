@@ -1,5 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use db_pro_ui::{filtered_sorted_indexes, GridSelectionLookup, UiCell, UiColumn, UiQueryResult};
+use rs_ui_core::{Point, Size};
+use rs_ui_runtime::VirtualGrid;
 
 fn million_row_result() -> UiQueryResult {
     UiQueryResult {
@@ -129,6 +131,24 @@ fn bench_visible_scroll_window(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_rs_ui_grid_prepare(c: &mut Criterion) {
+    let mut group = c.benchmark_group("result_grid_rs_ui_fixed_width_prepare");
+    for row_count in [10_000, 100_000, 1_000_000] {
+        let viewport = Size::new(600.0, 560.0);
+        let mut grid =
+            VirtualGrid::new_fixed(row_count, 50, 28.0, 120.0, viewport, 1).expect("benchmark extents are valid");
+        group.throughput(Throughput::Elements(154));
+        group.bench_function(format!("{row_count}_rows_50_columns"), |b| {
+            b.iter(|| {
+                grid.set_scroll_offset(Point::new(0.0, row_count as f32 * 14.0));
+                let cells = grid.visible_cells();
+                black_box((grid.rows.first_visible..grid.rows.last_visible, cells.len()));
+            });
+        });
+    }
+    group.finish();
+}
+
 fn grid_result(row_count: usize, column_count: usize) -> UiQueryResult {
     UiQueryResult {
         columns: (0..column_count)
@@ -197,6 +217,7 @@ criterion_group!(
     bench_million_row_metadata,
     bench_sorted_projection,
     bench_visible_scroll_window,
+    bench_rs_ui_grid_prepare,
     bench_requested_grid_sizes,
     bench_selection_lookup
 );

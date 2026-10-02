@@ -18,8 +18,8 @@ chrono.workspace = true
 rand.workspace = true
 tracing.workspace = true
 rust-i18n.workspace = true
-rs-ui-runtime = { package = "ui-runtime", path = "../../../../projects/ui-runtime-foundation/crates/ui-runtime" }
-rs-ui-core = { package = "ui-core", path = "../../../../projects/ui-runtime-foundation/crates/ui-core" }
+rs-ui-runtime = { package = "ui-runtime", path = "../../../rs-ui/crates/ui-runtime" }
+rs-ui-core = { package = "ui-core", path = "../../../rs-ui/crates/ui-core" }
 
 [dev-dependencies]
 criterion.workspace = true
