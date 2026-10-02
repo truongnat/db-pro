@@ -13,6 +13,11 @@ use rs_ui_runtime::{
 use std::fmt;
 use std::time::Duration;
 
+#[path = "native_explorer_tree_runtime.rs"]
+mod native_explorer_tree_runtime;
+pub(crate) use native_explorer_tree_runtime::ExplorerTreeItem;
+use native_explorer_tree_runtime::ExplorerTreeRuntime;
+
 const TOOLBAR_HEIGHT: f32 = 42.0;
 pub(crate) const TABS_HEIGHT: f32 = 34.0;
 const MIN_MAIN_WIDTH: f32 = 420.0;
@@ -204,27 +209,9 @@ pub(crate) struct RsUiShellRuntime {
     tab_nodes: std::collections::HashMap<String, NodeId>,
     active_tab_keys: std::collections::HashSet<String>,
     focused_tab_seen: bool,
-    explorer_tree_runtime: UiTree,
-    explorer_tree_root: Option<NodeId>,
-    explorer_tree_nodes: std::collections::HashMap<String, NodeId>,
-    explorer_tree_parents: std::collections::HashMap<String, Option<String>>,
-    active_explorer_tree_keys: std::collections::HashSet<String>,
-    focused_explorer_item_seen: bool,
-    pending_explorer_tree_command: Option<BehaviorCommand>,
+    explorer_tree_runtime: ExplorerTreeRuntime,
     sidebar_width: f32,
     resizing_sidebar: bool,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ExplorerTreeItem<'a> {
-    pub(crate) key: &'a str,
-    pub(crate) parent_key: Option<&'a str>,
-    pub(crate) label: &'a str,
-    pub(crate) expanded: bool,
-    pub(crate) selected: bool,
-    pub(crate) bounds: egui::Rect,
-    pub(crate) focused: bool,
-    pub(crate) clicked: bool,
 }
 
 impl Default for RsUiShellRuntime {
@@ -239,13 +226,7 @@ impl Default for RsUiShellRuntime {
             tab_nodes: std::collections::HashMap::new(),
             active_tab_keys: std::collections::HashSet::new(),
             focused_tab_seen: false,
-            explorer_tree_runtime: UiTree::new(),
-            explorer_tree_root: None,
-            explorer_tree_nodes: std::collections::HashMap::new(),
-            explorer_tree_parents: std::collections::HashMap::new(),
-            active_explorer_tree_keys: std::collections::HashSet::new(),
-            focused_explorer_item_seen: false,
-            pending_explorer_tree_command: None,
+            explorer_tree_runtime: ExplorerTreeRuntime::default(),
             sidebar_width: 260.0,
             resizing_sidebar: false,
         }
@@ -253,140 +234,24 @@ impl Default for RsUiShellRuntime {
 }
 
 impl RsUiShellRuntime {
-    fn ensure_explorer_tree_root(&mut self) -> Result<NodeId, RuntimeError> {
-        if let Some(node) = self.explorer_tree_root {
-            return Ok(node);
-        }
-        let root = self
-            .explorer_tree_runtime
-            .create_node(None, LayoutStyle::default(), PaintState::default())?;
-        self.explorer_tree_runtime
-            .set_accessibility_semantics(root, AccessibilitySemantics::new(AccessibilityRole::Tree))?;
-        self.explorer_tree_root = Some(root);
-        Ok(root)
-    }
-
     pub(crate) fn begin_explorer_tree(&mut self) {
-        self.active_explorer_tree_keys.clear();
-        self.focused_explorer_item_seen = false;
+        self.explorer_tree_runtime.begin();
     }
 
     pub(crate) fn queue_explorer_tree_navigation(&mut self, command: BehaviorCommand) {
-        if matches!(command, BehaviorCommand::MoveNext | BehaviorCommand::MovePrevious) {
-            self.pending_explorer_tree_command = Some(command);
-        }
+        self.explorer_tree_runtime.queue_navigation(command);
     }
 
     pub(crate) fn explorer_item_has_focus(&self, key: &str) -> bool {
-        self.explorer_tree_nodes
-            .get(key)
-            .is_some_and(|node| self.explorer_tree_runtime.focus_manager().focused() == Some(*node))
+        self.explorer_tree_runtime.item_has_focus(key)
     }
 
     pub(crate) fn register_explorer_tree_item(&mut self, item: ExplorerTreeItem<'_>) -> Result<bool, RuntimeError> {
-        let root = self.ensure_explorer_tree_root()?;
-        let parent = match item.parent_key {
-            Some(parent_key) => self
-                .explorer_tree_nodes
-                .get(parent_key)
-                .copied()
-                .ok_or(RuntimeError::UnknownNode(root))?,
-            None => root,
-        };
-        let node = self.ensure_explorer_tree_node(parent, item)?;
-        let mut semantics = AccessibilitySemantics::new(AccessibilityRole::TreeItem);
-        semantics.label = Some(item.label.to_owned());
-        semantics.state.expanded = Some(item.expanded);
-        self.explorer_tree_runtime
-            .set_accessibility_semantics(node, semantics)?;
-        self.explorer_tree_runtime.apply_selection_state(node, item.selected)?;
-        self.explorer_tree_runtime.set_hit_test_state(
-            node,
-            HitTestState {
-                bounds: rs_ui_core::Rect::from_min_max(
-                    rs_ui_core::Point::new(item.bounds.min.x, item.bounds.min.y),
-                    rs_ui_core::Point::new(item.bounds.max.x, item.bounds.max.y),
-                ),
-                pointer_events: PointerEvents::Auto,
-                ..HitTestState::default()
-            },
-        )?;
-        self.active_explorer_tree_keys.insert(item.key.to_owned());
-        self.explorer_tree_parents
-            .insert(item.key.to_owned(), item.parent_key.map(str::to_owned));
-        if item.focused {
-            self.focused_explorer_item_seen = true;
-            let _ = self.explorer_tree_runtime.request_focus(node)?;
-        }
-        if !item.clicked {
-            return Ok(false);
-        }
-        let _ = self.explorer_tree_runtime.request_focus(node)?;
-        let event =
-            self.explorer_tree_runtime
-                .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
-        Ok(event.default_prevented())
-    }
-
-    fn ensure_explorer_tree_node(
-        &mut self,
-        parent: NodeId,
-        item: ExplorerTreeItem<'_>,
-    ) -> Result<NodeId, RuntimeError> {
-        if let Some(node) = self.explorer_tree_nodes.get(item.key).copied() {
-            return Ok(node);
-        }
-        let node =
-            self.explorer_tree_runtime
-                .create_node(Some(parent), LayoutStyle::default(), PaintState::default())?;
-        self.explorer_tree_runtime
-            .register_pressable(node, Some(item.label.to_owned()), false)?;
-        self.explorer_tree_nodes.insert(item.key.to_owned(), node);
-        Ok(node)
+        self.explorer_tree_runtime.register_item(item)
     }
 
     pub(crate) fn end_explorer_tree(&mut self) -> Result<(), RuntimeError> {
-        let root = self.ensure_explorer_tree_root()?;
-        let focused_item = self
-            .explorer_tree_runtime
-            .focus_manager()
-            .focused()
-            .is_some_and(|focused| self.explorer_tree_nodes.values().any(|node| *node == focused));
-        if focused_item && !self.focused_explorer_item_seen {
-            self.explorer_tree_runtime.clear_focus();
-        }
-        let stale = self
-            .explorer_tree_nodes
-            .keys()
-            .filter(|key| !self.active_explorer_tree_keys.contains(*key))
-            .cloned()
-            .collect::<std::collections::HashSet<_>>();
-        let stale_roots = stale
-            .iter()
-            .filter(|key| {
-                self.explorer_tree_parents
-                    .get(*key)
-                    .and_then(Option::as_ref)
-                    .is_none_or(|parent| !stale.contains(parent))
-            })
-            .filter_map(|key| self.explorer_tree_nodes.get(key).copied())
-            .collect::<Vec<_>>();
-        for node in stale_roots {
-            self.explorer_tree_runtime.remove_subtree(node)?;
-        }
-        self.explorer_tree_nodes
-            .retain(|key, _| self.active_explorer_tree_keys.contains(key));
-        self.explorer_tree_parents
-            .retain(|key, _| self.active_explorer_tree_keys.contains(key));
-        self.active_explorer_tree_keys.clear();
-        if let Some(command) = self.pending_explorer_tree_command.take() {
-            self.explorer_tree_runtime
-                .dispatch_behavior_command(root, command, Duration::ZERO)?;
-        }
-        if self.explorer_tree_runtime.node(root).is_none() {
-            return Err(RuntimeError::UnknownNode(root));
-        }
-        Ok(())
+        self.explorer_tree_runtime.end()
     }
 
     fn ensure_output_splitter(&mut self, horizontal: bool) -> Result<NodeId, RuntimeError> {
@@ -778,369 +643,5 @@ fn invert_splitter_pointer(horizontal: bool, pointer: rs_ui_core::Point) -> rs_u
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shell_regions_preserve_sidebar_and_split_remaining_space() {
-        let regions = layout_shell(Size::new(1440.0, 900.0), 280.0).unwrap();
-
-        assert_eq!(regions.sidebar.width(), 280.0);
-        assert_eq!(regions.main.min.x, 280.0);
-        assert_eq!(regions.main.width(), 1160.0);
-        assert_eq!(regions.tabs.height(), TABS_HEIGHT);
-        assert_eq!(regions.workspace.height(), 824.0);
-    }
-
-    #[test]
-    fn shell_layout_rejects_viewports_that_cannot_fit_the_main_surface() {
-        assert!(layout_shell(Size::new(690.0, 700.0), 280.0).is_none());
-        assert!(layout_shell(Size::new(1440.0, 70.0), 280.0).is_none());
-    }
-
-    #[test]
-    fn sidebar_resizer_uses_runtime_drag_delta_and_limits() {
-        let mut runtime = RsUiShellRuntime::default();
-        runtime
-            .begin_sidebar_resize(280.0, 240.0, 360.0, rs_ui_core::Point::new(280.0, 30.0))
-            .unwrap();
-
-        assert_eq!(
-            runtime
-                .update_sidebar_resize(rs_ui_core::Point::new(330.0, 30.0))
-                .unwrap(),
-            330.0
-        );
-        assert_eq!(
-            runtime
-                .update_sidebar_resize(rs_ui_core::Point::new(400.0, 30.0))
-                .unwrap(),
-            360.0
-        );
-        runtime.end_sidebar_resize().unwrap();
-    }
-
-    #[test]
-    fn focused_sidebar_resizer_accepts_normalized_keyboard_commands() {
-        let mut runtime = RsUiShellRuntime::default();
-
-        assert_eq!(
-            runtime
-                .adjust_sidebar_width(280.0, 240.0, 360.0, BehaviorCommand::MoveLeft)
-                .unwrap(),
-            272.0
-        );
-    }
-
-    #[test]
-    fn output_splitters_apply_resizable_behavior_in_database_dock_direction() {
-        let mut runtime = RsUiShellRuntime::default();
-        runtime
-            .begin_output_resize(true, 480.0, 240.0, 1200.0, rs_ui_core::Point::new(100.0, 100.0))
-            .unwrap();
-        assert_eq!(
-            runtime
-                .update_output_resize(true, rs_ui_core::Point::new(80.0, 100.0))
-                .unwrap(),
-            500.0
-        );
-        runtime.end_output_resize(true).unwrap();
-
-        runtime
-            .begin_output_resize(false, 180.0, 120.0, 640.0, rs_ui_core::Point::new(100.0, 100.0))
-            .unwrap();
-        assert_eq!(
-            runtime
-                .update_output_resize(false, rs_ui_core::Point::new(100.0, 80.0))
-                .unwrap(),
-            200.0
-        );
-        runtime.end_output_resize(false).unwrap();
-    }
-
-    #[test]
-    fn sidebar_scroll_state_clamps_wheel_input_to_content_extent() {
-        let mut runtime = RsUiShellRuntime::default();
-        runtime
-            .sync_sidebar_scroll(
-                Size::new(200.0, 100.0),
-                Size::new(200.0, 500.0),
-                rs_ui_core::Point::ZERO,
-            )
-            .unwrap();
-
-        assert_eq!(
-            runtime
-                .scroll_sidebar(Size::new(200.0, 100.0), rs_ui_core::Point::new(0.0, -80.0))
-                .unwrap(),
-            80.0
-        );
-        assert_eq!(
-            runtime
-                .scroll_sidebar(Size::new(200.0, 100.0), rs_ui_core::Point::new(0.0, 900.0))
-                .unwrap(),
-            0.0
-        );
-    }
-
-    #[test]
-    fn workspace_tabs_register_selected_tab_semantics_and_normalized_activation() {
-        let mut runtime = RsUiShellRuntime::default();
-        runtime.begin_workspace_tabs();
-        let bounds = egui::Rect::from_min_size(egui::pos2(10.0, 20.0), egui::vec2(120.0, 28.0));
-
-        assert!(runtime
-            .register_workspace_tab("query:doc-1", "Query 1", true, bounds, true, true)
-            .unwrap());
-        let root = runtime.tabs_root.unwrap();
-        let node = runtime.tab_nodes["query:doc-1"];
-        let mut semantic_tree = rs_ui_runtime::SemanticTree::default();
-        semantic_tree.update(&mut runtime.tree, root).unwrap();
-        let semantic_id = semantic_tree.accessibility_id(node).unwrap();
-        let semantic = semantic_tree.nodes().get(&semantic_id).unwrap();
-
-        assert_eq!(semantic.role, AccessibilityRole::Tab);
-        assert_eq!(semantic.label.as_deref(), Some("Query 1"));
-        assert_eq!(semantic.state.selected, Some(true));
-        assert_eq!(semantic.state.focused, Some(true));
-        assert_eq!(semantic.bounds.unwrap().width(), 120.0);
-    }
-
-    #[test]
-    fn workspace_tab_cleanup_removes_closed_tab_nodes() {
-        let mut runtime = RsUiShellRuntime::default();
-        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(100.0, 28.0));
-        runtime.begin_workspace_tabs();
-        runtime
-            .register_workspace_tab("query:closed", "Closed", false, bounds, false, false)
-            .unwrap();
-        runtime.end_workspace_tabs().unwrap();
-        runtime.begin_workspace_tabs();
-        runtime.end_workspace_tabs().unwrap();
-
-        assert!(runtime.tab_nodes.is_empty());
-        assert_eq!(runtime.tree.node_count(), 1);
-    }
-
-    #[test]
-    fn workspace_close_button_is_a_focused_pressable_child_of_its_tab() {
-        let mut runtime = RsUiShellRuntime::default();
-        let tab_bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(120.0, 28.0));
-        let close_bounds = egui::Rect::from_min_size(egui::pos2(100.0, 6.0), egui::vec2(16.0, 16.0));
-        runtime.begin_workspace_tabs();
-        runtime
-            .register_workspace_tab("query:doc-1", "Query 1", true, tab_bounds, false, false)
-            .unwrap();
-        assert!(runtime
-            .register_workspace_close_button(
-                "query:doc-1",
-                "close:query:doc-1",
-                "Close Query 1",
-                close_bounds,
-                true,
-                true,
-            )
-            .unwrap());
-
-        let root = runtime.tabs_root.unwrap();
-        let tab = runtime.tab_nodes["query:doc-1"];
-        let close_button = runtime.tab_nodes["close:query:doc-1"];
-        let mut semantic_tree = rs_ui_runtime::SemanticTree::default();
-        semantic_tree.update(&mut runtime.tree, root).unwrap();
-        let tab_id = semantic_tree.accessibility_id(tab).unwrap();
-        let close_id = semantic_tree.accessibility_id(close_button).unwrap();
-        let tab_semantic = semantic_tree.nodes().get(&tab_id).unwrap();
-        let close_semantic = semantic_tree.nodes().get(&close_id).unwrap();
-
-        assert!(tab_semantic.children.contains(&close_id));
-        assert_eq!(close_semantic.role, AccessibilityRole::Button);
-        assert_eq!(close_semantic.label.as_deref(), Some("Close Query 1"));
-        assert_eq!(close_semantic.state.focused, Some(true));
-    }
-
-    #[test]
-    fn explorer_tree_items_keep_parentage_and_selected_expanded_state() {
-        let mut runtime = RsUiShellRuntime::default();
-        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(160.0, 26.0));
-        runtime.begin_explorer_tree();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "connection",
-                parent_key: None,
-                label: "local",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "database",
-                parent_key: Some("connection"),
-                label: "app",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "schema",
-                parent_key: Some("database"),
-                label: "public",
-                expanded: true,
-                selected: true,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "tables",
-                parent_key: Some("schema"),
-                label: "Tables",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "table",
-                parent_key: Some("tables"),
-                label: "users",
-                expanded: false,
-                selected: true,
-                bounds,
-                focused: true,
-                clicked: false,
-            })
-            .unwrap();
-
-        let root = runtime.explorer_tree_root.unwrap();
-        let schema_node = runtime.explorer_tree_nodes["schema"];
-        let tables_node = runtime.explorer_tree_nodes["tables"];
-        let table_node = runtime.explorer_tree_nodes["table"];
-        let mut semantic_tree = rs_ui_runtime::SemanticTree::default();
-        semantic_tree.update(&mut runtime.explorer_tree_runtime, root).unwrap();
-        let schema_id = semantic_tree.accessibility_id(schema_node).unwrap();
-        let tables_id = semantic_tree.accessibility_id(tables_node).unwrap();
-        let table_id = semantic_tree.accessibility_id(table_node).unwrap();
-        let schema_semantic = semantic_tree.nodes().get(&schema_id).unwrap();
-        let tables_semantic = semantic_tree.nodes().get(&tables_id).unwrap();
-        let table_semantic = semantic_tree.nodes().get(&table_id).unwrap();
-
-        assert_eq!(schema_semantic.role, AccessibilityRole::TreeItem);
-        assert_eq!(schema_semantic.state.selected, Some(true));
-        assert_eq!(schema_semantic.state.expanded, Some(true));
-        assert!(schema_semantic.children.contains(&tables_id));
-        assert!(tables_semantic.children.contains(&table_id));
-        assert_eq!(table_semantic.label.as_deref(), Some("users"));
-        assert_eq!(table_semantic.state.selected, Some(true));
-        assert_eq!(table_semantic.state.focused, Some(true));
-    }
-
-    #[test]
-    fn explorer_tree_cleanup_removes_stale_descendants_without_removing_live_parent() {
-        let mut runtime = RsUiShellRuntime::default();
-        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(160.0, 26.0));
-        runtime.begin_explorer_tree();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "connection",
-                parent_key: None,
-                label: "local",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "database",
-                parent_key: Some("connection"),
-                label: "app",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "schema",
-                parent_key: Some("database"),
-                label: "public",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime.end_explorer_tree().unwrap();
-
-        runtime.begin_explorer_tree();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "connection",
-                parent_key: None,
-                label: "local",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime.end_explorer_tree().unwrap();
-
-        assert_eq!(runtime.explorer_tree_nodes.len(), 1);
-        assert_eq!(runtime.explorer_tree_runtime.node_count(), 2);
-    }
-
-    #[test]
-    fn explorer_tree_navigation_uses_rendered_focus_order() {
-        let mut runtime = RsUiShellRuntime::default();
-        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(160.0, 26.0));
-        runtime.begin_explorer_tree();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "first",
-                parent_key: None,
-                label: "first",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: true,
-                clicked: false,
-            })
-            .unwrap();
-        runtime
-            .register_explorer_tree_item(ExplorerTreeItem {
-                key: "second",
-                parent_key: None,
-                label: "second",
-                expanded: true,
-                selected: false,
-                bounds,
-                focused: false,
-                clicked: false,
-            })
-            .unwrap();
-        runtime.queue_explorer_tree_navigation(BehaviorCommand::MoveNext);
-        runtime.end_explorer_tree().unwrap();
-
-        assert!(runtime.explorer_item_has_focus("second"));
-    }
-}
+#[path = "native_runtime_shell_tests.rs"]
+mod tests;
