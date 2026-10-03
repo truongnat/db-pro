@@ -57,6 +57,9 @@ impl DbProApp {
 
         let is_table_data =
             self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
+        if is_table_data {
+            self.apply_capture_cell_edit_env();
+        }
         let editable = is_table_data && self.can_edit_table_rows();
         let (projection_key, indexes, order, selection_lookup) = self.prepare_grid_cache(result, is_table_data);
 

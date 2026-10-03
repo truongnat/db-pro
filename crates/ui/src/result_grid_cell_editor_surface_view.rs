@@ -2,6 +2,10 @@
 use super::super::*;
 use super::result_grid_date_picker_view;
 
+/// Upper bound for the date-picker popup body so its desired size can never
+/// feed back into the persisted `Area` size.
+const POPUP_MAX_WIDTH: f32 = 200.0;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CellEditorAction {
     Commit,
@@ -11,7 +15,7 @@ pub(super) enum CellEditorAction {
 /// Editor widget chosen from the column's data type: plain input for
 /// text/number/…, a select for boolean and enum-like columns, and an input
 /// plus calendar button for date/datetime columns.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum CellEditorKind {
     Text,
     Boolean { nullable: bool },
@@ -44,40 +48,46 @@ pub(super) fn draw(
 }
 
 fn draw_input(context: &mut CellEditorContext<'_>, ui: &mut egui::Ui, cell_rect: egui::Rect) -> egui::Response {
-    // 2pt inset: the focused input stroke is centered on its rect edge, so a
-    // 1pt inset would let it bleed 0.5pt over the cell border.
-    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(cell_rect.shrink(2.0)), |ui| {
-        let theme = context.theme;
-        match &context.kind {
-            CellEditorKind::Boolean { nullable } => {
-                let options = boolean_options(*nullable);
-                draw_select(
-                    ui,
-                    theme,
-                    context.value,
-                    context.error,
-                    ui.id().with("bool_select"),
-                    &options,
-                )
-            }
-            CellEditorKind::Select(values) => {
-                let options: Vec<(String, String)> = values.iter().map(|v| (v.clone(), v.clone())).collect();
-                draw_select(
-                    ui,
-                    theme,
-                    context.value,
-                    context.error,
-                    ui.id().with("enum_select"),
-                    &options,
-                )
-            }
-            CellEditorKind::Temporal { date_only } => {
-                draw_temporal(ui, theme, context.value, context.error, *date_only)
-            }
-            CellEditorKind::Text => draw_text_input(ui, theme, context.value, ui.available_size()),
+    // `new_child` (not `allocate_new_ui`): the cell's space is already
+    // reserved, and nothing the editor contains may grow the row layout —
+    // `allocate_new_ui` would feed the child's min_rect back into the
+    // row's horizontal placer, which can push the row taller.
+    let mut editor_ui = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(cell_rect.shrink(2.0))
+            .layout(egui::Layout::top_down(egui::Align::LEFT)),
+    );
+    editor_ui.set_clip_rect(editor_ui.clip_rect().intersect(cell_rect));
+    let ui = &mut editor_ui;
+    let theme = context.theme;
+    match &context.kind {
+        CellEditorKind::Boolean { nullable } => {
+            let options = boolean_options(*nullable);
+            draw_select(
+                ui,
+                theme,
+                context.value,
+                context.error,
+                ui.id().with("bool_select"),
+                &options,
+            )
         }
-    })
-    .inner
+        CellEditorKind::Select(values) => {
+            let options: Vec<(String, String)> = values.iter().map(|v| (v.clone(), v.clone())).collect();
+            draw_select(
+                ui,
+                theme,
+                context.value,
+                context.error,
+                ui.id().with("enum_select"),
+                &options,
+            )
+        }
+        CellEditorKind::Temporal { date_only } => {
+            draw_temporal(ui, theme, context.value, context.error, *date_only, cell_rect)
+        }
+        CellEditorKind::Text => draw_text_input(ui, theme, context.value, ui.available_size()),
+    }
 }
 
 fn draw_text_input(ui: &mut egui::Ui, theme: DbProTheme, value: &mut String, size: egui::Vec2) -> egui::Response {
@@ -141,6 +151,7 @@ fn draw_temporal(
     value: &mut String,
     error: &mut Option<String>,
     date_only: bool,
+    cell_rect: egui::Rect,
 ) -> egui::Response {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
@@ -164,26 +175,37 @@ fn draw_temporal(
         if picker_open_override() {
             ui.memory_mut(|memory| memory.open_popup(popup_id));
         }
-        let editor_area = input.union(button);
         // Autofocus the text field, but never steal focus while the calendar
         // is open — that would fight the button and the day cells.
         if !input.has_focus() && !ui.memory(|memory| memory.is_popup_open(popup_id)) {
             input.request_focus();
         }
-        // The anchor is the whole editor area so clicks into the text input do
-        // not count as "clicked elsewhere" and collapse the calendar.
+        // Anchor on the whole cell: `popup_below_widget` positions the area at
+        // `widget.rect.left_bottom`, and the cell rect always sits under the
+        // editor. Clicks into the input do not count as "clicked elsewhere".
+        let anchor = egui::Response {
+            rect: cell_rect,
+            ..input.clone()
+        };
         let picked = egui::popup::popup_below_widget(
             ui,
             popup_id,
-            &editor_area,
+            &anchor,
             egui::PopupCloseBehavior::CloseOnClickOutside,
-            |ui| result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value),
+            |ui| {
+                // The justified popup layout can feed back into the Area size
+                // (`state.size = min_size`), growing the popup a few px per
+                // frame until it hits the screen edge. A hard max breaks the
+                // loop; the calendar only needs ~190 px.
+                ui.set_max_width(POPUP_MAX_WIDTH);
+                result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value)
+            },
         );
         if picked == Some(true) {
             ui.memory_mut(|memory| memory.close_popup());
             *error = None;
         }
-        editor_area
+        input.union(button)
     })
     .inner
 }
@@ -200,5 +222,66 @@ fn keyboard_action(ui: &egui::Ui) -> Option<CellEditorAction> {
         Some(CellEditorAction::Cancel)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::{Pos2, RawInput, Sense, Vec2};
+
+    /// The editor draws inside a row's horizontal layout; its allocated
+    /// footprint must stay within the 28pt cell or the whole row resizes.
+    fn row_height_for(kind: CellEditorKind) -> f32 {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let mut value = "2026-09-30 14:22:11".to_owned();
+        let mut error = None;
+        let mut height = 0.0;
+        let _ = ctx.run(
+            RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, Vec2::new(600.0, 300.0))),
+                ..Default::default()
+            },
+            |ctx| {
+                height = egui::CentralPanel::default()
+                    .show(ctx, |ui| {
+                        let row = ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+                            ui.allocate_exact_size(Vec2::new(40.0, 28.0), Sense::hover());
+                            let (cell_rect, _) = ui.allocate_exact_size(Vec2::new(220.0, 28.0), Sense::hover());
+                            let mut context = CellEditorContext {
+                                theme: DbProTheme::dark(),
+                                kind: kind.clone(),
+                                value: &mut value,
+                                error: &mut error,
+                            };
+                            draw(&mut context, ui, cell_rect);
+                            ui.allocate_exact_size(Vec2::new(120.0, 28.0), Sense::hover());
+                        });
+                        row.response.rect.height()
+                    })
+                    .inner;
+            },
+        );
+        height
+    }
+
+    #[test]
+    fn temporal_editor_keeps_the_row_height() {
+        let height = row_height_for(CellEditorKind::Temporal { date_only: false });
+        assert!(height <= 28.5, "temporal editor grew the row to {height}");
+    }
+
+    #[test]
+    fn select_editor_keeps_the_row_height() {
+        let height = row_height_for(CellEditorKind::Select(vec!["pending".to_owned()]));
+        assert!(height <= 28.5, "select editor grew the row to {height}");
+    }
+
+    #[test]
+    fn text_editor_keeps_the_row_height() {
+        let height = row_height_for(CellEditorKind::Text);
+        assert!(height <= 28.5, "text editor grew the row to {height}");
     }
 }

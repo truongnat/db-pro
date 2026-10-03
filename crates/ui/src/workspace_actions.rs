@@ -481,7 +481,7 @@ impl DbProApp {
 
     /// `DB_PRO_CAPTURE_CELL_EDIT=<row>,<col>` opens that cell's inline editor
     /// so captures can document each typed editor. Read once; zero cost unset.
-    fn apply_capture_cell_edit_env(&mut self) {
+    pub(super) fn apply_capture_cell_edit_env(&mut self) {
         static TARGET: std::sync::OnceLock<Option<(usize, usize)>> = std::sync::OnceLock::new();
         let Some((row_index, column_index)) = *TARGET.get_or_init(|| {
             std::env::var("DB_PRO_CAPTURE_CELL_EDIT").ok().and_then(|raw| {

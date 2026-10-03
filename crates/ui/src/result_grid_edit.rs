@@ -48,10 +48,7 @@ impl DbProApp {
             // covers both (a committed pick closes its popup first).
             let clicked_outside = ui.ctx().input(|input| {
                 input.pointer.primary_clicked()
-                    && input
-                        .pointer
-                        .interact_pos()
-                        .is_some_and(|pos| !cell_rect.contains(pos))
+                    && input.pointer.interact_pos().is_some_and(|pos| !cell_rect.contains(pos))
             });
             if clicked_outside && !ui.ctx().memory(|memory| memory.any_popup_open()) {
                 self.commit_active_data_edit(result);
