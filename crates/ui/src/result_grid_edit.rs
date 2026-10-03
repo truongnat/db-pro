@@ -41,6 +41,21 @@ impl DbProApp {
                 }
                 None => {}
             }
+            // Clicking anywhere outside the cell commits — the same end state
+            // as clicking another cell, which commits via its own handler.
+            // While a select/calendar popup is open, clicks inside it land
+            // outside the cell rect but must not commit; `any_popup_open`
+            // covers both (a committed pick closes its popup first).
+            let clicked_outside = ui.ctx().input(|input| {
+                input.pointer.primary_clicked()
+                    && input
+                        .pointer
+                        .interact_pos()
+                        .is_some_and(|pos| !cell_rect.contains(pos))
+            });
+            if clicked_outside && !ui.ctx().memory(|memory| memory.any_popup_open()) {
+                self.commit_active_data_edit(result);
+            }
             return;
         }
 

@@ -84,6 +84,9 @@ fn draw_text_input(ui: &mut egui::Ui, theme: DbProTheme, value: &mut String, siz
     ui.add_sized(
         size,
         egui::TextEdit::singleline(value)
+            // no frame: the editor should read as the cell's own text, not a
+            // bordered widget floating on top of the grid
+            .frame(false)
             .margin(egui::Margin::symmetric(6.0, 2.0))
             .text_color(theme.text_primary),
     )
