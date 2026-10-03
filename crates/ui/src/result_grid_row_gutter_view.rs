@@ -10,7 +10,9 @@ pub(super) struct GridRowGutterContext {
 pub(super) fn draw_row_gutter(ui: &mut egui::Ui, context: GridRowGutterContext) -> egui::Response {
     let (gutter_rect, response) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::click());
     let gutter_fill = if context.selected {
-        context.theme.accent_soft
+        // selected-row gutter matches the quiet row wash; the number carries
+        // the accent cue per the spec
+        context.theme.soft_tint(context.theme.accent)
     } else if response.hovered() {
         context.theme.surface_hover.linear_multiply(0.5)
     } else {

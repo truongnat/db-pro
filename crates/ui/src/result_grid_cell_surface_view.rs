@@ -29,10 +29,12 @@ pub(super) fn draw_surface(
         context.theme.warning.linear_multiply(0.16)
     } else if context.row_mutation_error {
         context.theme.danger.linear_multiply(0.08)
-    } else if context.row_selected || context.cell_selected {
-        // one quiet accent wash for the whole selection — the active cell is
-        // distinguished by the accent outline below, not a heavier fill
+    } else if context.cell_selected {
+        // the active cell keeps the deeper wash; the spec shows row and cell
+        // selection as two distinct levels
         context.theme.accent_soft
+    } else if context.row_selected {
+        context.theme.soft_tint(context.theme.accent)
     } else if context.row_dirty {
         context.theme.warning.linear_multiply(0.12)
     } else if context.row_hovered {
@@ -45,8 +47,13 @@ pub(super) fn draw_surface(
     ui.painter().hline(cell_rect.x_range(), cell_rect.bottom(), border);
     ui.painter().vline(cell_rect.right(), cell_rect.y_range(), border);
     if context.cell_selected {
-        ui.painter()
-            .rect_stroke(cell_rect, Rounding::ZERO, Stroke::new(1.5, context.theme.accent));
+        // `ring-inset` from the spec — the outline stays inside the cell so it
+        // never bleeds over neighboring borders
+        ui.painter().rect_stroke(
+            cell_rect.shrink(1.0),
+            Rounding::ZERO,
+            Stroke::new(1.5, context.theme.accent),
+        );
     }
     if context.validation_error {
         ui.painter().rect_stroke(

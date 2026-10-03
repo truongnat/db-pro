@@ -89,7 +89,7 @@ pub(super) fn draw_row(
         if rest > 0.5 {
             let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), egui::Sense::hover());
             let fill = if context.row_selected {
-                context.theme.accent_soft
+                context.theme.soft_tint(context.theme.accent)
             } else if row_hovered {
                 context.theme.surface_hover
             } else {
