@@ -50,6 +50,9 @@ const QUERY_LIGHT_ENV: &str = "DB_PRO_CAPTURE_QUERY_LIGHT";
 /// When set, switch to the Table workspace before capturing (data grid / structure shots).
 const TABLE_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_TABLE";
 
+/// When set with [`TABLE_WORKSPACE_ENV`], force light theme for the Table capture.
+const TABLE_LIGHT_ENV: &str = "DB_PRO_CAPTURE_TABLE_LIGHT";
+
 /// When set, switch to the ER Diagram canvas before capturing.
 const DIAGRAM_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_DIAGRAM";
 
@@ -207,7 +210,11 @@ impl CaptureApp {
             }
             self.opened_dialog = true;
         } else if std::env::var_os(TABLE_WORKSPACE_ENV).is_some() {
-            self.inner.open_table_workspace_for_capture();
+            if std::env::var_os(TABLE_LIGHT_ENV).is_some() {
+                self.inner.open_table_workspace_for_capture_light();
+            } else {
+                self.inner.open_table_workspace_for_capture();
+            }
             self.opened_dialog = true;
         } else if std::env::var_os(DIAGRAM_WORKSPACE_ENV).is_some() {
             self.inner.open_diagram_workspace_for_capture();

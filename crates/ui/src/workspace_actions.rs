@@ -407,6 +407,16 @@ impl DbProApp {
             row_count: 3,
             duration_ms: 1,
         });
+        // a selected cell + row so captures document the selection styling
+        self.table.data.selected_cell = Some((0, 0));
+        self.table.data.selected_rows.insert(0);
+    }
+
+    /// Capture helper: same as table workspace but force light theme.
+    pub fn open_table_workspace_for_capture_light(&mut self) {
+        self.open_table_workspace_for_capture();
+        self.preferences.dark_mode = false;
+        self.theme = DbProTheme::light();
     }
 
     /// Capture helper: open the Diagram / ER canvas.

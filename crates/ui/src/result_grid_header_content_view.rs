@@ -1,14 +1,17 @@
 //! Pure visual rendering for a result-grid column header.
 
 use super::*;
-use egui::{FontId, Pos2, Rect, Rounding, Vec2};
+use egui::{Color32, FontId, Pos2, Rect, Rounding, Stroke, Vec2};
 
 pub(super) struct GridHeaderContentContext<'a> {
     pub(super) column: &'a crate::UiColumn,
     pub(super) col_rect: Rect,
     pub(super) is_primary_key: bool,
     pub(super) is_foreign_key: bool,
-    pub(super) sort_marker: &'a str,
+    /// `Some(true)` = descending, `Some(false)` = ascending, `None` = unsorted.
+    pub(super) sort_desc: Option<bool>,
+    /// Multi-sort order (1-based) shown next to the arrow.
+    pub(super) sort_priority: Option<usize>,
     pub(super) sort_active: bool,
     pub(super) theme: DbProTheme,
 }
@@ -91,16 +94,64 @@ fn draw_header_text(painter: &egui::Painter, context: &GridHeaderContentContext<
         context.theme.text_muted
     };
     let type_galley = painter.layout_no_wrap(
-        format!(" {}{}", context.column.data_type, context.sort_marker),
+        format!(" {}", context.column.data_type),
         FontId::monospace(10.5),
         color,
     );
+    let mut next_x = layout.text_x + name_width + 4.0;
     painter.galley(
         Pos2::new(
-            layout.text_x + name_width + 4.0,
+            next_x,
             layout.header_rect.center().y - type_galley.size().y * 0.5,
         ),
-        type_galley,
+        type_galley.clone(),
         color,
     );
+    next_x += type_galley.size().x;
+    if let Some(desc) = context.sort_desc {
+        next_x += draw_sort_arrow(painter, next_x, layout.header_rect, desc, context.theme.accent);
+        if let Some(priority) = context.sort_priority {
+            let prio = painter.layout_no_wrap(
+                priority.to_string(),
+                FontId::monospace(9.0),
+                context.theme.accent,
+            );
+            painter.galley(
+                Pos2::new(
+                    next_x,
+                    layout.header_rect.center().y - prio.size().y * 0.5,
+                ),
+                prio,
+                context.theme.accent,
+            );
+        }
+    }
+}
+
+/// Tiny filled triangle — the `↑`/`↓` glyphs are missing from the bundled
+/// fonts and render as `+`/tofu in headers.
+fn draw_sort_arrow(
+    painter: &egui::Painter,
+    x: f32,
+    header_rect: Rect,
+    desc: bool,
+    color: Color32,
+) -> f32 {
+    let (w, h) = (7.0_f32, 4.5_f32);
+    let cy = header_rect.center().y;
+    let (edge_y, apex_y) = if desc {
+        (cy - h * 0.5, cy + h * 0.5)
+    } else {
+        (cy + h * 0.5, cy - h * 0.5)
+    };
+    painter.add(egui::Shape::convex_polygon(
+        vec![
+            Pos2::new(x, edge_y),
+            Pos2::new(x + w, edge_y),
+            Pos2::new(x + w * 0.5, apex_y),
+        ],
+        color,
+        Stroke::NONE,
+    ));
+    w + 4.0
 }

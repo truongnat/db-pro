@@ -29,14 +29,10 @@ pub(super) fn draw_surface(
         context.theme.warning.linear_multiply(0.16)
     } else if context.row_mutation_error {
         context.theme.danger.linear_multiply(0.08)
-    } else if context.row_selected {
-        if context.cell_selected {
-            context.theme.accent.linear_multiply(0.20)
-        } else {
-            context.theme.accent.linear_multiply(0.08)
-        }
-    } else if context.cell_selected {
-        context.theme.accent.linear_multiply(0.14)
+    } else if context.row_selected || context.cell_selected {
+        // one quiet accent wash for the whole selection — the active cell is
+        // distinguished by the accent outline below, not a heavier fill
+        context.theme.accent_soft
     } else if context.row_dirty {
         context.theme.warning.linear_multiply(0.12)
     } else if cell_response.hovered() {

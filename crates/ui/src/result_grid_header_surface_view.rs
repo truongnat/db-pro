@@ -165,20 +165,13 @@ impl<'a> GridHeaderViewContext<'a> {
                 } else {
                     self.table.data.grid_sort_desc
                 };
-                let sort_marker = if let Some(priority) = table_sort_priority {
-                    format!(" {}{}", if sort_desc { "↓" } else { "↑" }, priority)
-                } else if sort_active {
-                    format!(" {}", if sort_desc { "↓" } else { "↑" })
-                } else {
-                    String::new()
-                };
-
                 let content_context = result_grid_header_content_view::GridHeaderContentContext {
                     column,
                     col_rect,
                     is_primary_key: is_pk,
                     is_foreign_key: is_fk,
-                    sort_marker: &sort_marker,
+                    sort_desc: sort_active.then_some(sort_desc),
+                    sort_priority: table_sort_priority,
                     sort_active,
                     theme: self.theme,
                 };
