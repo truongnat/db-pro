@@ -73,7 +73,7 @@ impl DbProApp {
                 self.feedback.runtime_message = format!("Inserted column {column}");
             }
             PaletteAction::InsertSnippet(index) => {
-                if let Some((_, snippet)) = query_snippets::builtin_sql_snippets().get(index) {
+                if let Some((_, _, snippet)) = query_snippets::builtin_sql_snippets().get(index) {
                     self.insert_snippet(snippet);
                 }
             }

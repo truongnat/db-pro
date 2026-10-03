@@ -33,11 +33,16 @@ impl SidebarQueryShortcutsContext {
         let mut actions = Vec::new();
         section_label(ui, "SNIPPETS", self.theme);
         ui.add_space(6.0);
-        for (label, snippet) in query_snippets::builtin_sql_snippets() {
-            if sidebar_item(ui, Icon::Braces, label, false, self.theme)
-                .on_hover_text(*snippet)
-                .clicked()
-            {
+        for (label, trigger, snippet) in query_snippets::builtin_sql_snippets() {
+            let response = sidebar_item(ui, Icon::Braces, label, false, self.theme);
+            ui.painter().text(
+                egui::pos2(response.rect.right() - SPACE_SM, response.rect.center().y),
+                egui::Align2::RIGHT_CENTER,
+                *trigger,
+                font_mono_sm(),
+                self.theme.text_muted,
+            );
+            if response.on_hover_text(*snippet).clicked() {
                 actions.push(SidebarQueryShortcutAction::InsertSnippet((*snippet).to_owned()));
             }
         }

@@ -33,7 +33,7 @@ impl SidebarQueriesContext<'_> {
     fn draw_header(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            section_label(ui, "OPEN QUERIES", self.theme);
+            section_label(ui, format!("OPEN QUERIES ({})", self.documents.len()), self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if compact_icon_button(ui, Icon::FilePlus2, self.theme)
                     .on_hover_text("New scratch query")

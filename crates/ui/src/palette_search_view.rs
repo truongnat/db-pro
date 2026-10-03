@@ -302,7 +302,7 @@ impl<'a> PaletteSearchContext<'a> {
         query_snippets::builtin_sql_snippets()
             .iter()
             .enumerate()
-            .map(|(index, (label, _))| {
+            .map(|(index, (label, ..))| {
                 (
                     SearchKind::Command,
                     PaletteItem {

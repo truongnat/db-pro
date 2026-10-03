@@ -15,7 +15,7 @@ impl QuerySnippetsContext {
         let mut action = None;
         card_frame(self.theme).show(ui, |ui| {
             ui.label(egui::RichText::new("SQL snippets").strong());
-            for (label, snippet) in query_snippets::builtin_sql_snippets() {
+            for (label, _trigger, snippet) in query_snippets::builtin_sql_snippets() {
                 if Button::new(self.theme)
                     .text(*label)
                     .variant(ButtonVariant::Secondary)
