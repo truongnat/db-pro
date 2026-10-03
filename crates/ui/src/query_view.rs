@@ -303,6 +303,25 @@ impl DbProApp {
                 auto_commit: self.query.execution.query_auto_commit,
                 cursor_line: self.query.editor.query_cursor_line,
                 cursor_column: self.query.editor.query_cursor_column,
+                selected_line_range: self
+                    .query
+                    .session
+                    .documents
+                    .get(self.query.session.active_document_index)
+                    .filter(|document| !document.selection.is_empty())
+                    .map(|document| {
+                        let (start, end) = document.selection.normalized();
+                        let (mut end_line, end_col) = document.buffer.offset_to_line_col(end);
+                        // A selection ending at column 0 does not visually cover
+                        // that last line — match standard editor telemetry.
+                        if end_col == 0 && end_line > 0 {
+                            end_line -= 1;
+                        }
+                        (
+                            document.buffer.offset_to_line_col(start).0 + 1,
+                            end_line + 1,
+                        )
+                    }),
                 driver: self.active_query_driver(),
                 schema: self.active_query_schema(),
                 parameter_count: self.query.editor.param_count_cache,

@@ -20,6 +20,8 @@ pub(super) struct QueryStatusBarContext<'a> {
     pub(super) auto_commit: bool,
     pub(super) cursor_line: usize,
     pub(super) cursor_column: usize,
+    /// 1-based line span covered by the current selection, if any.
+    pub(super) selected_line_range: Option<(usize, usize)>,
     pub(super) driver: &'a str,
     pub(super) schema: &'a str,
     pub(super) parameter_count: usize,
@@ -78,6 +80,18 @@ fn draw_metadata(context: &QueryStatusBarContext<'_>, ui: &mut egui::Ui) -> Opti
             .font(font_mono_sm())
             .color(context.theme.text_muted),
     );
+    if let Some((start_line, end_line)) = context.selected_line_range {
+        let selected = if start_line == end_line {
+            format!("Selected: line {start_line}")
+        } else {
+            format!("Selected: lines {start_line}-{end_line}")
+        };
+        ui.label(
+            RichText::new(selected)
+                .font(font_caption())
+                .color(context.theme.text_muted),
+        );
+    }
     ui.label(
         RichText::new(context.driver)
             .font(font_caption())
