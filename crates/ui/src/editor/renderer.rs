@@ -161,7 +161,7 @@ impl<'a> SqlEditor<'a> {
     pub fn gutter_width(&self, char_width: f32) -> f32 {
         let lines = self.buffer.line_count().max(1);
         let digits = lines.to_string().len().max(2);
-        (digits as f32) * char_width + 24.0
+        (digits as f32) * char_width + 30.0
     }
 
     pub fn show(mut self, ui: &mut Ui, available_size: Vec2) -> SqlEditorResponse {
@@ -229,12 +229,17 @@ impl<'a> SqlEditor<'a> {
         let origin = viewport.min - scroll;
         let rect = Rect::from_min_size(origin, Vec2::new(content_width.max(viewport.width()), content_height));
 
-        // Gutter strip (follows scroll so line numbers stay aligned with rows).
-        let gutter_rect = Rect::from_min_size(rect.min, Vec2::new(gutter_w, rect.height()));
+        // Gutter strip — pinned to the viewport edge: it must not slide away on
+        // horizontal scroll, and it spans the full viewport height so short
+        // buffers do not leave a floating patch (Stitch gutter spec).
+        let gutter_rect = Rect::from_min_max(
+            Pos2::new(viewport.min.x, viewport.min.y),
+            Pos2::new(viewport.min.x + gutter_w, viewport.max.y),
+        );
         ui.painter()
             .rect_filled(gutter_rect, Rounding::ZERO, self.theme.editor_gutter_fill());
         ui.painter().vline(
-            rect.min.x + gutter_w,
+            viewport.min.x + gutter_w,
             viewport.y_range(),
             Stroke::new(
                 1.0,
@@ -585,14 +590,22 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Current Line Highlight — soft full-row wash (Zed-like).
+        // Current Line Highlight — accent-washed code row + accent left bar
+        // (Stitch `border-l-2 border-accent`); the gutter keeps its own fill.
         let current_line_top = rect.min.y + PADDING_TOP + (self.cursor.line as f32) * line_height;
-        let current_line_rect = Rect::from_min_size(
-            Pos2::new(rect.min.x, current_line_top),
-            Vec2::new(rect.width().max(viewport.width()), line_height),
+        let current_line_rect = Rect::from_min_max(
+            Pos2::new(viewport.min.x + gutter_w, current_line_top),
+            Pos2::new(viewport.max.x, current_line_top + line_height),
         );
-        ui.painter()
-            .rect_filled(current_line_rect, Rounding::ZERO, self.theme.editor_current_line_fill());
+        if current_line_rect.intersects(viewport) {
+            ui.painter()
+                .rect_filled(current_line_rect, Rounding::ZERO, self.theme.editor_current_line_fill());
+            ui.painter().rect_filled(
+                Rect::from_min_size(current_line_rect.min, Vec2::new(2.0, line_height)),
+                Rounding::ZERO,
+                self.theme.accent,
+            );
+        }
 
         // Search Matches Highlights
         if !self.search_query.trim().is_empty() {
@@ -775,7 +788,7 @@ impl<'a> SqlEditor<'a> {
             let line_num_str = format!("{}", line_idx + 1);
             let is_curr = line_idx == self.cursor.line;
             ui.painter().text(
-                Pos2::new(rect.min.x + gutter_w - 8.0, line_y + line_height * 0.5),
+                Pos2::new(viewport.min.x + gutter_w - 8.0, line_y + line_height * 0.5),
                 egui::Align2::RIGHT_CENTER,
                 line_num_str,
                 FontId::monospace((self.font_size - 1.5).clamp(11.0, 14.0)),

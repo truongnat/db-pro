@@ -215,19 +215,16 @@ impl DbProTheme {
     /// Quiet gutter wash behind line numbers (Zed/DBeaver density).
     pub fn editor_gutter_fill(self) -> Color32 {
         if self.dark_mode {
-            Color32::from_rgb(22, 22, 22)
+            Color32::from_rgb(20, 20, 20)
         } else {
             Color32::from_rgb(248, 248, 248)
         }
     }
 
-    /// Soft current-line highlight — readable without shouting.
+    /// Soft current-line highlight — accent-tinted wash per the Stitch
+    /// active-line spec, readable without shouting.
     pub fn editor_current_line_fill(self) -> Color32 {
-        if self.dark_mode {
-            Color32::from_rgba_unmultiplied(255, 255, 255, 22)
-        } else {
-            Color32::from_rgba_unmultiplied(15, 23, 42, 16)
-        }
+        self.soft_tint(self.accent)
     }
 
     /// Selection wash over SQL text.
@@ -241,7 +238,7 @@ impl DbProTheme {
 
     pub fn editor_line_number(self, current: bool) -> Color32 {
         if current {
-            self.text_secondary
+            self.accent
         } else if self.dark_mode {
             Color32::from_rgb(120, 120, 120)
         } else {
