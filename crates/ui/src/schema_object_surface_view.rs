@@ -80,10 +80,7 @@ impl SchemaObjectSurfaceContext<'_> {
             (SchemaObjectView::Data, Icon::Table2, "Data"),
         ] {
             let selected = self.active_view == view;
-            let tab = tab_frame(self.theme, selected).show(ui, |ui| {
-                ui.selectable_label(selected, icon_text(icon, label, self.theme.text_primary))
-            });
-            if tab.inner.clicked() {
+            if tab_button(ui, self.theme, Some(icon), label, selected).clicked() && !selected {
                 actions.push(SchemaObjectSurfaceAction::SelectView(view));
             }
         }

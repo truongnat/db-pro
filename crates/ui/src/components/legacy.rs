@@ -3,8 +3,8 @@ use crate::tokens::{CARD_INNER_PAD, SPACE_XS};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Align, Button, Color32, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Rounding, Stroke, TextEdit,
-    Ui,
+    Align, Button, Color32, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Rounding, Sense, Stroke,
+    TextEdit, Ui,
 };
 use lucide_icons::Icon;
 
@@ -116,6 +116,54 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
         },
         ..Default::default()
     }
+}
+
+/// Underline-style workspace tab: active = primary text + accent underline,
+/// hover = `surface_hover` wash + brighter text. Replaces
+/// `tab_frame + selectable_label`, which double-painted egui's selection
+/// visuals on top of the frame fill (saturated block + wrong hover).
+pub fn tab_button(ui: &mut Ui, theme: DbProTheme, icon: Option<Icon>, label: &str, selected: bool) -> Response {
+    fn job(icon: Option<Icon>, label: &str, color: Color32) -> LayoutJob {
+        match icon {
+            Some(i) => icon_layout(i, label, color),
+            None => {
+                let mut j = LayoutJob::default();
+                j.append(
+                    label,
+                    0.0,
+                    TextFormat {
+                        font_id: FontId::proportional(13.0),
+                        color,
+                        ..Default::default()
+                    },
+                );
+                j
+            }
+        }
+    }
+    let pad = egui::vec2(11.0, 7.0);
+    let probe = ui.fonts(|f| f.layout_job(job(icon, label, theme.text_secondary)));
+    let (rect, resp) = ui.allocate_exact_size(probe.size() + pad * 2.0, Sense::click());
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+    let color = if selected || resp.hovered() {
+        theme.text_primary
+    } else {
+        theme.text_secondary
+    };
+    if resp.hovered() && !selected {
+        ui.painter().rect_filled(rect.shrink(1.0), 6.0, theme.surface_hover);
+    }
+    if selected {
+        let strip = Rect::from_min_max(
+            egui::pos2(rect.min.x + 4.0, rect.max.y - 2.0),
+            egui::pos2(rect.max.x - 4.0, rect.max.y),
+        );
+        ui.painter().rect_filled(strip, 1.0, theme.accent);
+    }
+    let galley = ui.fonts(|f| f.layout_job(job(icon, label, color)));
+    ui.painter().galley(rect.min + pad, galley, color);
+    resp
 }
 
 const LEGACY_CARD_FRAME_RADIUS: f32 = 8.0;

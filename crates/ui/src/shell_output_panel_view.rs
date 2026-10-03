@@ -51,11 +51,7 @@ impl ShellOutputPanelContext<'_> {
             (OutputTab::Explain, "Explain"),
             (OutputTab::History, "History"),
         ] {
-            if tab_frame(self.theme, self.output.active_tab == tab)
-                .show(ui, |ui| ui.selectable_label(self.output.active_tab == tab, label))
-                .inner
-                .clicked()
-            {
+            if tab_button(ui, self.theme, None, label, self.output.active_tab == tab).clicked() {
                 self.output.active_tab = tab;
             }
         }

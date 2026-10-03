@@ -38,8 +38,8 @@ pub use components::{
     danger_button, editor_frame, empty_state, ghost_button, ghost_button_with_icon, grid_frame, icon_button, icon_text,
     input, input_full_width, kbd_chip, menu_button_with_icon, panel_frame, password_input, plural_count,
     primary_button, primary_button_with_icon, progress_bar, secondary_button, secondary_button_with_icon,
-    section_label, segmented_control, sidebar_frame, sidebar_item, skeleton, spinner, status_dot, switch, tab_frame,
-    tag_chip, toast, toolbar_frame,
+    section_label, segmented_control, sidebar_frame, sidebar_item, skeleton, spinner, status_dot, switch, tab_button,
+    tab_frame, tag_chip, toast, toolbar_frame,
 };
 pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
 pub use result_grid::{

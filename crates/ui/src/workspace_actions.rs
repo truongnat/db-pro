@@ -310,11 +310,11 @@ impl DbProApp {
         self.theme = DbProTheme::dark();
         self.workspace.activity = Activity::Explorer;
         self.workspace.active_tab = WorkspaceTab::Table;
-        self.schema.explorer.selected_table = Some("users".to_owned());
+        self.schema.explorer.selected_table = Some("customers".to_owned());
         self.table.state.table_view = TableView::Data;
         self.table.state.table_info = Some(crate::UiTableInfo {
-            schema: "public".to_owned(),
-            name: "users".to_owned(),
+            schema: "main".to_owned(),
+            name: "customers".to_owned(),
             row_count: Some(3),
             columns: vec![
                 crate::UiTableColumn {
