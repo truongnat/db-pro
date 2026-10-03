@@ -19,6 +19,7 @@ impl DbProApp {
             selection_lookup,
             row_index,
             column_index,
+            row_hovered,
             row_selected,
             row_dirty,
             row_mutation_error,
@@ -48,6 +49,7 @@ impl DbProApp {
 
         let surface_context = result_grid_cell_surface_view::GridCellSurfaceContext {
             theme: self.theme,
+            row_hovered,
             row_selected,
             cell_selected,
             row_dirty,

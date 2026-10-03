@@ -5,6 +5,7 @@ use egui::{Align2, FontId, Pos2, Rect, Rounding, Stroke};
 
 pub(super) struct GridCellSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
+    pub(super) row_hovered: bool,
     pub(super) row_selected: bool,
     pub(super) cell_selected: bool,
     pub(super) row_dirty: bool,
@@ -34,8 +35,8 @@ pub(super) fn draw_surface(
         context.theme.accent_soft
     } else if context.row_dirty {
         context.theme.warning.linear_multiply(0.12)
-    } else if cell_response.hovered() {
-        context.theme.surface_hover.linear_multiply(0.6)
+    } else if context.row_hovered {
+        context.theme.surface_hover
     } else {
         context.theme.surface_editor
     };

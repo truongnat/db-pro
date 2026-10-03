@@ -13,6 +13,19 @@ pub(super) struct GridRowSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
 }
 
+/// Capture-harness hook: `DB_PRO_DEBUG_GRID_POINTER=x,y` fakes a pointer
+/// position for the row-hover hit test, so screenshots can document the
+/// row-hover state. `OnceLock` makes the env read once per process; `None`
+/// is a single branch per row.
+fn debug_pointer_pos() -> Option<egui::Pos2> {
+    static POS: std::sync::OnceLock<Option<egui::Pos2>> = std::sync::OnceLock::new();
+    *POS.get_or_init(|| {
+        let raw = std::env::var("DB_PRO_DEBUG_GRID_POINTER").ok()?;
+        let (x, y) = raw.split_once(',')?;
+        Some(egui::Pos2::new(x.trim().parse().ok()?, y.trim().parse().ok()?))
+    })
+}
+
 pub(super) trait GridRowSurfaceRenderer {
     fn on_gutter_click(&mut self, ui: &mut egui::Ui, rows: &GridRows<'_>, position: usize) -> bool;
     fn draw_cell(&mut self, ui: &mut egui::Ui, cell: GridCell<'_>);
@@ -25,6 +38,17 @@ pub(super) fn draw_row(
 ) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+        // Row-level hover — the demo spec paints `hover:bg-…` on the whole row,
+        // not per cell, so one hit-test on the row rect feeds every cell.
+        let row_rect = egui::Rect::from_min_size(
+            ui.available_rect_before_wrap().min,
+            egui::vec2(ui.available_width(), 28.0),
+        );
+        let hover_pos = ui
+            .ctx()
+            .input(|input| input.pointer.hover_pos())
+            .or_else(debug_pointer_pos);
+        let row_hovered = hover_pos.is_some_and(|pos| row_rect.contains(pos));
         let row_number = crate::displayed_row_number(context.rows.row_offset, context.row_index);
         let gutter_response = result_grid_row_gutter_view::draw_row_gutter(
             ui,
@@ -48,6 +72,7 @@ pub(super) fn draw_row(
                     selection_lookup: context.rows.selection_lookup,
                     row_index: context.row_index,
                     column_index,
+                    row_hovered,
                     row_selected: context.row_selected,
                     row_dirty: context.row_dirty,
                     row_mutation_error: context.row_mutation_error,
@@ -65,6 +90,8 @@ pub(super) fn draw_row(
             let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), egui::Sense::hover());
             let fill = if context.row_selected {
                 context.theme.accent_soft
+            } else if row_hovered {
+                context.theme.surface_hover
             } else {
                 context.theme.surface_editor
             };
