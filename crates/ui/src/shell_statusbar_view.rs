@@ -91,7 +91,7 @@ impl ShellStatusbarContext<'_> {
         }
         if let Some(duration_ms) = self.duration_ms {
             ui.label(
-                RichText::new(format!("{duration_ms} ms"))
+                RichText::new(format!("Ping: {duration_ms} ms"))
                     .font(font_mono_sm())
                     .color(self.theme.text_muted),
             );
@@ -117,6 +117,7 @@ impl ShellStatusbarContext<'_> {
                     .color(self.theme.text_muted),
             );
         } else {
+            ui.label(RichText::new("UTF-8").font(font_mono_sm()).color(self.theme.text_muted));
             ui.label(
                 RichText::new(self.context_label)
                     .font(font_caption())
