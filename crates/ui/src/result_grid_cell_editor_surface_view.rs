@@ -167,6 +167,7 @@ fn draw_temporal(
             egui::Button::new(icon_text(Icon::Calendar, "", theme.text_muted)).frame(false),
         );
         let popup_id = ui.id().with("date_picker_popup");
+        eprintln!("[dbg] clicked={}", button.clicked());
         if button.clicked() {
             ui.memory_mut(|memory| memory.toggle_popup(popup_id));
         }
@@ -181,10 +182,18 @@ fn draw_temporal(
             input.request_focus();
         }
         // Anchor on the whole cell: `popup_below_widget` positions the area at
-        // `widget.rect.left_bottom`, and the cell rect always sits under the
-        // editor. Clicks into the input do not count as "clicked elsewhere".
+        // `widget.rect.left_bottom`, and its `clicked_elsewhere` guard reads
+        // `interact_rect`/`hovered` — copying the input's would count a click
+        // on the calendar button as "outside" and close the popup instantly.
+        let pointer_over_cell = ui
+            .ctx()
+            .pointer_interact_pos()
+            .is_some_and(|pos| cell_rect.contains(pos));
         let anchor = egui::Response {
             rect: cell_rect,
+            interact_rect: cell_rect,
+            hovered: pointer_over_cell,
+            contains_pointer: pointer_over_cell,
             ..input.clone()
         };
         let picked = egui::popup::popup_below_widget(
@@ -200,6 +209,12 @@ fn draw_temporal(
                 ui.set_max_width(POPUP_MAX_WIDTH);
                 result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value)
             },
+        );
+        eprintln!(
+            "[dbg] anchor_elsewhere={} input_elsewhere={} popup_open={}",
+            anchor.clicked_elsewhere(),
+            input.clicked_elsewhere(),
+            ui.memory(|m| m.any_popup_open())
         );
         if picked == Some(true) {
             ui.memory_mut(|memory| memory.close_popup());
@@ -283,5 +298,58 @@ mod tests {
     fn text_editor_keeps_the_row_height() {
         let height = row_height_for(CellEditorKind::Text);
         assert!(height <= 28.5, "text editor grew the row to {height}");
+    }
+
+    /// The calendar button must actually open the picker: a click inside the
+    // cell must not be treated as a "click outside" that closes the popup in
+    /// the same frame it was toggled open.
+    #[test]
+    fn calendar_button_opens_the_picker() {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let mut value = "2026-09-30 14:22:11".to_owned();
+        let mut error = None;
+        let screen = egui::Rect::from_min_size(Pos2::ZERO, Vec2::new(600.0, 300.0));
+        let cell = egui::Rect::from_min_size(Pos2::new(60.0, 0.0), Vec2::new(220.0, 28.0));
+        // The calendar button occupies the trailing 24px of the editor.
+        let click = Pos2::new(cell.max.x - 12.0, 14.0);
+        // A warm-up frame registers the widget rects; pointer containment is
+        // resolved from last frame's rects, so the first frame cannot click.
+        for event in [None, Some(true), Some(false)] {
+            let events = match event {
+                None => vec![],
+                Some(pressed) => vec![
+                    egui::Event::PointerMoved(click),
+                    egui::Event::PointerButton {
+                        pos: click,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: egui::Modifiers::default(),
+                    },
+                ],
+            };
+            let _ = ctx.run(
+                RawInput {
+                    screen_rect: Some(screen),
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        let mut context = CellEditorContext {
+                            theme: DbProTheme::dark(),
+                            kind: CellEditorKind::Temporal { date_only: false },
+                            value: &mut value,
+                            error: &mut error,
+                        };
+                        draw(&mut context, ui, cell);
+                    });
+                },
+            );
+        }
+        assert!(
+            ctx.memory(|memory| memory.any_popup_open()),
+            "clicking the calendar button did not open the picker"
+        );
     }
 }
