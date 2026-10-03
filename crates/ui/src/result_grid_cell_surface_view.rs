@@ -8,7 +8,6 @@ pub(super) struct GridCellSurfaceContext<'a> {
     pub(super) row_selected: bool,
     pub(super) cell_selected: bool,
     pub(super) row_dirty: bool,
-    pub(super) display_position: usize,
     pub(super) validation_error: bool,
     pub(super) conflict_error: bool,
     pub(super) cell_mutation_error: bool,
@@ -36,14 +35,12 @@ pub(super) fn draw_surface(
     } else if context.row_dirty {
         context.theme.warning.linear_multiply(0.12)
     } else if cell_response.hovered() {
-        context.theme.surface_hover.linear_multiply(0.35)
-    } else if context.display_position % 2 == 1 {
-        context.theme.surface_panel.linear_multiply(0.25)
+        context.theme.surface_hover.linear_multiply(0.6)
     } else {
-        context.theme.surface_elevated
+        context.theme.surface_editor
     };
     ui.painter().rect_filled(cell_rect, Rounding::ZERO, fill);
-    let border = Stroke::new(1.0, context.theme.border_subtle.linear_multiply(0.35));
+    let border = Stroke::new(1.0, context.theme.border_subtle);
     ui.painter().hline(cell_rect.x_range(), cell_rect.bottom(), border);
     ui.painter().vline(cell_rect.right(), cell_rect.y_range(), border);
     if context.cell_selected {
@@ -86,48 +83,93 @@ pub(super) fn draw_value(
     cell_response: &egui::Response,
     display_cell: &UiCell,
 ) {
-    let text_rect = cell_rect.shrink2(egui::vec2(8.0, 3.0));
-    let is_null = matches!(display_cell, UiCell::Null);
+    let content_rect = cell_rect.shrink2(egui::vec2(10.0, 3.0));
     let raw_value = crate::result_grid::cell_text_as_str(display_cell);
-    let font = match display_cell {
-        UiCell::Null => FontId::proportional(11.5),
-        UiCell::Number(_) | UiCell::Json(_) | UiCell::Bytes(_) => FontId::monospace(11.5),
-        _ => FontId::proportional(12.0),
-    };
-    let text_color = match display_cell {
-        UiCell::Null => theme.text_muted.linear_multiply(0.55),
+    let painter = ui.painter().with_clip_rect(content_rect);
+    match display_cell {
+        UiCell::Null => draw_badge(
+            &painter,
+            content_rect,
+            BadgeAlign::Start,
+            "NULL",
+            FontId::monospace(10.0),
+            BadgeStyle {
+                foreground: theme.text_muted,
+                fill: theme.surface_hover,
+                border: theme.border_default,
+            },
+        ),
         UiCell::Boolean(value) => {
-            if *value {
-                theme.success
+            let status = if *value {
+                theme.semantic.status.success
             } else {
-                theme.danger
-            }
+                theme.semantic.status.danger
+            };
+            draw_badge(
+                &painter,
+                content_rect,
+                BadgeAlign::Center,
+                if *value { "TRUE" } else { "FALSE" },
+                FontId::proportional(10.5),
+                BadgeStyle {
+                    foreground: status.foreground,
+                    fill: status.subtle,
+                    border: status.border,
+                },
+            );
         }
-        UiCell::Number(_) | UiCell::Text(_) => theme.text_primary,
-        UiCell::Json(_) | UiCell::Bytes(_) => theme.text_secondary,
-    };
-    let painter = ui.painter().with_clip_rect(text_rect);
-    if is_null {
-        let galley = painter.layout_no_wrap(
-            "NULL".to_owned(),
-            FontId::new(11.0, egui::FontFamily::Proportional),
-            text_color,
-        );
-        painter.galley(
-            Pos2::new(text_rect.left(), text_rect.center().y - galley.size().y * 0.5),
-            galley,
-            text_color,
-        );
-    } else {
-        painter.text(
-            Pos2::new(text_rect.left(), text_rect.center().y),
-            Align2::LEFT_CENTER,
-            raw_value,
-            font,
-            text_color,
-        );
+        _ => {
+            let text_color = match display_cell {
+                UiCell::Number(_) | UiCell::Text(_) => theme.text_primary,
+                _ => theme.text_secondary,
+            };
+            painter.text(
+                Pos2::new(content_rect.left(), content_rect.center().y),
+                Align2::LEFT_CENTER,
+                raw_value,
+                FontId::monospace(12.0),
+                text_color,
+            );
+        }
     }
     if cell_response.hovered() && raw_value.len() > 36 {
         cell_response.clone().on_hover_text(raw_value);
     }
+}
+
+#[derive(Clone, Copy)]
+enum BadgeAlign {
+    Start,
+    Center,
+}
+
+#[derive(Clone, Copy)]
+struct BadgeStyle {
+    foreground: egui::Color32,
+    fill: egui::Color32,
+    border: egui::Color32,
+}
+
+fn draw_badge(
+    painter: &egui::Painter,
+    content_rect: Rect,
+    align: BadgeAlign,
+    label: &str,
+    font: FontId,
+    style: BadgeStyle,
+) {
+    let galley = painter.layout_no_wrap(label.to_owned(), font, style.foreground);
+    let pad = egui::vec2(7.0, 2.0);
+    let size = galley.size() + pad * 2.0;
+    let origin = Pos2::new(
+        match align {
+            BadgeAlign::Start => content_rect.left(),
+            BadgeAlign::Center => content_rect.center().x - size.x * 0.5,
+        },
+        content_rect.center().y - size.y * 0.5,
+    );
+    let badge_rect = Rect::from_min_size(origin, size);
+    painter.rect_filled(badge_rect, Rounding::same(4.0), style.fill);
+    painter.rect_stroke(badge_rect, Rounding::same(4.0), Stroke::new(1.0, style.border));
+    painter.galley(origin + pad, galley, style.foreground);
 }

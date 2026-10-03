@@ -11,7 +11,6 @@ pub(crate) struct GridCell<'a> {
     pub(crate) selection_lookup: &'a GridSelectionLookup,
     pub(crate) row_index: usize,
     pub(crate) column_index: usize,
-    pub(crate) display_position: usize,
     pub(crate) row_selected: bool,
     pub(crate) row_dirty: bool,
     pub(crate) row_mutation_error: bool,

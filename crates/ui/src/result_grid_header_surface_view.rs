@@ -58,25 +58,25 @@ impl<'a> GridHeaderViewContext<'a> {
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
-            let (gutter_rect, _) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 34.0), Sense::hover());
+            let (gutter_rect, _) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::hover());
             ui.painter()
-                .rect_filled(gutter_rect, Rounding::ZERO, self.theme.surface_panel);
+                .rect_filled(gutter_rect, Rounding::ZERO, self.theme.surface_elevated);
             ui.painter().hline(
                 gutter_rect.x_range(),
                 gutter_rect.bottom(),
-                Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.7)),
+                Stroke::new(1.0, self.theme.border_default),
             );
             ui.painter().vline(
                 gutter_rect.right(),
                 gutter_rect.y_range(),
-                Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.7)),
+                Stroke::new(1.0, self.theme.border_subtle),
             );
             ui.painter().text(
                 gutter_rect.center(),
                 Align2::CENTER_CENTER,
                 "#",
                 FontId::monospace(11.5),
-                self.theme.text_muted,
+                self.theme.text_tertiary,
             );
 
             for (visual_idx, &col_idx) in order.iter().enumerate() {
@@ -84,7 +84,7 @@ impl<'a> GridHeaderViewContext<'a> {
                     continue;
                 };
                 let width = widths.get(col_idx).copied().unwrap_or(180.0);
-                let (col_rect, col_resp) = ui.allocate_exact_size(egui::vec2(width, 34.0), Sense::click());
+                let (col_rect, col_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
 
                 // Check PK / FK indicators
                 let is_pk = self
@@ -116,7 +116,7 @@ impl<'a> GridHeaderViewContext<'a> {
                 let bg_fill = if col_hovered {
                     self.theme.surface_hover.linear_multiply(0.4)
                 } else {
-                    self.theme.surface_panel
+                    self.theme.surface_elevated
                 };
                 ui.painter().rect_filled(col_rect, Rounding::ZERO, bg_fill);
 
@@ -124,7 +124,7 @@ impl<'a> GridHeaderViewContext<'a> {
                 ui.painter().hline(
                     col_rect.x_range(),
                     col_rect.bottom(),
-                    Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.7)),
+                    Stroke::new(1.0, self.theme.border_default),
                 );
                 ui.painter().vline(
                     col_rect.right(),
@@ -134,7 +134,7 @@ impl<'a> GridHeaderViewContext<'a> {
                         if is_resizing {
                             self.theme.accent
                         } else {
-                            self.theme.border_subtle.linear_multiply(0.7)
+                            self.theme.border_subtle
                         },
                     ),
                 );
@@ -172,7 +172,6 @@ impl<'a> GridHeaderViewContext<'a> {
                     is_foreign_key: is_fk,
                     sort_desc: sort_active.then_some(sort_desc),
                     sort_priority: table_sort_priority,
-                    sort_active,
                     theme: self.theme,
                 };
                 result_grid_header_content_view::draw_header_content(&content_context, ui);
@@ -247,6 +246,20 @@ impl<'a> GridHeaderViewContext<'a> {
                 if divider.double_clicked() {
                     auto_size_req = Some(col_idx);
                 }
+            }
+
+            // Trailing header filler — the header band and its bottom border
+            // continue past the last column to the grid edge (demo spec).
+            let rest = ui.available_width();
+            if rest > 0.5 {
+                let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), Sense::hover());
+                ui.painter()
+                    .rect_filled(fill_rect, Rounding::ZERO, self.theme.surface_elevated);
+                ui.painter().hline(
+                    fill_rect.x_range(),
+                    fill_rect.bottom(),
+                    Stroke::new(1.0, self.theme.border_default),
+                );
             }
         });
 

@@ -48,7 +48,6 @@ pub(super) fn draw_row(
                     selection_lookup: context.rows.selection_lookup,
                     row_index: context.row_index,
                     column_index,
-                    display_position: context.display_position,
                     row_selected: context.row_selected,
                     row_dirty: context.row_dirty,
                     row_mutation_error: context.row_mutation_error,
@@ -57,6 +56,23 @@ pub(super) fn draw_row(
                     width,
                     cell,
                 },
+            );
+        }
+
+        // Trailing filler — the row's bottom border continues to the grid edge.
+        let rest = ui.available_width();
+        if rest > 0.5 {
+            let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), egui::Sense::hover());
+            let fill = if context.row_selected {
+                context.theme.accent_soft
+            } else {
+                context.theme.surface_editor
+            };
+            ui.painter().rect_filled(fill_rect, egui::Rounding::ZERO, fill);
+            ui.painter().hline(
+                fill_rect.x_range(),
+                fill_rect.bottom(),
+                egui::Stroke::new(1.0, context.theme.border_subtle),
             );
         }
     });

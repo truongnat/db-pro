@@ -48,7 +48,10 @@ pub(super) fn draw_body(
             egui::ScrollArea::horizontal().show(ui, |ui| {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
                 let content_width = GRID_ROW_NUMBER_WIDTH + context.widths.iter().sum::<f32>();
-                ui.set_min_width(content_width);
+                // Rows/header paint a trailing filler up to the grid edge, so the
+                // scroll content must claim the viewport width even when the
+                // columns are narrower.
+                ui.set_min_width(content_width.max(grid_width));
                 renderer.draw_header(ui, context.result, context.indexes, context.widths, context.order);
 
                 let rows = GridRows {
@@ -61,7 +64,7 @@ pub(super) fn draw_body(
                 };
                 let row_height = 28.0;
                 egui::ScrollArea::vertical()
-                    .max_height((grid_height - 34.0).max(140.0))
+                    .max_height((grid_height - 28.0).max(140.0))
                     .show_rows(ui, row_height, context.indexes.len(), |ui, range| {
                         ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for position in range {

@@ -12,7 +12,6 @@ pub(super) struct GridHeaderContentContext<'a> {
     pub(super) sort_desc: Option<bool>,
     /// Multi-sort order (1-based) shown next to the arrow.
     pub(super) sort_priority: Option<usize>,
-    pub(super) sort_active: bool,
     pub(super) theme: DbProTheme,
 }
 
@@ -76,7 +75,7 @@ fn draw_key_badge(
 fn draw_header_text(painter: &egui::Painter, context: &GridHeaderContentContext<'_>, layout: HeaderTextLayout) {
     let name_galley = painter.layout_no_wrap(
         context.column.name.clone(),
-        DbProTheme::ui_medium_font(12.5),
+        FontId::monospace(11.5),
         context.theme.text_primary,
     );
     let name_width = name_galley.size().x;
@@ -88,39 +87,27 @@ fn draw_header_text(painter: &egui::Painter, context: &GridHeaderContentContext<
         name_galley,
         context.theme.text_primary,
     );
-    let color = if context.sort_active {
-        context.theme.accent
-    } else {
-        context.theme.text_muted
-    };
+    let type_color = context.theme.text_tertiary;
     let type_galley = painter.layout_no_wrap(
         format!(" {}", context.column.data_type),
-        FontId::monospace(10.5),
-        color,
+        FontId::monospace(10.0),
+        type_color,
     );
-    let mut next_x = layout.text_x + name_width + 4.0;
+    let type_x = layout.text_x + name_width + 4.0;
+    let type_w = type_galley.size().x;
     painter.galley(
-        Pos2::new(
-            next_x,
-            layout.header_rect.center().y - type_galley.size().y * 0.5,
-        ),
-        type_galley.clone(),
-        color,
+        Pos2::new(type_x, layout.header_rect.center().y - type_galley.size().y * 0.5),
+        type_galley,
+        type_color,
     );
-    next_x += type_galley.size().x;
     if let Some(desc) = context.sort_desc {
-        next_x += draw_sort_arrow(painter, next_x, layout.header_rect, desc, context.theme.accent);
+        // Sort glyph pins to the header's right edge (demo spec).
+        let arrow_x = (layout.header_rect.right() - 9.0).max(type_x + type_w + 4.0);
+        let next_x = draw_sort_arrow(painter, arrow_x, layout.header_rect, desc, context.theme.accent);
         if let Some(priority) = context.sort_priority {
-            let prio = painter.layout_no_wrap(
-                priority.to_string(),
-                FontId::monospace(9.0),
-                context.theme.accent,
-            );
+            let prio = painter.layout_no_wrap(priority.to_string(), FontId::monospace(9.0), context.theme.accent);
             painter.galley(
-                Pos2::new(
-                    next_x,
-                    layout.header_rect.center().y - prio.size().y * 0.5,
-                ),
+                Pos2::new(next_x, layout.header_rect.center().y - prio.size().y * 0.5),
                 prio,
                 context.theme.accent,
             );
@@ -130,13 +117,7 @@ fn draw_header_text(painter: &egui::Painter, context: &GridHeaderContentContext<
 
 /// Tiny filled triangle — the `↑`/`↓` glyphs are missing from the bundled
 /// fonts and render as `+`/tofu in headers.
-fn draw_sort_arrow(
-    painter: &egui::Painter,
-    x: f32,
-    header_rect: Rect,
-    desc: bool,
-    color: Color32,
-) -> f32 {
+fn draw_sort_arrow(painter: &egui::Painter, x: f32, header_rect: Rect, desc: bool, color: Color32) -> f32 {
     let (w, h) = (7.0_f32, 4.5_f32);
     let cy = header_rect.center().y;
     let (edge_y, apex_y) = if desc {
