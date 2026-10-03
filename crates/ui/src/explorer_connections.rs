@@ -97,6 +97,13 @@ impl DbProApp {
                 )
                 .activate(&schema);
             }
+            ExplorerSchemaTreeAction::OpenErDiagram => {
+                self.workspace.active_tab = WorkspaceTab::Diagram;
+            }
+            ExplorerSchemaTreeAction::CopySchemaName(schema) => {
+                ui.output_mut(|output| output.copied_text = schema.clone());
+                self.feedback.runtime_message = format!("Copied `{schema}` to clipboard");
+            }
             ExplorerSchemaTreeAction::SchemaObjects(action) => {
                 self.apply_schema_objects_action(action, ui);
             }

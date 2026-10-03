@@ -254,6 +254,19 @@ pub(crate) fn screen_rect(ui: &Ui) -> Rect {
     }
 }
 
+/// Capture-harness hook: `DB_PRO_DEBUG_CTX_AT=x,y` force-opens the menu whose
+/// widget rect contains that screen point. `OnceLock` keeps the env lookup to
+/// one read per process; `None` makes the check a single branch per widget.
+fn debug_force_trigger(response: &egui::Response) -> bool {
+    static POS: std::sync::OnceLock<Option<Pos2>> = std::sync::OnceLock::new();
+    let pos = POS.get_or_init(|| {
+        let raw = std::env::var("DB_PRO_DEBUG_CTX_AT").ok()?;
+        let (x, y) = raw.split_once([',', 'x'])?;
+        Some(Pos2::new(x.trim().parse().ok()?, y.trim().parse().ok()?))
+    });
+    matches!(pos, Some(p) if response.rect.contains(*p))
+}
+
 /// Determines if a context-menu trigger occurred on the widget response.
 /// Robustly handles:
 /// - Secondary click (Right-click) with or without Ctrl/Cmd
@@ -300,7 +313,7 @@ pub fn context_action_menu(
     let is_open_id = popup_id.with("is_open");
     let pos_id = popup_id.with("pos");
 
-    let triggered = is_context_menu_triggered(response, ui);
+    let triggered = is_context_menu_triggered(response, ui) || debug_force_trigger(response);
     if triggered {
         let click_pos = ui
             .input(|i| i.pointer.latest_pos().or_else(|| i.pointer.interact_pos()))

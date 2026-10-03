@@ -1,8 +1,8 @@
 //! Presentation and intent mapping for the connected database/schema tree.
 
-use super::explorer_database_node_view::DatabaseNodeContext;
+use super::explorer_database_node_view::{DatabaseNodeAction, DatabaseNodeContext};
 use super::explorer_schema_feedback_view::{ExplorerSchemaFeedbackAction, ExplorerSchemaFeedbackContext};
-use super::explorer_schema_node_view::SchemaNodeContext;
+use super::explorer_schema_node_view::{SchemaNodeAction, SchemaNodeContext};
 use super::explorer_schema_objects_view::{
     ExplorerSchemaObjectsAction, ExplorerSchemaObjectsModel, ExplorerSchemaObjectsView,
 };
@@ -12,6 +12,8 @@ use eframe::egui;
 pub(super) enum ExplorerSchemaTreeAction {
     RefreshSchema,
     ActivateSchema(String),
+    OpenErDiagram,
+    CopySchemaName(String),
     SchemaObjects(ExplorerSchemaObjectsAction),
 }
 
@@ -44,14 +46,21 @@ impl<'a> ExplorerSchemaTreeView<'a> {
 
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerSchemaTreeAction> {
         let mut actions = self.draw_feedback(ui);
-        let database_open = DatabaseNodeContext {
+        let database_render = DatabaseNodeContext {
             theme: self.theme,
             connection_id: &self.model.connection_id,
             database: &self.model.database,
         }
         .draw(ui);
 
-        if database_open {
+        for action in database_render.actions {
+            actions.push(match action {
+                DatabaseNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema,
+                DatabaseNodeAction::CopyName => ExplorerSchemaTreeAction::CopySchemaName(self.model.database.clone()),
+            });
+        }
+
+        if database_render.is_open {
             actions.extend(self.draw_schemas(ui));
         }
         actions
@@ -119,6 +128,14 @@ impl<'a> ExplorerSchemaTreeView<'a> {
         }
         if render.should_activate {
             actions.push(ExplorerSchemaTreeAction::ActivateSchema(schema.to_owned()));
+        }
+        for action in render.actions {
+            actions.push(match action {
+                SchemaNodeAction::Activate => ExplorerSchemaTreeAction::ActivateSchema(schema.to_owned()),
+                SchemaNodeAction::OpenErDiagram => ExplorerSchemaTreeAction::OpenErDiagram,
+                SchemaNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema,
+                SchemaNodeAction::CopyName => ExplorerSchemaTreeAction::CopySchemaName(schema.to_owned()),
+            });
         }
         actions
     }

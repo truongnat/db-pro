@@ -1,7 +1,7 @@
 //! Interaction boundary for a schema node in the database explorer.
 
 use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
-use super::DbProTheme;
+use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme};
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -13,9 +13,18 @@ pub(crate) struct SchemaNodeContext<'a> {
     pub(crate) table_count: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SchemaNodeAction {
+    Activate,
+    OpenErDiagram,
+    RefreshSchema,
+    CopyName,
+}
+
 pub(crate) struct SchemaNodeRender {
     pub(crate) is_open: bool,
     pub(crate) should_activate: bool,
+    pub(crate) actions: Vec<SchemaNodeAction>,
 }
 
 impl SchemaNodeContext<'_> {
@@ -25,11 +34,20 @@ impl SchemaNodeContext<'_> {
             egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), schema_id, self.is_active);
         let is_open = collapsing.is_open();
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
-        let should_activate = self.apply_interaction(ui, &mut collapsing, is_open, chevron_clicked, response.clicked());
+        let is_context_menu = is_context_menu_triggered(&response, ui);
+        let actions = self.draw_menu(ui, &response);
+        let should_activate = self.apply_interaction(
+            ui,
+            &mut collapsing,
+            is_open,
+            chevron_clicked,
+            response.clicked() && !is_context_menu,
+        );
 
         SchemaNodeRender {
             is_open: collapsing.is_open(),
             should_activate,
+            actions,
         }
     }
 
@@ -57,6 +75,63 @@ impl SchemaNodeContext<'_> {
                 detail_text: None,
             },
         )
+    }
+
+    fn draw_menu(&self, ui: &mut egui::Ui, response: &egui::Response) -> Vec<SchemaNodeAction> {
+        let mut actions = Vec::new();
+        context_action_menu(ui, response, self.theme, |ui, close_menu| {
+            if !self.is_active {
+                self.add_item(
+                    ui,
+                    &mut actions,
+                    close_menu,
+                    SchemaNodeAction::Activate,
+                    Icon::FolderOpen,
+                    "Activate Schema",
+                );
+            }
+            self.add_item(
+                ui,
+                &mut actions,
+                close_menu,
+                SchemaNodeAction::OpenErDiagram,
+                Icon::Workflow,
+                "View ER Diagram",
+            );
+            self.add_item(
+                ui,
+                &mut actions,
+                close_menu,
+                SchemaNodeAction::RefreshSchema,
+                Icon::RefreshCw,
+                "Refresh Schema",
+            );
+            ui.separator();
+            self.add_item(
+                ui,
+                &mut actions,
+                close_menu,
+                SchemaNodeAction::CopyName,
+                Icon::Copy,
+                "Copy Schema Name",
+            );
+        });
+        actions
+    }
+
+    fn add_item(
+        &self,
+        ui: &mut egui::Ui,
+        actions: &mut Vec<SchemaNodeAction>,
+        close_menu: &mut bool,
+        action: SchemaNodeAction,
+        icon: Icon,
+        label: &str,
+    ) {
+        if ctx_menu_item(ui, Some(icon), label, None, self.theme.text_primary, self.theme).clicked() {
+            actions.push(action);
+            *close_menu = true;
+        }
     }
 
     fn apply_interaction(
