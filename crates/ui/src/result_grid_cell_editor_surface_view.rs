@@ -167,7 +167,6 @@ fn draw_temporal(
             egui::Button::new(icon_text(Icon::Calendar, "", theme.text_muted)).frame(false),
         );
         let popup_id = ui.id().with("date_picker_popup");
-        eprintln!("[dbg] clicked={}", button.clicked());
         if button.clicked() {
             ui.memory_mut(|memory| memory.toggle_popup(popup_id));
         }
@@ -209,12 +208,6 @@ fn draw_temporal(
                 ui.set_max_width(POPUP_MAX_WIDTH);
                 result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value)
             },
-        );
-        eprintln!(
-            "[dbg] anchor_elsewhere={} input_elsewhere={} popup_open={}",
-            anchor.clicked_elsewhere(),
-            input.clicked_elsewhere(),
-            ui.memory(|m| m.any_popup_open())
         );
         if picked == Some(true) {
             ui.memory_mut(|memory| memory.close_popup());
