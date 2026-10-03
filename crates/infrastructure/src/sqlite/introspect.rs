@@ -121,6 +121,7 @@ fn introspect_columns(conn: &rusqlite::Connection, table_names: &[String]) -> Re
                     is_identity: false,
                     is_generated: false,
                     collation: None,
+                    enum_labels: Vec::new(),
                     table_name: table_name.clone(),
                     schema: "main".into(),
                 })

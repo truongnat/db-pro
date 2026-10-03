@@ -328,6 +328,7 @@ impl DbProApp {
                     ordinal: 1,
                     default: None,
                     collation: None,
+                    enum_labels: Vec::new(),
                 },
                 crate::UiTableColumn {
                     name: "email".to_owned(),
@@ -340,6 +341,7 @@ impl DbProApp {
                     ordinal: 2,
                     default: None,
                     collation: None,
+                    enum_labels: Vec::new(),
                 },
                 crate::UiTableColumn {
                     name: "active".to_owned(),
@@ -352,6 +354,33 @@ impl DbProApp {
                     ordinal: 3,
                     default: Some("true".to_owned()),
                     collation: None,
+                    enum_labels: Vec::new(),
+                },
+                crate::UiTableColumn {
+                    name: "status".to_owned(),
+                    data_type: "order_status".to_owned(),
+                    nullable: true,
+                    is_primary_key: false,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    ordinal: 4,
+                    default: None,
+                    collation: None,
+                    enum_labels: vec!["pending".to_owned(), "shipped".to_owned(), "delivered".to_owned()],
+                },
+                crate::UiTableColumn {
+                    name: "created_at".to_owned(),
+                    data_type: "timestamp without time zone".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    ordinal: 5,
+                    default: None,
+                    collation: None,
+                    enum_labels: Vec::new(),
                 },
             ],
             primary_key: Some(vec!["id".to_owned()]),
@@ -386,22 +415,38 @@ impl DbProApp {
                     data_type: "boolean".to_owned(),
                     nullable: false,
                 },
+                crate::UiColumn {
+                    name: "status".to_owned(),
+                    data_type: "order_status".to_owned(),
+                    nullable: true,
+                },
+                crate::UiColumn {
+                    name: "created_at".to_owned(),
+                    data_type: "timestamp without time zone".to_owned(),
+                    nullable: false,
+                },
             ],
             rows: vec![
                 vec![
                     crate::UiCell::Text("a1b2c3d4-e5f6-7890-1234-56789abcdef0".to_owned()),
                     crate::UiCell::Text("alice@example.com".to_owned()),
                     crate::UiCell::Boolean(true),
+                    crate::UiCell::Text("pending".to_owned()),
+                    crate::UiCell::Text("2026-09-30 14:22:11".to_owned()),
                 ],
                 vec![
                     crate::UiCell::Text("b2c3d4e5-f6a7-8901-2345-6789abcdef01".to_owned()),
                     crate::UiCell::Text("bob@example.com".to_owned()),
                     crate::UiCell::Boolean(true),
+                    crate::UiCell::Text("shipped".to_owned()),
+                    crate::UiCell::Text("2026-09-29 09:05:44".to_owned()),
                 ],
                 vec![
                     crate::UiCell::Text("c3d4e5f6-a7b8-9012-3456-789abcdef012".to_owned()),
                     crate::UiCell::Text("charlie@example.com".to_owned()),
                     crate::UiCell::Boolean(false),
+                    crate::UiCell::Null,
+                    crate::UiCell::Text("2026-09-28 18:47:02".to_owned()),
                 ],
             ],
             row_count: 3,
@@ -410,6 +455,54 @@ impl DbProApp {
         // a selected cell + row so captures document the selection styling
         self.table.data.selected_cell = Some((0, 0));
         self.table.data.selected_rows.insert(0);
+        // Cell editing is gated on a connected, writable connection — the
+        // fixture provides one so typed-editor captures can render.
+        self.connection.catalog.replace(vec![crate::UiConnectionSummary {
+            id: "capture-conn".to_owned(),
+            name: "Sample E-Commerce (PostgreSQL)".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: crate::UiSslMode::Require,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }]);
+        self.connection.lifecycle.set_connected(true);
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some("capture-conn".to_owned()));
+        self.apply_capture_cell_edit_env();
+    }
+
+    /// `DB_PRO_CAPTURE_CELL_EDIT=<row>,<col>` opens that cell's inline editor
+    /// so captures can document each typed editor. Read once; zero cost unset.
+    fn apply_capture_cell_edit_env(&mut self) {
+        static TARGET: std::sync::OnceLock<Option<(usize, usize)>> = std::sync::OnceLock::new();
+        let Some((row_index, column_index)) = *TARGET.get_or_init(|| {
+            std::env::var("DB_PRO_CAPTURE_CELL_EDIT").ok().and_then(|raw| {
+                let (row, column) = raw.split_once(',')?;
+                Some((row.trim().parse().ok()?, column.trim().parse().ok()?))
+            })
+        }) else {
+            return;
+        };
+        let Some(cell) = self
+            .table
+            .data_query
+            .result
+            .as_ref()
+            .and_then(|result| result.rows.get(row_index))
+            .and_then(|row| row.get(column_index))
+        else {
+            return;
+        };
+        self.table.editing.data_editing_cell = Some((row_index, column_index));
+        self.table.editing.data_edit_value = crate::app::cell_inspector::cell_raw_text(cell);
     }
 
     /// Capture helper: same as table workspace but force light theme.
@@ -484,7 +577,8 @@ impl DbProApp {
     pub fn open_quick_open_for_capture(&mut self, light: bool, empty: bool) {
         self.preferences.dark_mode = !light;
         self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
-        self.palette.open_with_scope(PaletteMode::QuickOpen, SearchScope::Schema);
+        self.palette
+            .open_with_scope(PaletteMode::QuickOpen, SearchScope::Schema);
         if empty {
             self.palette.query = "__no_matching_quick_open_item__".to_owned();
         }

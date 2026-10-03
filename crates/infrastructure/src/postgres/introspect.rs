@@ -97,7 +97,19 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
     let columns = raw_cols
         .into_iter()
         .map(
-            |(schema, table, name, data_type, ordinal, nullable, default, is_identity, is_generated, collation)| {
+            |(
+                schema,
+                table,
+                name,
+                data_type,
+                ordinal,
+                nullable,
+                default,
+                is_identity,
+                is_generated,
+                collation,
+                enum_labels,
+            )| {
                 let is_pk = pk_column_set.contains(&(schema.clone(), table.clone(), name.clone()));
                 let is_unique = unique_column_set.contains(&(schema.clone(), table.clone(), name.clone()));
                 Column {
@@ -111,6 +123,7 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
                     is_identity,
                     is_generated,
                     collation,
+                    enum_labels,
                     table_name: table,
                     schema,
                 }
@@ -221,6 +234,7 @@ type RawColumn = (
     bool,
     bool,
     Option<String>,
+    Vec<String>,
 );
 
 async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, DbError> {
@@ -236,7 +250,9 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
             pg_get_expr(d.adbin, d.adrelid) AS column_default,
             (a.attidentity <> '') AS is_identity,
             (a.attgenerated <> '') AS is_generated,
-            CASE WHEN coll.collname = 'default' THEN NULL ELSE coll.collname END AS collation_name
+            CASE WHEN coll.collname = 'default' THEN NULL ELSE coll.collname END AS collation_name,
+            (SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder)
+             FROM pg_catalog.pg_enum e WHERE e.enumtypid = a.atttypid) AS enum_labels
         FROM pg_attribute a
         JOIN pg_class c ON a.attrelid = c.oid
         JOIN pg_namespace n ON c.relnamespace = n.oid
@@ -265,6 +281,7 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
             let is_identity: bool = row.get("is_identity");
             let is_generated: bool = row.get("is_generated");
             let collation: Option<String> = row.get("collation_name");
+            let enum_labels: Option<Vec<String>> = row.get("enum_labels");
             (
                 table_schema,
                 table_name,
@@ -276,6 +293,7 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
                 is_identity,
                 is_generated,
                 collation,
+                enum_labels.unwrap_or_default(),
             )
         })
         .collect())

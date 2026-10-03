@@ -141,6 +141,7 @@ async fn load_columns(connector: &SqlServerConnector, handle: &ConnectionHandle)
                 is_identity: bool_value(row, 7)?,
                 is_generated: bool_value(row, 8)?,
                 collation: optional_text(row, 9)?,
+                enum_labels: Vec::new(),
                 is_primary_key: false,
                 is_unique: false,
             })

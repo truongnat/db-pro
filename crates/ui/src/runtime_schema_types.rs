@@ -186,6 +186,8 @@ pub struct UiTableColumn {
     pub is_identity: bool,
     pub is_generated: bool,
     pub collation: Option<String>,
+    /// Enum labels for enum-typed columns; empty for all other types.
+    pub enum_labels: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

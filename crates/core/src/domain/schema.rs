@@ -29,6 +29,9 @@ pub struct Column {
     pub is_generated: bool,
     #[serde(default)]
     pub collation: Option<String>,
+    /// Enum labels for enum-typed columns; empty for all other types.
+    #[serde(default)]
+    pub enum_labels: Vec<String>,
     pub table_name: String,
     pub schema: String,
 }

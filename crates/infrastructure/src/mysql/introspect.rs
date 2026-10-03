@@ -110,6 +110,7 @@ impl MySqlIntrospect {
                 is_identity: info::<String>(row, "extra").contains("auto_increment"),
                 is_generated: info::<String>(row, "extra").contains("GENERATED"),
                 collation: None,
+                enum_labels: Vec::new(),
                 table_name: info(row, "table_name"),
                 schema: database.to_owned(),
             };

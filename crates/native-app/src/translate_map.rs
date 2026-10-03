@@ -205,6 +205,7 @@ pub(crate) fn map_table_info(info: db_pro_core::domain::schema::TableInfo) -> Ui
                 is_identity: column.is_identity,
                 is_generated: column.is_generated,
                 collation: column.collation,
+                enum_labels: column.enum_labels,
             })
             .collect(),
         primary_key: info.primary_key.map(|primary_key| primary_key.columns),

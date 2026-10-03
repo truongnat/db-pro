@@ -82,6 +82,7 @@ mod tests {
             is_identity: false,
             is_generated: false,
             collation: None,
+            enum_labels: Vec::new(),
         }
     }
 
