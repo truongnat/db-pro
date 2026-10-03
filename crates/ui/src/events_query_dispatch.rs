@@ -135,6 +135,9 @@ impl DbProApp {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return false;
         }
+        // The toolbar row cap only guards interactive editor runs — saved
+        // tasks and other send_query_run callers keep their exact text.
+        let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, false) {
             return false;
@@ -174,6 +177,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
+        let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, true) {
             return;

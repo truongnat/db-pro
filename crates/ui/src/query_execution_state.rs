@@ -60,6 +60,8 @@ pub(crate) struct QueryExecutionPolicyState {
     pub(super) query_txn_pending: usize,
     pub(super) disconnect_txn_guard: bool,
     pub(super) query_txn_bar_open: bool,
+    /// Row cap applied to dispatched reads (`None` = no limit) — toolbar picker.
+    pub(super) query_row_limit: Option<u64>,
     pending_destructive_run: Option<PendingDestructiveRun>,
 }
 
@@ -74,6 +76,7 @@ impl Default for QueryExecutionPolicyState {
             query_txn_pending: 0,
             disconnect_txn_guard: false,
             query_txn_bar_open: false,
+            query_row_limit: Some(500),
             pending_destructive_run: None,
         }
     }

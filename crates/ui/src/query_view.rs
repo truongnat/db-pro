@@ -130,6 +130,7 @@ impl DbProApp {
             let mut context = query_context_view::QueryContextViewContext {
                 theme: self.theme,
                 editor: &mut self.query.editor,
+                execution: &mut self.query.execution,
                 file_path: file_path.as_deref(),
                 connected,
                 connection_name: &connection_name,

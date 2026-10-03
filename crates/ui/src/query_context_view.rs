@@ -8,6 +8,7 @@ const CONTEXT_CHIP_MAX_CHARS: usize = 28;
 pub(super) struct QueryContextViewContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) editor: &'a mut QueryEditorState,
+    pub(super) execution: &'a mut QueryExecutionPolicyState,
     pub(super) file_path: Option<&'a str>,
     pub(super) connected: bool,
     pub(super) connection_name: &'a str,
@@ -67,6 +68,7 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
                 action = Some(tool);
             }
         }
+        draw_row_limit_picker(context, ui);
 
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let more_response = Button::new(context.theme)
@@ -110,6 +112,38 @@ fn draw_editor_tools(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -
     } else {
         None
     }
+}
+
+/// Row-cap selector matching the Stitch toolbar (`100 / 500 / 1,000 / No limit`).
+/// The cap is applied to dispatched reads that do not carry their own clause.
+fn draw_row_limit_picker(context: &mut QueryContextViewContext<'_>, ui: &mut egui::Ui) {
+    let (sep, _) = ui.allocate_exact_size(egui::vec2(1.0, 16.0), egui::Sense::hover());
+    ui.painter().vline(
+        sep.center().x,
+        sep.y_range(),
+        egui::Stroke::new(1.0, context.theme.border_subtle),
+    );
+    const OPTIONS: [(Option<u64>, &str); 4] = [
+        (Some(100), "100 rows"),
+        (Some(500), "500 rows"),
+        (Some(1_000), "1,000 rows"),
+        (None, "No limit"),
+    ];
+    let current = context.execution.query_row_limit;
+    let selected = OPTIONS
+        .iter()
+        .find(|(value, _)| *value == current)
+        .map(|(_, label)| *label)
+        .unwrap_or("No limit");
+    egui::ComboBox::from_id_salt("query_row_limit")
+        .selected_text(RichText::new(selected).font(font_caption()).color(context.theme.text_secondary))
+        .show_ui(ui, |ui| {
+            for (value, label) in OPTIONS {
+                ui.selectable_value(&mut context.execution.query_row_limit, value, label);
+            }
+        })
+        .response
+        .on_hover_text("Cap rows returned by the next run");
 }
 
 fn draw_file_path_breadcrumb(theme: DbProTheme, ui: &mut egui::Ui, path: &str) {

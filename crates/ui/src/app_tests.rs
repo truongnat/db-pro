@@ -4169,6 +4169,76 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
 }
 
 #[test]
+fn dispatch_caps_reads_with_the_toolbar_row_limit() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
+        id: "active".to_owned(),
+        name: "Active".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "active".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
+    }];
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
+
+    let dispatch_and_finish = |app: &mut DbProApp,
+                               command_rx: &std::sync::mpsc::Receiver<UiCommand>,
+                               event_tx: &std::sync::mpsc::SyncSender<UiEvent>|
+     -> String {
+        app.dispatch_query();
+        let UiCommand::RunQuery { request_id, sql, .. } =
+            command_rx.try_recv().expect("query command expected")
+        else {
+            panic!("expected RunQuery command");
+        };
+        event_tx
+            .send(UiEvent::QueryCompleted {
+                request_id,
+                result: UiQueryResult {
+                    columns: vec![],
+                    rows: vec![],
+                    row_count: 0,
+                    duration_ms: 1,
+                },
+            })
+            .unwrap();
+        app.apply_runtime_events();
+        sql
+    };
+
+    app.set_active_query_text("SELECT * FROM users");
+    app.query.execution.query_row_limit = Some(100);
+    assert_eq!(
+        dispatch_and_finish(&mut app, &command_rx, &event_tx),
+        "SELECT * FROM users LIMIT 100"
+    );
+
+    // An explicit LIMIT in the statement wins over the toolbar cap.
+    app.set_active_query_text("SELECT * FROM users LIMIT 10");
+    assert_eq!(
+        dispatch_and_finish(&mut app, &command_rx, &event_tx),
+        "SELECT * FROM users LIMIT 10"
+    );
+
+    // "No limit" passes the statement through untouched.
+    app.query.execution.query_row_limit = None;
+    app.set_active_query_text("SELECT * FROM users");
+    assert_eq!(
+        dispatch_and_finish(&mut app, &command_rx, &event_tx),
+        "SELECT * FROM users"
+    );
+}
+
+#[test]
 fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
@@ -6298,6 +6368,8 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
         }];
         *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
         app.connection.lifecycle.set_connected(true);
+        // Verbatim dispatch is the point here; the toolbar cap has its own test.
+        app.query.execution.query_row_limit = None;
         app.set_active_query_text(sql);
 
         app.dispatch_query();
@@ -6449,6 +6521,8 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
+    // Parameter binding is the point here; the toolbar cap has its own test.
+    app.query.execution.query_row_limit = None;
     app.set_active_query_text("SELECT :id, :name".to_owned());
     if let Some(doc) = app.query.session.documents.get_mut(0) {
         doc.parameter_values.insert(":id".to_owned(), "7".to_owned());

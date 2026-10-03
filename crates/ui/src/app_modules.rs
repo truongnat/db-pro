@@ -356,6 +356,8 @@ mod query_output_view;
 mod query_parameters_view;
 #[path = "query_results_surface_view.rs"]
 mod query_results_surface_view;
+#[path = "query_row_limit.rs"]
+mod query_row_limit;
 #[path = "query_run_control_view.rs"]
 mod query_run_control_view;
 #[path = "query_save_dialog_surface_view.rs"]
