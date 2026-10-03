@@ -31,6 +31,8 @@ pub(crate) struct QueryEditorState {
     pub(super) problems_selected: Option<(String, usize)>,
     pub(super) query_history: Vec<String>,
     pub(super) query_history_entries: Vec<UiQueryHistoryEntry>,
+    pub(super) history_outcome_filter: HistoryOutcomeFilter,
+    pub(super) history_selected_id: Option<String>,
     pub(super) query_history_search: String,
 }
 
@@ -65,6 +67,8 @@ impl Default for QueryEditorState {
             problems_selected: None,
             query_history: Vec::new(),
             query_history_entries: Vec::new(),
+            history_outcome_filter: HistoryOutcomeFilter::All,
+            history_selected_id: None,
             query_history_search: String::new(),
         }
     }

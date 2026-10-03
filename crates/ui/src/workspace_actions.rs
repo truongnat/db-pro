@@ -512,6 +512,79 @@ impl DbProApp {
         self.theme = DbProTheme::light();
     }
 
+    /// Capture/evidence helper: open the History activity with deterministic
+    /// execution records so the unified history surface can be documented.
+    pub fn open_history_activity_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.activity = Activity::History;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.connection.catalog.replace(vec![crate::UiConnectionSummary {
+            id: "capture-conn".to_owned(),
+            name: "local-pg".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app_db".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: crate::UiSslMode::Require,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }]);
+        self.connection.lifecycle.set_connected(true);
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some("capture-conn".to_owned()));
+        let now = chrono::Utc::now();
+        let yesterday = now - chrono::Duration::days(1);
+        // History entries are stored oldest → newest; the view reverses for display.
+        self.query.editor.query_history_entries = vec![
+            crate::UiQueryHistoryEntry {
+                id: "exec-capture-0003".to_owned(),
+                sql: "SELECT count(*) FROM events;".to_owned(),
+                connection_id: Some("capture-conn".to_owned()),
+                schema: Some("public".to_owned()),
+                started_at: yesterday.to_rfc3339(),
+                duration_ms: 1204,
+                status: crate::UiQueryHistoryStatus::Cancelled,
+                row_count: None,
+                affected_rows: None,
+                error_code: None,
+                error_summary: None,
+            },
+            crate::UiQueryHistoryEntry {
+                id: "exec-capture-0002".to_owned(),
+                sql: "SELECT * FROM user_profiles;".to_owned(),
+                connection_id: Some("capture-conn".to_owned()),
+                schema: Some("audit".to_owned()),
+                started_at: (now - chrono::Duration::minutes(3)).to_rfc3339(),
+                duration_ms: 2,
+                status: crate::UiQueryHistoryStatus::Failed,
+                row_count: None,
+                affected_rows: None,
+                error_code: Some("42P01".to_owned()),
+                error_summary: Some("relation public.user_profiles does not exist".to_owned()),
+            },
+            crate::UiQueryHistoryEntry {
+                id: "exec-capture-0001".to_owned(),
+                sql: "SELECT id, email FROM customers ORDER BY email LIMIT 100;".to_owned(),
+                connection_id: Some("capture-conn".to_owned()),
+                schema: Some("public".to_owned()),
+                started_at: now.to_rfc3339(),
+                duration_ms: 12,
+                status: crate::UiQueryHistoryStatus::Success,
+                row_count: Some(100),
+                affected_rows: None,
+                error_code: None,
+                error_summary: None,
+            },
+        ];
+        self.query.editor.history_selected_id = Some("exec-capture-0002".to_owned());
+    }
+
     /// Capture helper: open the Diagram / ER canvas.
     pub fn open_diagram_workspace_for_capture(&mut self) {
         self.preferences.dark_mode = true;

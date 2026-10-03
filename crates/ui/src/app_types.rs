@@ -74,6 +74,28 @@ pub(crate) enum ProblemsSeverityFilter {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum HistoryOutcomeFilter {
+    #[default]
+    All,
+    Success,
+    Failed,
+    Cancelled,
+}
+
+impl HistoryOutcomeFilter {
+    pub(crate) const ALL: [Self; 4] = [Self::All, Self::Success, Self::Failed, Self::Cancelled];
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::All => "All",
+            Self::Success => "Success",
+            Self::Failed => "Failed",
+            Self::Cancelled => "Cancelled",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum ProblemsSourceFilter {
     #[default]
     All,

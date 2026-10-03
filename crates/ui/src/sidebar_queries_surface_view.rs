@@ -1,4 +1,5 @@
 //! Queries-activity sidebar composition and typed intents.
+use super::sidebar_history_view::{SidebarHistoryAction, SidebarHistoryContext};
 use super::sidebar_queries_view::{SidebarQueriesAction, SidebarQueriesContext};
 use super::sidebar_query_library_view::{SidebarQueryLibraryAction, SidebarQueryLibraryContext};
 use super::sidebar_query_shortcuts_view::{SidebarQueryShortcutAction, SidebarQueryShortcutsContext};
@@ -10,6 +11,7 @@ pub(super) enum SidebarQueriesSurfaceAction {
     OpenQuery(SidebarQueriesAction),
     Library(SidebarQueryLibraryAction),
     Shortcut(SidebarQueryShortcutAction),
+    History(SidebarHistoryAction),
 }
 
 pub(super) struct SidebarQueriesSurfaceContext<'a> {
@@ -20,6 +22,10 @@ pub(super) struct SidebarQueriesSurfaceContext<'a> {
     pub(super) saved_queries: &'a [UiSavedQuerySummary],
     pub(super) query_folders: &'a [UiQueryFolderSummary],
     pub(super) history: &'a [String],
+    pub(super) history_entries: &'a [UiQueryHistoryEntry],
+    pub(super) catalog: &'a ConnectionCatalogState,
+    pub(super) history_outcome_filter: HistoryOutcomeFilter,
+    pub(super) history_selected_id: Option<&'a str>,
     pub(super) delete_confirmation_id: Option<&'a str>,
 }
 
@@ -32,39 +38,22 @@ impl SidebarQueriesSurfaceContext<'_> {
     }
 
     pub(super) fn draw_history(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesSurfaceAction> {
-        let library = self.library_context();
-        let mut actions = Vec::new();
         ui.label(
-            RichText::new("Saved queries")
+            RichText::new("Queries you ran · newest first")
                 .small()
-                .strong()
                 .color(self.theme.text_muted),
         );
-        actions.extend(
-            library
-                .draw_saved_queries(ui)
-                .into_iter()
-                .map(SidebarQueriesSurfaceAction::Library),
-        );
-        ui.separator();
-        ui.label(
-            RichText::new("Local history")
-                .small()
-                .strong()
-                .color(self.theme.text_muted),
-        );
-        actions.extend(
-            library
-                .draw_local_history(ui)
-                .into_iter()
-                .map(SidebarQueriesSurfaceAction::Library),
-        );
-        if let Some(id) = self.delete_confirmation_id {
-            if let Some(action) = library.draw_delete_confirmation(ui, id) {
-                actions.push(SidebarQueriesSurfaceAction::Library(action));
-            }
+        SidebarHistoryContext {
+            theme: self.theme,
+            entries: self.history_entries,
+            catalog: self.catalog,
+            outcome_filter: self.history_outcome_filter,
+            selected_id: self.history_selected_id,
         }
-        actions
+        .draw(ui)
+        .into_iter()
+        .map(SidebarQueriesSurfaceAction::History)
+        .collect()
     }
 
     fn draw_open_queries(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesSurfaceAction> {

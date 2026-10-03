@@ -422,6 +422,8 @@ mod sidebar_activities_view;
 mod sidebar_chrome_view;
 #[path = "sidebar_data_view.rs"]
 mod sidebar_data_view;
+#[path = "sidebar_history_view.rs"]
+mod sidebar_history_view;
 #[path = "sidebar_problems_view.rs"]
 mod sidebar_problems_view;
 #[path = "sidebar_queries_surface_view.rs"]

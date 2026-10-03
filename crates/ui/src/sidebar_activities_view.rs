@@ -16,6 +16,10 @@ impl DbProApp {
                 saved_queries: &self.query.library.saved_queries,
                 query_folders: &self.query.library.query_folders,
                 history: &self.query.editor.query_history,
+                history_entries: &self.query.editor.query_history_entries,
+                catalog: &self.connection.catalog,
+                history_outcome_filter: self.query.editor.history_outcome_filter,
+                history_selected_id: self.query.editor.history_selected_id.as_deref(),
                 delete_confirmation_id: self.overlay.delete_confirmation_id.as_deref(),
             };
             context.draw(ui)
@@ -25,6 +29,7 @@ impl DbProApp {
                 SidebarQueriesSurfaceAction::OpenQuery(action) => self.apply_sidebar_query_action(action),
                 SidebarQueriesSurfaceAction::Library(action) => self.apply_sidebar_query_library_action(ui, action),
                 SidebarQueriesSurfaceAction::Shortcut(action) => self.apply_sidebar_query_shortcut_action(action),
+                SidebarQueriesSurfaceAction::History(action) => self.apply_sidebar_history_action(ui, action),
             }
         }
     }
@@ -146,13 +151,45 @@ impl DbProApp {
             saved_queries: &self.query.library.saved_queries,
             query_folders: &self.query.library.query_folders,
             history: &self.query.editor.query_history,
+            history_entries: &self.query.editor.query_history_entries,
+            catalog: &self.connection.catalog,
+            history_outcome_filter: self.query.editor.history_outcome_filter,
+            history_selected_id: self.query.editor.history_selected_id.as_deref(),
             delete_confirmation_id: self.overlay.delete_confirmation_id.as_deref(),
         };
         for action in context.draw_history(ui) {
             match action {
+                SidebarQueriesSurfaceAction::History(action) => self.apply_sidebar_history_action(ui, action),
                 SidebarQueriesSurfaceAction::Library(action) => self.apply_sidebar_query_library_action(ui, action),
                 SidebarQueriesSurfaceAction::OpenQuery(action) => self.apply_sidebar_query_action(action),
                 SidebarQueriesSurfaceAction::Shortcut(action) => self.apply_sidebar_query_shortcut_action(action),
+            }
+        }
+    }
+
+    fn apply_sidebar_history_action(
+        &mut self,
+        ui: &mut egui::Ui,
+        action: sidebar_history_view::SidebarHistoryAction,
+    ) {
+        match action {
+            sidebar_history_view::SidebarHistoryAction::SetOutcomeFilter(filter) => {
+                self.query.editor.history_outcome_filter = filter;
+            }
+            sidebar_history_view::SidebarHistoryAction::Select(id) => {
+                self.query.editor.history_selected_id = id;
+            }
+            sidebar_history_view::SidebarHistoryAction::OpenAsNewQuery(sql) => {
+                let mut doc = crate::query::query_document::QueryDocument::new("query", "History replay", sql);
+                doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+                doc.schema = Some(self.active_schema().to_owned());
+                self.query.session.documents.push(doc);
+                self.query.session.active_document_index = self.query.session.documents.len().saturating_sub(1);
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            sidebar_history_view::SidebarHistoryAction::CopySql(sql) => {
+                ui.output_mut(|output| output.copied_text = sql);
+                self.feedback.runtime_message = "Copied SQL from history".to_owned();
             }
         }
     }

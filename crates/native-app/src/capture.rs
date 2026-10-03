@@ -65,6 +65,10 @@ const AGENT_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_AGENT";
 /// When set, switch to the native Component Gallery before capturing.
 const COMPONENT_GALLERY_ENV: &str = "DB_PRO_CAPTURE_COMPONENT_GALLERY";
 
+/// When set, switch the sidebar to the History activity with seeded execution
+/// records before capturing (unified execution history shots).
+const HISTORY_ACTIVITY_ENV: &str = "DB_PRO_CAPTURE_HISTORY";
+
 /// When set, open Quick Open with its Schema filter selected before capturing.
 const QUICK_OPEN_ENV: &str = "DB_PRO_CAPTURE_QUICK_OPEN";
 
@@ -227,6 +231,9 @@ impl CaptureApp {
             self.opened_dialog = true;
         } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
             self.inner.open_component_gallery_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(HISTORY_ACTIVITY_ENV).is_some() {
+            self.inner.open_history_activity_for_capture();
             self.opened_dialog = true;
         } else if std::env::var_os(QUICK_OPEN_ENV).is_some() {
             self.inner.open_quick_open_for_capture(
