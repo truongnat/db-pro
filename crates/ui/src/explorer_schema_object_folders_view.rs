@@ -38,7 +38,13 @@ impl<'a> SchemaObjectFoldersView<'a> {
             .explorer
             .filter_by_schema(&self.explorer.schema.views, schema, |view| &view.schema)
             .into_iter()
-            .filter(|v| search_query.is_empty() || v.name.to_ascii_lowercase().contains(search_query))
+            .filter(|v| {
+                search_query.is_empty()
+                    || self
+                        .explorer
+                        .explorer_filter
+                        .name_matches(&v.name.to_ascii_lowercase(), search_query)
+            })
             .collect();
         let count = views.len();
         let mut actions = Vec::new();
@@ -80,7 +86,13 @@ impl<'a> SchemaObjectFoldersView<'a> {
             .explorer
             .filter_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema)
             .into_iter()
-            .filter(|f| search_query.is_empty() || f.name.to_ascii_lowercase().contains(search_query))
+            .filter(|f| {
+                search_query.is_empty()
+                    || self
+                        .explorer
+                        .explorer_filter
+                        .name_matches(&f.name.to_ascii_lowercase(), search_query)
+            })
             .collect();
         let count = functions.len();
         let mut actions = Vec::new();
@@ -122,7 +134,13 @@ impl<'a> SchemaObjectFoldersView<'a> {
             .explorer
             .filter_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema)
             .into_iter()
-            .filter(|t| search_query.is_empty() || t.name.to_ascii_lowercase().contains(search_query))
+            .filter(|t| {
+                search_query.is_empty()
+                    || self
+                        .explorer
+                        .explorer_filter
+                        .name_matches(&t.name.to_ascii_lowercase(), search_query)
+            })
             .collect();
         let count = triggers.len();
         let mut actions = Vec::new();

@@ -42,19 +42,26 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
 
     pub(super) fn draw(&mut self, ui: &mut egui::Ui, schema: &str) -> Vec<ExplorerSchemaObjectsAction> {
         let search_query = self.explorer.explorer_search.trim().to_ascii_lowercase();
-        let mut actions = self.draw_tables(ui, schema, &search_query);
+        let kinds = self.explorer.explorer_filter;
+        let mut actions = if kinds.tables {
+            self.draw_tables(ui, schema, &search_query)
+        } else {
+            Vec::new()
+        };
 
-        let view_count = self
-            .explorer
-            .count_by_schema(&self.explorer.schema.views, schema, |view| &view.schema);
-        actions.extend(
-            SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                .draw_views(ui, schema, &search_query, view_count)
-                .into_iter()
-                .map(ExplorerSchemaObjectsAction::SchemaObject),
-        );
+        if kinds.views {
+            let view_count = self
+                .explorer
+                .count_by_schema(&self.explorer.schema.views, schema, |view| &view.schema);
+            actions.extend(
+                SchemaObjectFoldersView::new(self.theme, &*self.explorer)
+                    .draw_views(ui, schema, &search_query, view_count)
+                    .into_iter()
+                    .map(ExplorerSchemaObjectsAction::SchemaObject),
+            );
+        }
 
-        if self.model.functions_enabled {
+        if kinds.functions && self.model.functions_enabled {
             let function_count = self
                 .explorer
                 .count_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema);
@@ -66,15 +73,17 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
             );
         }
 
-        let trigger_count = self
-            .explorer
-            .count_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema);
-        actions.extend(
-            SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                .draw_triggers(ui, schema, &search_query, trigger_count)
-                .into_iter()
-                .map(ExplorerSchemaObjectsAction::SchemaObject),
-        );
+        if kinds.triggers {
+            let trigger_count = self
+                .explorer
+                .count_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema);
+            actions.extend(
+                SchemaObjectFoldersView::new(self.theme, &*self.explorer)
+                    .draw_triggers(ui, schema, &search_query, trigger_count)
+                    .into_iter()
+                    .map(ExplorerSchemaObjectsAction::SchemaObject),
+            );
+        }
         actions
     }
 

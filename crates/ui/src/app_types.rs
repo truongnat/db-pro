@@ -284,6 +284,7 @@ pub(crate) struct ExplorerNavCache {
     pub connection_id: String,
     pub schema: String,
     pub search: String,
+    pub mode: super::schema_explorer_state::ExplorerMatchMode,
     pub total_count: usize,
     pub matching_count: usize,
     pub visible: Vec<String>,
@@ -313,14 +314,31 @@ pub(crate) fn matches_explorer_table(table: &str, query: &str) -> bool {
     query.is_empty() || table.to_ascii_lowercase().contains(query)
 }
 
-pub(crate) fn filtered_explorer_tables(tables: &[String], query: &str) -> (usize, Vec<String>) {
+pub(crate) fn matches_explorer_table_with_mode(
+    table: &str,
+    query: &str,
+    mode: super::schema_explorer_state::ExplorerMatchMode,
+) -> bool {
+    match mode {
+        super::schema_explorer_state::ExplorerMatchMode::Contains => matches_explorer_table(table, query),
+        super::schema_explorer_state::ExplorerMatchMode::Prefix => {
+            query.is_empty() || table.to_ascii_lowercase().starts_with(query)
+        }
+    }
+}
+
+pub(crate) fn filtered_explorer_tables(
+    tables: &[String],
+    query: &str,
+    mode: super::schema_explorer_state::ExplorerMatchMode,
+) -> (usize, Vec<String>) {
     let matching_count = tables
         .iter()
-        .filter(|table| matches_explorer_table(table, query))
+        .filter(|table| matches_explorer_table_with_mode(table, query, mode))
         .count();
     let visible_tables = tables
         .iter()
-        .filter(|table| matches_explorer_table(table, query))
+        .filter(|table| matches_explorer_table_with_mode(table, query, mode))
         .take(EXPLORER_MAX_TABLES)
         .cloned()
         .collect();

@@ -2578,10 +2578,27 @@ fn explorer_search_matches_table_names_case_insensitively() {
     assert!(matches_explorer_table("customer_orders", ""));
     assert!(!matches_explorer_table("customer_orders", "invoice"));
 
+    assert!(matches_explorer_table_with_mode(
+        "customer_orders",
+        "orders",
+        ExplorerMatchMode::Contains
+    ));
+    assert!(!matches_explorer_table_with_mode(
+        "customer_orders",
+        "orders",
+        ExplorerMatchMode::Prefix
+    ));
+    assert!(matches_explorer_table_with_mode(
+        "orders_archive",
+        "orders",
+        ExplorerMatchMode::Prefix
+    ));
+
     let tables = (0..=EXPLORER_MAX_TABLES)
         .map(|index| format!("orders_{index}"))
         .collect::<Vec<_>>();
-    let (matching_count, visible_tables) = filtered_explorer_tables(&tables, "orders");
+    let (matching_count, visible_tables) =
+        filtered_explorer_tables(&tables, "orders", ExplorerMatchMode::Contains);
     assert_eq!(matching_count, EXPLORER_MAX_TABLES + 1);
     assert_eq!(visible_tables.len(), EXPLORER_MAX_TABLES);
 }

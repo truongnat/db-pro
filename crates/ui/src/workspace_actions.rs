@@ -585,6 +585,16 @@ impl DbProApp {
         self.query.editor.history_selected_id = Some("exec-capture-0002".to_owned());
     }
 
+    /// Capture/evidence helper: Explorer with a non-default object filter so the
+    /// active-filter indicator and hidden kinds can be documented.
+    pub fn open_explorer_filter_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.activity = Activity::Explorer;
+        self.schema.explorer.explorer_filter.views = false;
+        self.schema.explorer.explorer_filter.mode = ExplorerMatchMode::Prefix;
+    }
+
     /// Capture helper: open the Diagram / ER canvas.
     pub fn open_diagram_workspace_for_capture(&mut self) {
         self.preferences.dark_mode = true;

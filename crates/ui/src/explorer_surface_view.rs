@@ -90,6 +90,7 @@ impl ExplorerSurfaceContext<'_> {
         let toolbar_actions = ExplorerToolbarContext {
             theme: self.theme,
             search: &mut self.explorer.explorer_search,
+            filter: &mut self.explorer.explorer_filter,
         }
         .draw_toolbar(ui);
         toolbar_actions
@@ -105,6 +106,7 @@ impl ExplorerSurfaceContext<'_> {
         let actions = ExplorerToolbarContext {
             theme: self.theme,
             search: &mut self.explorer.explorer_search,
+            filter: &mut self.explorer.explorer_filter,
         }
         .draw_empty_state(ui);
         actions

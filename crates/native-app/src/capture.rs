@@ -69,6 +69,10 @@ const COMPONENT_GALLERY_ENV: &str = "DB_PRO_CAPTURE_COMPONENT_GALLERY";
 /// records before capturing (unified execution history shots).
 const HISTORY_ACTIVITY_ENV: &str = "DB_PRO_CAPTURE_HISTORY";
 
+/// When set, open the Explorer with a non-default object filter before
+/// capturing (object-filter workbench evidence shots).
+const EXPLORER_FILTER_ENV: &str = "DB_PRO_CAPTURE_FILTER";
+
 /// When set, open Quick Open with its Schema filter selected before capturing.
 const QUICK_OPEN_ENV: &str = "DB_PRO_CAPTURE_QUICK_OPEN";
 
@@ -231,6 +235,9 @@ impl CaptureApp {
             self.opened_dialog = true;
         } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
             self.inner.open_component_gallery_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(EXPLORER_FILTER_ENV).is_some() {
+            self.inner.open_explorer_filter_for_capture();
             self.opened_dialog = true;
         } else if std::env::var_os(HISTORY_ACTIVITY_ENV).is_some() {
             self.inner.open_history_activity_for_capture();

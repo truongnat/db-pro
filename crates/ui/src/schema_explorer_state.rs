@@ -1,5 +1,60 @@
 use super::*;
 
+/// Name-match evaluation mode for the explorer object filter (spec 11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum ExplorerMatchMode {
+    #[default]
+    Contains,
+    Prefix,
+}
+
+impl ExplorerMatchMode {
+    pub(crate) const ALL: [Self; 2] = [Self::Contains, Self::Prefix];
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Contains => "Contains",
+            Self::Prefix => "Starts with",
+        }
+    }
+}
+
+/// Explorer object-filter workbench state (spec 11): name-match mode plus the
+/// object kinds shown. Session-scoped; all kinds and `Contains` are default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ExplorerObjectFilter {
+    pub mode: ExplorerMatchMode,
+    pub tables: bool,
+    pub views: bool,
+    pub functions: bool,
+    pub triggers: bool,
+}
+
+impl Default for ExplorerObjectFilter {
+    fn default() -> Self {
+        Self {
+            mode: ExplorerMatchMode::Contains,
+            tables: true,
+            views: true,
+            functions: true,
+            triggers: true,
+        }
+    }
+}
+
+impl ExplorerObjectFilter {
+    pub(crate) fn name_matches(&self, name_lower: &str, query_lower: &str) -> bool {
+        match self.mode {
+            ExplorerMatchMode::Contains => name_lower.contains(query_lower),
+            ExplorerMatchMode::Prefix => name_lower.starts_with(query_lower),
+        }
+    }
+
+    pub(crate) fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 /// Owns database schema navigation, selection and explorer read-model state.
 #[derive(Debug)]
 pub(crate) struct SchemaExplorerState {
@@ -7,6 +62,7 @@ pub(crate) struct SchemaExplorerState {
     pub(super) schema_symbol_index: SchemaSymbolIndex,
     pub(super) selected_schema: Option<String>,
     pub(super) explorer_search: String,
+    pub(super) explorer_filter: ExplorerObjectFilter,
     pub(super) explorer_nav_cache: Option<ExplorerNavCache>,
     pub(super) schema_error: Option<String>,
     pub(super) schema_request: Option<crate::RequestId>,
@@ -26,6 +82,7 @@ impl Default for SchemaExplorerState {
             schema_symbol_index: SchemaSymbolIndex::default(),
             selected_schema: None,
             explorer_search: String::new(),
+            explorer_filter: ExplorerObjectFilter::default(),
             explorer_nav_cache: None,
             schema_error: None,
             schema_request: None,
@@ -80,19 +137,25 @@ impl SchemaExplorerState {
         schema: &str,
         search_query: &str,
     ) -> (usize, usize, Vec<String>) {
+        let mode = self.explorer_filter.mode;
         if let Some(cache) = self.explorer_nav_cache.as_ref() {
-            if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
+            if cache.connection_id == connection_id
+                && cache.schema == schema
+                && cache.search == search_query
+                && cache.mode == mode
+            {
                 return (cache.total_count, cache.matching_count, cache.visible.clone());
             }
         }
 
         let all_tables = super::connection_status::schema_table_names(self, schema);
-        let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query);
+        let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query, mode);
         let total_count = all_tables.len();
         self.explorer_nav_cache = Some(ExplorerNavCache {
             connection_id: connection_id.to_owned(),
             schema: schema.to_owned(),
             search: search_query.to_owned(),
+            mode,
             total_count,
             matching_count,
             visible: visible.clone(),
@@ -201,6 +264,7 @@ mod tests {
                 connection_id: "conn-1".to_owned(),
                 schema: "public".to_owned(),
                 search: String::new(),
+                mode: ExplorerMatchMode::Contains,
                 total_count: 1,
                 matching_count: 1,
                 visible: vec!["users".to_owned()],

@@ -503,7 +503,7 @@ pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_projection::GridSelectionCache;
 use schema_compare_state::SchemaCompareState;
-pub(crate) use schema_explorer_state::SchemaExplorerState;
+pub(crate) use schema_explorer_state::{ExplorerMatchMode, ExplorerObjectFilter, SchemaExplorerState};
 use schema_workspace_state::SchemaWorkspaceState;
 pub(crate) use table_data_query_state::TableDataQueryState;
 pub(crate) use table_data_state::TableDataState;

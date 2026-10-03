@@ -105,6 +105,7 @@ pub(super) fn schema_table_count(schema_explorer: &SchemaExplorerState, schema: 
 
 /// Count matching table names without allocating a name list.
 pub(super) fn schema_matching_table_count(schema_explorer: &SchemaExplorerState, schema: &str, query: &str) -> usize {
+    let mode = schema_explorer.explorer_filter.mode;
     if query.is_empty() {
         return schema_table_count(schema_explorer, schema);
     }
@@ -113,7 +114,7 @@ pub(super) fn schema_matching_table_count(schema_explorer: &SchemaExplorerState,
             .schema
             .tables
             .iter()
-            .filter(|table| matches_explorer_table(table, query))
+            .filter(|table| matches_explorer_table_with_mode(table, query, mode))
             .count();
     }
     schema_explorer
@@ -121,7 +122,7 @@ pub(super) fn schema_matching_table_count(schema_explorer: &SchemaExplorerState,
         .table_details
         .iter()
         .filter(|table| schema.is_empty() || table.schema == schema)
-        .filter(|table| matches_explorer_table(&table.name, query))
+        .filter(|table| matches_explorer_table_with_mode(&table.name, query, mode))
         .count()
 }
 

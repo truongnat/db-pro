@@ -12,6 +12,7 @@ pub(super) enum ExplorerToolbarAction {
 pub(super) struct ExplorerToolbarContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) search: &'a mut String,
+    pub(super) filter: &'a mut ExplorerObjectFilter,
 }
 
 impl ExplorerToolbarContext<'_> {
@@ -42,10 +43,69 @@ impl ExplorerToolbarContext<'_> {
                 }
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     SearchInput::new(self.search, "Filter objects…", self.theme).show(ui);
+                    self.draw_filter_workbench(ui);
                 });
             });
         });
         actions
+    }
+
+    /// Object-filter workbench (spec 11): a popup next to the search box with
+    /// the name-match mode and per-kind visibility toggles.
+    fn draw_filter_workbench(&mut self, ui: &mut egui::Ui) {
+        let popup_id = ui.make_persistent_id("explorer_object_filter_workbench");
+        let filter_active = !self.filter.is_default();
+        let button = compact_icon_button(ui, Icon::ListFilter, self.theme)
+            .on_hover_text("Object filter options");
+        if filter_active {
+            ui.painter().circle_filled(
+                egui::pos2(button.rect.right() - 5.0, button.rect.top() + 5.0),
+                2.5,
+                self.theme.accent,
+            );
+        }
+        if button.clicked() {
+            ui.memory_mut(|memory| memory.toggle_popup(popup_id));
+        }
+        let filter = &mut *self.filter;
+        egui::popup::popup_below_widget(
+            ui,
+            popup_id,
+            &button,
+            egui::popup::PopupCloseBehavior::CloseOnClickOutside,
+            |ui| {
+                ui.set_min_width(180.0);
+                ui.set_max_width(220.0);
+                ui.label(
+                    RichText::new("Name match")
+                        .font(font_caption())
+                        .strong()
+                        .color(self.theme.text_secondary),
+                );
+                for mode in ExplorerMatchMode::ALL {
+                    ui.radio_value(&mut filter.mode, mode, mode.label());
+                }
+                ui.add_space(SPACE_XS);
+                ui.separator();
+                ui.label(
+                    RichText::new("Object kinds")
+                        .font(font_caption())
+                        .strong()
+                        .color(self.theme.text_secondary),
+                );
+                ui.checkbox(&mut filter.tables, "Tables");
+                ui.checkbox(&mut filter.views, "Views");
+                ui.checkbox(&mut filter.functions, "Functions");
+                ui.checkbox(&mut filter.triggers, "Triggers");
+                ui.add_space(SPACE_XXS);
+                if ui
+                    .link(RichText::new("Reset").font(font_caption()).color(self.theme.accent))
+                    .clicked()
+                {
+                    *filter = ExplorerObjectFilter::default();
+                }
+            },
+        );
     }
 
     pub(super) fn draw_empty_state(&self, ui: &mut egui::Ui) -> Vec<ExplorerToolbarAction> {
