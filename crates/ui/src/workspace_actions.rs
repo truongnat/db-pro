@@ -595,6 +595,86 @@ impl DbProApp {
         self.schema.explorer.explorer_filter.mode = ExplorerMatchMode::Prefix;
     }
 
+    /// Capture/evidence helper: open the Compare workspace with a real
+    /// snapshot→diff→plan chain recorded against a different session target,
+    /// so the spec-09 safety lock is exercised end-to-end.
+    pub fn open_schema_compare_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.activity = Activity::Compare;
+        self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+        self.connection.catalog.replace(vec![crate::UiConnectionSummary {
+            id: "capture-conn".to_owned(),
+            name: "local-pg".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app_db".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: crate::UiSslMode::Require,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }]);
+        self.connection.lifecycle.set_connected(true);
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some("capture-conn".to_owned()));
+        let column = |name: &str, data_type: &str| crate::UiSchemaColumn {
+            name: name.to_owned(),
+            data_type: data_type.to_owned(),
+            nullable: true,
+            is_primary_key: false,
+        };
+        let table = |name: &str, columns: Vec<crate::UiSchemaColumn>| crate::UiTableSummary {
+            schema: "public".to_owned(),
+            name: name.to_owned(),
+            row_count: Some(42),
+            columns,
+            foreign_keys: Vec::new(),
+        };
+        let mut summary = crate::UiSchemaSummary {
+            schemas: vec!["public".to_owned()],
+            tables: vec!["public.orders".to_owned(), "public.users".to_owned()],
+            table_details: vec![
+                table(
+                    "orders",
+                    vec![column("id", "integer"), column("total", "numeric")],
+                ),
+                table("users", vec![column("id", "integer"), column("email", "text")]),
+            ],
+            ..Default::default()
+        };
+        // Snapshot predates the `users` table and the orders.total type change.
+        let mut snapshot_summary = summary.clone();
+        snapshot_summary.tables.retain(|t| t != "public.users");
+        snapshot_summary.table_details.retain(|t| t.name != "users");
+        for detail in &mut snapshot_summary.table_details {
+            if detail.name == "orders" {
+                for col in &mut detail.columns {
+                    if col.name == "total" {
+                        col.data_type = "integer".to_owned();
+                    }
+                }
+            }
+        }
+        self.schema.explorer.schema = std::mem::take(&mut summary);
+        self.schema
+            .compare
+            .take_snapshot(&snapshot_summary, "local-pg", &mut self.feedback);
+        let live = self.schema.explorer.schema.clone();
+        self.schema
+            .compare
+            .diff_against_snapshot(&live, &mut self.feedback);
+        self.schema.compare.plan_migration(
+            "PostgreSQL",
+            "prod-pg · public",
+            &mut self.feedback,
+        );
+    }
+
     /// Capture helper: open the Diagram / ER canvas.
     pub fn open_diagram_workspace_for_capture(&mut self) {
         self.preferences.dark_mode = true;

@@ -19,6 +19,9 @@ pub(super) struct SchemaCompareState {
     pub(super) migration_preview_sql: String,
     pub(super) migration_confirm_destructive: bool,
     pub(super) migration_fingerprint_at_preview: String,
+    /// Connection·schema the migration plan was generated against (spec 09 F1
+    /// target binding). Apply is blocked when the active session diverges.
+    pub(super) migration_plan_target: Option<String>,
     pub(super) data_diff_target_id: String,
     pub(super) data_diff_schema: String,
     pub(super) data_diff_table: String,
@@ -36,6 +39,7 @@ impl Default for SchemaCompareState {
             migration_preview_sql: String::new(),
             migration_confirm_destructive: false,
             migration_fingerprint_at_preview: String::new(),
+            migration_plan_target: None,
             data_diff_target_id: String::new(),
             data_diff_schema: "public".to_owned(),
             data_diff_table: String::new(),
@@ -69,10 +73,16 @@ impl SchemaCompareState {
         self.migration_preview_sql.clear();
         self.migration_confirm_destructive = false;
         self.migration_fingerprint_at_preview.clear();
+        self.migration_plan_target = None;
         feedback.set_runtime_message("Schema diff ready");
     }
 
-    pub(super) fn plan_migration(&mut self, driver: &str, feedback: &mut FeedbackState) {
+    pub(super) fn plan_migration(
+        &mut self,
+        driver: &str,
+        target: &str,
+        feedback: &mut FeedbackState,
+    ) {
         use db_pro_core::application::MigrationPlanner;
 
         let Some(diff) = self.schema_diff.clone() else {
@@ -84,6 +94,7 @@ impl SchemaCompareState {
         self.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
         self.migration_fingerprint_at_preview = plan.fingerprint.clone();
         self.migration_confirm_destructive = false;
+        self.migration_plan_target = Some(target.to_owned());
         self.migration_plan = Some(plan);
         feedback.set_runtime_message("Migration plan ready — review SQL before apply");
     }
@@ -116,13 +127,20 @@ impl SchemaCompareState {
         })
     }
 
-    pub(super) fn prepare_migration_sql(&self) -> Result<String, String> {
+    pub(super) fn prepare_migration_sql(&self, current_target: &str) -> Result<String, String> {
         use db_pro_core::application::MigrationPlanner;
 
         let plan = self
             .migration_plan
             .as_ref()
             .ok_or_else(|| "Plan a migration before applying".to_owned())?;
+        if self
+            .migration_plan_target
+            .as_deref()
+            .is_some_and(|target| target != current_target)
+        {
+            return Err("Plan target mismatch — the active session moved since the plan was generated".to_owned());
+        }
         if !MigrationPlanner::verify_fingerprint(plan, &self.migration_fingerprint_at_preview) {
             return Err("Migration fingerprint changed — re-plan before apply".to_owned());
         }
@@ -192,8 +210,53 @@ mod tests {
         let state = SchemaCompareState::default();
 
         assert_eq!(
-            state.prepare_migration_sql(),
+            state.prepare_migration_sql("conn · public"),
             Err("Plan a migration before applying".to_owned())
+        );
+    }
+
+    fn empty_plan() -> db_pro_core::domain::migration::MigrationPlan {
+        db_pro_core::domain::migration::MigrationPlan {
+            driver: "postgres".to_owned(),
+            operations: Vec::new(),
+            fingerprint: "fp".to_owned(),
+            warnings: Vec::new(),
+            has_destructive: false,
+        }
+    }
+
+    #[test]
+    fn migration_apply_is_blocked_when_the_session_target_diverges() {
+        let state = SchemaCompareState {
+            migration_plan: Some(empty_plan()),
+            migration_plan_target: Some("prod-pg · public".to_owned()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            state.prepare_migration_sql("staging-pg · public"),
+            Err(
+                "Plan target mismatch — the active session moved since the plan was generated"
+                    .to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn migration_apply_proceeds_past_the_target_lock_on_match() {
+        let state = SchemaCompareState {
+            migration_plan: Some(empty_plan()),
+            migration_plan_target: Some("prod-pg · public".to_owned()),
+            ..Default::default()
+        };
+
+        // Passes the target lock; the next gate (fingerprint) still applies.
+        assert_ne!(
+            state.prepare_migration_sql("prod-pg · public"),
+            Err(
+                "Plan target mismatch — the active session moved since the plan was generated"
+                    .to_owned()
+            )
         );
     }
 }

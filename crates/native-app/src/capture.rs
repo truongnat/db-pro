@@ -69,6 +69,10 @@ const COMPONENT_GALLERY_ENV: &str = "DB_PRO_CAPTURE_COMPONENT_GALLERY";
 /// records before capturing (unified execution history shots).
 const HISTORY_ACTIVITY_ENV: &str = "DB_PRO_CAPTURE_HISTORY";
 
+/// Show the schema-compare workspace seeded with a diff + plan recorded
+/// against a divergent target (exercises the spec-09 safety lock).
+const COMPARE_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_COMPARE";
+
 /// When set, open the Explorer with a non-default object filter before
 /// capturing (object-filter workbench evidence shots).
 const EXPLORER_FILTER_ENV: &str = "DB_PRO_CAPTURE_FILTER";
@@ -241,6 +245,9 @@ impl CaptureApp {
             self.opened_dialog = true;
         } else if std::env::var_os(HISTORY_ACTIVITY_ENV).is_some() {
             self.inner.open_history_activity_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(COMPARE_WORKSPACE_ENV).is_some() {
+            self.inner.open_schema_compare_for_capture();
             self.opened_dialog = true;
         } else if std::env::var_os(QUICK_OPEN_ENV).is_some() {
             self.inner.open_quick_open_for_capture(

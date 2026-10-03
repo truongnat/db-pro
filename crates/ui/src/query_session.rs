@@ -64,7 +64,8 @@ impl DbProApp {
             return;
         };
         let request_id = self.next_request_id();
-        let sql = match self.schema.compare.prepare_migration_sql() {
+        let current_target = format!("{} · {}", self.active_connection_name(), self.active_schema());
+        let sql = match self.schema.compare.prepare_migration_sql(&current_target) {
             Ok(sql) => sql,
             Err(error) => {
                 self.feedback.runtime_message = error;

@@ -6,6 +6,7 @@ pub(super) struct SchemaCompareViewContext<'a> {
     pub(super) compare: &'a mut SchemaCompareState,
     pub(super) schema: &'a UiSchemaSummary,
     pub(super) connection_name: &'a str,
+    pub(super) active_schema: &'a str,
     pub(super) driver: &'a str,
     pub(super) feedback: &'a mut FeedbackState,
 }
@@ -112,12 +113,22 @@ pub(super) fn draw_schema_compare(
             + diff.column_changes.len();
 
         ui.horizontal(|ui| {
+            let added = diff.tables_only_in_target.len()
+                + diff.views_only_in_target.len()
+                + diff.functions_only_in_target.len();
+            let removed = diff.tables_only_in_source.len()
+                + diff.views_only_in_source.len()
+                + diff.functions_only_in_source.len();
+            let changed = diff.column_changes.len();
             ui.label(
-                RichText::new(format!("{total_diffs} total difference(s) detected"))
+                RichText::new(format!("{total_diffs} total difference(s)"))
                     .small()
                     .strong()
                     .color(if total_diffs > 0 { context.theme.accent } else { context.theme.success }),
             );
+            ui.label(RichText::new(format!("{added} Added")).small().color(context.theme.success));
+            ui.label(RichText::new(format!("{changed} Changed")).small().color(context.theme.warning));
+            ui.label(RichText::new(format!("{removed} Removed")).small().color(context.theme.danger));
         });
         ui.add_space(8.0);
 
@@ -171,8 +182,38 @@ pub(super) fn draw_schema_compare(
         ui.separator();
         ui.add_space(8.0);
         section_label(ui, "MIGRATION PLAN", context.theme);
+        let current_target = format!("{} · {}", context.connection_name, context.active_schema);
         if primary_button_with_icon(ui, Icon::FileCode2, "Generate migration plan", context.theme).clicked() {
-            context.compare.plan_migration(context.driver, context.feedback);
+            context
+                .compare
+                .plan_migration(context.driver, &current_target, context.feedback);
+        }
+        if let Some(plan_target) = context.compare.migration_plan_target.clone() {
+            if plan_target != current_target {
+                card_frame(context.theme).show(ui, |ui| {
+                    ui.label(
+                        RichText::new("SAFETY LOCK — plan target mismatch")
+                            .small()
+                            .strong()
+                            .color(context.theme.danger),
+                    );
+                    ui.label(
+                        RichText::new(format!("Recorded plan target: {plan_target}"))
+                            .small()
+                            .color(context.theme.text_secondary),
+                    );
+                    ui.label(
+                        RichText::new(format!("Active session target: {current_target}"))
+                            .small()
+                            .color(context.theme.text_secondary),
+                    );
+                    ui.label(
+                        RichText::new("Plan cannot execute against a divergent target. Re-plan or switch the active session.")
+                            .small()
+                            .color(context.theme.warning),
+                    );
+                });
+            }
         }
         if let Some(plan) = &context.compare.migration_plan {
             ui.add_space(6.0);
@@ -253,7 +294,18 @@ pub(super) fn draw_schema_compare(
                     "Confirm destructive operations (never auto-applied)",
                 );
             }
-            if primary_button_with_icon(ui, Icon::Play, "Apply migration SQL", context.theme).clicked() {
+            let target_mismatch = context
+                .compare
+                .migration_plan_target
+                .as_deref()
+                .is_some_and(|target| target != current_target.as_str());
+            if ui
+                .add_enabled_ui(!target_mismatch, |ui| {
+                    primary_button_with_icon(ui, Icon::Play, "Apply migration SQL", context.theme)
+                })
+                .inner
+                .clicked()
+            {
                 action = Some(SchemaCompareAction::ApplyMigration);
             }
         }

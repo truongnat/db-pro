@@ -115,12 +115,14 @@ impl DbProApp {
             WorkspaceTab::SchemaCompare => {
                 let action = {
                     let connection_name = self.active_connection_name().to_owned();
+                    let active_schema = self.active_schema().to_owned();
                     let driver = self.active_driver().to_owned();
                     let mut context = schema_compare_view::SchemaCompareViewContext {
                         theme: self.theme,
                         compare: &mut self.schema.compare,
                         schema: &self.schema.explorer.schema,
                         connection_name: &connection_name,
+                        active_schema: &active_schema,
                         driver: &driver,
                         feedback: &mut self.feedback,
                     };
