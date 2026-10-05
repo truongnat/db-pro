@@ -132,19 +132,20 @@ impl DbConnector for MySqlConnector {
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
-        let pool = self
-            .get_pool(handle)
+        let read_statements = vec![false; statements.len()];
+        let results = self
+            .execute_transaction(handle, statements, &read_statements)
             .await
-            .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+            .map_err(|failure| failure.error)?;
 
-        let mut total = 0;
-        for stmt in statements {
-            let result = sqlx::query(stmt)
-                .execute(&pool)
-                .await
-                .map_err(|e| DbError::QueryFailed(format!("MySQL batch statement failed: {}", e)))?;
-            total += result.rows_affected();
-        }
+        let total = results
+            .into_iter()
+            .map(|result| match result {
+                db_pro_core::ports::TransactionStatementResult::Affected { row_count, .. } => row_count,
+                db_pro_core::ports::TransactionStatementResult::Query(_) => 0,
+            })
+            .sum();
+
         Ok(total)
     }
 
@@ -486,6 +487,24 @@ mod tests {
             "statement_index must be 0 for Validation phase failure"
         );
         assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn execute_batch_reports_error_on_unknown_handle() {
+        let connector = MySqlConnector::new();
+        let handle = ConnectionHandle::new(999);
+        let statements = vec!["INSERT INTO t VALUES (1)".to_string()];
+
+        let error = connector
+            .execute_batch(&handle, &statements)
+            .await
+            .expect_err("execute_batch on unconnected handle must fail");
+
+        assert!(
+            matches!(error, DbError::ConnectionFailed(ref msg) if msg.contains("no MySQL pool")),
+            "expected ConnectionFailed error, got: {:?}",
+            error
+        );
     }
 
     #[tokio::test]
