@@ -232,7 +232,10 @@ impl CaptureApp {
             }
             self.opened_dialog = true;
         } else if std::env::var_os(TABLE_WORKSPACE_ENV).is_some() {
-            if std::env::var_os(TABLE_PROFILE_ENV).is_some() {
+            if std::env::var_os("DB_PRO_CAPTURE_TABLE_DDL").is_some() {
+                self.inner
+                    .open_table_ddl_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os(TABLE_PROFILE_ENV).is_some() {
                 self.inner
                     .open_table_profile_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
             } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_STRUCTURE").is_some() {

@@ -96,3 +96,7 @@
 - P2: empty/whitespace draft disabled Run and bypassed Enter; the fixed SQL prefix included WHERE even without a predicate.
 - Fix: quote the table/schema in an unconditional SELECT prefix; append WHERE only for a nonempty trimmed predicate. Empty Run/Enter follows the same guarded inline execution path as filtered SQL. Existing configured result row limit remains enforced.
 - Source identity: baseline `710ba002612c6d71ef2605f99f2a49743b51c3a4` plus uncommitted toolbar/view changes.
+
+## Table DDL header spacing — 2026-10-06
+- P2: DDL toolbar title and type badge touched; CREATE SCRIPT heading, helper copy, and Apply button shared a wrapped row without consistent alignment.
+- Reuse small-button spacing for the toolbar title/badge. Keep script title and guidance at the left, with Apply DDL aligned to the right edge. Preserve execution gating and all toolbar actions.

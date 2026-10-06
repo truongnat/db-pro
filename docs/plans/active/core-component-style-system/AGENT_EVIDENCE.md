@@ -453,3 +453,17 @@ n/a — no external sources used.
 - Self-review: ACCEPT WITH P2; introduced P0/P1 findings 0/0. Inherited live PostgreSQL/SQLite and broader UI verification pending; no independent approval claim.
 - Research/audit: n/a.
 - Tổng kết bằng tiếng Việt: Để trống WHERE giờ bấm Run hoặc Enter sẽ chạy SELECT không có điều kiện; Run luôn bật. 7 test đạt, native build đạt và ảnh ô trống đã kiểm tra. Chưa thử lại trực tiếp với hai provider; chưa commit/push.
+
+## DDL header follow-up handoff — 2026-10-06
+### 1. Claim
+P2 UI spacing/alignment correction. Baseline SHA `6f5560d99ef6afcb235612eea241a583e568dbc5`; implementation uncommitted on main.
+### 2. Progress checkpoint
+DDL title/badge spacing and script header alignment corrected. Capture and shipped release builds pass; 1280/1440/1920 native screenshots collected.
+### 3. Implementation handoff / review request
+Files: `table_ddl_surface_view.rs`, deterministic DDL capture route in `workspace_actions.rs` and `capture.rs`, evidence and plan records. Apply remains disabled by existing feature gate. Copy/Open/Refresh behavior preserved. No new tests for presentation-only change. Final diff check pending before commit.
+### 4. Research / audit handoff
+n/a. No live provider interaction.
+### 5. Review outcome
+Scoped self-review ACCEPT WITH P2; P0 0 / P1 0 / P2 1 pending complete UI state and interaction verification. No independent review performed.
+### 6. Tổng kết bằng tiếng Việt
+Đã thêm khoảng cách DDL SCRIPT/CREATE TABLE, tách CREATE SCRIPT khỏi mô tả và căn Apply DDL về mép phải. Build release đạt, ảnh native ba chiều rộng đã chụp; trạng thái bất thường và tương tác trực tiếp còn pending.

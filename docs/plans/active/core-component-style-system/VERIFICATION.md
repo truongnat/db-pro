@@ -112,3 +112,11 @@ Autocomplete WHERE cũng đã qua 6 focused tests, clippy và native capture bui
 - Captured and inspected `evidence/where-empty-run-enabled-1280x800.png`: native empty input shows enabled Run. Static fixture capture is not live database execution. Larger viewports and loading/error/empty-result states not recaptured in this follow-up.
 - PostgreSQL and SQLite: quoted SELECT generation shared; live empty Run/Enter execution independently pending. Existing safety/pending-change/running-query checks and configured result row limit remain in the inline query dispatch path.
 - Learning pass: an empty optional WHERE predicate means an unfiltered SELECT; omit the WHERE clause rather than disabling execution. Recorded here; no global memory write.
+
+## Table DDL header spacing — 2026-10-06
+- Baseline commit `6f5560d99ef6afcb235612eea241a583e568dbc5`; this DDL follow-up is uncommitted while under review.
+- `table_ddl_surface_view.rs`: 8px shared spacing between toolbar title/badge; script title and hint share a compact row; Apply DDL aligns at the trailing edge. Execution remains gated off; Copy DDL, Open in Query, Refresh DDL, and editor behavior are unchanged.
+- `cargo build --release --locked -p db-pro-native --features capture`: PASS, exit 0. `cargo build --release --locked -p db-pro-native`: PASS, exit 0. `cargo fmt --all -- --check` and `git diff --check`: PASS. No tests added for this presentation-only change.
+- Captures: `evidence/table-ddl-header-{1280x800,1440x900,1920x1080}.png`; PNG integrity checked; 1280 capture inspected and shows separated labels and trailing Apply DDL. The host caps larger logical heights at 838px.
+- Runtime interaction, loading/error/empty states, provider behavior, workspace tests/clippy remain unverified or skipped. Static fixture capture does not prove live database behavior.
+- Reusable lesson: horizontally align a section label and helper copy with trailing actions using a shared spacing token; inspect a narrow viewport to ensure the action remains visible.

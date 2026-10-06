@@ -599,6 +599,28 @@ impl DbProApp {
         self.table.state.table_view = TableView::Dependencies;
     }
 
+    /// Capture helper: open a loaded DDL preview on the DDL tab.
+    pub fn open_table_ddl_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        self.table.state.table_ddl = Some(
+            r#"CREATE TABLE "customers" (
+    "id" INTEGER,
+    "first_name" TEXT NOT NULL,
+    "last_name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY ("id"),
+    UNIQUE ("email")
+);"#.to_owned(),
+        );
+        self.table.state.table_ddl_error = None;
+        self.table.state.table_view = TableView::Ddl;
+    }
+
     /// Capture helper: open the deterministic table fixture directly on Indexes.
     pub fn open_table_indexes_for_capture(&mut self, light: bool) {
         if light {

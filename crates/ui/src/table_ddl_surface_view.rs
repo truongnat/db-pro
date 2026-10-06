@@ -32,6 +32,7 @@ pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Op
     let mut action = None;
     toolbar_frame(context.theme).show(ui, |ui| {
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_SM;
             ui.label(icon_text(Icon::Code2, "DDL SCRIPT", context.theme.accent));
             Badge::new("CREATE TABLE", context.theme)
                 .variant(BadgeVariant::Default)
@@ -137,7 +138,8 @@ pub(super) fn draw_script_card(context: &mut DdlScriptContext<'_>, ui: &mut egui
 
 fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Option<DdlScriptAction> {
     let mut action = None;
-    ui.horizontal_wrapped(|ui| {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = SPACE_SM;
         section_label(ui, "CREATE SCRIPT", context.theme);
         ui.label(
             RichText::new(if context.writable {
@@ -148,24 +150,26 @@ fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Opti
             .small()
             .color(context.theme.text_muted),
         );
-        if context.writable
-            && !context.executing
-            && Button::new(context.theme)
-                .icon(Icon::Play)
-                .text("Apply DDL")
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .enabled(DDL_APPLY_ENABLED)
-                .tooltip(if DDL_APPLY_ENABLED {
-                    "Execute the DDL script"
-                } else {
-                    "Not enabled in v0.1 — run DDL with Open in Query"
-                })
-                .show(ui)
-                .clicked()
-        {
-            action = Some(DdlScriptAction::Apply);
-        }
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if context.writable
+                && !context.executing
+                && Button::new(context.theme)
+                    .icon(Icon::Play)
+                    .text("Apply DDL")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .enabled(DDL_APPLY_ENABLED)
+                    .tooltip(if DDL_APPLY_ENABLED {
+                        "Execute the DDL script"
+                    } else {
+                        "Not enabled in v0.1 — run DDL with Open in Query"
+                    })
+                    .show(ui)
+                    .clicked()
+            {
+                action = Some(DdlScriptAction::Apply);
+            }
+        });
     });
     action
 }

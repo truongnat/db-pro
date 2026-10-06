@@ -97,3 +97,9 @@ Checklist tách rõ việc chuẩn hóa core components khỏi việc lan style 
 - [x] Run/Enter with empty or whitespace-only draft generates SELECT without WHERE.
 - [x] Nonempty draft still generates WHERE and uses existing mutation/running-query guards and result row limits.
 - [ ] Live PostgreSQL/SQLite empty Run/Enter interactions remain pending.
+
+## DDL header follow-up — 2026-10-06
+- [x] Add shared spacing between DDL SCRIPT and CREATE TABLE.
+- [x] Separate CREATE SCRIPT from the helper text and align Apply DDL to the right.
+- [x] Preserve disabled Apply DDL behavior and existing Copy/Open/Refresh actions.
+- [x] Capture the loaded DDL surface at 1280, 1440, and 1920 widths.
