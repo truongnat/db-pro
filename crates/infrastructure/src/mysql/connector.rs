@@ -132,20 +132,21 @@ impl DbConnector for MySqlConnector {
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
-        let pool = self
-            .get_pool(handle)
-            .await
-            .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+        use db_pro_core::ports::TransactionStatementResult;
 
-        let mut total = 0;
-        for stmt in statements {
-            let result = sqlx::query(stmt)
-                .execute(&pool)
-                .await
-                .map_err(|e| DbError::QueryFailed(format!("MySQL batch statement failed: {}", e)))?;
-            total += result.rows_affected();
-        }
-        Ok(total)
+        let read_statements = vec![false; statements.len()];
+        let results = self
+            .execute_transaction(handle, statements, &read_statements)
+            .await
+            .map_err(|failure| failure.error)?;
+
+        Ok(results
+            .into_iter()
+            .map(|result| match result {
+                TransactionStatementResult::Affected { row_count, .. } => row_count,
+                TransactionStatementResult::Query(_) => 0,
+            })
+            .sum())
     }
 
     async fn execute_transaction(
@@ -486,6 +487,23 @@ mod tests {
             "statement_index must be 0 for Validation phase failure"
         );
         assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn execute_batch_reports_validation_failure_on_unknown_handle() {
+        let connector = MySqlConnector::new();
+        let handle = ConnectionHandle::new(999);
+        let statements = vec![
+            "UPDATE users SET points = 100".to_string(),
+            "UPDATE users SET points = 200".to_string(),
+        ];
+
+        let error = connector
+            .execute_batch(&handle, &statements)
+            .await
+            .expect_err("execute_batch on unconnected handle must fail validation");
+
+        assert!(matches!(error, DbError::ConnectionFailed(_)));
     }
 
     #[tokio::test]
