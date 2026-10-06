@@ -75,6 +75,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 | Query Editor Zed Feel | feature/query-editor-zed-feel | — | IMPLEMENTING | Smooth scroll (was unused content size), blinking caret, softer gutter/line/selection, keep-caret-in-view. Renderer unit PASS; UI runtime pending. Plan: docs/plans/active/query-editor-zed-feel/ |
 | Query Workspace Zed Shell (UI05) | feature/query-workspace-zed-shell | — | IMPLEMENTING | Editor-first query chrome: context chips, status Run/Stop, output dock closed until result, find overlay, no inline completion card. Plan: docs/plans/active/query-workspace-zed-shell/ |
 | Query Editor Hover Intelligence | feature/query-editor-hover-intelligence | — | RUNTIME_VERIFY | Rich Zed/DBeaver hover cards for tables, views, columns, functions, and 50+ SQL keywords; 500ms hover delay FSM; interactable/selectable popup; 548 workspace tests PASS; clippy/format/release-build green. Plan: docs/plans/active/query-editor-hover-intelligence/ |
+| MySQL Batch Execution Transaction Atomicity | fix/mysql-execute-batch-transaction-atomicity | — | REVIEW | Refactored MySqlConnector::execute_batch to delegate to execute_transaction; batch statements execute inside an explicit transaction with rollback on failure; 123 infrastructure tests pass. Plan: docs/plans/active/mysql-execute-batch-transaction-atomicity/ |
 
 
 > **Note (2026-09-11):** rows below that reference frontend/FE test counts, shadcn design
