@@ -119,6 +119,53 @@ async fn mysql_execute_returns_affected_rows() {
 
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL=mysql://...
+async fn mysql_execute_batch_failure_rolls_back_prior_mutation() {
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_batch_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(&handle, "CREATE TABLE mysql_batch_probe (id INT)", &[])
+        .await
+        .expect("create");
+
+    let err = connector
+        .execute_batch(
+            &handle,
+            &[
+                "INSERT INTO mysql_batch_probe VALUES (10)".to_owned(),
+                "INVALID STATEMENT".to_owned(),
+            ],
+        )
+        .await
+        .expect_err("batch with invalid statement must fail");
+
+    assert!(matches!(err, db_pro_core::domain::error::DbError::QueryFailed(_)));
+
+    let count = connector
+        .query(&handle, "SELECT count(*) FROM mysql_batch_probe", &[])
+        .await
+        .expect("count");
+    let cnt: i64 = match &count.rows[0].0[0] {
+        db_pro_core::domain::query::CellValue::Int64(n) => *n,
+        _ => panic!("unexpected cell"),
+    };
+    assert_eq!(cnt, 0, "the failed batch must have rolled back prior mutation");
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_batch_probe", &[])
+        .await
+        .ok();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL=mysql://...
 async fn mysql_transaction_rolls_back_on_failure() {
     let Some((connector, handle, _database)) = setup().await else {
         eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
