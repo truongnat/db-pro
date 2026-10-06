@@ -32,3 +32,29 @@ fn table_builder_keeps_the_default_row_height_and_options() {
     assert_eq!(table.row_height, 52.0);
     assert!(table.show_vertical_grid);
 }
+
+#[test]
+fn cell_clip_preserves_a_badges_outer_border() {
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let _ = ctx.run(Default::default(), |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let columns = [TableColumn::fixed("Key", 90.0)];
+            Table::new(&columns, DbProTheme::light()).row_height(34.0).show(
+                ui,
+                1,
+                |_| false,
+                |_| {},
+                |_| {},
+                |_| {},
+                |ui, _, _| {
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(44.0, 18.0), egui::Sense::hover());
+                    assert!(
+                        ui.clip_rect().contains_rect(rect.expand(0.5)),
+                        "cell must preserve the complete 1px badge border"
+                    );
+                },
+            );
+        });
+    });
+}

@@ -173,6 +173,7 @@ pub(crate) fn on_table_data_loaded(
     }
     data_query.result = Some(result);
     data_query.total_rows = Some(total_rows);
+    data_query.inline_query_result = false;
     let clear_selection = table_mutation.staged_changes.is_empty();
     if clear_selection {
         table_data.selected_cell = None;

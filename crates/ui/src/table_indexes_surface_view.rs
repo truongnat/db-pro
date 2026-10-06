@@ -1,23 +1,15 @@
-//! Table-index presentation and typed detail intents.
+//! Table-index presentation.
 use super::super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::components::dialog::Dialog;
 use crate::components::table::{Table, TableColumn};
+use crate::tokens::SPACE_SM;
 use crate::UiTableIndex;
-use egui::{Align, Layout, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum TableIndexesAction {
-    SelectIndex(String),
-    CloseDetail,
-}
 
 pub(super) struct TableIndexesContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) info: &'a UiTableInfo,
     pub(super) search: &'a mut String,
-    pub(super) selected_index: Option<&'a str>,
 }
 
 pub(super) fn draw_loading(theme: DbProTheme, ui: &mut egui::Ui) {
@@ -25,8 +17,7 @@ pub(super) fn draw_loading(theme: DbProTheme, ui: &mut egui::Ui) {
 }
 
 impl TableIndexesContext<'_> {
-    pub(super) fn draw(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) -> Vec<TableIndexesAction> {
-        let mut actions = Vec::new();
+    pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_header(ui);
@@ -42,37 +33,20 @@ impl TableIndexesContext<'_> {
                 );
                 return;
             }
-            self.draw_table(ui, &matching_indexes, &mut actions);
+            self.draw_table(ui, &matching_indexes);
         });
-        self.draw_detail(ctx, &mut actions);
-        actions
     }
 
     fn draw_header(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "INDEXES", self.theme);
-            ui.add_space(8.0);
-            input(ui, self.search, "Filter indexes…", 220.0, self.theme);
-            if !self.search.is_empty()
-                && Button::new(self.theme)
-                    .icon(Icon::X)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Clear filter")
-                    .access_label("Clear filter")
-                    .show(ui)
-                    .clicked()
-            {
-                self.search.clear();
-            }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(
-                    RichText::new(format!("Total: {} indexes", self.info.indexes.len()))
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                );
-            });
-        });
+        let count = self.info.indexes.len();
+        table_workspace_surface_view::draw_metadata_filter_header(
+            ui,
+            self.theme,
+            "Indexes",
+            self.search,
+            "Filter indexes…",
+            &format!("Total: {count} {}", if count == 1 { "index" } else { "indexes" }),
+        );
     }
 
     fn matching_indexes(&self) -> Vec<&UiTableIndex> {
@@ -91,19 +65,12 @@ impl TableIndexesContext<'_> {
             .collect()
     }
 
-    fn draw_table(&self, ui: &mut egui::Ui, indexes: &[&UiTableIndex], actions: &mut Vec<TableIndexesAction>) {
-        let columns = [
-            TableColumn::new("Index Name").width(240.0),
-            TableColumn::new("Indexed Columns").width(280.0),
-            TableColumn::fixed("Method", 100.0),
-            TableColumn::new("INCLUDE").width(180.0),
-            TableColumn::new("Predicate").width(220.0),
-            TableColumn::new("Status"),
-        ];
+    fn draw_table(&self, ui: &mut egui::Ui, indexes: &[&UiTableIndex]) {
         egui::ScrollArea::horizontal()
             .id_salt("indexes-table-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                let columns = index_columns(ui.available_width());
                 Table::new(&columns, self.theme).row_height(34.0).show(
                     ui,
                     indexes.len(),
@@ -111,20 +78,14 @@ impl TableIndexesContext<'_> {
                     |_| {},
                     |_| {},
                     |_| {},
-                    |ui, row_idx, col_idx| self.draw_cell(ui, indexes[row_idx], col_idx, actions),
+                    |ui, row_idx, col_idx| self.draw_cell(ui, indexes[row_idx], col_idx),
                 );
             });
     }
 
-    fn draw_cell(
-        &self,
-        ui: &mut egui::Ui,
-        index: &UiTableIndex,
-        col_idx: usize,
-        actions: &mut Vec<TableIndexesAction>,
-    ) {
+    fn draw_cell(&self, ui: &mut egui::Ui, index: &UiTableIndex, col_idx: usize) {
         match col_idx {
-            0 => self.draw_name_cell(ui, index, actions),
+            0 => self.draw_name_cell(ui, index),
             1 => self.draw_text_cell(ui, index.columns.join(", ")),
             2 => self.draw_text_cell(ui, index.method.clone()),
             3 => self.draw_text_cell(
@@ -137,21 +98,19 @@ impl TableIndexesContext<'_> {
             ),
             4 => {
                 let pred_str = index.predicate.as_deref().unwrap_or("—");
-                let truncated_pred = crate::components::truncate_ellipsis(pred_str, 28);
-                ui.label(
-                    RichText::new(truncated_pred)
-                        .monospace()
-                        .color(self.theme.text_secondary),
+                ui.add(
+                    egui::Label::new(RichText::new(pred_str).monospace().color(self.theme.text_secondary)).truncate(),
                 )
-                .on_hover_text(&index.definition);
+                .on_hover_text(format!("{}\n{}", index.name, index.definition));
             }
             5 => self.draw_status_cell(ui, index),
             _ => {}
         }
     }
 
-    fn draw_name_cell(&self, ui: &mut egui::Ui, index: &UiTableIndex, actions: &mut Vec<TableIndexesAction>) {
+    fn draw_name_cell(&self, ui: &mut egui::Ui, index: &UiTableIndex) {
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_SM;
             ui.label(icon_text(
                 if index.unique { Icon::BadgeCheck } else { Icon::List },
                 "",
@@ -161,22 +120,13 @@ impl TableIndexesContext<'_> {
                     self.theme.text_muted
                 },
             ));
-            let display_name = crate::components::truncate_ellipsis(&index.name, 30);
-            let response = ui
-                .label(RichText::new(display_name).strong().color(self.theme.text_primary))
-                .on_hover_text(&index.definition);
-            if response.clicked() {
-                actions.push(TableIndexesAction::SelectIndex(index.name.clone()));
-            }
+            index_name_label(ui, index, self.theme);
         });
     }
 
     fn draw_text_cell(&self, ui: &mut egui::Ui, text: String) {
-        let truncated = crate::components::truncate_ellipsis(&text, 36);
-        let resp = ui.label(RichText::new(&truncated).monospace().color(self.theme.text_secondary));
-        if text.chars().count() > 36 {
-            resp.on_hover_text(&text);
-        }
+        ui.add(egui::Label::new(RichText::new(&text).monospace().color(self.theme.text_secondary)).truncate())
+            .on_hover_text(&text);
     }
 
     fn draw_status_cell(&self, ui: &mut egui::Ui, index: &UiTableIndex) {
@@ -189,37 +139,111 @@ impl TableIndexesContext<'_> {
         } else {
             "Active index"
         };
-        ui.label(RichText::new(status).font(font_caption()).color(self.theme.text_muted));
+        ui.add(egui::Label::new(RichText::new(status).font(font_caption()).color(self.theme.text_muted)).truncate())
+            .on_hover_text(status);
+    }
+}
+
+fn index_name_label(ui: &mut egui::Ui, index: &UiTableIndex, theme: DbProTheme) -> egui::Response {
+    let response = ui
+        .add(
+            egui::Label::new(RichText::new(&index.name).strong().color(theme.text_primary))
+                .truncate()
+                .sense(egui::Sense::hover())
+                .selectable(false),
+        )
+        .on_hover_text(format!("{}\n{}", index.name, index.definition));
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, ui.is_enabled(), &index.name));
+    response
+}
+
+fn index_columns(available_width: f32) -> [TableColumn<'static>; 6] {
+    let width = (available_width - 2.0).max(640.0);
+    [
+        TableColumn::new("Index Name").width(width * 0.20),
+        TableColumn::new("Indexed Columns").width(width * 0.21),
+        TableColumn::fixed("Method", width * 0.10),
+        TableColumn::new("INCLUDE").width(width * 0.16),
+        TableColumn::new("Predicate").width(width * 0.15),
+        TableColumn::new("Status").width(width * 0.18),
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::{CentralPanel, Event, Modifiers, PointerButton, Pos2, RawInput, Rect, Vec2};
+
+    fn test_index() -> UiTableIndex {
+        UiTableIndex {
+            name: "users_email_idx".to_owned(),
+            columns: vec!["email".to_owned()],
+            unique: true,
+            method: "btree".to_owned(),
+            primary: false,
+            include_columns: Vec::new(),
+            predicate: None,
+            definition: "CREATE UNIQUE INDEX users_email_idx ON users (email)".to_owned(),
+        }
     }
 
-    fn draw_detail(&self, ctx: &egui::Context, actions: &mut Vec<TableIndexesAction>) {
-        let Some(index_name) = self.selected_index else {
-            return;
-        };
-        let Some(index) = self.info.indexes.iter().find(|index| index.name == index_name) else {
-            return;
-        };
-        let mut open = true;
-        Dialog::new(&mut open, format!("Index · {}", index.name), self.theme)
-            .width(560.0)
-            .id_salt("table_index_detail_dialog")
-            .show_framed_ctx(ctx, |frame| {
-                frame.body(|ui| {
-                    ui.label(RichText::new(&index.definition).monospace());
-                    ui.separator();
-                    ui.label(format!("Method: {}", index.method));
-                    ui.label(format!("Primary: {} · Unique: {}", index.primary, index.unique));
-                    ui.label(format!("Columns: {}", index.columns.join(", ")));
-                    if !index.include_columns.is_empty() {
-                        ui.label(format!("INCLUDE: {}", index.include_columns.join(", ")));
-                    }
-                    if let Some(predicate) = &index.predicate {
-                        ui.label(format!("Predicate: {predicate}"));
-                    }
+    #[test]
+    fn index_name_does_not_activate_on_click() {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let index = test_index();
+        let theme = DbProTheme::dark();
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 120.0));
+        let mut label_rect = None;
+        let _ = ctx.run(
+            RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            },
+            |ctx| {
+                CentralPanel::default().show(ctx, |ui| {
+                    label_rect = Some(index_name_label(ui, &index, theme).rect);
                 });
-            });
-        if !open {
-            actions.push(TableIndexesAction::CloseDetail);
+            },
+        );
+        let click_pos = label_rect.expect("index label is laid out").center();
+
+        let mut clicked = false;
+        for pressed in [true, false] {
+            let _ = ctx.run(
+                RawInput {
+                    screen_rect: Some(screen),
+                    events: vec![Event::PointerButton {
+                        pos: click_pos,
+                        button: PointerButton::Primary,
+                        pressed,
+                        modifiers: Modifiers::default(),
+                    }],
+                    ..Default::default()
+                },
+                |ctx| {
+                    CentralPanel::default().show(ctx, |ui| {
+                        clicked = index_name_label(ui, &index, theme).clicked();
+                    });
+                },
+            );
         }
+        assert!(!clicked, "the index name is metadata, not a modal action");
+    }
+
+    #[test]
+    fn index_columns_fit_the_standard_table_detail_viewport() {
+        let available_width = 928.0;
+        let columns = index_columns(available_width);
+        let requested_width = columns.iter().map(|column| column.width.unwrap_or(80.0)).sum::<f32>();
+
+        assert!(
+            requested_width <= available_width,
+            "index columns request {requested_width} pt from a {available_width} pt viewport"
+        );
+        assert!(
+            columns[5].width.unwrap_or_default() >= 150.0,
+            "Status needs room for its labels"
+        );
     }
 }

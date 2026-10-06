@@ -13,7 +13,9 @@ impl DbProApp {
     }
 
     pub(crate) fn can_edit_table_rows(&self) -> bool {
-        table_editor_context::can_edit_table_rows(
+        !self.table.data_query.inline_query_result
+            && self.table.data_query.inline_query_request.is_none()
+            && table_editor_context::can_edit_table_rows(
             &self.table.state,
             &self.connection.catalog,
             &self.connection.lifecycle,

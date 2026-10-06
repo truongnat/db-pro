@@ -18,7 +18,7 @@ use super::layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayP
 
 pub struct Dialog<'a> {
     open: &'a mut bool,
-    title: Cow<'a, str>,
+    title: Option<Cow<'a, str>>,
     description: Option<Cow<'a, str>>,
     width: f32,
     id_salt: Option<Id>,
@@ -29,12 +29,17 @@ impl<'a> Dialog<'a> {
     pub fn new(open: &'a mut bool, title: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
             open,
-            title: title.into(),
+            title: Some(title.into()),
             description: None,
             width: DIALOG_WIDTH,
             id_salt: None,
             theme,
         }
+    }
+
+    pub fn without_title(mut self) -> Self {
+        self.title = None;
+        self
     }
 
     pub fn description(mut self, description: impl Into<Cow<'a, str>>) -> Self {
@@ -160,7 +165,7 @@ impl<'a> Dialog<'a> {
                 let res = paint_dialog_card(
                     DialogCardPaint {
                         open,
-                        title: title.as_ref(),
+                        title: title.as_deref(),
                         description: description.as_deref(),
                         width: layout.width,
                         max_body_height: layout.max_body_height,
@@ -197,7 +202,7 @@ impl<'a> Dialog<'a> {
 
 struct DialogCardPaint<'a> {
     open: &'a mut bool,
-    title: &'a str,
+    title: Option<&'a str>,
     description: Option<&'a str>,
     width: f32,
     max_body_height: f32,
@@ -259,7 +264,7 @@ fn paint_dialog_card<R>(
 
 fn draw_dialog_header(
     ui: &mut Ui,
-    title: &str,
+    title: Option<&str>,
     description: Option<&str>,
     open: &mut bool,
     theme: DbProTheme,
@@ -269,25 +274,31 @@ fn draw_dialog_header(
         egui::vec2(width, ui.spacing().interact_size.y.max(DIALOG_HEADER_MIN_HEIGHT)),
         egui::Layout::left_to_right(egui::Align::TOP),
         |ui| {
-            ui.vertical(|ui| {
-                ui.add(
-                    egui::Label::new(
-                        RichText::new(title)
-                            .font(DbProTheme::ui_medium_font(16.0))
-                            .color(theme.text_primary),
-                    )
-                    .truncate(),
-                )
-                .on_hover_text(title);
-                if let Some(description) = description {
-                    ui.add_space(2.0);
-                    ui.label(
-                        RichText::new(description)
-                            .font(FontId::proportional(12.5))
-                            .color(theme.text_muted),
-                    );
-                }
-            });
+            if title.is_some() || description.is_some() {
+                ui.vertical(|ui| {
+                    if let Some(title) = title {
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(title)
+                                    .font(DbProTheme::ui_medium_font(16.0))
+                                    .color(theme.text_primary),
+                            )
+                            .truncate(),
+                        )
+                        .on_hover_text(title);
+                    }
+                    if let Some(description) = description {
+                        if title.is_some() {
+                            ui.add_space(2.0);
+                        }
+                        ui.label(
+                            RichText::new(description)
+                                .font(FontId::proportional(12.5))
+                                .color(theme.text_muted),
+                        );
+                    }
+                });
+            }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 if close_icon_button(ui, theme).clicked() {

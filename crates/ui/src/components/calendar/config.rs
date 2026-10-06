@@ -20,8 +20,6 @@ pub const NAVIGATION_RADIUS: f32 = 4.0;
 pub const SURFACE_RADIUS: f32 = 8.0;
 /// Height of each weekday header cell.
 pub const DAY_ROW_HEIGHT: f32 = 20.0;
-/// Blur radius for the calendar surface shadow.
-pub const SHADOW_BLUR: f32 = 8.0;
 /// Compact calendar day label size.
 pub const DAY_FONT_SIZE: f32 = 12.0;
 /// Current-month day label size.

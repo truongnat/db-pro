@@ -163,6 +163,17 @@ impl DbProApp {
     }
 
     pub(crate) fn request_table_data(&mut self) {
+        if self.table.data_query.inline_query_request.is_some() {
+            self.feedback.runtime_message = "Wait for the current query to finish before refreshing table data".to_owned();
+            return;
+        }
+        if let Some(sql) = self.table.data_query.active_inline_query_sql.clone() {
+            let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+                return;
+            };
+            self.send_table_data_query_run(connection_id, sql);
+            return;
+        }
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };

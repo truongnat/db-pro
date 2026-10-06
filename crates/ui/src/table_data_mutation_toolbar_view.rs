@@ -36,31 +36,22 @@ pub(super) fn draw_mutation_controls(
     ui: &mut egui::Ui,
 ) -> Option<TableDataMutationToolbarAction> {
     let mut action = None;
-    if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", context.theme)
-        .on_hover_text("Reload table data (F5)")
-        .clicked()
-    {
-        action = Some(if context.staged_changes.is_empty() {
-            TableDataMutationToolbarAction::Refresh
+    let add_row = Button::new(context.theme)
+        .text("Add Row")
+        .icon(Icon::Plus)
+        .variant(ButtonVariant::Secondary)
+        .size(ButtonSize::Sm)
+        .enabled(context.can_mutate)
+        .tooltip(if context.can_mutate {
+            "Insert new row"
         } else {
-            TableDataMutationToolbarAction::RefreshBlocked
-        });
+            "Row inserts are unavailable for this result or connection"
+        })
+        .show(ui);
+    if add_row.clicked() {
+        action = Some(TableDataMutationToolbarAction::AddRow);
     }
-
     if context.can_mutate {
-        ui.separator();
-        if Button::new(context.theme)
-            .text("Add Row")
-            .icon(Icon::Plus)
-            .variant(ButtonVariant::Secondary)
-            .size(ButtonSize::Sm)
-            .tooltip("Insert new row")
-            .show(ui)
-            .clicked()
-        {
-            action = Some(TableDataMutationToolbarAction::AddRow);
-        }
-
         if !context.has_primary_key {
             ui.label(
                 RichText::new("Table has no primary key; safe row editing is unavailable.")
@@ -70,7 +61,7 @@ pub(super) fn draw_mutation_controls(
             .on_hover_text("This table has no primary key; safe row editing is unavailable. Inserts remain available.");
         }
 
-        draw_staged_change_controls(context, ui, &mut action);
+        draw_pending_change_summary(context, ui, &mut action);
     } else if context.connected {
         ui.separator();
         ui.label(
@@ -99,7 +90,56 @@ pub(super) fn draw_mutation_controls(
     action
 }
 
-fn draw_staged_change_controls(
+pub(super) fn draw_footer_controls(
+    context: &TableDataMutationToolbarContext<'_>,
+    ui: &mut egui::Ui,
+) -> Option<TableDataMutationToolbarAction> {
+    let mut action = None;
+    let has_changes = !context.staged_changes.is_empty();
+    let apply_enabled =
+        context.can_mutate && has_changes && !context.staged_apply_pending && !context.has_data_edit_error;
+    if Button::new(context.theme)
+        .text("Save")
+        .icon(Icon::Check)
+        .variant(ButtonVariant::Default)
+        .size(ButtonSize::Sm)
+        .enabled(apply_enabled)
+        .tooltip(format!("Save staged changes ({}S)", primary_modifier_label()))
+        .show(ui)
+        .clicked()
+    {
+        action = Some(TableDataMutationToolbarAction::ApplyStagedChanges);
+    }
+    if Button::new(context.theme)
+        .text("Discard")
+        .icon(Icon::Undo2)
+        .variant(ButtonVariant::Ghost)
+        .size(ButtonSize::Sm)
+        .enabled(has_changes && !context.staged_apply_pending)
+        .tooltip(format!("Discard staged changes ({}Z)", primary_modifier_label()))
+        .show(ui)
+        .clicked()
+    {
+        action = Some(if context.staged_changes.counts().total() > 1 {
+            TableDataMutationToolbarAction::ConfirmDiscardChanges
+        } else {
+            TableDataMutationToolbarAction::DiscardStagedChanges
+        });
+    }
+    if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", context.theme)
+        .on_hover_text("Reload table data (F5)")
+        .clicked()
+    {
+        action = Some(if has_changes {
+            TableDataMutationToolbarAction::RefreshBlocked
+        } else {
+            TableDataMutationToolbarAction::Refresh
+        });
+    }
+    action
+}
+
+fn draw_pending_change_summary(
     context: &TableDataMutationToolbarContext<'_>,
     ui: &mut egui::Ui,
     action: &mut Option<TableDataMutationToolbarAction>,
@@ -121,34 +161,6 @@ fn draw_staged_change_controls(
         .clicked()
     {
         *action = Some(TableDataMutationToolbarAction::OpenPendingChanges);
-    }
-    let apply_enabled = !context.staged_apply_pending && !context.has_data_edit_error;
-    if Button::new(context.theme)
-        .text("Apply")
-        .icon(Icon::Check)
-        .variant(ButtonVariant::Default)
-        .size(ButtonSize::Sm)
-        .enabled(apply_enabled)
-        .tooltip(format!("Apply all staged changes ({}S)", primary_modifier_label()))
-        .show(ui)
-        .clicked()
-    {
-        *action = Some(TableDataMutationToolbarAction::ApplyStagedChanges);
-    }
-    if Button::new(context.theme)
-        .text("Discard")
-        .icon(Icon::Undo2)
-        .variant(ButtonVariant::Ghost)
-        .size(ButtonSize::Sm)
-        .tooltip(format!("Discard all staged changes ({}Z)", primary_modifier_label()))
-        .show(ui)
-        .clicked()
-    {
-        *action = Some(if counts.total() > 1 {
-            TableDataMutationToolbarAction::ConfirmDiscardChanges
-        } else {
-            TableDataMutationToolbarAction::DiscardStagedChanges
-        });
     }
 }
 

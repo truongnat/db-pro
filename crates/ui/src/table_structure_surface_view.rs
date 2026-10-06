@@ -1,24 +1,15 @@
 //! Table-structure presentation and typed column-detail intents.
 use super::super::*;
 use crate::components::badge::{Badge, BadgeVariant};
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::components::dialog::Dialog;
 use crate::components::table::{Table, TableColumn};
 use crate::UiTableColumn;
-use egui::{Align, Layout, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum TableStructureAction {
-    SelectColumn(String),
-    CloseColumnDetail,
-}
 
 pub(super) struct TableStructureContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) info: &'a UiTableInfo,
     pub(super) search: &'a mut String,
-    pub(super) selected_column: Option<&'a str>,
 }
 
 pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut egui::Ui) {
@@ -56,17 +47,16 @@ pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut 
 }
 
 impl TableStructureContext<'_> {
-    pub(super) fn draw(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) -> Vec<TableStructureAction> {
+    pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
         self.draw_metrics(ui);
         ui.add_space(8.0);
-        let mut actions = self.draw_columns(ui);
-        self.draw_column_detail(ctx, &mut actions);
-        actions
+        self.draw_columns(ui);
     }
 
     fn draw_metrics(&self, ui: &mut egui::Ui) {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_SM;
                 section_label(ui, "METRICS", self.theme);
                 Badge::new(format!("{} columns", self.info.columns.len()), self.theme)
                     .variant(BadgeVariant::Default)
@@ -104,8 +94,7 @@ impl TableStructureContext<'_> {
         });
     }
 
-    fn draw_columns(&mut self, ui: &mut egui::Ui) -> Vec<TableStructureAction> {
-        let mut actions = Vec::new();
+    fn draw_columns(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_columns_header(ui);
@@ -121,36 +110,19 @@ impl TableStructureContext<'_> {
                 );
                 return;
             }
-            self.draw_column_table(ui, &matching_columns, &mut actions);
+            self.draw_column_table(ui, &matching_columns);
         });
-        actions
     }
 
     fn draw_columns_header(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "COLUMNS", self.theme);
-            ui.add_space(8.0);
-            input(ui, self.search, "Search columns or types…", 220.0, self.theme);
-            if !self.search.is_empty()
-                && Button::new(self.theme)
-                    .icon(Icon::X)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .access_label("Clear filter")
-                    .tooltip("Clear filter")
-                    .show(ui)
-                    .clicked()
-            {
-                self.search.clear();
-            }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(
-                    RichText::new(format!("Total: {} columns", self.info.columns.len()))
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                );
-            });
-        });
+        table_workspace_surface_view::draw_metadata_filter_header(
+            ui,
+            self.theme,
+            "Columns",
+            self.search,
+            "Search columns or types…",
+            &format!("Total: {} columns", self.info.columns.len()),
+        );
     }
 
     fn matching_columns(&self) -> Vec<&UiTableColumn> {
@@ -172,12 +144,7 @@ impl TableStructureContext<'_> {
             .collect()
     }
 
-    fn draw_column_table(
-        &self,
-        ui: &mut egui::Ui,
-        matching_columns: &[&UiTableColumn],
-        actions: &mut Vec<TableStructureAction>,
-    ) {
+    fn draw_column_table(&self, ui: &mut egui::Ui, matching_columns: &[&UiTableColumn]) {
         let columns = [
             TableColumn::fixed("#", 46.0),
             TableColumn::new("Column Name").width(220.0),
@@ -204,23 +171,16 @@ impl TableStructureContext<'_> {
                             .foreign_keys
                             .iter()
                             .any(|foreign_key| foreign_key.from_columns.contains(&column.name));
-                        self.draw_column_cell(ui, column, col_idx, is_fk, actions);
+                        self.draw_column_cell(ui, column, col_idx, is_fk);
                     },
                 );
             });
     }
 
-    fn draw_column_cell(
-        &self,
-        ui: &mut egui::Ui,
-        column: &UiTableColumn,
-        col_idx: usize,
-        is_fk: bool,
-        actions: &mut Vec<TableStructureAction>,
-    ) {
+    fn draw_column_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn, col_idx: usize, is_fk: bool) {
         match col_idx {
             0 => self.draw_ordinal_cell(ui, column),
-            1 => self.draw_name_cell(ui, column, is_fk, actions),
+            1 => self.draw_name_cell(ui, column, is_fk),
             2 => self.draw_data_type_cell(ui, column),
             3 => self.draw_nullable_cell(ui, column),
             4 => self.draw_key_cell(ui, column, is_fk),
@@ -237,13 +197,7 @@ impl TableStructureContext<'_> {
         );
     }
 
-    fn draw_name_cell(
-        &self,
-        ui: &mut egui::Ui,
-        column: &UiTableColumn,
-        is_fk: bool,
-        actions: &mut Vec<TableStructureAction>,
-    ) {
+    fn draw_name_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn, is_fk: bool) {
         let (icon, color) = if column.is_primary_key {
             (Icon::Key, self.theme.warning)
         } else if is_fk {
@@ -259,37 +213,29 @@ impl TableStructureContext<'_> {
             );
             ui.add_space(4.0);
             let display_name = crate::components::truncate_ellipsis(&column.name, 32);
-            let response = ui
-                .label(
-                    RichText::new(&display_name)
-                        .font(font_ui_label())
-                        .strong()
-                        .color(self.theme.text_primary),
-                )
-                .on_hover_text(format!(
-                    "{}{}{}{}",
-                    if column.is_identity { "IDENTITY · " } else { "" },
-                    if column.is_generated { "GENERATED · " } else { "" },
-                    if column.is_unique { "UNIQUE · " } else { "" },
-                    column
-                        .collation
-                        .as_deref()
-                        .map(|value| format!("COLLATION {value}"))
-                        .unwrap_or_default()
-                ));
-            if response.clicked() {
-                actions.push(TableStructureAction::SelectColumn(column.name.clone()));
-            }
+            ui.label(
+                RichText::new(&display_name)
+                    .font(font_ui_label())
+                    .strong()
+                    .color(self.theme.text_primary),
+            )
+            .on_hover_text(format!(
+                "{}{}{}{}",
+                if column.is_identity { "IDENTITY · " } else { "" },
+                if column.is_generated { "GENERATED · " } else { "" },
+                if column.is_unique { "UNIQUE · " } else { "" },
+                column
+                    .collation
+                    .as_deref()
+                    .map(|value| format!("COLLATION {value}"))
+                    .unwrap_or_default()
+            ));
         });
     }
 
     fn draw_data_type_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
         let truncated = crate::components::truncate_ellipsis(&column.data_type, 24);
-        let resp = ui.label(
-            RichText::new(&truncated)
-                .monospace()
-                .color(self.theme.text_secondary),
-        );
+        let resp = ui.label(RichText::new(&truncated).monospace().color(self.theme.text_secondary));
         if column.data_type.chars().count() > 24 {
             resp.on_hover_text(&column.data_type);
         } else {
@@ -335,43 +281,7 @@ impl TableStructureContext<'_> {
                 resp.on_hover_text(default_val);
             }
         } else {
-            ui.label(
-                RichText::new("—")
-                    .font(font_caption())
-                    .color(self.theme.text_secondary),
-            );
-        }
-    }
-
-    fn draw_column_detail(&self, ctx: &egui::Context, actions: &mut Vec<TableStructureAction>) {
-        let Some(column_name) = self.selected_column else {
-            return;
-        };
-        let Some(column) = self.info.columns.iter().find(|column| column.name == column_name) else {
-            return;
-        };
-        let mut open = true;
-        Dialog::new(&mut open, format!("Column · {}", column.name), self.theme)
-            .width(420.0)
-            .id_salt("table_column_detail_dialog")
-            .show_framed_ctx(ctx, |frame| {
-                frame.body(|ui| {
-                    ui.label(RichText::new(&column.data_type).monospace().strong());
-                    ui.separator();
-                    ui.label(format!("Ordinal: {}", column.ordinal));
-                    ui.label(format!("Nullable: {}", column.nullable));
-                    ui.label(format!("Default: {}", column.default.as_deref().unwrap_or("—")));
-                    ui.label(format!("Primary key: {}", column.is_primary_key));
-                    ui.label(format!("Unique: {}", column.is_unique));
-                    ui.label(format!("Identity: {}", column.is_identity));
-                    ui.label(format!("Generated: {}", column.is_generated));
-                    if let Some(collation) = &column.collation {
-                        ui.label(format!("Collation: {collation}"));
-                    }
-                });
-            });
-        if !open {
-            actions.push(TableStructureAction::CloseColumnDetail);
+            ui.label(RichText::new("—").font(font_caption()).color(self.theme.text_secondary));
         }
     }
 }

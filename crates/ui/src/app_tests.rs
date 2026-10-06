@@ -4677,6 +4677,31 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
 }
 
 #[test]
+fn staged_save_completion_reruns_the_active_inline_sql() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let mut connection = connection_summary_with_ssl_mode(UiSslMode::Disable);
+    connection.id = "sqlite".to_owned();
+    connection.driver = "SQLite".to_owned();
+    connection.database = "/tmp/db_pro_sample.db".to_owned();
+    app.connection.catalog.connections.push(connection);
+    app.connection.lifecycle.connected = true;
+    *app.connection.lifecycle.active_connection_id_mut() = Some("sqlite".to_owned());
+    app.schema.explorer.selected_table = Some("customers".to_owned());
+    let inline_sql = "SELECT * FROM \"main\".\"customers\" WHERE first_name = 'Alice'".to_owned();
+    app.table.data_query.begin_inline_query(RequestId(73), inline_sql.clone());
+    app.on_query_completed(RequestId(73), result());
+    assert_eq!(app.table.data_query.active_inline_query_sql.as_deref(), Some(inline_sql.as_str()));
+
+    app.staged_apply_completed();
+
+    let UiCommand::RunQuery { sql, .. } = command_rx.try_recv().expect("filtered query refresh expected") else {
+        panic!("refresh after inline query must rerun its SQL");
+    };
+    assert!(sql.contains("WHERE first_name = 'Alice'"));
+}
+
+#[test]
 fn test_typed_filter_operator_support() {
     // Text types support full text operators
     assert!(TableDataQueryState::filter_operator_supported(

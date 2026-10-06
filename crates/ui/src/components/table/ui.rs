@@ -381,7 +381,8 @@ impl<'a> Table<'a> {
                         };
 
                         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(inner_rect), |ui| {
-                            ui.set_clip_rect(ui.clip_rect().intersect(inner_rect));
+                            // Allow widget strokes into cell padding without leaking into neighboring cells.
+                            ui.set_clip_rect(ui.clip_rect().intersect(inner_rect.expand(1.0).intersect(cell_rect)));
                             ui.with_layout(align_layout, |ui| {
                                 render_cell(ui, row_idx, col_idx);
                             });

@@ -16,6 +16,32 @@
 - Preserve component constructors/builders and move only visual constants to canonical tokens where the current behavior allows it.
 - Prefer subtle motion and visible focus over hover-only affordances.
 
+## Data Grid clarity follow-up — 2026-10-04
+- P2 — The user clarified the intended DBeaver-like interaction: show `SELECT * FROM <selected table> WHERE` up front and let the user type only the condition. The toolbar now shows a fixed, quoted schema/table prefix, appends only the editable condition on Run/Enter, and keeps Add Row as the first action (disabled when the current result/connection is read-only).
+- P2 — The single-page footer showed inert first/previous/next/last controls. The working-tree fix hides page navigation when there is no adjacent page and retains the range and page-size selector.
+- Runtime evidence — native light captures at 1280×800 (2560×1600 pixels), 1440×900 (2880×1676 pixels; host-capped to 838 logical px high), and 1920×1080 (3840×1676 pixels; host-capped to 838 logical px high) confirm the fixed prefix, condition-only input, Add Row placement, and no inert one-page navigation.
+- Live SQLite evidence — from the `customers` table, entering `id = 2` and pressing Enter showed Bob; entering `id = 1` and clicking Run showed Alice. Both runs reported one row and made no data changes. The capture-driver screenshots use its deterministic PostgreSQL fixture; no live PostgreSQL query was executed.
+
+## Data Grid WHERE badge and Add Row follow-up — 2026-10-04
+- P2 — The displayed fixed SQL prefix (`SELECT * FROM ... WHERE`) took too much toolbar width. Keep its qualified and quoted SQL generation internal, and render only a compact `WHERE` badge beside the editable condition.
+- P2 — Add Row was disabled after running the inline table condition because toolbar mutation capability treated every inline query result as read-only. Remove that blanket toolbar lock while retaining writable-connection and in-flight-query guards; cell editing continues to use its independent read-only check.
+- Regression proof — the focused toolbar-capability test failed before the fix and passed after it; the companion test covers read-only connections and queries in flight. Live SQLite interaction separately verifies the filtered-result case.
+- Runtime proof — on the writable SQLite sample, `id = 2` returned Bob and Add Row opened the `Insert Row · customers` form. The form was closed without staging or saving, leaving sample data unchanged.
+- Visual evidence — rebuilt native capture at 1280×800, 1440×900, and 1920×1080 shows Add Row first and only the WHERE badge; higher-width captures remain host-height capped. Capture driver uses deterministic fixture data, so only the separate CUA check is live SQLite evidence.
+
+## Data Grid filtered-save refresh follow-up — 2026-10-04
+- P2 — After staged insert completion, `staged_apply_completed()` cleared the displayed result and called `request_table_data()`, which always dispatched an unfiltered table load. The inline condition existed only as an editable draft, so the displayed result expanded to all rows and lost the user's filter.
+- Fix — store the last successfully completed inline SQL separately from the draft; regular table refreshes now reissue that SQL while it is active. A failed/cancelled newer query leaves the previous successful filter in place; changing tables clears both pending and active SQL.
+- Regression proof — `staged_save_completion_reruns_the_active_inline_sql` failed before refresh routing was changed and passed after; query-state coverage checks success, stale request IDs, cancellation, and table reset.
+- Reusable lesson — refreshing after mutation must use the committed read query, not the editor's draft or an unconditional base-table load.
+
+## Data Grid condition autocomplete follow-up — 2026-10-04
+- P2 — The inline condition field had no table-column completion and used a frameless editor, leaving users to remember identifiers and making focus unclear.
+- Fix — suggestions now come from the selected table's `UiTableInfo.columns`, match the identifier around the caret, and appear as a foreground popup without changing toolbar layout. Up/Down changes selection; Enter/Tab or a click inserts a quoted identifier and restores editor focus; Escape dismisses suggestions until the draft changes.
+- Guard — candidates are offered at condition starts and after `AND`/`OR`, not in values or single-quoted SQL strings. An exact column name closes the popup so Enter remains available for query execution.
+- Automated evidence — four focused toolbar tests cover table-scoped prefix matching, value/string suppression, middle-caret token replacement, and the existing quoted table prefix.
+- Runtime limitation — the release build passed, but the running DB Pro Measure process could not be reattached after the CUA close/relaunch attempt. Popup interaction and viewport captures are therefore still pending; do not count source/tests as visual runtime proof.
+
 ## Implementation result
 - The initial calibration used a charcoal/navy surface ladder (`#17191c` → `#23272d`) with a restrained blue accent (`#4f8cff`). Wave 15 of `native-visual-redesign` supersedes those shared surface and accent values with neutral Codex-aligned tokens and contrast-checked foregrounds.
 - Selection uses a muted blue wash instead of a neutral gray fill, preserving scanability in dense data surfaces.
@@ -60,3 +86,13 @@
 
 ## Tổng kết bằng tiếng Việt
 Đã làm lại đúng cụm bị phản hồi xấu: tách thành 3 panel có nhịp rõ ràng, rút gọn copy, hiển thị calendar inline, sửa lỗi icon Accordion đè lên title, bỏ Card lồng Card. Đã có evidence 1280×800, 1440×900 và 1920×1080; trạng thái loading/error/empty của gallery vẫn pending.
+
+## WHERE input geometry correction — 2026-10-06
+- P2: the prefix was a focusable action button, the editor frame inflated height independently of the 28px small buttons, and the input/run separation was too small.
+- Fix: passive themed WHERE prefix inside a fixed-height editor using shared ButtonSize::Sm dimensions; editable predicate immediately follows it. Reserve Run width using the remaining wrapped-row rectangle, with SPACE_SM separation.
+- Source identity: baseline `710ba002612c6d71ef2605f99f2a49743b51c3a4` plus uncommitted toolbar changes. No SQL/provider behavior change.
+
+## Empty WHERE executes unfiltered SELECT — 2026-10-06
+- P2: empty/whitespace draft disabled Run and bypassed Enter; the fixed SQL prefix included WHERE even without a predicate.
+- Fix: quote the table/schema in an unconditional SELECT prefix; append WHERE only for a nonempty trimmed predicate. Empty Run/Enter follows the same guarded inline execution path as filtered SQL. Existing configured result row limit remains enforced.
+- Source identity: baseline `710ba002612c6d71ef2605f99f2a49743b51c3a4` plus uncommitted toolbar/view changes.

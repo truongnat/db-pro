@@ -2,10 +2,6 @@
 use super::super::*;
 use super::result_grid_date_picker_view;
 
-/// Upper bound for the date-picker popup body so its desired size can never
-/// feed back into the persisted `Area` size.
-const POPUP_MAX_WIDTH: f32 = 200.0;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CellEditorAction {
     Commit,
@@ -180,37 +176,34 @@ fn draw_temporal(
         if !input.has_focus() && !ui.memory(|memory| memory.is_popup_open(popup_id)) {
             input.request_focus();
         }
-        // Anchor on the whole cell: `popup_below_widget` positions the area at
-        // `widget.rect.left_bottom`, and its `clicked_elsewhere` guard reads
-        // `interact_rect`/`hovered` — copying the input's would count a click
-        // on the calendar button as "outside" and close the popup instantly.
-        let pointer_over_cell = ui
-            .ctx()
-            .pointer_interact_pos()
-            .is_some_and(|pos| cell_rect.contains(pos));
-        let anchor = egui::Response {
-            rect: cell_rect,
-            interact_rect: cell_rect,
-            hovered: pointer_over_cell,
-            contains_pointer: pointer_over_cell,
-            ..input.clone()
-        };
-        let picked = egui::popup::popup_below_widget(
-            ui,
-            popup_id,
-            &anchor,
-            egui::PopupCloseBehavior::CloseOnClickOutside,
-            |ui| {
-                // The justified popup layout can feed back into the Area size
-                // (`state.size = min_size`), growing the popup a few px per
-                // frame until it hits the screen edge. A hard max breaks the
-                // loop; the calendar only needs ~190 px.
-                ui.set_max_width(POPUP_MAX_WIDTH);
-                result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value)
-            },
-        );
-        if picked == Some(true) {
+        let mut picked = false;
+        let mut close_popup = false;
+        let mut escape_pressed = false;
+        if ui.memory(|memory| memory.is_popup_open(popup_id)) {
+            let popup_pos = Calendar::popup_position(cell_rect, ui.ctx().screen_rect(), true);
+            let popup = egui::Area::new(popup_id.with("area"))
+                .order(egui::Order::Foreground)
+                .fixed_pos(popup_pos)
+                .show(ui.ctx(), |ui| {
+                    result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value)
+                });
+            picked = popup.inner;
+            let pointer_clicked_outside = ui.input(|input| {
+                input.pointer.any_click()
+                    && input.pointer.interact_pos().is_some_and(|position| {
+                        !cell_rect.contains(position) && !popup.response.rect.contains(position)
+                    })
+            });
+            escape_pressed = ui.input(|input| input.key_pressed(egui::Key::Escape));
+            close_popup = picked || pointer_clicked_outside || escape_pressed;
+        }
+        if close_popup {
             ui.memory_mut(|memory| memory.close_popup());
+        }
+        if picked || escape_pressed {
+            input.request_focus();
+        }
+        if picked {
             *error = None;
         }
         input.union(button)

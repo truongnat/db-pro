@@ -9,6 +9,7 @@ pub(super) struct QueryResultContext<'a> {
     pub(super) query_editor: &'a mut QueryEditorState,
     pub(super) query_output: &'a mut QueryOutputState,
     pub(super) table_data: &'a mut TableDataState,
+    pub(super) table_data_query: &'a mut TableDataQueryState,
     pub(super) workspace: &'a mut WorkspaceShellState,
     pub(super) feedback: &'a mut FeedbackState,
 }
@@ -19,9 +20,24 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
         query_editor,
         query_output,
         table_data,
+        table_data_query,
         workspace,
         feedback,
     } = context;
+    if table_data_query.complete_inline_query(request_id) {
+        table_data_query.result = Some(result.clone());
+        table_data_query.total_rows = None;
+        table_data_query.offset = 0;
+        table_data_query.error = None;
+        table_data.grid_sort_column = None;
+        table_data.grid_column_widths = vec![180.0; result.columns.len()];
+        table_data.selected_cell = None;
+        table_data.selected_row = None;
+        table_data.selected_rows.clear();
+        table_data.selection_anchor_row = None;
+        table_data.selection_anchor_cell = None;
+        feedback.set_runtime_message(format!("Query completed · {} rows", result.row_count));
+    }
     let target_doc_id = query_session.document_requests.remove(&request_id);
     // A new result set replaces the rows behind the grid, so nothing the projection cache holds
     // may survive it.

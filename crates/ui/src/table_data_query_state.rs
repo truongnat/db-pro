@@ -20,8 +20,17 @@ pub(crate) struct TableDataQueryState {
     pub(super) sorts: Vec<UiTableDataSort>,
     pub(super) error: Option<String>,
     pub(super) request: Option<RequestId>,
+    pub(super) inline_query_request: Option<RequestId>,
+    pub(super) pending_inline_query_confirmation: bool,
+    pub(super) inline_query_result: bool,
     pub(super) row_reload_request: Option<RequestId>,
     pub(super) row_reload_identity: Option<RowIdentity>,
+    pub(super) sql_condition_draft: String,
+    pub(super) sql_condition_suggestions_open: bool,
+    pub(super) sql_condition_suggestion_index: usize,
+    pub(super) sql_condition_suggestions_dismissed_for: Option<String>,
+    pub(super) active_inline_query_sql: Option<String>,
+    pub(super) pending_inline_query_sql: Option<String>,
 }
 
 impl Default for TableDataQueryState {
@@ -39,13 +48,48 @@ impl Default for TableDataQueryState {
             sorts: Vec::new(),
             error: None,
             request: None,
+            inline_query_request: None,
+            pending_inline_query_confirmation: false,
+            inline_query_result: false,
             row_reload_request: None,
             row_reload_identity: None,
+            sql_condition_draft: String::new(),
+            sql_condition_suggestions_open: false,
+            sql_condition_suggestion_index: 0,
+            sql_condition_suggestions_dismissed_for: None,
+            active_inline_query_sql: None,
+            pending_inline_query_sql: None,
         }
     }
 }
 
 impl TableDataQueryState {
+    pub(crate) fn begin_inline_query(&mut self, request_id: RequestId, sql: String) {
+        self.inline_query_request = Some(request_id);
+        self.pending_inline_query_sql = Some(sql);
+    }
+
+    pub(crate) fn complete_inline_query(&mut self, request_id: RequestId) -> bool {
+        if self.inline_query_request != Some(request_id) {
+            return false;
+        }
+        self.inline_query_request = None;
+        if let Some(sql) = self.pending_inline_query_sql.take() {
+            self.active_inline_query_sql = Some(sql);
+        }
+        self.inline_query_result = true;
+        true
+    }
+
+    pub(crate) fn abandon_inline_query(&mut self, request_id: RequestId) -> bool {
+        if self.inline_query_request != Some(request_id) {
+            return false;
+        }
+        self.inline_query_request = None;
+        self.pending_inline_query_sql = None;
+        true
+    }
+
     pub(crate) fn reset_for_table(&mut self) {
         self.result = None;
         self.total_rows = None;
@@ -58,8 +102,17 @@ impl TableDataQueryState {
         self.sorts.clear();
         self.error = None;
         self.request = None;
+        self.inline_query_request = None;
+        self.pending_inline_query_confirmation = false;
+        self.inline_query_result = false;
         self.row_reload_request = None;
         self.row_reload_identity = None;
+        self.sql_condition_draft.clear();
+        self.sql_condition_suggestions_open = false;
+        self.sql_condition_suggestion_index = 0;
+        self.sql_condition_suggestions_dismissed_for = None;
+        self.active_inline_query_sql = None;
+        self.pending_inline_query_sql = None;
     }
 
     pub(crate) fn invalidate_result(&mut self) {
@@ -67,6 +120,9 @@ impl TableDataQueryState {
         self.total_rows = None;
         self.error = None;
         self.request = None;
+        self.inline_query_request = None;
+        self.pending_inline_query_sql = None;
+        self.inline_query_result = false;
     }
 
     pub(crate) fn reset_page(&mut self) {
@@ -233,7 +289,25 @@ impl TableDataQueryState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::UiTableColumn;
+    use crate::{RequestId, UiTableColumn};
+
+    #[test]
+    fn keeps_last_successful_inline_sql_until_another_query_succeeds_or_table_resets() {
+        let mut state = TableDataQueryState::default();
+        let first_sql = "SELECT * FROM customers WHERE id = 1".to_owned();
+        state.begin_inline_query(RequestId(1), first_sql.clone());
+        assert!(state.complete_inline_query(RequestId(1)));
+        assert_eq!(state.active_inline_query_sql.as_deref(), Some(first_sql.as_str()));
+
+        state.begin_inline_query(RequestId(2), "SELECT * FROM customers WHERE id = 2".to_owned());
+        assert!(!state.complete_inline_query(RequestId(3)));
+        assert!(state.abandon_inline_query(RequestId(2)));
+        assert_eq!(state.active_inline_query_sql.as_deref(), Some(first_sql.as_str()));
+
+        state.reset_for_table();
+        assert!(state.active_inline_query_sql.is_none());
+        assert!(state.pending_inline_query_sql.is_none());
+    }
 
     fn table_info(data_type: &str) -> UiTableInfo {
         UiTableInfo {

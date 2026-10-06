@@ -17,7 +17,7 @@ let result = Dialog::new(&mut open, "Delete table", theme)
     });
 ```
 
-- `new(&mut bool, title, theme)` borrows the caller's visibility state; `title` accepts a value convertible to `Cow<str>`.
+- `new(&mut bool, title, theme)` borrows the caller's visibility state; `title` accepts a value convertible to `Cow<str>`. `without_title()` hides title text while retaining the header close button.
 - `description(text)` adds optional descriptive text. `width(f32)` sets the requested card width. `id_salt(Hash)` distinguishes simultaneous instances at one call site; use a stable value.
 - `show(ui, closure)` provides a scrollable body. `show_ctx(ctx, closure)` is the context-based equivalent when there is no parent `Ui`.
 - `show_framed(ui, closure)` and `show_framed_ctx(ctx, closure)` provide `DialogFrame`, whose `body` method creates the scroll region and whose `footer` method creates a fixed action area.

@@ -27,7 +27,7 @@ impl TableWorkspaceSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui) -> Vec<TableWorkspaceSurfaceAction> {
         let mut actions = Vec::new();
-        toolbar_frame(self.theme).show(ui, |ui| {
+        table_band_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 self.draw_breadcrumb(ui);
                 if let Some(rows) = self.row_count {
@@ -119,7 +119,7 @@ impl TableWorkspaceSurfaceContext<'_> {
 
     fn draw_view_tabs(&self, ui: &mut egui::Ui) -> Vec<TableWorkspaceSurfaceAction> {
         let mut actions = Vec::new();
-        toolbar_frame(self.theme).show(ui, |ui| {
+        table_band_frame(self.theme).show(ui, |ui| {
             egui::ScrollArea::horizontal()
                 .id_salt("table-workspace-tabs")
                 .auto_shrink([false, true])
@@ -128,9 +128,7 @@ impl TableWorkspaceSurfaceContext<'_> {
                         ui.spacing_mut().item_spacing.x = 2.0;
                         for (view, icon, label) in table_view_tabs() {
                             let selected = self.active_view == view;
-                            if tab_button(ui, self.theme, Some(icon), label, selected).clicked()
-                                && !selected
-                            {
+                            if tab_button(ui, self.theme, Some(icon), label, selected).clicked() && !selected {
                                 actions.push(TableWorkspaceSurfaceAction::SelectView(view));
                             }
                         }
@@ -139,6 +137,12 @@ impl TableWorkspaceSurfaceContext<'_> {
         });
         actions
     }
+}
+
+pub(super) fn table_band_frame(theme: DbProTheme) -> egui::Frame {
+    let mut frame = toolbar_frame(theme);
+    frame.stroke = egui::Stroke::NONE;
+    frame
 }
 
 fn table_view_tabs() -> [(TableView, Icon, &'static str); 8] {
@@ -152,4 +156,61 @@ fn table_view_tabs() -> [(TableView, Icon, &'static str); 8] {
         (TableView::Dependencies, Icon::GitBranch, "Dependencies"),
         (TableView::Ddl, Icon::Code2, "DDL"),
     ]
+}
+
+pub(super) fn draw_metadata_filter_header(
+    ui: &mut egui::Ui,
+    theme: DbProTheme,
+    title: &str,
+    search: &mut String,
+    hint: &str,
+    total: &str,
+) {
+    draw_metadata_filter_header_with_trailing(ui, theme, title, search, hint, |ui| {
+        ui.label(RichText::new(total).font(font_ui_label()).color(theme.text_muted));
+    });
+}
+
+pub(super) fn draw_metadata_filter_header_with_trailing(
+    ui: &mut egui::Ui,
+    theme: DbProTheme,
+    title: &str,
+    search: &mut String,
+    hint: &str,
+    trailing: impl FnOnce(&mut egui::Ui),
+) {
+    let height = crate::tokens::component::input::INPUT_HEIGHT_SM;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = SPACE_SM;
+        ui.label(RichText::new(title).font(font_ui_label()).color(theme.text_secondary));
+        ui.scope(|ui| {
+            ui.visuals_mut().extreme_bg_color = theme.surface_editor;
+            ui.visuals_mut().widgets.inactive.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_default);
+            ui.visuals_mut().widgets.hovered.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_default);
+            ui.visuals_mut().widgets.active.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_focus);
+            ui.add(
+                egui::TextEdit::singleline(search)
+                    .hint_text(RichText::new(hint).color(theme.text_muted))
+                    .font(font_ui_label())
+                    .desired_width(220.0)
+                    .min_size(egui::vec2(220.0, height - SPACE_XS * 2.0))
+                    .margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                    .vertical_align(egui::Align::Center)
+                    .text_color(theme.text_primary),
+            );
+        });
+        if !search.is_empty()
+            && Button::new(theme)
+                .icon(Icon::X)
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::IconSm)
+                .access_label("Clear filter")
+                .tooltip("Clear filter")
+                .show(ui)
+                .clicked()
+        {
+            search.clear();
+        }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), trailing);
+    });
 }

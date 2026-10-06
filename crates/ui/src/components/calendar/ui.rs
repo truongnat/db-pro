@@ -5,10 +5,10 @@ use super::handler::{
 use crate::components::animation::hover_t;
 use crate::components::clamp_popup_to_screen;
 use crate::DbProTheme;
-use chrono::Datelike;
+use chrono::{Datelike, Local};
 use egui::{
-    Align2, Color32, FontFamily, FontId, Frame, Layout, Margin, Order, Pos2, Response, RichText, Rounding, Sense,
-    Stroke, Ui, Vec2, WidgetInfo, WidgetType,
+    Align2, FontFamily, FontId, Frame, Layout, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke,
+    Ui, Vec2, WidgetInfo, WidgetType,
 };
 use lucide_icons::Icon;
 
@@ -66,16 +66,66 @@ const MONTH_NAMES: [&str; 12] = [
     "December",
 ];
 
-const WEEKDAY_NAMES: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const SUNDAY_FIRST_WEEKDAYS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const MONDAY_FIRST_WEEKDAYS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 pub struct Calendar<'a> {
-    selected: &'a mut Option<SimpleDate>,
+    selected: CalendarSelection<'a>,
     view_year: &'a mut i32,
     view_month: &'a mut u32,
+    monday_first: bool,
+    show_today: bool,
     theme: DbProTheme,
 }
 
+enum CalendarSelection<'a> {
+    Date(&'a mut Option<SimpleDate>),
+    TemporalValue { value: &'a mut String, date_only: bool },
+}
+
+impl CalendarSelection<'_> {
+    fn selected_date(&self) -> Option<SimpleDate> {
+        match self {
+            Self::Date(selected) => **selected,
+            Self::TemporalValue { value, .. } => value.get(..10).and_then(SimpleDate::parse),
+        }
+    }
+
+    fn select(&mut self, date: SimpleDate) {
+        match self {
+            Self::Date(selected) => **selected = Some(date),
+            Self::TemporalValue { value, date_only } => {
+                **value = merge_temporal_date(date, value, *date_only);
+            }
+        }
+    }
+}
+
+fn merge_temporal_date(date: SimpleDate, value: &str, date_only: bool) -> String {
+    let iso_date = date.to_iso_string();
+    if date_only {
+        return iso_date;
+    }
+
+    let time = value
+        .get(10..)
+        .map(|suffix| suffix.trim_start_matches(['T', ' ']))
+        .filter(|suffix| suffix.contains(':'))
+        .unwrap_or("00:00:00");
+    format!("{iso_date} {time}")
+}
+
 impl<'a> Calendar<'a> {
+    pub(crate) fn popup_position(anchor: Rect, screen: Rect, show_today: bool) -> Pos2 {
+        let desired_position = Pos2::new(anchor.left(), anchor.bottom() + config::POPOVER_GAP);
+        clamp_popup_to_screen(
+            desired_position,
+            calendar_frame_size(show_today),
+            screen,
+            config::POPOVER_SCREEN_MARGIN,
+        )
+    }
+
     pub fn new(
         selected: &'a mut Option<SimpleDate>,
         view_year: &'a mut i32,
@@ -86,14 +136,38 @@ impl<'a> Calendar<'a> {
             *view_month = 1;
         }
         Self {
-            selected,
+            selected: CalendarSelection::Date(selected),
             view_year,
             view_month,
+            monday_first: false,
+            show_today: false,
             theme,
         }
     }
 
-    pub fn show(self, ui: &mut Ui) -> Response {
+    /// Creates a calendar for an ISO date or datetime string.
+    /// Date selection preserves the existing time suffix for datetime values.
+    pub fn for_temporal_value(
+        value: &'a mut String,
+        date_only: bool,
+        view_year: &'a mut i32,
+        view_month: &'a mut u32,
+        theme: DbProTheme,
+    ) -> Self {
+        if *view_month < 1 || *view_month > 12 {
+            *view_month = 1;
+        }
+        Self {
+            selected: CalendarSelection::TemporalValue { value, date_only },
+            view_year,
+            view_month,
+            monday_first: true,
+            show_today: true,
+            theme,
+        }
+    }
+
+    pub fn show(mut self, ui: &mut Ui) -> Response {
         let layout = calendar_layout(ui.available_width());
         let cell_size = layout.cell_size;
         let pad = config::CELL_GAP;
@@ -102,15 +176,10 @@ impl<'a> Calendar<'a> {
 
         let frame = Frame {
             fill: self.theme.surface_floating,
-            stroke: Stroke::new(1.0, self.theme.border_default),
+            stroke: Stroke::new(1.0, self.theme.border_subtle),
             inner_margin: Margin::same(config::CALENDAR_INNER_MARGIN),
             rounding: Rounding::same(config::SURFACE_RADIUS),
-            shadow: egui::epaint::Shadow {
-                offset: egui::vec2(0.0, 2.0),
-                blur: config::SHADOW_BLUR,
-                spread: 0.0,
-                color: Color32::from_black_alpha(20),
-            },
+            shadow: self.theme.floating_shadow(),
             ..Default::default()
         };
 
@@ -234,7 +303,12 @@ impl<'a> Calendar<'a> {
                         // Day of week headers
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing = Vec2::new(pad, 0.0);
-                            for day_name in WEEKDAY_NAMES {
+                            let weekday_names = if self.monday_first {
+                                MONDAY_FIRST_WEEKDAYS
+                            } else {
+                                SUNDAY_FIRST_WEEKDAYS
+                            };
+                            for day_name in weekday_names {
                                 let (rect, _) = ui
                                     .allocate_exact_size(Vec2::new(cell_size, config::DAY_ROW_HEIGHT), Sense::hover());
                                 ui.painter().text(
@@ -250,8 +324,14 @@ impl<'a> Calendar<'a> {
                         ui.add_space(config::GRID_GAP);
 
                         // Day grid
-                        let first_dow = day_of_week(*self.view_year, *self.view_month, 1);
+                        let sunday_first_dow = day_of_week(*self.view_year, *self.view_month, 1);
+                        let first_dow = if self.monday_first {
+                            (sunday_first_dow + 6) % 7
+                        } else {
+                            sunday_first_dow
+                        };
                         let days_this_month = days_in_month(*self.view_year, *self.view_month);
+                        let mut selected_date = self.selected.selected_date();
 
                         let (prev_year, prev_month) = if *self.view_month == 1 {
                             (*self.view_year - 1, 12)
@@ -276,7 +356,8 @@ impl<'a> Calendar<'a> {
                                         let activated = resp.clicked() || keyboard_activation;
                                         if activated {
                                             resp.request_focus();
-                                            *self.selected = Some(date);
+                                            self.selected.select(date);
+                                            selected_date = Some(date);
                                             *self.view_month = prev_month;
                                             *self.view_year = prev_year;
                                             resp.mark_changed();
@@ -285,7 +366,7 @@ impl<'a> Calendar<'a> {
                                             WidgetInfo::selected(
                                                 WidgetType::Button,
                                                 true,
-                                                *self.selected == Some(date),
+                                                selected_date == Some(date),
                                                 date.to_iso_string(),
                                             )
                                         });
@@ -311,10 +392,11 @@ impl<'a> Calendar<'a> {
                                         let activated = resp.clicked() || keyboard_activation;
                                         if activated {
                                             resp.request_focus();
-                                            *self.selected = Some(this_date);
+                                            self.selected.select(this_date);
+                                            selected_date = Some(this_date);
                                             resp.mark_changed();
                                         }
-                                        let is_selected = *self.selected == Some(this_date);
+                                        let is_selected = selected_date == Some(this_date);
                                         resp.widget_info(|| {
                                             WidgetInfo::selected(
                                                 WidgetType::Button,
@@ -380,7 +462,8 @@ impl<'a> Calendar<'a> {
                                         let activated = resp.clicked() || keyboard_activation;
                                         if activated {
                                             resp.request_focus();
-                                            *self.selected = Some(date);
+                                            self.selected.select(date);
+                                            selected_date = Some(date);
                                             *self.view_month = next_month;
                                             *self.view_year = next_year;
                                             resp.mark_changed();
@@ -389,7 +472,7 @@ impl<'a> Calendar<'a> {
                                             WidgetInfo::selected(
                                                 WidgetType::Button,
                                                 true,
-                                                *self.selected == Some(date),
+                                                selected_date == Some(date),
                                                 date.to_iso_string(),
                                             )
                                         });
@@ -412,6 +495,25 @@ impl<'a> Calendar<'a> {
                                 }
                             });
                         }
+
+                        if self.show_today {
+                            ui.add_space(config::SECTION_GAP);
+                            let today = Local::now().date_naive();
+                            let today = SimpleDate::new(today.year(), today.month(), today.day());
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new("Today")
+                                            .font(DbProTheme::ui_medium_font(13.0))
+                                            .color(self.theme.accent),
+                                    )
+                                    .frame(false),
+                                )
+                                .clicked()
+                            {
+                                self.selected.select(today);
+                            }
+                        }
                     });
                 })
                 .response
@@ -424,7 +526,7 @@ fn calendar_content_width() -> f32 {
     (config::CELL_SIZE * 7.0) + (config::CELL_GAP * 6.0)
 }
 
-fn calendar_frame_size() -> Vec2 {
+fn calendar_frame_size(show_today: bool) -> Vec2 {
     Vec2::new(
         calendar_content_width() + (config::CALENDAR_INNER_MARGIN * 2.0),
         config::CALENDAR_INNER_MARGIN * 2.0
@@ -433,7 +535,12 @@ fn calendar_frame_size() -> Vec2 {
             + config::DAY_ROW_HEIGHT
             + config::GRID_GAP
             + (config::CELL_SIZE * 6.0)
-            + (config::CELL_GAP * 5.0),
+            + (config::CELL_GAP * 5.0)
+            + if show_today {
+                config::SECTION_GAP + config::DAY_ROW_HEIGHT
+            } else {
+                0.0
+            },
     )
 }
 
@@ -445,7 +552,7 @@ struct CalendarLayout {
 }
 
 fn calendar_layout(available_width: f32) -> CalendarLayout {
-    let intrinsic_frame_width = calendar_frame_size().x;
+    let intrinsic_frame_width = calendar_frame_size(false).x;
     let target_frame_width = available_width.max(0.0).min(intrinsic_frame_width);
     let content_width = (target_frame_width - (config::CALENDAR_INNER_MARGIN * 2.0)).max(0.0);
     let cell_size = ((content_width - (config::CELL_GAP * 6.0)) / 7.0).max(1.0);
@@ -620,13 +727,7 @@ impl<'a> DatePicker<'a> {
             let mut view_month = ui
                 .data(|d| d.get_temp::<u32>(id.with("view_month")))
                 .unwrap_or(self.date.map(|d| d.month).unwrap_or(today.month()));
-            let desired_popover_pos = Pos2::new(rect.left(), rect.bottom() + config::POPOVER_GAP);
-            let popover_pos = clamp_popup_to_screen(
-                desired_popover_pos,
-                calendar_frame_size(),
-                ui.ctx().screen_rect(),
-                config::POPOVER_SCREEN_MARGIN,
-            );
+            let popover_pos = Calendar::popup_position(rect, ui.ctx().screen_rect(), false);
             let popup = egui::Area::new(id.with("popover"))
                 .order(Order::Foreground)
                 .fixed_pos(popover_pos)
@@ -686,7 +787,7 @@ mod tests {
     #[test]
     fn calendar_frame_size_is_intrinsic_and_includes_symmetric_margin() {
         assert_eq!(calendar_content_width(), 248.0);
-        assert_eq!(calendar_frame_size(), Vec2::new(272.0, 292.0));
+        assert_eq!(calendar_frame_size(false), Vec2::new(272.0, 292.0));
     }
 
     #[test]
@@ -708,7 +809,7 @@ mod tests {
             CalendarLayout {
                 cell_size: config::CELL_SIZE,
                 content_width: calendar_content_width(),
-                frame_width: calendar_frame_size().x,
+                frame_width: calendar_frame_size(false).x,
             }
         );
     }

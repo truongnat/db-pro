@@ -58,6 +58,9 @@ impl DbProApp {
     }
 
     pub(super) fn on_query_cancelled(&mut self, request_id: RequestId) {
+        if self.table.data_query.abandon_inline_query(request_id) {
+            self.feedback.set_runtime_message("Query cancelled");
+        }
         query_execution_events::on_query_cancelled(
             &mut self.query.session,
             &mut self.query.editor,
@@ -72,6 +75,7 @@ impl DbProApp {
             query_editor: &mut self.query.editor,
             query_output: &mut self.query.output,
             table_data: &mut self.table.data,
+            table_data_query: &mut self.table.data_query,
             workspace: &mut self.workspace.shell,
             feedback: &mut self.feedback,
         };
@@ -97,6 +101,9 @@ impl DbProApp {
         position: Option<usize>,
         code: Option<String>,
     ) {
+        if self.table.data_query.abandon_inline_query(request_id) {
+            self.table.data_query.error = Some(message.clone());
+        }
         if self.handle_agent_request_failure(request_id, &message)
             || self.handle_connection_request_failure(request_id, &message)
             || self.handle_schema_request_failure(request_id, &message)

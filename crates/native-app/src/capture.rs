@@ -53,6 +53,16 @@ const TABLE_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_TABLE";
 /// When set with [`TABLE_WORKSPACE_ENV`], force light theme for the Table capture.
 const TABLE_LIGHT_ENV: &str = "DB_PRO_CAPTURE_TABLE_LIGHT";
 
+/// When set with [`TABLE_WORKSPACE_ENV`], capture the deterministic Profile pane.
+const TABLE_PROFILE_ENV: &str = "DB_PRO_CAPTURE_TABLE_PROFILE";
+
+/// When set with [`TABLE_WORKSPACE_ENV`], capture the deterministic Indexes pane.
+const TABLE_INDEXES_ENV: &str = "DB_PRO_CAPTURE_TABLE_INDEXES";
+
+/// When set with [`TABLE_WORKSPACE_ENV`], focus the condition and show a
+/// deterministic column completion result instead of the ordinary table state.
+const TABLE_COMPLETION_ENV: &str = "DB_PRO_CAPTURE_TABLE_COMPLETION";
+
 /// When set, switch to the ER Diagram canvas before capturing.
 const DIAGRAM_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_DIAGRAM";
 
@@ -222,7 +232,28 @@ impl CaptureApp {
             }
             self.opened_dialog = true;
         } else if std::env::var_os(TABLE_WORKSPACE_ENV).is_some() {
-            if std::env::var_os(TABLE_LIGHT_ENV).is_some() {
+            if std::env::var_os(TABLE_PROFILE_ENV).is_some() {
+                self.inner
+                    .open_table_profile_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_STRUCTURE").is_some() {
+                self.inner
+                    .open_table_structure_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_FOREIGN_KEYS").is_some() {
+                self.inner
+                    .open_table_foreign_keys_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_CONSTRAINTS").is_some() {
+                self.inner
+                    .open_table_constraints_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_DEPENDENCIES").is_some() {
+                self.inner
+                    .open_table_dependencies_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os(TABLE_INDEXES_ENV).is_some() {
+                self.inner
+                    .open_table_indexes_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os(TABLE_COMPLETION_ENV).is_some() {
+                self.inner
+                    .open_table_condition_completion_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+            } else if std::env::var_os(TABLE_LIGHT_ENV).is_some() {
                 self.inner.open_table_workspace_for_capture_light();
             } else {
                 self.inner.open_table_workspace_for_capture();

@@ -127,51 +127,65 @@ impl TableMetadataContext<'_> {
     }
 
     fn draw_constraint_toolbar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "CONSTRAINTS", self.theme);
-            ui.add_space(8.0);
-            self.draw_search_input(ui, "Filter constraints…", 200.0);
-            ui.add_space(12.0);
-            for (value, label) in [
-                ("all", "All"),
-                ("pk", "Primary Key"),
-                ("unique", "Unique"),
-                ("check", "Check"),
-                ("not_null", "Not Null"),
-            ] {
-                if ui.selectable_label(*self.constraint_filter == value, label).clicked() {
-                    *self.constraint_filter = value.to_owned();
+        table_workspace_surface_view::draw_metadata_filter_header_with_trailing(
+            ui,
+            self.theme,
+            "Constraints",
+            self.search,
+            "Filter constraints…",
+            |ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                // Right-to-left layout keeps the category group against the right edge.
+                for (value, label) in [
+                    ("all", "All"),
+                    ("pk", "Primary Key"),
+                    ("unique", "Unique"),
+                    ("check", "Check"),
+                    ("not_null", "Not Null"),
+                ].into_iter().rev() {
+                    if tab_button(ui, self.theme, None, label, *self.constraint_filter == value).clicked() {
+                        *self.constraint_filter = value.to_owned();
+                    }
                 }
-            }
-        });
+            },
+        );
         ui.add_space(8.0);
     }
 
     fn draw_dependency_toolbar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal_wrapped(|ui| {
-            section_label(ui, "DEPENDENCIES", self.theme);
-            ui.add_space(8.0);
-            self.draw_search_input(ui, "Filter dependencies…", 200.0);
-        });
-        ui.add_space(6.0);
-        ui.horizontal_wrapped(|ui| {
-            for (value, label) in [
-                ("all", "All"),
-                ("depends_on", "Depends On (Outgoing)"),
-                ("depended_by", "Depended By (Incoming)"),
-            ] {
-                if ui.selectable_label(*self.dependency_filter == value, label).clicked() {
-                    *self.dependency_filter = value.to_owned();
+        let filter = self.search.trim().to_lowercase();
+        let matching = self
+            .info
+            .dependencies
+            .iter()
+            .filter(|dependency| {
+                dependency_matches_direction(dependency, self.dependency_filter)
+                    && (filter.is_empty() || dependency_matches_filter(dependency, &filter))
+            })
+            .count();
+        let total = self.info.dependencies.len();
+        table_workspace_surface_view::draw_metadata_filter_header_with_trailing(
+            ui,
+            self.theme,
+            "Dependencies",
+            self.search,
+            "Filter dependencies…",
+            |ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_SM;
+                ui.label(RichText::new(format!("{matching} of {total}")).font(font_ui_label()).color(self.theme.text_muted))
+                    .on_hover_text(format!("{matching} of {total} dependencies match the current filters"));
+                for (value, label) in [
+                    ("all", "All"),
+                    ("depends_on", "Depends On (Outgoing)"),
+                    ("depended_by", "Depended By (Incoming)"),
+                ].into_iter().rev() {
+                    if tab_button(ui, self.theme, None, label, *self.dependency_filter == value).clicked() {
+                        *self.dependency_filter = value.to_owned();
+                    }
                 }
-            }
-            ui.add_space(12.0);
-            ui.label(
-                RichText::new(format!("Total: {} dependencies", self.info.dependencies.len()))
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            );
-        });
-        ui.add_space(8.0);
+            },
+        );
+        ui.add_space(SPACE_SM);
     }
 
     fn constraint_rows(&self) -> Vec<ConstraintRow> {
@@ -260,26 +274,11 @@ impl TableMetadataContext<'_> {
             .collect()
     }
 
-    fn draw_search_input(&mut self, ui: &mut egui::Ui, hint: &str, width: f32) {
-        input(ui, self.search, hint, width, self.theme);
-        if !self.search.is_empty()
-            && Button::new(self.theme)
-                .icon(Icon::X)
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::IconSm)
-                .access_label("Clear filter")
-                .tooltip("Clear filter")
-                .show(ui)
-                .clicked()
-        {
-            self.search.clear();
-        }
-    }
-
     fn draw_constraint_cell(&self, ui: &mut egui::Ui, row: &ConstraintRow, col_idx: usize) {
         match col_idx {
             0 => {
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = SPACE_SM;
                     ui.label(icon_text(row.icon, "", row.color));
                     Badge::new(row.kind, self.theme)
                         .variant(row.variant)
@@ -351,20 +350,23 @@ fn draw_dependency_cell(
 ) {
     match col_idx {
         0 => {
-            ui.horizontal(|ui| match dependency.direction {
-                UiDependencyDirection::DependsOn => {
-                    ui.label(icon_text(Icon::ArrowUpRight, "", theme.warning));
-                    Badge::new("DEPENDS ON", theme)
-                        .variant(BadgeVariant::Warning)
-                        .compact(true)
-                        .show(ui);
-                }
-                UiDependencyDirection::DependedBy => {
-                    ui.label(icon_text(Icon::ArrowDownLeft, "", theme.accent));
-                    Badge::new("DEPENDED BY", theme)
-                        .variant(BadgeVariant::Default)
-                        .compact(true)
-                        .show(ui);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_SM;
+                match dependency.direction {
+                    UiDependencyDirection::DependsOn => {
+                        ui.label(icon_text(Icon::ArrowUpRight, "", theme.warning));
+                        Badge::new("DEPENDS ON", theme)
+                            .variant(BadgeVariant::Warning)
+                            .compact(true)
+                            .show(ui);
+                    }
+                    UiDependencyDirection::DependedBy => {
+                        ui.label(icon_text(Icon::ArrowDownLeft, "", theme.accent));
+                        Badge::new("DEPENDED BY", theme)
+                            .variant(BadgeVariant::Default)
+                            .compact(true)
+                            .show(ui);
+                    }
                 }
             });
         }

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "ui-design-review": {
+      "source": "mastepanoski/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ui-design-review/SKILL.md",
+      "computedHash": "b8d7199e8908328f4ae8a3d13f6c5f5a4508a52155e41433704a539d576e4501"
+    }
+  }
+}

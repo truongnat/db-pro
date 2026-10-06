@@ -140,6 +140,15 @@ impl<'a> QueryExecutionContext<'a> {
         });
     }
 
+    pub(crate) fn commit_inline_dispatched(&mut self, prepared: &PreparedQueryRun) {
+        self.record_query_history(&prepared.sql);
+        self.feedback.set_runtime_message(if prepared.all_statements {
+            "Sending full script to runtime…"
+        } else {
+            "Sending query to runtime…"
+        });
+    }
+
     fn record_query_history(&mut self, sql: &str) {
         if self.editor.query_history.iter().any(|query| query == sql) {
             return;

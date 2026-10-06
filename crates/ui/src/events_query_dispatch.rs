@@ -87,6 +87,12 @@ impl DbProApp {
             } else {
                 self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
             }
+        } else if let Some(request_id) = self.table.data_query.inline_query_request {
+            if self.query_capabilities().allows(|c| c.query.cancel) {
+                self.cancel_query(request_id);
+            } else {
+                self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
+            }
         } else if self.query.editor.query_tools_open {
             self.query.editor.query_tools_open = false;
         } else if self.query.editor.editor_search_open {
@@ -210,6 +216,15 @@ impl DbProApp {
         let Some(pending) = self.query_execution_context().take_pending_destructive_run() else {
             return;
         };
+        if self.table.data_query.pending_inline_query_confirmation {
+            self.table.data_query.pending_inline_query_confirmation = false;
+            let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {
+                self.feedback.runtime_message = "Create or select a connection first".to_owned();
+                return;
+            };
+            self.send_table_data_query_run(connection_id, pending.sql().to_owned());
+            return;
+        }
         let Some(connection_id) = self
             .active_query_connection_id()
             .map(String::from)
@@ -229,6 +244,7 @@ impl DbProApp {
 
     /// Drop a held destructive statement without executing it.
     pub(super) fn cancel_pending_destructive_run(&mut self) {
+        self.table.data_query.pending_inline_query_confirmation = false;
         self.query_execution_context().cancel_pending_destructive_run();
     }
 
@@ -251,6 +267,26 @@ impl DbProApp {
         if self.dispatch_command(runtime_command) {
             self.query_execution_context()
                 .commit_dispatched(&command, execution_range, version);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn send_table_data_query_run(&mut self, connection_id: String, sql: String) -> bool {
+        let repeat_sql = sql.clone();
+        let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
+        let request_id = self.next_request_id();
+        let Some(command) = self
+            .query_execution_context()
+            .prepare_query_run(request_id, connection_id, sql.clone(), false)
+        else {
+            return false;
+        };
+        if self.dispatch_command(query_run_command(&command)) {
+            self.query_execution_context().commit_inline_dispatched(&command);
+            self.table.data_query.begin_inline_query(request_id, repeat_sql);
+            self.table.data_query.error = None;
             true
         } else {
             false

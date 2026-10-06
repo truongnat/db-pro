@@ -45,7 +45,6 @@ pub(super) fn draw_surface(
     ui.painter().rect_filled(cell_rect, Rounding::ZERO, fill);
     let border = Stroke::new(1.0, context.theme.border_subtle);
     ui.painter().hline(cell_rect.x_range(), cell_rect.bottom(), border);
-    ui.painter().vline(cell_rect.right(), cell_rect.y_range(), border);
     if context.cell_selected {
         // `ring-inset` from the spec — the outline stays inside the cell so it
         // never bleeds over neighboring borders

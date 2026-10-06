@@ -46,6 +46,12 @@ impl<'a> TableColumn<'a> {
         self
     }
 
+    /// Set the minimum outer width from measured content, including cell padding.
+    pub fn content_width(mut self, width: f32) -> Self {
+        self.width = Some(width + config::INNER_PADDING_X * 2.0);
+        self
+    }
+
     pub fn align(mut self, align: TableColumnAlign) -> Self {
         self.align = align;
         self

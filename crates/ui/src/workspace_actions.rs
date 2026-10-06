@@ -385,12 +385,12 @@ impl DbProApp {
             ],
             primary_key: Some(vec!["id".to_owned()]),
             indexes: vec![crate::UiTableIndex {
-                name: "idx_users_email".to_owned(),
+                name: "idx_customers_email".to_owned(),
                 columns: vec!["email".to_owned()],
                 unique: true,
                 primary: false,
                 method: "btree".to_owned(),
-                definition: "CREATE UNIQUE INDEX idx_users_email ON users(email)".to_owned(),
+                definition: "CREATE UNIQUE INDEX idx_customers_email ON customers(email)".to_owned(),
                 predicate: None,
                 include_columns: Vec::new(),
             }],
@@ -510,6 +510,113 @@ impl DbProApp {
         self.open_table_workspace_for_capture();
         self.preferences.dark_mode = false;
         self.theme = DbProTheme::light();
+    }
+
+    /// Capture helper: open the deterministic table fixture directly on Profile.
+    pub fn open_table_profile_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        if std::env::var_os("DB_PRO_CAPTURE_PROFILE_NUMERIC").is_some() {
+            if let Some(result) = self.table.data_query.result.as_mut() {
+                result.columns[0].data_type = "BIGINT".to_owned();
+                for row in &mut result.rows { row[0] = crate::UiCell::Number("1000000000000000000".to_owned()); }
+            }
+        }
+        self.table.state.table_view = TableView::Profile;
+    }
+
+    /// Capture helper: open the deterministic table fixture directly on Structure.
+    pub fn open_table_structure_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        self.table.state.table_view = TableView::Structure;
+    }
+
+    /// Capture helper: open the deterministic table fixture directly on Foreign Keys.
+    pub fn open_table_foreign_keys_for_capture(&mut self, light: bool) {
+        if light { self.open_table_workspace_for_capture_light(); }
+        else { self.open_table_workspace_for_capture(); }
+        if let Some(info) = self.table.state.table_info.as_mut() {
+            info.foreign_keys = vec![crate::UiTableForeignKey {
+                name: "customers_owner_fk".to_owned(), from_columns: vec!["id".to_owned()],
+                to_schema: "main".to_owned(), to_table: "owners".to_owned(), to_columns: vec!["id".to_owned()],
+                on_update: "NO ACTION".to_owned(), on_delete: "NO ACTION".to_owned(),
+                match_option: "SIMPLE".to_owned(), deferrable: false, initially_deferred: false,
+            }];
+        }
+        self.table.state.table_view = TableView::Relations;
+    }
+
+    /// Capture helper: open the deterministic table fixture directly on Constraints.
+    pub fn open_table_constraints_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        self.table.state.table_view = TableView::Constraints;
+    }
+
+    /// Capture helper: show outgoing dependencies and a matching/total count.
+    pub fn open_table_dependencies_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        if let Some(info) = self.table.state.table_info.as_mut() {
+            info.dependencies = vec![
+                crate::UiTableDependency {
+                    name: "products".to_owned(),
+                    schema: "main".to_owned(),
+                    kind: crate::UiDependencyKind::Table,
+                    direction: crate::UiDependencyDirection::DependsOn,
+                    details: "Foreign key order_items_fk_0 (product_id) → main.products(id)".to_owned(),
+                },
+                crate::UiTableDependency {
+                    name: "orders".to_owned(),
+                    schema: "main".to_owned(),
+                    kind: crate::UiDependencyKind::Table,
+                    direction: crate::UiDependencyDirection::DependsOn,
+                    details: "Foreign key order_items_fk_1 (order_id) → main.orders(id)".to_owned(),
+                },
+                crate::UiTableDependency {
+                    name: "order_items".to_owned(),
+                    schema: "main".to_owned(),
+                    kind: crate::UiDependencyKind::Table,
+                    direction: crate::UiDependencyDirection::DependedBy,
+                    details: "Referenced by foreign key order_items_customer_fk (main.order_items) → (id)".to_owned(),
+                },
+            ];
+        }
+        self.table.state.table_dependency_filter = "depends_on".to_owned();
+        self.table.state.table_view = TableView::Dependencies;
+    }
+
+    /// Capture helper: open the deterministic table fixture directly on Indexes.
+    pub fn open_table_indexes_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        self.table.state.table_view = TableView::Indexes;
+    }
+
+    /// Capture helper: show table-column completion in the inline condition field.
+    pub fn open_table_condition_completion_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
+        self.table.data_query.sql_condition_draft = "em".to_owned();
     }
 
     /// Capture/evidence helper: open the History activity with deterministic

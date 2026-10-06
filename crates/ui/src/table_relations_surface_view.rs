@@ -4,7 +4,7 @@ use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::table::{Table, TableColumn};
 use crate::UiTableInfo;
-use egui::{Align, Layout, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -51,30 +51,14 @@ impl TableRelationsContext<'_> {
     }
 
     fn draw_toolbar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "FOREIGN KEYS", self.theme);
-            ui.add_space(8.0);
-            input(ui, self.search, "Filter foreign keys…", 220.0, self.theme);
-            if !self.search.is_empty()
-                && Button::new(self.theme)
-                    .icon(Icon::X)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Clear filter")
-                    .access_label("Clear filter")
-                    .show(ui)
-                    .clicked()
-            {
-                self.search.clear();
-            }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(
-                    RichText::new(format!("Total: {} foreign keys", self.info.foreign_keys.len()))
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                );
-            });
-        });
+        table_workspace_surface_view::draw_metadata_filter_header(
+            ui,
+            self.theme,
+            "Foreign Keys",
+            self.search,
+            "Filter foreign keys…",
+            &format!("Total: {} foreign keys", self.info.foreign_keys.len()),
+        );
         ui.add_space(8.0);
     }
 
@@ -134,11 +118,7 @@ impl TableRelationsContext<'_> {
             2 => {
                 let target = format!("{}.{}", relation.to_schema, relation.to_table);
                 let display_target = crate::components::truncate_ellipsis(&target, 24);
-                let resp = ui.label(
-                    RichText::new(&display_target)
-                        .strong()
-                        .color(self.theme.text_primary),
-                );
+                let resp = ui.label(RichText::new(&display_target).strong().color(self.theme.text_primary));
                 if target.chars().count() > 24 {
                     resp.on_hover_text(&target);
                 }

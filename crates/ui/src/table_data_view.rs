@@ -50,9 +50,16 @@ impl DbProApp {
             return;
         };
 
-        let can_mutate = self.can_mutate_active_connection();
+        let can_mutate = can_mutate_table_toolbar(
+            self.can_mutate_active_connection(),
+            self.table.data_query.inline_query_request.is_some(),
+        );
         let total_known = self.table.data_query.total_rows.is_some();
         let total_rows = self.table.data_query.total_rows.unwrap_or(result.row_count);
+        let sql_prefix = table_data_toolbar_surface_view::select_prefix(
+            self.schema.explorer.selected_schema.as_deref(),
+            table_name,
+        );
         let paging = table_data_toolbar_surface_view::TableDataPaging {
             page_range: crate::components::common::format_page_range(
                 self.table.data_query.offset,
@@ -67,15 +74,28 @@ impl DbProApp {
                 result.row_count >= self.table.data_query.limit
             },
             has_previous: self.table.data_query.offset > 0,
+            inline_query_result: self.table.data_query.inline_query_result,
         };
 
-        self.draw_table_data_unified_toolbar(ui, table_name, &result, can_mutate, &paging);
-        table_data_surface_view::draw_grid(
-            &table_data_surface_view::TableDataSurfaceContext { theme: self.theme },
-            ui,
-            &result,
-            |ui, result| self.draw_result_grid(ui, result),
-        );
+        if result.row_count == 0 && !self.table.data_query.inline_query_result {
+            let context = table_data_placeholder_view::TableDataPlaceholderContext {
+                theme: self.theme,
+                error: None,
+                empty: true,
+            };
+            self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging);
+            table_data_placeholder_view::draw_placeholder(&context, ui, table_name);
+            self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
+        } else {
+            self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging);
+            table_data_surface_view::draw_grid(
+                &table_data_surface_view::TableDataSurfaceContext { theme: self.theme },
+                ui,
+                &result,
+                |ui, result| self.draw_result_grid(ui, result),
+            );
+            self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
+        }
         self.draw_pending_changes_dialog(ui);
         self.draw_conflict_dialog(ui, &result);
         if self.table.data_query.result.is_none() {
@@ -87,6 +107,7 @@ impl DbProApp {
         let context = table_data_placeholder_view::TableDataPlaceholderContext {
             theme: self.theme,
             error: self.table.data_query.error.as_deref(),
+            empty: false,
         };
         if matches!(
             table_data_placeholder_view::draw_placeholder(&context, ui, table_name),
@@ -101,17 +122,21 @@ impl DbProApp {
         &mut self,
         ui: &mut egui::Ui,
         table_name: &str,
-        result: &UiQueryResult,
+        sql_prefix: &str,
         can_mutate: bool,
         paging: &table_data_toolbar_surface_view::TableDataPaging,
     ) {
-        let column_names: Vec<String> = result.columns.iter().map(|column| column.name.clone()).collect();
         let action = {
             let mut context = table_data_toolbar_surface_view::TableDataToolbarContext {
                 theme: self.theme,
                 table_name,
-                result,
-                column_names: &column_names,
+                sql_prefix,
+                column_suggestions: self
+                    .table
+                    .state
+                    .table_info
+                    .as_ref()
+                    .map_or(&[], |info| info.columns.as_slice()),
                 can_mutate,
                 connected: self.connection.lifecycle.is_connected(),
                 has_primary_key: self.table.state.has_primary_key(),
@@ -121,8 +146,6 @@ impl DbProApp {
                 failure: self.table.mutation.table_mutation_error.as_ref(),
                 selected_rows: self.table.data.selected_rows.len(),
                 data_query: &mut self.table.data_query,
-                data: &mut self.table.data,
-                table_info: self.table.state.table_info.as_ref(),
                 paging,
             };
             table_data_toolbar_surface_view::draw_toolbar(&mut context, ui)
@@ -132,12 +155,82 @@ impl DbProApp {
         }
     }
 
+    fn draw_table_data_unified_footer(
+        &mut self,
+        ui: &mut egui::Ui,
+        table_name: &str,
+        sql_prefix: &str,
+        can_mutate: bool,
+        paging: &table_data_toolbar_surface_view::TableDataPaging,
+    ) {
+        let action = {
+            let mut context = table_data_toolbar_surface_view::TableDataToolbarContext {
+                theme: self.theme,
+                table_name,
+                sql_prefix,
+                column_suggestions: self
+                    .table
+                    .state
+                    .table_info
+                    .as_ref()
+                    .map_or(&[], |info| info.columns.as_slice()),
+                can_mutate,
+                connected: self.connection.lifecycle.is_connected(),
+                has_primary_key: self.table.state.has_primary_key(),
+                staged_changes: &self.table.mutation.staged_changes,
+                staged_apply_pending: self.table.mutation.staged_apply_request.is_some(),
+                has_data_edit_error: self.table.editing.data_edit_error.is_some(),
+                failure: self.table.mutation.table_mutation_error.as_ref(),
+                selected_rows: self.table.data.selected_rows.len(),
+                data_query: &mut self.table.data_query,
+                paging,
+            };
+            table_data_toolbar_surface_view::draw_footer(&mut context, ui)
+        };
+        if let Some(action) = action {
+            self.apply_table_data_toolbar_action(action);
+        }
+    }
+
+    fn run_table_data_sql(&mut self, sql: String) {
+        if !self.table.mutation.staged_changes.is_empty() || self.table.mutation.staged_apply_request.is_some() {
+            self.feedback.runtime_message = "Apply or discard staged changes before running SQL".to_owned();
+            return;
+        }
+        if self.query.session.active_running_request().is_some()
+            || self.table.data_query.inline_query_request.is_some()
+            || self.table.data_query.request.is_some()
+        {
+            self.feedback.runtime_message =
+                "Wait for the current query to finish before running another query".to_owned();
+            return;
+        }
+        if !crate::query::discover_sql_parameters(&sql).is_empty() {
+            self.feedback.runtime_message = "Inline SQL does not support named parameters".to_owned();
+            return;
+        }
+        let execution_range = (0, sql.len());
+        if self.hold_destructive_run(&sql, execution_range, 0, false) {
+            self.table.data_query.pending_inline_query_confirmation = true;
+            return;
+        }
+        let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {
+            self.feedback.runtime_message = "Create or select a connection first".to_owned();
+            return;
+        };
+        self.send_table_data_query_run(connection_id, sql);
+    }
+
     fn apply_table_data_toolbar_action(&mut self, action: table_data_toolbar_surface_view::TableDataToolbarAction) {
         use table_data_toolbar_surface_view::TableDataToolbarAction as Action;
         match action {
             Action::RequestData => self.request_table_data(),
             Action::RefreshBlocked => {
                 self.feedback.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
+            }
+            Action::RunSql(sql) => self.run_table_data_sql(sql),
+            Action::RunSqlBlocked => {
+                self.feedback.runtime_message = "Apply or discard staged changes before running SQL".to_owned();
             }
             Action::AddRow => self.open_insert_row(),
             Action::OpenPendingChanges => self.table.mutation.pending_changes_open = true,
@@ -148,14 +241,29 @@ impl DbProApp {
             Action::DiscardFailedMutation => self.discard_failed_mutation(false),
             Action::ResolveConflict => self.table.mutation.conflict_dialog_open = true,
             Action::RetryFailedMutation => self.retry_failed_mutation_after_reload(),
-            Action::CommitFilter => self.commit_table_filter_draft(),
             Action::RemoveFilter(index) => self.remove_table_filter(index),
             Action::ClearFilters => self.clear_table_filters(),
-            Action::ReloadFromStart => self.reload_table_data_from_start(),
-            Action::SortBlocked => {
-                self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
-            }
             Action::ResetPage => self.reset_table_data_page(),
         }
+    }
+}
+
+fn can_mutate_table_toolbar(connection_writable: bool, query_in_flight: bool) -> bool {
+    connection_writable && !query_in_flight
+}
+
+#[cfg(test)]
+mod tests {
+    use super::can_mutate_table_toolbar;
+
+    #[test]
+    fn allows_toolbar_mutations_for_a_writable_idle_connection() {
+        assert!(can_mutate_table_toolbar(true, false));
+    }
+
+    #[test]
+    fn disables_mutations_without_write_access_or_while_query_runs() {
+        assert!(!can_mutate_table_toolbar(false, false));
+        assert!(!can_mutate_table_toolbar(true, true));
     }
 }
