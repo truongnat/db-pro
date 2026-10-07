@@ -113,7 +113,7 @@ pub(super) fn draw_footer_controls(
     if Button::new(context.theme)
         .text("Discard")
         .icon(Icon::Undo2)
-        .variant(ButtonVariant::Ghost)
+        .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
         .enabled(has_changes && !context.staged_apply_pending)
         .tooltip(format!("Discard staged changes ({}Z)", primary_modifier_label()))
@@ -126,8 +126,13 @@ pub(super) fn draw_footer_controls(
             TableDataMutationToolbarAction::DiscardStagedChanges
         });
     }
-    if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", context.theme)
-        .on_hover_text("Reload table data (F5)")
+    if Button::new(context.theme)
+        .text("Refresh")
+        .icon(Icon::RotateCcw)
+        .variant(ButtonVariant::Ghost)
+        .size(ButtonSize::Sm)
+        .tooltip("Reload table data (F5)")
+        .show(ui)
         .clicked()
     {
         action = Some(if has_changes {

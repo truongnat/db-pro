@@ -27,6 +27,7 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         force_refresh: bool,
+        invalidate_cache: bool,
     },
     LoadTableInfo {
         request_id: RuntimeRequestId,
@@ -723,6 +724,7 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     force_refresh,
+                    invalidate_cache,
                 } => {
                     let schema_api = runtime.schema_api();
                     let event_tx = event_tx.clone();
@@ -731,9 +733,17 @@ pub fn spawn_worker(
                             request_id = request_id.0,
                             connection_id = %connection_id,
                             force_refresh,
+                            invalidate_cache,
                             "schema introspection started"
                         );
-                        let event = match schema_api.introspect_summary(&connection_id, force_refresh).await {
+                        let result = async {
+                            if invalidate_cache {
+                                schema_api.invalidate_cache(&connection_id).await?;
+                            }
+                            schema_api.introspect_summary(&connection_id, force_refresh).await
+                        }
+                        .await;
+                        let event = match result {
                             Ok(schema) => {
                                 tracing::info!(
                                     request_id = request_id.0,

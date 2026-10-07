@@ -1,0 +1,37 @@
+tables=50 columns=2000 index_ms=2.375
+tables=50 mode=qualified items=40 median_ms=0.026 p95_ms=0.521
+tables=50 mode=unscoped items=2000 median_ms=2.894 p95_ms=3.611
+tables=50 mode=table-list items=50 median_ms=0.024 p95_ms=0.043
+tables=500 columns=20000 index_ms=24.771
+tables=500 mode=qualified items=40 median_ms=0.028 p95_ms=0.083
+tables=500 mode=unscoped items=20000 median_ms=26.365 p95_ms=27.731
+tables=500 mode=table-list items=500 median_ms=0.207 p95_ms=0.306
+tables=1000 columns=40000 index_ms=53.117
+tables=1000 mode=qualified items=40 median_ms=0.032 p95_ms=0.102
+tables=1000 mode=unscoped items=40000 median_ms=54.445 p95_ms=57.430
+tables=1000 mode=table-list items=1000 median_ms=0.415 p95_ms=0.470
+long_sql_bytes=66027 qualified_items=40 completion_ms=9.404
+result_payload_mib=78.125 rows=500 columns=20 clone_median_ms=8.445 clone_max_ms=17.963
+
+thread 'main' (12373747) panicked at crates/ui/src/query/schema_completion.rs:1096:26:
+byte index 9 is not a char boundary; it is inside 'ê' (bytes 8..10) of `SELECT tên`
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+utf8_completion_panics=true
+        2.02 real         1.44 user         0.06 sys
+           266010624  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               21321  page reclaims
+                   2  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   2  voluntary context switches
+                2805  involuntary context switches
+         24010315947  instructions retired
+          4527921062  cycles elapsed
+           213485312  peak memory footprint

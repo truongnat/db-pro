@@ -1,0 +1,34 @@
+╔══════════════════════════════════════╗
+║      DB Pro Performance Audit        ║
+╚══════════════════════════════════════╝
+  Source revision: 3dd988e2ff06ac71942c7ec331acf66389d3c5cb+dirty(13)
+
+═══ Native UI Binary ═══
+
+  Building db-pro-native (release)...
+  ✓ cargo build -p db-pro-native: release build succeeded
+  ✓ Binary size: 32.2MB (target < 50MB) sha256 1298dd3bec890974…
+
+═══ Native UI Benchmarks (criterion) ═══
+
+  Running criterion benchmarks for db-pro-ui (this may take a few minutes)...
+  ✗ UI benchmarks: Benchmark execution failed
+    Compiling db-pro-ui v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/ui)
+    Finished `bench` profile [optimized] target(s) in 3m 10s
+    Running unittests src/lib.rs (target/release/deps/db_pro_ui-351a14da559e2f17)
+    error: Unrecognized option: 'quick'
+    error: bench failed, to rerun pass `-p db-pro-ui --lib`
+
+═══ Audit Summary ═══
+
+  Source revision: 3dd988e2ff06ac71942c7ec331acf66389d3c5cb+dirty(13)
+  Measured artifact: target/release/db-pro-native sha256 1298dd3bec890974bc2e1a23c6fca1dc5ddc5c60a5f0352aadab03e05e7860f9 (32.2MB)
+
+  Passed: 2
+  Warnings: 0
+  Failed: 1
+  Not executed: 0
+
+  Status: FAIL — 1 failed, 2 passed [source 3dd988e2ff06ac71942c7ec331acf66389d3c5cb+dirty(13): working tree not committed]
+
+  1 critical issue(s) found.

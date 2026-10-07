@@ -480,8 +480,6 @@ mod tasks_view;
 mod visual_query_builder_state;
 #[path = "visual_query_builder_view.rs"]
 mod visual_query_builder_view;
-#[path = "welcome_state.rs"]
-mod welcome_state;
 #[path = "welcome_surface_view.rs"]
 mod welcome_surface_view;
 #[path = "workspace_actions.rs"]
@@ -510,7 +508,6 @@ pub(crate) use table_editor_state::TableEditorState;
 pub(crate) use table_mutation_actions::StagedApplyFailure;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
-pub(crate) use welcome_state::WelcomeState;
 pub(crate) use workspace_feature_state::WorkspaceFeatureState;
 pub(crate) use workspace_files_state::WorkspaceFilesState;
 pub(crate) use workspace_session_state::WorkspaceSessionState;

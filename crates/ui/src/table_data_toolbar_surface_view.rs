@@ -80,6 +80,7 @@ pub(super) fn draw_footer(
     let mut action = None;
     table_workspace_surface_view::table_band_frame(context.theme).show(ui, |ui| {
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_XS;
             action = context.draw_footer_mutation_controls(ui);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let pagination_action = context.draw_pagination_controls(ui);

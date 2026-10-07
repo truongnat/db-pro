@@ -132,6 +132,8 @@ fn settle_frames() -> u32 {
 /// Wraps [`DbProApp`] to write one framebuffer PNG and then close.
 pub(super) struct CaptureApp {
     inner: DbProApp,
+    #[cfg(target_os = "macos")]
+    menu: super::app_menu::AppMenu,
     path: PathBuf,
     settle: u32,
     frames: u32,
@@ -144,6 +146,25 @@ pub(super) struct CaptureApp {
 impl CaptureApp {
     /// Wraps `app` when [`PATH_ENV`] is set, otherwise hands it back untouched so a
     /// normal launch carries no capture behaviour at all.
+    #[cfg(target_os = "macos")]
+    pub(super) fn wrap(inner: DbProApp, menu: super::app_menu::AppMenu) -> Box<dyn eframe::App> {
+        match std::env::var_os(PATH_ENV).filter(|value| !value.is_empty()) {
+            Some(raw) => Box::new(Self {
+                inner,
+                menu,
+                path: PathBuf::from(raw),
+                settle: settle_frames(),
+                frames: 0,
+                requested: false,
+                opened_dialog: false,
+                prepared_loading: false,
+                pinned: capture_size_from_env(),
+            }),
+            None => Box::new(super::NativeMenuApp { inner, menu }),
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
     pub(super) fn wrap(inner: DbProApp) -> Box<dyn eframe::App> {
         match std::env::var_os(PATH_ENV).filter(|value| !value.is_empty()) {
             Some(raw) => Box::new(Self {
@@ -188,9 +209,11 @@ impl CaptureApp {
 
 impl eframe::App for CaptureApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(target_os = "macos")]
+        self.menu.apply_pending_actions(&mut self.inner);
         self.prepare_loading();
         self.inner.update(ctx, frame);
-        self.open_requested_surface();
+        self.open_requested_surface(ctx);
         self.pin_viewport(ctx);
         if self.capture_screenshot(ctx) {
             return;
@@ -207,7 +230,7 @@ impl CaptureApp {
         }
     }
 
-    fn open_requested_surface(&mut self) {
+    fn open_requested_surface(&mut self, ctx: &egui::Context) {
         if self.opened_dialog || self.frames < 2 {
             return;
         }
@@ -224,11 +247,18 @@ impl CaptureApp {
         } else if std::env::var_os(EDIT_CONNECTION_ENV).is_some() {
             self.inner.open_edit_connection_for_capture();
             self.opened_dialog = true;
+        } else if std::env::var_os("DB_PRO_CAPTURE_WELCOME").is_some() {
+            self.inner
+                .open_welcome_workspace_for_capture(std::env::var_os("DB_PRO_CAPTURE_WELCOME_LIGHT").is_some());
+            self.opened_dialog = true;
         } else if std::env::var_os(QUERY_WORKSPACE_ENV).is_some() {
             if std::env::var_os(QUERY_LIGHT_ENV).is_some() {
                 self.inner.open_query_workspace_for_capture_light();
             } else {
                 self.inner.open_query_workspace_for_capture();
+            }
+            if std::env::var_os("DB_PRO_CAPTURE_QUERY_LIMIT").is_some() {
+                ctx.memory_mut(|memory| memory.open_popup(egui::Id::new("query_row_limit")));
             }
             self.opened_dialog = true;
         } else if std::env::var_os(TABLE_WORKSPACE_ENV).is_some() {
@@ -260,6 +290,9 @@ impl CaptureApp {
                 self.inner.open_table_workspace_for_capture_light();
             } else {
                 self.inner.open_table_workspace_for_capture();
+            }
+            if let Ok(state) = std::env::var("DB_PRO_CAPTURE_TABLE_RECORD") {
+                self.inner.prepare_table_record_for_capture(&state);
             }
             self.opened_dialog = true;
         } else if std::env::var_os(DIAGRAM_WORKSPACE_ENV).is_some() {

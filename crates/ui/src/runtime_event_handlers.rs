@@ -220,6 +220,7 @@ impl DbProApp {
             result,
             total_rows,
         ) {
+            self.table.editing.record_view_open = false;
             if transition.invalidate_grid_caches {
                 self.table.data.invalidate_grid_row_caches();
             }

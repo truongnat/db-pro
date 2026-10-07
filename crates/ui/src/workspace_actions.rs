@@ -274,6 +274,13 @@ impl DbProApp {
         self.connection.dialog.set_open(true);
     }
 
+    /// Capture the static Welcome introduction in either theme.
+    pub fn open_welcome_workspace_for_capture(&mut self, light: bool) {
+        self.activate_welcome_tab();
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+    }
+
     /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).
     pub fn open_query_workspace_for_capture(&mut self) {
         self.preferences.dark_mode = true;
@@ -453,8 +460,7 @@ impl DbProApp {
             duration_ms: 1,
         });
         // a selected cell + row so captures document the selection styling
-        self.table.data.selected_cell = Some((0, 0));
-        self.table.data.selected_rows.insert(0);
+        self.table.data.select_single_cell((0, 0));
         // Cell editing is gated on a connected, writable connection — the
         // fixture provides one so typed-editor captures can render.
         self.connection.catalog.replace(vec![crate::UiConnectionSummary {
@@ -510,6 +516,41 @@ impl DbProApp {
         self.open_table_workspace_for_capture();
         self.preferences.dark_mode = false;
         self.theme = DbProTheme::light();
+    }
+
+    /// Capture the loaded record or a table placeholder without a provider connection.
+    pub fn prepare_table_record_for_capture(&mut self, state: &str) {
+        self.table.data.select_single_row(0);
+        self.table.editing.record_view_open = true;
+        match state {
+            "changed" => {
+                if let Some(result) = self.table.data_query.result.take() {
+                    self.table.editing.data_editing_cell = Some((0, 1));
+                    self.table.editing.data_edit_value = "updated@example.com".to_owned();
+                    self.submit_data_cell_edit(&result, 0, 1);
+                    self.table.data_query.result = Some(result);
+                }
+                self.table.editing.record_view_open = false;
+            }
+            "loading" => {
+                self.table.data_query.result = None;
+                self.table.data_query.error = None;
+            }
+            "error" => {
+                self.table.data_query.result = None;
+                self.table.data_query.error = Some("The database connection was interrupted.".to_owned());
+            }
+            "empty" => {
+                if let Some(result) = &mut self.table.data_query.result {
+                    result.rows.clear();
+                    result.row_count = 0;
+                }
+                self.table.data_query.total_rows = Some(0);
+                self.table.data.clear_selection();
+                self.table.editing.record_view_open = false;
+            }
+            _ => {}
+        }
     }
 
     /// Capture helper: open the deterministic table fixture directly on Profile.
@@ -804,12 +845,39 @@ impl DbProApp {
         );
     }
 
-    /// Capture helper: open the Diagram / ER canvas.
+    /// Capture helper: open the Diagram / ER canvas on a deterministic schema
+    /// fixture so evidence shots render real nodes, edges, and the minimap.
     pub fn open_diagram_workspace_for_capture(&mut self) {
-        self.preferences.dark_mode = true;
-        self.theme = DbProTheme::dark();
+        let light = std::env::var_os("DB_PRO_CAPTURE_DIAGRAM_LIGHT").is_some();
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.workspace.activity = Activity::Diagram;
         self.workspace.active_tab = WorkspaceTab::Diagram;
+        self.connection.catalog.replace(vec![crate::UiConnectionSummary {
+            id: "capture-conn".to_owned(),
+            name: "Sample E-Commerce (SQLite)".to_owned(),
+            host: "/tmp/db_pro_sample.db".to_owned(),
+            port: 0,
+            database: "main".to_owned(),
+            username: String::new(),
+            driver: "SQLite".to_owned(),
+            ssl_mode: crate::UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }]);
+        self.connection.lifecycle.set_connected(true);
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some("capture-conn".to_owned()));
+        self.schema.explorer.schema = diagram_capture_schema();
+        // `DB_PRO_CAPTURE_DIAGRAM_ZOOM` re-centers the world at a fixed zoom so
+        // evidence shots can document a specific level of detail.
+        self.schema.diagram.capture_zoom_override = std::env::var("DB_PRO_CAPTURE_DIAGRAM_ZOOM")
+            .ok()
+            .and_then(|raw| raw.parse::<f32>().ok());
     }
 
     /// Capture helper: open the Settings panel.
@@ -941,5 +1009,168 @@ impl DbProApp {
             self.workspace.files.dismiss_external_change();
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
+    }
+}
+
+/// Deterministic schema fixture for `DB_PRO_CAPTURE_DIAGRAM` evidence runs —
+/// a small e-commerce schema with enough relationships to exercise edges,
+/// the minimap, and LOD switches without needing a live database.
+fn diagram_capture_schema() -> crate::UiSchemaSummary {
+    let col = |name: &str, data_type: &str, nullable: bool, pk: bool| crate::UiSchemaColumn {
+        name: name.to_owned(),
+        data_type: data_type.to_owned(),
+        nullable,
+        is_primary_key: pk,
+    };
+    let fk = |name: &str, from: &[&str], to_table: &str, to: &[&str]| crate::UiSchemaForeignKey {
+        name: name.to_owned(),
+        from_columns: from.iter().map(|c| c.to_string()).collect(),
+        to_schema: "main".to_owned(),
+        to_table: to_table.to_owned(),
+        to_columns: to.iter().map(|c| c.to_string()).collect(),
+    };
+    let table = |name: &str,
+                 columns: Vec<crate::UiSchemaColumn>,
+                 foreign_keys: Vec<crate::UiSchemaForeignKey>,
+                 rows: u64| crate::UiTableSummary {
+        schema: "main".to_owned(),
+        name: name.to_owned(),
+        row_count: Some(rows),
+        columns,
+        foreign_keys,
+    };
+
+    let details = vec![
+        table(
+            "customers",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("full_name", "TEXT", false, false),
+                col("email", "TEXT", false, false),
+                col("created_at", "DATETIME", false, false),
+            ],
+            vec![],
+            1420,
+        ),
+        table(
+            "addresses",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("customer_id", "INTEGER", false, false),
+                col("street", "TEXT", false, false),
+                col("city", "TEXT", false, false),
+                col("country_code", "TEXT", false, false),
+            ],
+            vec![fk("addresses_customer_fk", &["customer_id"], "customers", &["id"])],
+            2310,
+        ),
+        table(
+            "orders",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("customer_id", "INTEGER", false, false),
+                col("status", "TEXT", false, false),
+                col("ordered_at", "DATETIME", false, false),
+                col("total", "REAL", false, false),
+            ],
+            vec![fk("orders_customer_fk", &["customer_id"], "customers", &["id"])],
+            5844,
+        ),
+        table(
+            "order_items",
+            vec![
+                col("order_id", "INTEGER", false, true),
+                col("product_id", "INTEGER", false, true),
+                col("quantity", "INTEGER", false, false),
+                col("unit_price", "REAL", false, false),
+            ],
+            vec![
+                fk("order_items_order_fk", &["order_id"], "orders", &["id"]),
+                fk("order_items_product_fk", &["product_id"], "products", &["id"]),
+            ],
+            18_233,
+        ),
+        table(
+            "products",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("category_id", "INTEGER", false, false),
+                col("name", "TEXT", false, false),
+                col("price", "REAL", false, false),
+                col("stock", "INTEGER", false, false),
+            ],
+            vec![fk("products_category_fk", &["category_id"], "categories", &["id"])],
+            931,
+        ),
+        table(
+            "categories",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("name", "TEXT", false, false),
+                col("parent_id", "INTEGER", true, false),
+            ],
+            vec![fk("categories_parent_fk", &["parent_id"], "categories", &["id"])],
+            48,
+        ),
+        table(
+            "payments",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("order_id", "INTEGER", false, false),
+                col("method", "TEXT", false, false),
+                col("amount", "REAL", false, false),
+                col("paid_at", "DATETIME", true, false),
+            ],
+            vec![fk("payments_order_fk", &["order_id"], "orders", &["id"])],
+            5712,
+        ),
+        table(
+            "shipments",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("order_id", "INTEGER", false, false),
+                col("address_id", "INTEGER", false, false),
+                col("carrier", "TEXT", true, false),
+                col("shipped_at", "DATETIME", true, false),
+            ],
+            vec![
+                fk("shipments_order_fk", &["order_id"], "orders", &["id"]),
+                fk("shipments_address_fk", &["address_id"], "addresses", &["id"]),
+            ],
+            5401,
+        ),
+        table(
+            "reviews",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("product_id", "INTEGER", false, false),
+                col("customer_id", "INTEGER", false, false),
+                col("rating", "INTEGER", false, false),
+                col("comment", "TEXT", true, false),
+            ],
+            vec![
+                fk("reviews_product_fk", &["product_id"], "products", &["id"]),
+                fk("reviews_customer_fk", &["customer_id"], "customers", &["id"]),
+            ],
+            3904,
+        ),
+        table(
+            "inventory_logs",
+            vec![
+                col("id", "INTEGER", false, true),
+                col("product_id", "INTEGER", false, false),
+                col("delta", "INTEGER", false, false),
+                col("logged_at", "DATETIME", false, false),
+            ],
+            vec![fk("inventory_logs_product_fk", &["product_id"], "products", &["id"])],
+            22_870,
+        ),
+    ];
+
+    crate::UiSchemaSummary {
+        schemas: vec!["main".to_owned()],
+        tables: details.iter().map(|t| format!("{}.{}", t.schema, t.name)).collect(),
+        table_details: details,
+        ..Default::default()
     }
 }

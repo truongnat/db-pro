@@ -21,7 +21,13 @@ impl DbProApp {
             self.feedback.copy_status = "Selected cell is no longer available".to_owned();
             return;
         };
-        ui.output_mut(|output| output.copied_text = crate::cell_text(&cell));
+        let text = crate::cell_text(&cell);
+        if text.is_empty() {
+            // egui-winit ignores empty clipboard output; do not report a successful copy.
+            self.feedback.copy_status = "Empty value: nothing to copy".to_owned();
+            return;
+        }
+        ui.output_mut(|output| output.copied_text = text);
         self.feedback.copy_status = "Cell copied".to_owned();
     }
 

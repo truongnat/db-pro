@@ -129,21 +129,22 @@ fn draw_row_limit_picker(context: &mut QueryContextViewContext<'_>, ui: &mut egu
         (Some(1_000), "1,000 rows"),
         (None, "No limit"),
     ];
-    let current = context.execution.query_row_limit;
-    let selected = OPTIONS
+    let mut selected = OPTIONS
         .iter()
-        .find(|(value, _)| *value == current)
-        .map(|(_, label)| *label)
-        .unwrap_or("No limit");
-    egui::ComboBox::from_id_salt("query_row_limit")
-        .selected_text(RichText::new(selected).font(font_caption()).color(context.theme.text_secondary))
-        .show_ui(ui, |ui| {
-            for (value, label) in OPTIONS {
-                ui.selectable_value(&mut context.execution.query_row_limit, value, label);
-            }
-        })
-        .response
+        .position(|(value, _)| *value == context.execution.query_row_limit)
+        .unwrap_or(usize::MAX);
+    let previous = selected;
+    let labels: Vec<String> = OPTIONS.iter().map(|(_, label)| (*label).to_owned()).collect();
+    crate::components::Select::new("query_row_limit", &mut selected, &labels)
+        .theme(context.theme)
+        .width(108.0)
+        .size(crate::components::SelectSize::Sm)
+        .variant(crate::components::SelectVariant::Ghost)
+        .show(ui)
         .on_hover_text("Cap rows returned by the next run");
+    if selected != previous {
+        context.execution.query_row_limit = OPTIONS[selected].0;
+    }
 }
 
 fn draw_file_path_breadcrumb(theme: DbProTheme, ui: &mut egui::Ui, path: &str) {

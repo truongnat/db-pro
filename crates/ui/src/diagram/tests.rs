@@ -16,7 +16,7 @@
 
 use super::layout::{ErLayoutResult, ErLayoutWorker};
 use super::lod::ErLod;
-use super::model::{ErGraph, ER_CANVAS_MARGIN, ER_NODE_WIDTH};
+use super::model::{ErGraph, ER_CANVAS_MARGIN, ER_MIN_ZOOM, ER_NODE_WIDTH};
 use super::scene::prepare_render_scene;
 use super::spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE};
 use super::viewport::ErViewport;
@@ -775,7 +775,7 @@ fn zoom_changes_lod_not_graph() {
     let graph = ErGraph::build(&tables, 1, 5, 120.0);
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
-    let zoom_out = ErViewport::new(egui::Vec2::ZERO, 0.5, egui::Pos2::ZERO);
+    let zoom_out = ErViewport::new(egui::Vec2::ZERO, 0.3, egui::Pos2::ZERO);
     let zoom_in = ErViewport::new(egui::Vec2::ZERO, 1.5, egui::Pos2::ZERO);
 
     let s_out = prepare_render_scene(&graph, &spatial, &zoom_out, viewport_1280(), None);
@@ -803,7 +803,7 @@ fn lod_compact_hides_columns_and_labels() {
 fn lod_standard_bounded_columns() {
     let lod = ErLod::Standard;
     assert!(lod.shows_columns());
-    assert!(lod.shows_edge_labels());
+    assert!(!lod.shows_edge_labels());
     assert_eq!(lod.max_columns(), 6);
 }
 
@@ -817,8 +817,8 @@ fn lod_detailed_full_columns() {
 #[test]
 fn lod_monotonic_transitions() {
     assert_eq!(ErLod::from_zoom(0.0), ErLod::Compact);
-    assert_eq!(ErLod::from_zoom(0.74), ErLod::Compact);
-    assert_eq!(ErLod::from_zoom(0.75), ErLod::Standard);
+    assert_eq!(ErLod::from_zoom(0.44), ErLod::Compact);
+    assert_eq!(ErLod::from_zoom(0.45), ErLod::Standard);
     assert_eq!(ErLod::from_zoom(1.14), ErLod::Standard);
     assert_eq!(ErLod::from_zoom(1.15), ErLod::Detailed);
     assert_eq!(ErLod::from_zoom(10.0), ErLod::Detailed);
@@ -1206,7 +1206,7 @@ fn viewport_visible_rect_expands_by_margin() {
 #[test]
 fn viewport_zoom_clamped() {
     let vp_lo = ErViewport::new(egui::Vec2::ZERO, 0.1, egui::Pos2::ZERO);
-    assert!(vp_lo.zoom >= 0.5);
+    assert!(vp_lo.zoom >= ER_MIN_ZOOM);
 
     let vp_hi = ErViewport::new(egui::Vec2::ZERO, 10.0, egui::Pos2::ZERO);
     assert!(vp_hi.zoom <= 2.0);
@@ -1610,7 +1610,7 @@ fn zoom_does_not_trigger_layout_request() {
     let graph = ErGraph::build(&tables, 1, 5, 120.0);
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
-    let vp_out = ErViewport::new(egui::Vec2::ZERO, 0.5, egui::Pos2::ZERO);
+    let vp_out = ErViewport::new(egui::Vec2::ZERO, 0.3, egui::Pos2::ZERO);
     let vp_in = ErViewport::new(egui::Vec2::ZERO, 2.0, egui::Pos2::ZERO);
 
     let s_out = prepare_render_scene(&graph, &spatial, &vp_out, viewport_1280(), None);

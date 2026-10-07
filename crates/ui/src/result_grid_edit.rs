@@ -141,11 +141,8 @@ impl DbProApp {
             .column_write_policy(&column_name)
             .and_then(|policy| policy.write_block());
         let writable = write_block.is_none() && self.table.editing.data_editing_cell.is_some();
-        let cell = result
-            .rows
-            .get(row_index)
-            .and_then(|row| row.get(column_index))
-            .cloned()
+        let cell = self
+            .copy_cell_value(result, row_index, column_index)
             .unwrap_or(UiCell::Null);
         let kind = cell_inspector::classify_cell(&cell, &data_type);
         let action = {
@@ -195,7 +192,7 @@ impl DbProApp {
     }
 
     pub(super) fn open_cell_inspector(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
-        let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) else {
+        let Some(cell) = self.copy_cell_value(result, row_index, column_index) else {
             return;
         };
         self.table.data.selected_cell = Some((row_index, column_index));
@@ -212,7 +209,7 @@ impl DbProApp {
         }
         self.table.editing.expanded_data_editor = Some((row_index, column_index));
         self.table.editing.cell_inspector_mode = match cell_inspector::classify_cell(
-            cell,
+            &cell,
             result
                 .columns
                 .get(column_index)
@@ -224,7 +221,7 @@ impl DbProApp {
             _ => cell_inspector::CellInspectorMode::Raw,
         };
         self.table.editing.data_edit_error = None;
-        self.table.editing.data_edit_value = cell_inspector::cell_raw_text(cell);
+        self.table.editing.data_edit_value = cell_inspector::cell_raw_text(&cell);
         if let Some(reason) = write_block {
             self.feedback.runtime_message = reason.reason().to_owned();
         }
@@ -284,6 +281,51 @@ impl DbProApp {
             }
             Some(result_grid_record_surface_view::RecordInspectorAction::Inspect(column_index)) => {
                 self.open_cell_inspector(result, row_index, column_index);
+            }
+            Some(result_grid_record_surface_view::RecordInspectorAction::CopyLabel(column_index)) => {
+                ui.output_mut(|output| output.copied_text = result.columns[column_index].name.clone());
+            }
+            Some(result_grid_record_surface_view::RecordInspectorAction::CopyValue(column_index)) => {
+                self.copy_cell_at(ui, result, row_index, column_index);
+            }
+            None => {}
+        }
+    }
+
+    pub(super) fn draw_table_record(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        row_index: usize,
+    ) {
+        let row: Vec<_> = result.rows[row_index]
+            .iter()
+            .enumerate()
+            .map(|(column_index, cell)| {
+                self.staged_cell_value(result, row_index, column_index)
+                    .unwrap_or_else(|| cell.clone())
+            })
+            .collect();
+        let context = result_grid_record_surface_view::RecordInspectorContext {
+            theme: self.theme,
+            row_index,
+            columns: &result.columns,
+            row: &row,
+        };
+        match result_grid_record_surface_view::draw_record(&context, ui) {
+            Some(result_grid_record_surface_view::RecordInspectorAction::Close) => {
+                self.table.editing.record_view_open = false
+            }
+            Some(result_grid_record_surface_view::RecordInspectorAction::CopyLabel(column_index)) => {
+                ui.output_mut(|output| output.copied_text = result.columns[column_index].name.clone());
+                self.feedback.copy_status = "Field name copied".to_owned();
+            }
+            Some(result_grid_record_surface_view::RecordInspectorAction::CopyValue(column_index)) => {
+                self.copy_cell_at(ui, result, row_index, column_index);
+            }
+            Some(result_grid_record_surface_view::RecordInspectorAction::Inspect(column_index)) => {
+                self.open_cell_inspector(result, row_index, column_index);
+                self.table.editing.data_editing_cell = None;
             }
             None => {}
         }

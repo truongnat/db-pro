@@ -1,3 +1,5 @@
+use super::model::{ER_MAX_ZOOM, ER_MIN_ZOOM};
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ErViewport {
     pub pan: egui::Vec2,
@@ -19,7 +21,7 @@ impl ErViewport {
     pub fn new(pan: egui::Vec2, zoom: f32, screen_origin: egui::Pos2) -> Self {
         Self {
             pan,
-            zoom: zoom.clamp(0.5, 2.0),
+            zoom: zoom.clamp(ER_MIN_ZOOM, ER_MAX_ZOOM),
             screen_origin,
         }
     }

@@ -67,6 +67,9 @@ impl DbProApp {
         if let Ok(recent) = serde_json::to_string(&self.schema.explorer.recent_tables) {
             storage.set_string("dbpro.native.recent-tables-v1", recent);
         }
+        if let Ok(layouts) = serde_json::to_string(&self.schema.diagram.saved_layouts) {
+            storage.set_string(crate::diagram::ER_LAYOUTS_STORAGE_KEY, layouts);
+        }
     }
 
     fn persist_workspace_state(&mut self, storage: &mut dyn eframe::Storage) {
@@ -146,7 +149,11 @@ impl DbProApp {
     fn prepare_frame(&mut self, ctx: &egui::Context) {
         if self.initial_frames_count < 3 {
             self.initial_frames_count += 1;
-            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            // Capture runs pin an exact evidence viewport; forcing maximize
+            // here fights that pin.
+            if std::env::var_os("DB_PRO_WINDOW_SIZE").is_none() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            }
         }
         self.request_connections_once();
         let runtime_events_pending = self.apply_runtime_events();

@@ -12,6 +12,7 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         force_refresh: bool,
+        invalidate_cache: bool,
     },
     LoadTableInfo {
         request_id: RequestId,

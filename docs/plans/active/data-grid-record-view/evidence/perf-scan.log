@@ -1,0 +1,32 @@
+╔══════════════════════════════════════╗
+║      DB Pro Performance Audit        ║
+╚══════════════════════════════════════╝
+  Source revision: 3dd988e2ff06ac71942c7ec331acf66389d3c5cb+dirty(14)
+
+═══ Native UI Binary ═══
+
+  Building db-pro-native (release)...
+  ✓ cargo build -p db-pro-native: release build succeeded
+  ✓ Binary size: 32.2MB (target < 50MB) sha256 0911a4d54b9b7182…
+
+═══ Rust Static Analysis ═══
+
+  ✓ cargo check: Workspace compiles
+  ✓ cargo clippy: No warnings
+  • Native UI benchmarks: not executed — run section 'native'
+  • Rust backend benchmarks: not executed — run section 'rust'
+  • ER diagram runtime: not executed — needs a window server; run section 'er'
+  • DB query performance: not executed — needs a live connection; run section 'db'
+
+═══ Audit Summary ═══
+
+  Source revision: 3dd988e2ff06ac71942c7ec331acf66389d3c5cb+dirty(14)
+  Measured artifact: target/release/db-pro-native sha256 0911a4d54b9b7182b5c3ebe54dee8a7ea047dd8338e03c224c4258ddc1aa36a6 (32.2MB)
+
+  Passed: 4
+  Warnings: 0
+  Failed: 0
+  Not executed: 4
+
+  Status: PASS (partial) — 4 executed check(s) passed; not run: Native UI benchmarks, Rust backend benchmarks, ER diagram runtime, DB query performance [source 3dd988e2ff06ac71942c7ec331acf66389d3c5cb+dirty(14): working tree not committed]
+

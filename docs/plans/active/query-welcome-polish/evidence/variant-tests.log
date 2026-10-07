@@ -1,0 +1,21 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling db-pro-ui v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/ui)
+    Finished `release` profile [optimized] target(s) in 29.67s
+     Running unittests src/lib.rs (target/release/deps/db_pro_ui-351a14da559e2f17)
+
+running 12 tests
+test components::select::handler::tests::click_actions_require_valid_ui_signals ... ok
+test components::select::handler::tests::keyboard_input_maps_to_selection_and_popup_actions ... ok
+test components::select::handler::tests::menu_and_trigger_geometry_helpers_compute_correct_values ... ok
+test components::select::handler::tests::option_geometry_helpers_compute_correct_positions_and_bounds ... ok
+test components::select::tests::dropdown_flips_above_when_there_is_no_room_below ... ok
+test components::selection::tests::switch_toggle_requires_enabled_click_or_keyboard ... ok
+test components::selection::tests::row_height_accounts_for_description ... ok
+test components::select::handler::tests::selected_label_and_accessibility_label_have_fallbacks ... ok
+test components::select::tests::default_select_retains_form_height ... ok
+test components::select::tests::compact_select_matches_toolbar_button_height_and_alignment ... ok
+test components::selection::ui::cursor_tests::enabled_selection_controls_use_pointing_hand ... ok
+test components::selection::ui::cursor_tests::disabled_selection_controls_do_not_use_pointing_hand ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 987 filtered out; finished in 0.04s
+

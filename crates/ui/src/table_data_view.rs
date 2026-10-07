@@ -77,25 +77,29 @@ impl DbProApp {
             inline_query_result: self.table.data_query.inline_query_result,
         };
 
-        if result.row_count == 0 && !self.table.data_query.inline_query_result {
-            let context = table_data_placeholder_view::TableDataPlaceholderContext {
-                theme: self.theme,
-                error: None,
-                empty: true,
-            };
-            self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging);
-            table_data_placeholder_view::draw_placeholder(&context, ui, table_name);
-            self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
-        } else {
-            self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging);
-            table_data_surface_view::draw_grid(
-                &table_data_surface_view::TableDataSurfaceContext { theme: self.theme },
-                ui,
-                &result,
-                |ui, result| self.draw_result_grid(ui, result),
-            );
-            self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
+        self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging);
+        let context = table_data_surface_view::TableDataSurfaceContext {
+            theme: self.theme,
+            record_view_open: self.table.editing.record_view_open,
+            record_available: self.table.data.selected_rows.len() == 1
+                && self.table.data.selected_row.is_some_and(|row| row < result.rows.len()),
+        };
+        let (_, presentation) = table_data_surface_view::draw_surface(&context, ui, |ui| {
+            if result.row_count == 0 && !self.table.data_query.inline_query_result {
+                let context = table_data_placeholder_view::TableDataPlaceholderContext {
+                    theme: self.theme,
+                    error: None,
+                    empty: true,
+                };
+                table_data_placeholder_view::draw_placeholder(&context, ui, table_name);
+            } else {
+                self.draw_result_grid(ui, &result);
+            }
+        });
+        if let Some(presentation) = presentation {
+            self.set_table_data_presentation(presentation, &result);
         }
+        self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
         self.draw_pending_changes_dialog(ui);
         self.draw_conflict_dialog(ui, &result);
         if self.table.data_query.result.is_none() {
@@ -104,17 +108,42 @@ impl DbProApp {
     }
 
     fn draw_table_data_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
+        self.table.editing.record_view_open = false;
+        let surface = table_data_surface_view::TableDataSurfaceContext {
+            theme: self.theme,
+            record_view_open: false,
+            record_available: false,
+        };
         let context = table_data_placeholder_view::TableDataPlaceholderContext {
             theme: self.theme,
             error: self.table.data_query.error.as_deref(),
             empty: false,
         };
+        let (action, _) = table_data_surface_view::draw_surface(&surface, ui, |ui| {
+            table_data_placeholder_view::draw_placeholder(&context, ui, table_name)
+        });
         if matches!(
-            table_data_placeholder_view::draw_placeholder(&context, ui, table_name),
+            action,
             Some(table_data_placeholder_view::TableDataPlaceholderAction::Retry)
         ) {
             self.table.data_query.error = None;
             self.request_table_data();
+        }
+    }
+
+    pub(super) fn set_table_data_presentation(
+        &mut self,
+        presentation: table_data_surface_view::TableDataPresentation,
+        result: &UiQueryResult,
+    ) {
+        if presentation == table_data_surface_view::TableDataPresentation::Grid {
+            self.table.editing.record_view_open = false;
+        } else if self.table.data.selected_rows.len() == 1
+            && self.table.data.selected_row.is_some_and(|row| row < result.rows.len())
+            && self.commit_active_data_edit(result)
+        {
+            self.feedback.copy_status.clear();
+            self.table.editing.record_view_open = true;
         }
     }
 

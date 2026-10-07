@@ -476,10 +476,12 @@ pub(crate) fn translate_schema_command(command: UiCommand) -> Option<RuntimeComm
             request_id,
             connection_id,
             force_refresh,
+            invalidate_cache,
         } => Some(RuntimeCommand::IntrospectSchema {
             request_id: runtime_request_id(request_id),
             connection_id,
             force_refresh,
+            invalidate_cache,
         }),
         UiCommand::LoadTableInfo {
             request_id,

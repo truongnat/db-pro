@@ -1,0 +1,14 @@
+   Compiling db-pro-ui v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/ui)
+    Finished `release` profile [optimized] target(s) in 44.24s
+     Running unittests src/lib.rs (target/release/deps/db_pro_ui-351a14da559e2f17)
+
+running 6 tests
+test app::result_grid_view::record_tests::record_mode_resets_on_new_table_result ... ok
+test app::result_grid_view::record_tests::record_mode_rejects_multi_selection_and_invalid_active_edit ... ok
+test app::result_grid_view::record_tests::record_surface_renders_all_fields_inside_full_height_content_area ... ok
+test app::result_grid_view::record_tests::record_uses_selected_row_and_exits_when_filtered_out ... ok
+test app::result_grid_view::record_tests::record_click_copies_null_and_reports_empty_value ... ok
+test app::result_grid_view::record_tests::record_click_copies_label_and_full_staged_value ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 994 filtered out; finished in 0.05s
+

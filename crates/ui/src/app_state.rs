@@ -27,12 +27,14 @@ impl DbProApp {
                         table: &mut app.table,
                         connection: &mut app.connection,
                         schema_explorer: &mut app.schema.explorer,
+                        diagram: &mut app.schema.diagram,
                     });
                 storage_context.restore_preferences(storage);
                 storage_context.restore_connection_profiles(storage);
                 storage_context.restore_shell_layout(storage);
                 storage_context.restore_table_layout(storage);
                 storage_context.restore_query_state(storage);
+                storage_context.restore_diagram_layouts(storage);
             }
             // Shell/layout restore after documents + pins so tab refs resolve (#222).
             app.restore_last_workspace_session_from_storage(storage);
@@ -45,6 +47,7 @@ impl DbProApp {
                 table: &mut app.table,
                 connection: &mut app.connection,
                 schema_explorer: &mut app.schema.explorer,
+                diagram: &mut app.schema.diagram,
             })
             .restore_workspace_files(storage);
         }
@@ -58,7 +61,6 @@ impl Default for DbProApp {
             theme: DbProTheme::default(),
             preferences: PreferencesState::default(),
             workspace: WorkspaceFeatureState::default(),
-            welcome: WelcomeState::default(),
             query: QueryFeatureState {
                 session: QuerySessionState {
                     documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],

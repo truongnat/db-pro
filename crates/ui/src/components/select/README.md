@@ -15,6 +15,19 @@ Select::new("connection.pool", &mut selected_index, &options)
 
 `selected_index` is the index into `options`; when it is out of range, the trigger displays `Select an option...`. `request_more` is set when the user activates “Load more…”. Use a stable, unique `id_salt` for each selector instance.
 
+## Toolbar use
+
+```rust
+Select::new("query_row_limit", &mut selected_index, &options)
+    .theme(theme)
+    .width(108.0)
+    .size(SelectSize::Sm)
+    .variant(SelectVariant::Ghost)
+    .show(ui);
+```
+
+Default size and Outline remain the default for existing form callers. Small triggers share compact Button tokens; popup selection and navigation are unchanged.
+
 ## Layers
 
 - `mod.rs`: public entry and API exports.

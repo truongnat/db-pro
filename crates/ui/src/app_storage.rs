@@ -17,6 +17,7 @@ pub(crate) struct NativeStorageDependencies<'a> {
     pub(super) table: &'a mut TableEditorState,
     pub(super) connection: &'a mut ConnectionFeatureState,
     pub(super) schema_explorer: &'a mut SchemaExplorerState,
+    pub(super) diagram: &'a mut DiagramState,
 }
 
 pub(crate) struct NativeStorageContext<'a> {
@@ -28,6 +29,7 @@ pub(crate) struct NativeStorageContext<'a> {
     table: &'a mut TableEditorState,
     connection: &'a mut ConnectionFeatureState,
     schema_explorer: &'a mut SchemaExplorerState,
+    diagram: &'a mut DiagramState,
 }
 
 impl<'a> NativeStorageContext<'a> {
@@ -41,6 +43,20 @@ impl<'a> NativeStorageContext<'a> {
             table: dependencies.table,
             connection: dependencies.connection,
             schema_explorer: dependencies.schema_explorer,
+            diagram: dependencies.diagram,
+        }
+    }
+
+    /// Per-connection ER layouts (manual node positions + last viewport),
+    /// keyed `dbpro.native.er-layouts-v1`.
+    pub(crate) fn restore_diagram_layouts(&mut self, storage: &dyn eframe::Storage) {
+        let Some(raw) = storage.get_string(crate::diagram::ER_LAYOUTS_STORAGE_KEY) else {
+            return;
+        };
+        if let Ok(layouts) =
+            serde_json::from_str::<std::collections::HashMap<String, crate::diagram::ErLayoutSnapshot>>(&raw)
+        {
+            self.diagram.saved_layouts = layouts;
         }
     }
 

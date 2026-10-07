@@ -16,6 +16,8 @@ use db_pro_ui::{
 use eframe::egui;
 use tokio::runtime::Builder;
 
+#[cfg(target_os = "macos")]
+mod app_menu;
 #[cfg(feature = "capture")]
 mod capture;
 mod translate;
@@ -351,12 +353,20 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
         .with_decorations(!cfg!(target_os = "linux"))
         .with_min_inner_size([1024.0, 640.0]);
     viewport = match pinned_size {
-        Some(size) => viewport.with_inner_size(size),
+        // A `visible:false` window never receives drawRect on macOS, so the
+        // first frame may never paint and the capture stalls before the first
+        // update. Normal launches get their first redraw from the maximize
+        // resize storm instead.
+        Some(size) => viewport.with_inner_size(size).with_visible(true),
         None => viewport.with_maximized(true),
     };
 
     let options = eframe::NativeOptions {
         viewport,
+        // Capture runs pin an exact evidence size; restoring the user's
+        // persisted (usually maximized) window state fights that pin, and on
+        // exit a capture run would overwrite the user's real window frame.
+        persist_window: std::env::var_os("DB_PRO_CAPTURE_TO").is_none(),
         ..Default::default()
     };
 
@@ -374,22 +384,63 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
             DbProTheme::install_fonts(&creation_context.egui_ctx);
             creation_context.egui_ctx.enable_accesskit();
             let app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
-            Ok(wrap_for_capture(app))
+            #[cfg(target_os = "macos")]
+            {
+                let app_menu = app_menu::AppMenu::install()?;
+                app_menu.connect_to_ui(&creation_context.egui_ctx);
+                Ok(wrap_for_capture(app, app_menu))
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Ok(wrap_for_capture(app))
+            }
         }),
     )?;
     Ok(())
 }
 
 /// Wraps the app in the evidence capture driver when one was requested.
-#[cfg(feature = "capture")]
+#[cfg(all(feature = "capture", target_os = "macos"))]
+fn wrap_for_capture(app: DbProApp, menu: app_menu::AppMenu) -> Box<dyn eframe::App> {
+    capture::CaptureApp::wrap(app, menu)
+}
+
+#[cfg(all(feature = "capture", not(target_os = "macos")))]
 fn wrap_for_capture(app: DbProApp) -> Box<dyn eframe::App> {
     capture::CaptureApp::wrap(app)
 }
 
+#[cfg(all(not(feature = "capture"), target_os = "macos"))]
+fn wrap_for_capture(app: DbProApp, menu: app_menu::AppMenu) -> Box<dyn eframe::App> {
+    Box::new(NativeMenuApp { inner: app, menu })
+}
+
 /// Without the `capture` feature the app runs unwrapped.
-#[cfg(not(feature = "capture"))]
+#[cfg(all(not(feature = "capture"), not(target_os = "macos")))]
 fn wrap_for_capture(app: DbProApp) -> Box<dyn eframe::App> {
     Box::new(app)
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) struct NativeMenuApp {
+    inner: DbProApp,
+    menu: app_menu::AppMenu,
+}
+
+#[cfg(target_os = "macos")]
+impl eframe::App for NativeMenuApp {
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        self.inner.clear_color(visuals)
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.inner.save(storage);
+    }
+
+    fn update(&mut self, context: &egui::Context, frame: &mut eframe::Frame) {
+        self.menu.apply_pending_actions(&mut self.inner);
+        self.inner.update(context, frame);
+    }
 }
 
 #[cfg(test)]

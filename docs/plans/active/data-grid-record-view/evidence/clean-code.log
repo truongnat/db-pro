@@ -1,0 +1,41 @@
+Clean Code Scan — DB Pro
+  root : /Users/truongdq/tx/GitHub/db-pro
+  scope: rust (chỉ file thay đổi so với main)
+  refs : .skills/clean-code/references/
+
+═══ Rust — Code Health ═══
+
+  Quét 10 file production (bỏ qua tests/benches)
+
+  ✓ println!/dbg!/eprintln! ngoài main.rs: không có
+  ✓ unwrap()/expect() ngoài test: không có
+  ✓ let _ = <fallible> không comment lý do: không có
+  ✓ .ok(); bỏ qua Result không comment lý do: không có
+  ✓ unwrap_or_default() trên Result (heuristic): không có
+  ✓ todo!()/unimplemented!(): không có
+  ✓ #[allow(...)] không có comment lý do ngay trên: không có
+  ✓ unsafe không có // SAFETY:: không có
+  ✓ cast 'as' giữa kiểu số có thể mất dữ liệu: không có
+  ✓ TODO/FIXME/HACK/XXX không có (#issue|owner): không có
+  ✓ code bị comment-out (heuristic): không có
+  ✓ crates/core import driver DB (sqlx/rusqlite): không có
+  ⚠ fn > 3 tham số (không tính self, heuristic một dòng): 1 chỗ — gom thành struct options / builder (functions.md §3)
+      crates/ui/src/result_grid_record_surface_view.rs:105:fn copyable_cell(ui: &mut egui::Ui, text: egui::RichText, width: f32, tooltip: &str) -> bool {
+  ⚠ fn dài (> 50 dòng, heuristic): 5 vượt ngưỡng; ratchet giữ nợ kích thước cũ ở mức cảnh báo
+      crates/native-app/src/capture.rs:210  (87 dòng)  fn open_requested_surface(&mut self) {
+      crates/ui/src/table_data_view.rs:44  (65 dòng)  pub(crate) fn draw_table_data(&mut self, ui: &mut egui::Ui, table_name…
+      crates/ui/src/workspace_actions.rs:308  (172 dòng)  pub fn open_table_workspace_for_capture(&mut self) {
+      crates/ui/src/workspace_actions.rs:671  (70 dòng)  pub fn open_history_activity_for_capture(&mut self) {
+      crates/ui/src/workspace_actions.rs:755  (76 dòng)  pub fn open_schema_compare_for_capture(&mut self) {
+  ⚠ file dài (> 800 dòng): 1 vượt ngưỡng cảnh báo
+      crates/ui/src/workspace_actions.rs  (970 dòng)
+  ✓ file có > 15 .clone() (heuristic): không có
+
+═══ Tổng kết ═══
+
+  ✓ pass: 13   ⚠ warn: 3   ✗ fail: 0
+
+  ✗ = sửa trước khi mở PR · ⚠ = giải thích trong PR nếu giữ nguyên
+  Heuristic grep/awk có thể báo nhầm — dùng như bộ lọc, không phải phán quyết.
+  Checklist review thủ công: .skills/clean-code/references/review-checklist.md
+

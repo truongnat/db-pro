@@ -1,0 +1,18 @@
+   Compiling db-pro-ui v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/ui)
+    Finished `release` profile [optimized] target(s) in 31.69s
+     Running unittests src/lib.rs (target/release/deps/db_pro_ui-351a14da559e2f17)
+
+running 10 tests
+test app::query_row_limit::tests::multi_statement_scripts_pass_through ... ok
+test app::query_row_limit::tests::no_limit_and_zero_pass_through ... ok
+test app::query_row_limit::tests::locking_and_into_tails_pass_through ... ok
+test app::query_row_limit::tests::limit_inside_a_string_does_not_block_the_cap ... ok
+test app::query_row_limit::tests::union_still_caps_on_limit_dialects ... ok
+test app::query_row_limit::tests::read_statement_gets_limit ... ok
+test app::query_row_limit::tests::sqlserver_gets_top_after_select ... ok
+test app::query_row_limit::tests::writes_and_ddl_pass_through ... ok
+test app::query_row_limit::tests::with_cte_caps_the_outer_read ... ok
+test app::query_row_limit::tests::explicit_cap_wins ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 987 filtered out; finished in 0.00s
+

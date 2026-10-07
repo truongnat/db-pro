@@ -31,7 +31,7 @@ pub(super) fn draw_diagram_sidebar(ui: &mut egui::Ui, theme: DbProTheme, schema:
         section_label(ui, "NAVIGATION", theme);
         ui.add_space(8.0);
         ui.label(
-            RichText::new("Drag the canvas to pan. Use the floating controls in the map to zoom or fit the schema.")
+            RichText::new("Drag to pan, scroll to zoom. Click a table to pin its relationships; double-click to open it.")
                 .small()
                 .color(theme.text_secondary),
         );

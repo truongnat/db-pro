@@ -1,5 +1,5 @@
 use super::diagram_view::{
-    diagram_candidates, diagram_canvas_size, diagram_foreign_key_label, diagram_search_mode,
+    diagram_candidates, diagram_foreign_key_label, diagram_search_mode,
     diagram_show_all_after_search_edit,
 };
 use super::*;
@@ -2043,15 +2043,78 @@ fn diagram_search_mode_can_leave_explicit_show_all() {
 }
 
 #[test]
-fn diagram_canvas_fills_the_viewport_before_overflowing() {
-    assert_eq!(
-        diagram_canvas_size(egui::vec2(940.0, 360.0), egui::vec2(1800.0, 900.0)),
-        egui::vec2(1800.0, 900.0)
+fn diagram_move_node_updates_rect_and_incident_edge_bbox() {
+    let mut graph = ErGraph::build(
+        &[
+            UiTableSummary {
+                schema: "main".to_owned(),
+                name: "a".to_owned(),
+                row_count: None,
+                columns: vec![],
+                foreign_keys: vec![],
+            },
+            UiTableSummary {
+                schema: "main".to_owned(),
+                name: "b".to_owned(),
+                row_count: None,
+                columns: vec![],
+                foreign_keys: vec![UiSchemaForeignKey {
+                    name: "fk_b_a".to_owned(),
+                    from_columns: vec!["a_id".to_owned()],
+                    to_schema: "main".to_owned(),
+                    to_table: "a".to_owned(),
+                    to_columns: vec!["id".to_owned()],
+                }],
+            },
+        ],
+        1,
+        2,
+        120.0,
     );
+    let old_bbox = graph.edges[0].world_bbox;
+
+    graph.move_node(1, egui::pos2(4000.0, 2000.0));
+
+    assert_eq!(graph.nodes[1].world_rect.min, egui::pos2(4000.0, 2000.0));
+    assert_ne!(graph.edges[0].world_bbox, old_bbox, "incident edge bbox must follow the node");
+    assert!(graph.world_bounds.contains(graph.nodes[1].world_rect.min));
+}
+
+#[test]
+fn diagram_position_overrides_apply_by_table_key() {
+    let tables = vec![
+        UiTableSummary {
+            schema: "main".to_owned(),
+            name: "orders".to_owned(),
+            row_count: None,
+            columns: vec![],
+            foreign_keys: vec![],
+        },
+        UiTableSummary {
+            schema: "main".to_owned(),
+            name: "customers".to_owned(),
+            row_count: None,
+            columns: vec![],
+            foreign_keys: vec![],
+        },
+    ];
+    let mut graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let untouched_min = graph.nodes[1].world_rect.min;
+
+    let mut positions = std::collections::HashMap::new();
+    positions.insert("main.orders".to_owned(), [9000.0_f32, -500.0_f32]);
+    positions.insert("main.dropped_table".to_owned(), [0.0_f32, 0.0_f32]);
+
+    assert!(graph.apply_position_overrides(&positions));
+    assert_eq!(graph.nodes[0].world_rect.min, egui::pos2(9000.0, -500.0));
     assert_eq!(
-        diagram_canvas_size(egui::vec2(2200.0, 1200.0), egui::vec2(1800.0, 900.0)),
-        egui::vec2(2200.0, 1200.0)
+        graph.nodes[1].world_rect.min, untouched_min,
+        "unmatched node keeps grid position"
     );
+    assert!(graph.world_bounds.contains(egui::pos2(9000.0, -500.0)));
+
+    let mut empty = ErGraph::build(&tables, 1, 2, 120.0);
+    assert!(!empty.apply_position_overrides(&std::collections::HashMap::new()));
 }
 
 #[test]
@@ -2104,7 +2167,7 @@ fn diagram_viewport_coordinate_transformations_roundtrip() {
 
 #[test]
 fn diagram_lod_transitions_and_rules() {
-    let compact = ErLod::from_zoom(0.6);
+    let compact = ErLod::from_zoom(0.3);
     assert_eq!(compact, ErLod::Compact);
     assert!(!compact.shows_columns());
     assert!(!compact.shows_edge_labels());
@@ -2113,7 +2176,7 @@ fn diagram_lod_transitions_and_rules() {
     let standard = ErLod::from_zoom(1.0);
     assert_eq!(standard, ErLod::Standard);
     assert!(standard.shows_columns());
-    assert!(standard.shows_edge_labels());
+    assert!(!standard.shows_edge_labels());
     assert_eq!(standard.max_columns(), 6);
 
     let detailed = ErLod::from_zoom(1.4);
@@ -2866,6 +2929,41 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     assert_eq!(connection_id, "active");
     assert!(force_refresh);
     assert_eq!(app.feedback.runtime_message, "Refreshing schema…");
+}
+
+#[test]
+fn native_menu_refresh_cache_dispatches_cache_invalidation_for_active_connection() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
+
+    app.refresh_active_schema_from_menu(true);
+
+    let UiCommand::IntrospectSchema {
+        connection_id,
+        force_refresh,
+        invalidate_cache,
+        ..
+    } = command_rx.try_recv().expect("cache refresh command expected")
+    else {
+        panic!("expected IntrospectSchema command");
+    };
+    assert_eq!(connection_id, "active");
+    assert!(force_refresh);
+    assert!(invalidate_cache);
+    assert_eq!(app.feedback.runtime_message, "Refreshing schema cache…");
+}
+
+#[test]
+fn native_menu_refresh_without_active_connection_reports_feedback_without_dispatch() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+
+    app.refresh_active_schema_from_menu(true);
+
+    assert!(command_rx.try_recv().is_err());
+    assert_eq!(app.feedback.runtime_message, "Connect a source database first");
 }
 
 #[test]

@@ -29,7 +29,6 @@ pub struct DbProApp {
     theme: DbProTheme,
     preferences: PreferencesState,
     workspace: WorkspaceFeatureState,
-    welcome: WelcomeState,
     query: QueryFeatureState,
     palette: PaletteState,
     agent: AgentState,
@@ -378,11 +377,21 @@ impl DbProApp {
     }
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {
+        self.request_schema_introspection_with_cache(connection_id, force_refresh, false);
+    }
+
+    fn request_schema_introspection_with_cache(
+        &mut self,
+        connection_id: String,
+        force_refresh: bool,
+        invalidate_cache: bool,
+    ) {
         let request_id = self.task_bridge.next_request_id();
         if !self.dispatch_command(schema_actions::introspect_schema_command(
             request_id,
             connection_id,
             force_refresh,
+            invalidate_cache,
         )) {
             self.schema.explorer.schema_request = None;
             self.schema.explorer.schema_error = Some("Runtime worker unavailable".to_owned());
@@ -390,11 +399,35 @@ impl DbProApp {
         }
         self.schema.explorer.schema_request = Some(request_id);
         self.schema.explorer.schema_error = None;
-        self.feedback.runtime_message = if force_refresh {
+        self.feedback.runtime_message = if invalidate_cache {
+            "Refreshing schema cache…"
+        } else if force_refresh {
             "Refreshing schema…"
         } else {
             "Loading schema…"
         }
         .to_owned();
+    }
+
+    /// Refreshes schema for the currently active connection from the View menu.
+    pub fn refresh_active_schema_from_menu(&mut self, invalidate_cache: bool) {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            self.feedback.runtime_message = "Connect a source database first".to_owned();
+            return;
+        };
+
+        self.request_schema_introspection_with_cache(connection_id, true, invalidate_cache);
+    }
+
+    /// Opens the standard connection editor from the native File menu.
+    pub fn open_new_connection_from_menu(&mut self) {
+        self.connection.open_new();
+    }
+
+    /// Selects the Query workspace from the native File menu.
+    pub fn open_query_from_menu(&mut self) {
+        self.workspace.activity = Activity::Queries;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.workspace.sidebar_open = true;
     }
 }

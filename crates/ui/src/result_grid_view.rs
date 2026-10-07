@@ -5,6 +5,10 @@ use crate::GridProjectionKey;
 #[path = "result_grid_body_view.rs"]
 mod result_grid_body_view;
 
+#[cfg(test)]
+#[path = "result_grid_record_tests.rs"]
+mod record_tests;
+
 /// Per-cell render context for the result grid.
 pub(crate) struct GridCell<'a> {
     pub(crate) visible_indexes: &'a [usize],
@@ -62,6 +66,17 @@ impl DbProApp {
         }
         let editable = is_table_data && self.can_edit_table_rows();
         let (projection_key, indexes, order, selection_lookup) = self.prepare_grid_cache(result, is_table_data);
+
+        if is_table_data && self.table.editing.record_view_open {
+            if let Some(row_index) = self.table.data.selected_row.filter(|row| {
+                self.table.data.selected_rows.len() == 1 && selection_lookup.row_positions.contains_key(row)
+            }) {
+                self.draw_table_record(ui, result, row_index);
+                self.restore_grid_cache(projection_key, indexes, order, selection_lookup);
+                return;
+            }
+            self.table.editing.record_view_open = false;
+        }
 
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 

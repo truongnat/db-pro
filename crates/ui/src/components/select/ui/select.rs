@@ -14,7 +14,21 @@ use super::super::handler::{
     NavigationKeys, PopupBounds,
 };
 use super::option::{paint_option, SelectOption};
-use crate::tokens::{FONT_SIZE_CAPTION, FONT_SIZE_SECTION_TITLE, ICON_TEXT_GAP, SPACE_XS};
+use crate::tokens::{FONT_SIZE_CAPTION, ICON_TEXT_GAP, SPACE_XS};
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SelectSize {
+    #[default]
+    Default,
+    Sm,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SelectVariant {
+    #[default]
+    Outline,
+    Ghost,
+}
 
 // Block comment: The selected value is an index into the borrowed options slice. The optional
 // load-more row is deliberately outside that index domain, so activating it requests data without
@@ -28,6 +42,8 @@ pub struct Select<'a> {
     has_more: bool,
     load_more: Option<&'a mut bool>,
     theme: DbProTheme,
+    size: SelectSize,
+    variant: SelectVariant,
 }
 
 impl<'a> Select<'a> {
@@ -41,11 +57,23 @@ impl<'a> Select<'a> {
             has_more: false,
             load_more: None,
             theme: DbProTheme::default(),
+            size: SelectSize::default(),
+            variant: SelectVariant::default(),
         }
     }
 
     pub fn theme(mut self, theme: DbProTheme) -> Self {
         self.theme = theme;
+        self
+    }
+
+    pub fn size(mut self, size: SelectSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn variant(mut self, variant: SelectVariant) -> Self {
+        self.variant = variant;
         self
     }
 
@@ -71,6 +99,22 @@ impl<'a> Select<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let width = self.width.unwrap_or_else(|| ui.available_width());
+        let compact = crate::components::button::SizeTokens::from_size(crate::components::ButtonSize::Sm);
+        let (height, font_size, icon_size, margin) = match self.size {
+            SelectSize::Default => (
+                crate::tokens::component::input::INPUT_HEIGHT_DEFAULT,
+                crate::tokens::FONT_SIZE_UI_LABEL,
+                crate::tokens::ICON_SM,
+                trigger_inner_margin(ui.spacing().button_padding.x, ui.spacing().button_padding.y),
+            ),
+            SelectSize::Sm => (
+                compact.min_height,
+                compact.font_size,
+                compact.icon_size,
+                egui::Margin::symmetric(compact.padding.x, compact.padding.y),
+            ),
+        };
+        let content_height = height - margin.top - margin.bottom;
 
         ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
             ui.spacing_mut().item_spacing.y = 0.0;
@@ -94,35 +138,45 @@ impl<'a> Select<'a> {
             let popup_id = Id::new(self.id_salt);
             let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
 
-            let margin = trigger_inner_margin(ui.spacing().button_padding.x, ui.spacing().button_padding.y);
+            let ghost = self.variant == SelectVariant::Ghost;
+            let rounding = match self.size {
+                SelectSize::Default => ui.style().visuals.widgets.inactive.rounding,
+                SelectSize::Sm => egui::Rounding::same(crate::tokens::RADIUS_BUTTON),
+            };
+            let background = ghost.then(|| ui.painter().add(egui::Shape::Noop));
             let trigger_btn = Frame {
-                fill: self.theme.surface_editor,
-                stroke: Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_default),
+                fill: if ghost {
+                    egui::Color32::TRANSPARENT
+                } else {
+                    self.theme.surface_editor
+                },
+                stroke: if ghost {
+                    Stroke::NONE
+                } else {
+                    Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_default)
+                },
                 inner_margin: margin,
-                rounding: ui.style().visuals.widgets.inactive.rounding,
+                rounding,
                 ..Default::default()
             }
             .show(ui, |ui| {
                 let content_width = trigger_content_width(width - margin.left - margin.right, ui.available_width());
                 ui.set_width(content_width);
-                ui.spacing_mut().interact_size.y =
-                    crate::tokens::component::input::INPUT_HEIGHT_DEFAULT - margin.top - margin.bottom;
+                ui.spacing_mut().interact_size.y = content_height;
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.set_min_height(
-                        crate::tokens::component::input::INPUT_HEIGHT_DEFAULT - margin.top - margin.bottom,
-                    );
+                    ui.set_min_height(content_height);
                     let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
                     let text_width = trigger_text_width(ui.available_width());
                     let text_response = ui.allocate_ui_with_layout(
-                        egui::vec2(text_width, FONT_SIZE_SECTION_TITLE),
+                        egui::vec2(text_width, content_height),
                         egui::Layout::left_to_right(egui::Align::Center),
                         |text_ui| {
                             text_ui.set_min_width(text_width);
                             text_ui.add(
                                 egui::Label::new(
                                     RichText::new(current_text)
-                                        .size(crate::tokens::FONT_SIZE_UI_LABEL)
+                                        .size(font_size)
                                         .color(self.theme.text_primary),
                                 )
                                 .halign(egui::Align::Min)
@@ -134,7 +188,7 @@ impl<'a> Select<'a> {
                     ui.add_space(ICON_TEXT_GAP);
                     ui.label(
                         RichText::new(char::from(icon).to_string())
-                            .font(crate::tokens::font_icon(crate::tokens::ICON_SM))
+                            .font(crate::tokens::font_icon(icon_size))
                             .color(self.theme.text_muted),
                     );
                 });
@@ -158,10 +212,21 @@ impl<'a> Select<'a> {
             );
             let border = if is_open || response.has_focus() {
                 self.theme.accent
+            } else if ghost {
+                egui::Color32::TRANSPARENT
             } else {
                 lerp_color(self.theme.border_default, self.theme.border_strong, hover)
             };
-            let rounding = ui.style().visuals.widgets.inactive.rounding;
+            if let Some(background) = background {
+                ui.painter().set(
+                    background,
+                    egui::Shape::rect_filled(
+                        response.rect,
+                        rounding,
+                        lerp_color(egui::Color32::TRANSPARENT, self.theme.surface_hover, hover),
+                    ),
+                );
+            }
             ui.painter()
                 .rect_stroke(response.rect, rounding, Stroke::new(crate::tokens::STROKE_THIN, border));
             if response.has_focus() {

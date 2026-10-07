@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+fn schema_cache_refresh_preserves_invalidation_through_runtime_translation() {
+    let translated = translate_command(UiCommand::IntrospectSchema {
+        request_id: RequestId(23),
+        connection_id: "active-connection".to_owned(),
+        force_refresh: true,
+        invalidate_cache: true,
+    })
+    .expect("schema refresh must reach runtime");
+
+    match translated {
+        RuntimeCommand::IntrospectSchema {
+            request_id,
+            connection_id,
+            force_refresh,
+            invalidate_cache,
+        } => {
+            assert_eq!(request_id, RuntimeRequestId(23));
+            assert_eq!(connection_id, "active-connection");
+            assert!(force_refresh);
+            assert!(invalidate_cache);
+        }
+        _ => panic!("unexpected runtime command"),
+    }
+}
+
+#[test]
 fn prediction_command_keeps_document_routing_metadata() {
     let command = UiCommand::RequestSqlPrediction {
         request_id: RequestId(7),

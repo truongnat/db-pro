@@ -7,7 +7,10 @@ pub enum ErLod {
 
 impl ErLod {
     pub fn from_zoom(zoom: f32) -> Self {
-        if zoom < 0.75 {
+        // Compact only covers the far-zoom overview band. At mid zooms
+        // (0.45-0.74) a column-less card leaves a visibly empty body, so
+        // Standard — which renders up to 6 columns — takes over earlier.
+        if zoom < 0.45 {
             Self::Compact
         } else if zoom < 1.15 {
             Self::Standard
@@ -35,8 +38,8 @@ impl ErLod {
     #[inline]
     pub fn shows_edge_labels(&self) -> bool {
         match self {
-            Self::Compact => false,
-            Self::Standard | Self::Detailed => true,
+            Self::Compact | Self::Standard => false,
+            Self::Detailed => true,
         }
     }
 
