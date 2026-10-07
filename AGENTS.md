@@ -215,6 +215,20 @@ bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci
 errors, unsafe code and boundary violations remain blocking failures. Warnings still require review or
 follow-up; the ratchet is not an exclusion mechanism.
 
+Canonical module scanner (vendored from `truongnat/clean-code-skills`, see `clean-code.config.json`
+for the project's rule calibration and `tools/` exclusion):
+
+```bash
+python3 tools/cc-scan.py . --fail-on error     # gate: fails only on NEW findings
+python3 tools/cc-scan.py . --no-baseline       # raw report, all findings (legacy state)
+python3 tools/cc-scan.py <changed paths>       # scope a review to a feature
+```
+
+`.clean-code-baseline.json` freezes the legacy findings; regenerate it only when deliberately
+paying debt down, never to hide a new violation. `tools/arch-scan.py` is vendored for
+completeness but does not parse Rust `use` — crate layering is verified via `Cargo.toml`
+dependencies (`ui → core`, `runtime → infrastructure → core`).
+
 Standards and Sai/Đúng examples live in `.skills/clean-code/references/` (naming, functions, comments,
 formatting, objects-and-data, error-handling, design-principles, code-health, review-checklist).
 

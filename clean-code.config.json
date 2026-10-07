@@ -1,0 +1,14 @@
+{
+  "_comment": "db-pro project config for tools/cc-scan.py (truongnat/clean-code-skills). MAGIC_NUMBER is skipped for the same reason the pack skips it itself: it fires inside `const` declarations (already the named constant) and all over egui painting geometry. DEBUG_STATEMENT is covered by the repo's own grep scan (.skills/clean-code/scripts/clean-code-scan.sh) which blocks eprintln!/dbg!/println! outside tests. minTestRatio=0 because Rust keeps tests in inline #[cfg(test)] modules, not separate files.",
+  "skipRules": ["MAGIC_NUMBER", "DEBUG_STATEMENT"],
+  "ignoreDirs": ["_archive", "docs", "evidence", "screenshots", "tools"],
+  "minTestRatio": 0.0,
+  "testPathPatterns": [
+    "(^|/)(tests?|__tests__|spec|specs)(/|$)",
+    "\\.(test|spec)\\.[jt]sx?$",
+    "(^|/)test_[^/]*\\.py$",
+    "_test\\.go$",
+    "(Test|Tests|IT)\\.(java|kt)$",
+    "_tests?\\.rs$"
+  ]
+}
