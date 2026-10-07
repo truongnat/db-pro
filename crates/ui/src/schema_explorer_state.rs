@@ -23,11 +23,11 @@ impl ExplorerMatchMode {
 /// object kinds shown. Session-scoped; all kinds and `Contains` are default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ExplorerObjectFilter {
-    pub mode: ExplorerMatchMode,
-    pub tables: bool,
-    pub views: bool,
-    pub functions: bool,
-    pub triggers: bool,
+    pub(super) mode: ExplorerMatchMode,
+    pub(super) tables: bool,
+    pub(super) views: bool,
+    pub(super) functions: bool,
+    pub(super) triggers: bool,
 }
 
 impl Default for ExplorerObjectFilter {
