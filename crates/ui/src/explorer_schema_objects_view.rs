@@ -7,7 +7,7 @@
 use super::explorer_schema_object_folders_view::SchemaObjectFolderAction;
 use super::explorer_schema_object_folders_view::SchemaObjectFoldersView;
 use super::explorer_table_details_view::TableDetailsView;
-use super::explorer_table_folder_view::TableFolderContext;
+use super::explorer_table_folder_view::{TableFolderAction, TableFolderContext};
 use super::explorer_table_row_view::{TableRowAction, TableRowContext};
 use super::{DbProTheme, SchemaExplorerState, UiTableInfo, EXPLORER_ROW_HEIGHT};
 use eframe::egui;
@@ -98,8 +98,18 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
             search_query,
         };
         let render = folder.draw_header(ui);
+        let mut actions: Vec<ExplorerSchemaObjectsAction> = render
+            .actions
+            .iter()
+            .map(|action| {
+                ExplorerSchemaObjectsAction::SchemaObject(match action {
+                    TableFolderAction::RefreshSchema => SchemaObjectFolderAction::RefreshSchema,
+                    TableFolderAction::CopySchemaName => SchemaObjectFolderAction::CopyName(schema.to_owned()),
+                })
+            })
+            .collect();
         if !render.is_open {
-            return Vec::new();
+            return actions;
         }
 
         let (_total, _matching, tables) = self
@@ -107,10 +117,9 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
             .cached_tables(&self.model.connection_id, schema, search_query);
         if tables.is_empty() {
             folder.draw_empty_state(ui);
-            return Vec::new();
+            return actions;
         }
 
-        let mut actions = Vec::new();
         let clip = ui.clip_rect();
         for table in &tables {
             let row_top = ui.cursor().min.y;

@@ -43,6 +43,11 @@ impl DbProApp {
                 ui.output_mut(|output| output.copied_text = name.clone());
                 self.feedback.runtime_message = format!("Copied `{name}` to clipboard");
             }
+            SchemaObjectFolderAction::RefreshSchema => {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    self.request_schema_introspection(connection_id, true);
+                }
+            }
         }
     }
 

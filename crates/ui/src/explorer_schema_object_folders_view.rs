@@ -4,7 +4,8 @@ use super::explorer_navigation::SchemaObjectActivation;
 use super::explorer_schema_object_row_view::{SchemaObjectRowAction, SchemaObjectRowContext};
 use super::explorer_tree::{draw_category_folder, CategoryFolder};
 use super::{
-    DbProTheme, SchemaExplorerState, SchemaObjectSelection, UiFunctionSummary, UiTriggerSummary, UiViewSummary,
+    context_action_menu, ctx_menu_item, DbProTheme, SchemaExplorerState, SchemaObjectSelection, UiFunctionSummary,
+    UiTriggerSummary, UiViewSummary,
 };
 use eframe::egui;
 use lucide_icons::Icon;
@@ -15,6 +16,7 @@ pub(super) enum SchemaObjectFolderAction {
     ModifyView(UiViewSummary),
     DropObject { schema: String, name: String, kind: String },
     CopyName(String),
+    RefreshSchema,
 }
 
 pub(super) struct SchemaObjectFoldersView<'a> {
@@ -50,7 +52,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_views_folder", schema));
-        draw_category_folder(
+        let folder_response = draw_category_folder(
             ui,
             &theme,
             CategoryFolder {
@@ -72,6 +74,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 }
             },
         );
+        self.draw_folder_menu(ui, &folder_response, schema, &mut actions);
         actions
     }
 
@@ -98,7 +101,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_functions_folder", schema));
-        draw_category_folder(
+        let folder_response = draw_category_folder(
             ui,
             &theme,
             CategoryFolder {
@@ -120,6 +123,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 }
             },
         );
+        self.draw_folder_menu(ui, &folder_response, schema, &mut actions);
         actions
     }
 
@@ -146,7 +150,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_triggers_folder", schema));
-        draw_category_folder(
+        let folder_response = draw_category_folder(
             ui,
             &theme,
             CategoryFolder {
@@ -168,7 +172,33 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 }
             },
         );
+        self.draw_folder_menu(ui, &folder_response, schema, &mut actions);
         actions
+    }
+
+    /// Folder rows share one context menu: schema refresh plus copying the
+    /// parent schema name. `context_action_menu` owns trigger detection.
+    fn draw_folder_menu(
+        &self,
+        ui: &mut egui::Ui,
+        response: &egui::Response,
+        schema: &str,
+        actions: &mut Vec<SchemaObjectFolderAction>,
+    ) {
+        let theme = self.theme;
+        let schema = schema.to_owned();
+        context_action_menu(ui, response, theme, |ui, close_menu| {
+            if ctx_menu_item(ui, Some(Icon::RefreshCw), "Refresh Schema", None, theme.text_primary, theme).clicked()
+            {
+                actions.push(SchemaObjectFolderAction::RefreshSchema);
+                *close_menu = true;
+            }
+            ui.separator();
+            if ctx_menu_item(ui, Some(Icon::Copy), "Copy Schema Name", None, theme.text_primary, theme).clicked() {
+                actions.push(SchemaObjectFolderAction::CopyName(schema));
+                *close_menu = true;
+            }
+        });
     }
 
     fn draw_view_row(&self, ui: &mut egui::Ui, view: &UiViewSummary) -> Vec<SchemaObjectFolderAction> {

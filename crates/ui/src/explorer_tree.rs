@@ -373,7 +373,7 @@ pub(super) fn draw_category_folder(
     theme: &DbProTheme,
     folder: CategoryFolder<'_>,
     body: impl FnOnce(&mut egui::Ui),
-) {
+) -> egui::Response {
     let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder.id, false);
     let is_open = collapsing.is_open();
 
@@ -403,13 +403,14 @@ pub(super) fn draw_category_folder(
     }
 
     if !collapsing.is_open() {
-        return;
+        return response;
     }
     if folder.count > 0 {
         body(ui);
     } else if let Some(empty_label) = folder.empty_label {
         draw_hint_row(ui, theme, folder.depth + 1, Icon::Info, empty_label);
     }
+    response
 }
 
 /// Determines the best semantic Lucide icon and color for a column.

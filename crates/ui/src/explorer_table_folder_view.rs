@@ -1,7 +1,7 @@
 //! Presentation boundary for the Tables folder in the explorer.
 
 use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
-use super::{DbProTheme, EXPLORER_ROW_HEIGHT};
+use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme, EXPLORER_ROW_HEIGHT};
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -13,8 +13,15 @@ pub(crate) struct TableFolderContext<'a> {
     pub(crate) search_query: &'a str,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum TableFolderAction {
+    RefreshSchema,
+    CopySchemaName,
+}
+
 pub(crate) struct TableFolderRender {
     pub(crate) is_open: bool,
+    pub(crate) actions: Vec<TableFolderAction>,
 }
 
 impl TableFolderContext<'_> {
@@ -29,13 +36,34 @@ impl TableFolderContext<'_> {
         }
         let is_open = collapsing.is_open();
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
-        if response.clicked() || chevron_clicked {
+        let is_context_menu = is_context_menu_triggered(&response, ui);
+        let actions = self.draw_menu(ui, &response);
+        if (response.clicked() && !is_context_menu) || chevron_clicked {
             collapsing.set_open(!is_open);
             collapsing.store(ui.ctx());
         }
         TableFolderRender {
             is_open: collapsing.is_open(),
+            actions,
         }
+    }
+
+    fn draw_menu(&self, ui: &mut egui::Ui, response: &egui::Response) -> Vec<TableFolderAction> {
+        let mut actions = Vec::new();
+        let theme = self.theme;
+        context_action_menu(ui, response, theme, |ui, close_menu| {
+            if ctx_menu_item(ui, Some(Icon::RefreshCw), "Refresh Schema", None, theme.text_primary, theme).clicked()
+            {
+                actions.push(TableFolderAction::RefreshSchema);
+                *close_menu = true;
+            }
+            ui.separator();
+            if ctx_menu_item(ui, Some(Icon::Copy), "Copy Schema Name", None, theme.text_primary, theme).clicked() {
+                actions.push(TableFolderAction::CopySchemaName);
+                *close_menu = true;
+            }
+        });
+        actions
     }
 
     pub(crate) fn draw_empty_state(&self, ui: &mut egui::Ui) {
