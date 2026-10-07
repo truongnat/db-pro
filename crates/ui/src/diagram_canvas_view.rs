@@ -435,7 +435,10 @@ fn draw_minimap(
         return;
     }
     let theme = ctx.theme;
-    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(minimap_rect), |ui| {
+    let mut minimap_ui = ui.new_child(egui::UiBuilder::new().max_rect(minimap_rect));
+    minimap_ui.set_clip_rect(minimap_ui.clip_rect().intersect(minimap_rect));
+    {
+        let ui = &mut minimap_ui;
         egui::Frame {
             fill: theme.surface_floating,
             inner_margin: egui::Margin::same(5.0),
@@ -491,7 +494,7 @@ fn draw_minimap(
                 }
             }
         });
-    });
+    }
 }
 
 #[cfg(test)]

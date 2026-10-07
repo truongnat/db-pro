@@ -189,39 +189,45 @@ impl TableDataToolbarContext<'_> {
                 if focused { self.theme.border_focus } else { self.theme.border_default },
             ),
         );
-        let output = ui
-            .allocate_new_ui(egui::UiBuilder::new().max_rect(editor_rect.shrink2(egui::vec2(SPACE_XXS, 0.0))), |ui| {
-                ui.horizontal_centered(|ui| {
-                    ui.spacing_mut().item_spacing.x = SPACE_XS;
-                    egui::Frame::none()
-                        .fill(self.theme.surface_2)
-                        .rounding(egui::Rounding::same(2.0))
-                        .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XXS))
-                        .show(ui, |ui| {
-                            ui.add(egui::Label::new(crate::components::icon_text(
+        // `new_child` (not `allocate_new_ui`): `editor_rect` is already
+        // reserved by `allocate_exact_size`, and nothing inside the editor
+        // may push its min_rect back into the toolbar's placer.
+        let editor_max = editor_rect.shrink2(egui::vec2(SPACE_XXS, 0.0));
+        let mut editor_ui = ui.new_child(egui::UiBuilder::new().max_rect(editor_max));
+        editor_ui.set_clip_rect(editor_ui.clip_rect().intersect(editor_max));
+        let output = editor_ui
+            .horizontal_centered(|ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_XS;
+                egui::Frame::none()
+                    .fill(self.theme.surface_2)
+                    .rounding(egui::Rounding::same(2.0))
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XXS))
+                    .show(ui, |ui| {
+                        ui.add(
+                            egui::Label::new(crate::components::icon_text(
                                 Icon::ListFilter,
                                 "WHERE",
                                 self.theme.text_primary,
-                            )).sense(egui::Sense::hover()));
-                        });
-                    egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)
-                        .hint_text(
-                            RichText::new(
-                                self.column_suggestions
-                                    .first()
-                                    .map_or("Condition", |column| column.name.as_str()),
-                            )
-                            .color(self.theme.text_muted),
+                            ))
+                            .sense(egui::Sense::hover()),
+                        );
+                    });
+                egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)
+                    .hint_text(
+                        RichText::new(
+                            self.column_suggestions
+                                .first()
+                                .map_or("Condition", |column| column.name.as_str()),
                         )
-                        .font(egui::FontId::monospace(12.0))
-                        .text_color(self.theme.text_primary)
-                        .margin(egui::Margin::ZERO)
-                        .frame(false)
-                        .id(editor_id)
-                        .desired_width(ui.available_width())
-                        .show(ui)
-                })
-                .inner
+                        .color(self.theme.text_muted),
+                    )
+                    .font(egui::FontId::monospace(12.0))
+                    .text_color(self.theme.text_primary)
+                    .margin(egui::Margin::ZERO)
+                    .frame(false)
+                    .id(editor_id)
+                    .desired_width(ui.available_width())
+                    .show(ui)
             })
             .inner;
         if editor_response.clicked() {

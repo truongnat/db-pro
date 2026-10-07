@@ -209,18 +209,15 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
     );
 
     if let Some(shortcut) = item.shortcut {
-        ui.allocate_new_ui(
-            egui::UiBuilder::new().max_rect(Rect::from_min_max(
-                Pos2::new(rect.right() - 64.0, rect.top()),
-                rect.right_bottom(),
-            )),
-            |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    kbd_badge(ui, shortcut, theme);
-                    ui.add_space(6.0);
-                });
-            },
+        let badge_rect = Rect::from_min_max(Pos2::new(rect.right() - 64.0, rect.top()), rect.right_bottom());
+        let mut badge_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(badge_rect)
+                .layout(egui::Layout::right_to_left(egui::Align::Center)),
         );
+        badge_ui.set_clip_rect(badge_ui.clip_rect().intersect(badge_rect));
+        kbd_badge(&mut badge_ui, shortcut, theme);
+        badge_ui.add_space(6.0);
     }
 
     if !item.enabled {

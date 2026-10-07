@@ -911,7 +911,10 @@ pub(super) fn draw_diagram_zoom_controls(
     theme: DbProTheme,
 ) {
     let controls_rect = zoom_controls_rect(viewport_rect);
-    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(controls_rect), |ui| {
+    let mut controls_ui = ui.new_child(egui::UiBuilder::new().max_rect(controls_rect));
+    controls_ui.set_clip_rect(controls_ui.clip_rect().intersect(controls_rect));
+    {
+        let ui = &mut controls_ui;
         egui::Frame {
             fill: theme.surface_floating,
             inner_margin: egui::Margin::symmetric(5.0, 4.0),
@@ -973,7 +976,7 @@ pub(super) fn draw_diagram_zoom_controls(
                 }
             });
         });
-    });
+    }
 }
 
 /// Screen rect of the floating zoom strip — shared with the canvas so pointer

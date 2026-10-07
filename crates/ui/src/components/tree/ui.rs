@@ -156,15 +156,13 @@ pub fn reveal_children(ui: &mut Ui, id: Id, open: bool, add_contents: impl FnOnc
     // child UI, then persist the latest measured content height for the next animation frame.
     let width = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(Vec2::new(width, reveal.clip_height), Sense::hover());
-    let mut used_height = reveal.child_height;
-    ui.allocate_new_ui(
-        egui::UiBuilder::new().max_rect(child_clip_rect(rect, width, reveal.child_height)),
-        |child_ui| {
-            child_ui.set_clip_rect(rect);
-            add_contents(child_ui);
-            used_height = measured_child_height(child_ui.min_rect().height());
-        },
-    );
+    // `new_child` (not `allocate_new_ui`): the strip is already reserved at
+    // clip_height; the child's taller min_rect must not reach the placer
+    // while the reveal animation is still expanding.
+    let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(child_clip_rect(rect, width, reveal.child_height)));
+    child_ui.set_clip_rect(rect);
+    add_contents(&mut child_ui);
+    let used_height = measured_child_height(child_ui.min_rect().height());
     ui.ctx().data_mut(|data| data.insert_temp(height_id, used_height));
 }
 

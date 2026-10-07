@@ -185,9 +185,11 @@ impl<'a> Table<'a> {
                     TableColumnAlign::Right => Layout::right_to_left(Align::Center),
                 };
 
-                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(inner_rect), |ui| {
-                    ui.set_clip_rect(ui.clip_rect().intersect(inner_rect));
-                    ui.with_layout(align_layout, |ui| {
+                let mut cell_ui = ui.new_child(egui::UiBuilder::new().max_rect(inner_rect).layout(align_layout));
+                cell_ui.set_clip_rect(cell_ui.clip_rect().intersect(inner_rect));
+                {
+                    let ui = &mut cell_ui;
+                    {
                         // For right-aligned column headers, add sort icon first in right-to-left layout so it sits at far right
                         let show_sort = col.sortable && (is_sorted || resp.hovered());
                         if show_sort && col.align == TableColumnAlign::Right {
@@ -219,8 +221,8 @@ impl<'a> Table<'a> {
                                     .color(icon_color),
                             );
                         }
-                    });
-                });
+                    }
+                }
 
                 if col.sortable && resp.clicked() {
                     on_sort(col_idx);
@@ -243,25 +245,30 @@ impl<'a> Table<'a> {
                     Pos2::new(table_min.x, body_start_y),
                     Vec2::new(table_w, EMPTY_BODY_RECT_HEIGHT),
                 );
-                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(empty_rect), |ui| {
-                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                        ui.add_space(EMPTY_BODY_TOP_SPACE);
-                        ui.label(
-                            RichText::new(char::from(Icon::Inbox).to_string())
-                                .font(egui::FontId::new(
-                                    EMPTY_ICON_SIZE,
-                                    egui::FontFamily::Name("lucide".into()),
-                                ))
-                                .color(self.theme.text_muted),
-                        );
-                        ui.add_space(EMPTY_ICON_GAP);
-                        ui.label(
-                            RichText::new("No matching rows found.")
-                                .size(EMPTY_TEXT_SIZE)
-                                .color(self.theme.text_secondary),
-                        );
-                    });
-                });
+                let mut empty_ui = ui.new_child(
+                    egui::UiBuilder::new()
+                        .max_rect(empty_rect)
+                        .layout(Layout::top_down(Align::Center)),
+                );
+                empty_ui.set_clip_rect(empty_ui.clip_rect().intersect(empty_rect));
+                {
+                    let ui = &mut empty_ui;
+                    ui.add_space(EMPTY_BODY_TOP_SPACE);
+                    ui.label(
+                        RichText::new(char::from(Icon::Inbox).to_string())
+                            .font(egui::FontId::new(
+                                EMPTY_ICON_SIZE,
+                                egui::FontFamily::Name("lucide".into()),
+                            ))
+                            .color(self.theme.text_muted),
+                    );
+                    ui.add_space(EMPTY_ICON_GAP);
+                    ui.label(
+                        RichText::new("No matching rows found.")
+                            .size(EMPTY_TEXT_SIZE)
+                            .color(self.theme.text_secondary),
+                    );
+                }
             } else {
                 for row_idx in 0..row_count {
                     let row_y = body_start_y + (row_idx as f32 * self.row_height);
@@ -380,13 +387,15 @@ impl<'a> Table<'a> {
                             TableColumnAlign::Right => Layout::right_to_left(Align::Center),
                         };
 
-                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(inner_rect), |ui| {
-                            // Allow widget strokes into cell padding without leaking into neighboring cells.
-                            ui.set_clip_rect(ui.clip_rect().intersect(inner_rect.expand(1.0).intersect(cell_rect)));
-                            ui.with_layout(align_layout, |ui| {
-                                render_cell(ui, row_idx, col_idx);
-                            });
-                        });
+                        let mut cell_ui =
+                            ui.new_child(egui::UiBuilder::new().max_rect(inner_rect).layout(align_layout));
+                        // Allow widget strokes into cell padding without leaking into neighboring cells.
+                        cell_ui.set_clip_rect(
+                            cell_ui
+                                .clip_rect()
+                                .intersect(inner_rect.expand(1.0).intersect(cell_rect)),
+                        );
+                        render_cell(&mut cell_ui, row_idx, col_idx);
                     }
 
                     // Row horizontal divider
