@@ -8,6 +8,21 @@ members = [
     "crates/native-app",
 ]
 
+# target/debug/deps grew past 100 GB: every source hash leaves a stale rlib
+# behind and cargo never GCs it, so artifact size is the only lever we have.
+# line-tables-only keeps file:line in panic backtraces but drops variable
+# debug info — rlibs shrink ~3-5x. incremental off removes the per-save
+# object churn in debug/incremental/ entirely. Rebuilds get slightly slower;
+# flip incremental back on or CARGO_PROFILE_DEV_DEBUG=2 for lldb sessions.
+[profile.dev]
+incremental = false
+debug = "line-tables-only"
+
+# Shipped binary: drop the symbol table (~MBs of dead weight); DWARF objects
+# stay in target-build if a crash ever needs symbolication.
+[profile.release]
+strip = "symbols"
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.77.2"

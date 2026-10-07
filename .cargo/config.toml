@@ -1,0 +1,5 @@
+# Keep final artifacts in ./target but move all intermediates (deps/, build/,
+# incremental/ — ~99% of build weight) into ./target-build so it stays a
+# single easy-to-delete cache dir outside the artifact path.
+[build]
+build-dir = "target-build"

@@ -176,6 +176,15 @@ cargo test --workspace
 
 Do not claim a command passed unless it was actually executed.
 
+## Build layout
+
+Intermediate artifacts (deps/, incremental/, build/) go to `target-build/` via
+`.cargo/config.toml` `build.build-dir`; `target/` only holds final binaries
+(db-pro-native, test executables). To reclaim disk: `rm -rf target-build`
+keeps binaries, `cargo clean` wipes both. Dev profile uses
+`debug = "line-tables-only"` + `incremental = false` — override with
+`CARGO_PROFILE_DEV_DEBUG=2` for lldb sessions.
+
 ## Performance audit
 
 Use the `perf-audit` skill when:
