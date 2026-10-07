@@ -342,7 +342,7 @@ impl ChartRenderer {
                 Align2::CENTER_CENTER,
                 format!("{}: {:.0}", point.label, point.y),
                 egui::FontId::proportional(10.0),
-                Color32::WHITE,
+                theme.text_on_solid(color),
             );
 
             start_angle = end_angle;
