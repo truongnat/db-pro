@@ -1,9 +1,10 @@
 use super::diagram_view::{
-    draw_diagram_zoom_controls, paint_diagram_grid, paint_er_node_lod, paint_scene_edges, zoom_controls_rect,
-    DiagramAction, DiagramViewContext,
+    draw_diagram_zoom_controls, fit_diagram_viewport, paint_diagram_grid, paint_er_node_lod, paint_scene_edges,
+    zoom_controls_rect, DiagramAction, DiagramViewContext,
 };
 use super::*;
 use crate::diagram::*;
+use lucide_icons::Icon;
 use std::time::Duration;
 
 /// Delay before the canvas re-fits to the search-neighborhood subset after the
@@ -166,6 +167,86 @@ pub(super) fn draw_diagram_canvas(
                     action = Some(DiagramAction::OpenTable(name));
                 }
             }
+        }
+
+        // Context menu: the hovered table gets Open/Copy Name, and the canvas
+        // always offers the same fit/reset actions the zoom strip exposes.
+        // The node target is stored under the shared menu id so the popup
+        // survives the pointer leaving the node.
+        let menu_target_id = response.id.with("floating_ctx_menu").with("target");
+        if is_context_menu_triggered(&response, ui) {
+            let table = if pointer_on_overlay {
+                None
+            } else {
+                ctx.diagram
+                    .hovered_node
+                    .and_then(|id| ctx.diagram.graph.nodes.get(id))
+                    .map(|node| node.table.name.clone())
+            };
+            ui.ctx().data_mut(|data| data.insert_temp(menu_target_id, table));
+        }
+        let menu_target: Option<String> = ui
+            .ctx()
+            .data(|data| data.get_temp::<Option<String>>(menu_target_id))
+            .unwrap_or_default();
+        let mut menu_action = None;
+        {
+            let diagram = &mut ctx.diagram;
+            context_action_menu(ui, &response, theme, |ui, close_menu| {
+                if let Some(name) = &menu_target {
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::ExternalLink),
+                        &format!("Open Table `{name}`"),
+                        None,
+                        theme.text_primary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        menu_action = Some(DiagramAction::OpenTable(name.clone()));
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(ui, Some(Icon::Copy), "Copy Table Name", None, theme.text_primary, theme)
+                        .clicked()
+                    {
+                        ui.ctx().output_mut(|output| output.copied_text = name.clone());
+                        *close_menu = true;
+                    }
+                    ui.separator();
+                }
+                if ctx_menu_item(ui, Some(Icon::Maximize2), "Fit Diagram to View", None, theme.text_primary, theme)
+                    .clicked()
+                {
+                    let bounds = if let Some(filter) = active_filter {
+                        diagram.graph.active_subset_bounds(filter)
+                    } else {
+                        diagram.graph.world_bounds
+                    };
+                    if let Some((fit_zoom, fit_pan)) = fit_diagram_viewport(bounds, viewport_rect) {
+                        diagram.zoom = fit_zoom;
+                        diagram.pan = fit_pan;
+                    }
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::RotateCcw),
+                    "Reset Zoom & Pan",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    diagram.zoom = 1.0;
+                    diagram.pan = egui::Vec2::ZERO;
+                    *close_menu = true;
+                }
+            });
+        }
+        if let Some(menu_action) = menu_action {
+            action = Some(menu_action);
         }
 
         draw_diagram_zoom_controls(
