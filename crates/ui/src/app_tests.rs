@@ -2071,8 +2071,7 @@ fn diagram_search_mode_can_leave_explicit_show_all() {
 
 #[test]
 fn diagram_move_node_updates_rect_and_incident_edge_bbox() {
-    let mut graph = ErGraph::build(
-        &[
+    let mut graph = ErGraph::build(&[
             UiTableSummary {
                 schema: "main".to_owned(),
                 name: "a".to_owned(),
@@ -2093,11 +2092,7 @@ fn diagram_move_node_updates_rect_and_incident_edge_bbox() {
                     to_columns: vec!["id".to_owned()],
                 }],
             },
-        ],
-        1,
-        2,
-        120.0,
-    );
+        ], 1, (2, 120.0));
     let old_bbox = graph.edges[0].world_bbox;
 
     graph.move_node(1, egui::pos2(4000.0, 2000.0));
@@ -2125,7 +2120,7 @@ fn diagram_position_overrides_apply_by_table_key() {
             foreign_keys: vec![],
         },
     ];
-    let mut graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let mut graph = ErGraph::build(&tables, 1, (2, 120.0));
     let untouched_min = graph.nodes[1].world_rect.min;
 
     let mut positions = std::collections::HashMap::new();
@@ -2140,7 +2135,7 @@ fn diagram_position_overrides_apply_by_table_key() {
     );
     assert!(graph.world_bounds.contains(egui::pos2(9000.0, -500.0)));
 
-    let mut empty = ErGraph::build(&tables, 1, 2, 120.0);
+    let mut empty = ErGraph::build(&tables, 1, (2, 120.0));
     assert!(!empty.apply_position_overrides(&std::collections::HashMap::new()));
 }
 
@@ -2297,17 +2292,17 @@ fn diagram_bfs_neighborhood_expansion() {
         },
     ];
 
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
 
     // 1-hop neighborhood from users (index 0) -> users + orders
-    let hop1 = graph.bfs_neighborhood(&[0], 1, 10);
+    let hop1 = graph.bfs_neighborhood(&[0], (1, 10));
     assert_eq!(hop1.len(), 2);
     assert!(hop1.contains(&0)); // users
     assert!(hop1.contains(&1)); // orders
     assert!(!hop1.contains(&2)); // order_items is 2 hops away
 
     // 2-hop neighborhood from users (index 0) -> users + orders + order_items
-    let hop2 = graph.bfs_neighborhood(&[0], 2, 10);
+    let hop2 = graph.bfs_neighborhood(&[0], (2, 10));
     assert_eq!(hop2.len(), 3);
     assert!(hop2.contains(&0));
     assert!(hop2.contains(&1));
@@ -2356,7 +2351,7 @@ fn diagram_graph_and_spatial_index_support_1000_table_scaling() {
 
     let grid_columns = 10;
     let node_height = 140.0;
-    let graph = ErGraph::build(&tables, 1, grid_columns, node_height);
+    let graph = ErGraph::build(&tables, 1, (grid_columns, node_height));
     assert_eq!(graph.nodes.len(), 1000);
     assert!(graph.edges.len() > 300);
 
@@ -2429,8 +2424,8 @@ fn diagram_layout_worker_background_computation_and_stale_drop() {
         },
     ];
 
-    let req_id1 = worker.request_layout(1, tables.clone(), 2, 120.0);
-    let req_id2 = worker.request_layout(2, tables, 2, 120.0);
+    let req_id1 = worker.request_layout(1, tables.clone(), (2, 120.0));
+    let req_id2 = worker.request_layout(2, tables, (2, 120.0));
     assert!(req_id2 > req_id1);
 
     // Drain until the worker emits the layout for the newest request, or the deadline
@@ -2543,7 +2538,7 @@ fn diagram_dense_1000_table_graph_bounds_candidates() {
         })
         .collect();
 
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    let graph = ErGraph::build(&tables, 1, (10, 160.0));
     assert_eq!(graph.nodes.len(), 1000);
     assert!(graph.edges.len() > 2000);
 
@@ -2635,10 +2630,10 @@ fn diagram_cyclic_and_self_fk_bfs_neighborhood() {
         },
     ];
 
-    let graph = ErGraph::build(&tables, 1, 2, 100.0);
+    let graph = ErGraph::build(&tables, 1, (2, 100.0));
 
     // BFS on cycle terminates cleanly without infinite recursion
-    let cycle_bfs = graph.bfs_neighborhood(&[0], 5, 100);
+    let cycle_bfs = graph.bfs_neighborhood(&[0], (5, 100));
     assert_eq!(cycle_bfs.len(), 3);
     assert!(cycle_bfs.contains(&0));
     assert!(cycle_bfs.contains(&1));
@@ -2646,7 +2641,7 @@ fn diagram_cyclic_and_self_fk_bfs_neighborhood() {
     assert!(!cycle_bfs.contains(&3));
 
     // Self-referential BFS
-    let self_bfs = graph.bfs_neighborhood(&[3], 3, 100);
+    let self_bfs = graph.bfs_neighborhood(&[3], (3, 100));
     assert_eq!(self_bfs.len(), 1);
     assert_eq!(self_bfs[0], 3);
 

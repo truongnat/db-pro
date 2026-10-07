@@ -55,7 +55,8 @@ pub(super) fn draw_diagram_empty_state(
                 format!("Arranging {all_table_count} tables…")
             } else if search_mode {
                 format!(
-                    "This schema has {all_table_count} tables. Search by table or column to open a focused neighborhood map, or show all tables explicitly."
+                    "This schema has {all_table_count} tables. Search by table or column \
+                     to open a focused neighborhood map, or show all tables explicitly."
                 )
             } else {
                 "Connect to a database and load its tables to see the relationship map.".to_owned()
@@ -292,7 +293,11 @@ fn highlight_node(ctx: &DiagramViewContext<'_>, scene: &ErRenderScene) -> Option
 /// Fits the viewport once per graph — either restoring the persisted snapshot
 /// for this connection or fitting the whole world. Runs before the first paint
 /// so the diagram never flashes at 100% then jumps.
-fn apply_initial_viewport(ctx: &mut DiagramViewContext<'_>, viewport_rect: egui::Rect, active_filter: Option<&[usize]>) {
+fn apply_initial_viewport(
+    ctx: &mut DiagramViewContext<'_>,
+    viewport_rect: egui::Rect,
+    active_filter: Option<&[usize]>,
+) {
     if ctx.diagram.auto_fit_done
         || ctx.diagram.graph.nodes.is_empty()
         || matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. })
@@ -588,55 +593,72 @@ mod tests {
         DbProTheme::install_fonts(&context);
         let explorer = SchemaExplorerState::default();
         let mut diagram = DiagramState::default();
-        let mut view = DiagramViewContext {
-            theme: DbProTheme::dark(),
-            diagram: &mut diagram,
-            explorer: &explorer,
-            active_driver: "SQLite",
-            connected: true,
-            connection_id: None,
-        };
-        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 600.0));
-        let mut frame = |events| {
-            let _ = context.run(
-                egui::RawInput {
-                    screen_rect: Some(screen),
-                    events,
-                    ..Default::default()
-                },
-                |ctx| {
-                    egui::CentralPanel::default().show(ctx, |ui| {
-                        let (response, _) =
-                            ui.allocate_painter(egui::vec2(880.0, 560.0), egui::Sense::click_and_drag());
-                        let viewport = ErViewport::new(view.diagram.pan, view.diagram.zoom, response.rect.min);
-                        handle_drag_input(&mut view, &response, viewport, &[]);
-                    });
-                },
-            );
-        };
         let start = egui::pos2(160.0, 160.0);
-        frame(vec![egui::Event::PointerMoved(start)]);
-        frame(vec![egui::Event::PointerButton {
-            pos: start,
-            button: egui::PointerButton::Primary,
-            pressed: true,
-            modifiers: egui::Modifiers::NONE,
-        }]);
+        run_canvas_frame(&context, &explorer, &mut diagram, vec![egui::Event::PointerMoved(start)]);
+        run_canvas_frame(&context, &explorer, &mut diagram, vec![press_event(start)]);
         // Two separate move frames: a per-frame delta accumulation bug would
         // leave pan at the last frame's (10, 5) instead of the full (74, 53).
-        frame(vec![egui::Event::PointerMoved(start + egui::vec2(64.0, 48.0))]);
-        frame(vec![egui::Event::PointerMoved(start + egui::vec2(74.0, 53.0))]);
-        frame(vec![egui::Event::PointerButton {
-            pos: start + egui::vec2(74.0, 53.0),
-            button: egui::PointerButton::Primary,
-            pressed: false,
-            modifiers: egui::Modifiers::NONE,
-        }]);
+        run_canvas_frame(&context, &explorer, &mut diagram, vec![moved_to(start + egui::vec2(64.0, 48.0))]);
+        run_canvas_frame(&context, &explorer, &mut diagram, vec![moved_to(start + egui::vec2(74.0, 53.0))]);
+        run_canvas_frame(&context, &explorer, &mut diagram, vec![release_event(start + egui::vec2(74.0, 53.0))]);
 
         assert_eq!(
             diagram.pan,
             egui::vec2(74.0, 53.0),
             "pan must track the full distance from the press point, not per-frame motion"
         );
+    }
+
+    fn run_canvas_frame(
+        context: &egui::Context,
+        explorer: &SchemaExplorerState,
+        diagram: &mut DiagramState,
+        events: Vec<egui::Event>,
+    ) {
+        let mut view = DiagramViewContext {
+            theme: DbProTheme::dark(),
+            diagram,
+            explorer,
+            active_driver: "SQLite",
+            connected: true,
+            connection_id: None,
+        };
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 600.0));
+        let _ = context.run(
+            egui::RawInput {
+                screen_rect: Some(screen),
+                events,
+                ..Default::default()
+            },
+            |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let (response, _) =
+                        ui.allocate_painter(egui::vec2(880.0, 560.0), egui::Sense::click_and_drag());
+                    let viewport = ErViewport::new(view.diagram.pan, view.diagram.zoom, response.rect.min);
+                    handle_drag_input(&mut view, &response, viewport, &[]);
+                });
+            },
+        );
+    }
+
+    fn moved_to(pos: egui::Pos2) -> egui::Event {
+        egui::Event::PointerMoved(pos)
+    }
+
+    fn press_event(pos: egui::Pos2) -> egui::Event {
+        button_event(pos, true)
+    }
+
+    fn release_event(pos: egui::Pos2) -> egui::Event {
+        button_event(pos, false)
+    }
+
+    fn button_event(pos: egui::Pos2, pressed: bool) -> egui::Event {
+        egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        }
     }
 }

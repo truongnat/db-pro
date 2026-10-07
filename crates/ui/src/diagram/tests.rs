@@ -16,8 +16,8 @@
 
 use super::layout::{ErLayoutResult, ErLayoutWorker};
 use super::lod::ErLod;
-use super::model::{ErGraph, ER_CANVAS_MARGIN, ER_MIN_ZOOM, ER_NODE_WIDTH};
-use super::scene::prepare_render_scene;
+use super::model::{ErGraph, ErGridSpec, ER_CANVAS_MARGIN, ER_MIN_ZOOM, ER_NODE_WIDTH};
+use super::scene::{prepare_render_scene, ErRenderScene};
 use super::spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE};
 use super::viewport::ErViewport;
 use crate::runtime::{UiSchemaColumn, UiSchemaForeignKey, UiTableSummary};
@@ -38,39 +38,41 @@ fn make_table(name: &str, columns: Vec<UiSchemaColumn>, foreign_keys: Vec<UiSche
     }
 }
 
-fn col(name: &str, is_pk: bool) -> UiSchemaColumn {
+fn col(name: &str) -> UiSchemaColumn {
     UiSchemaColumn {
         name: name.to_owned(),
         data_type: "int".to_owned(),
         nullable: false,
-        is_primary_key: is_pk,
+        is_primary_key: false,
     }
 }
 
-fn simple_fk(name: &str, from: &str, to_table: &str, to: &str) -> UiSchemaForeignKey {
-    UiSchemaForeignKey {
-        name: name.to_owned(),
-        from_columns: vec![from.to_owned()],
-        to_schema: "public".to_owned(),
-        to_table: to_table.to_owned(),
-        to_columns: vec![to.to_owned()],
-    }
+fn pk_col(name: &str) -> UiSchemaColumn {
+    let mut column = col(name);
+    column.is_primary_key = true;
+    column
 }
 
-fn comp_fk(name: &str, from_cols: &[&str], to_table: &str, to_cols: &[&str]) -> UiSchemaForeignKey {
+/// `to` is the `(table, column)` the FK points at.
+fn simple_fk(name: &str, from: &str, to: (&str, &str)) -> UiSchemaForeignKey {
+    comp_fk(name, &[from], (to.0, &[to.1]))
+}
+
+/// `to` is `(table, columns)` — composite keys list every referenced column.
+fn comp_fk(name: &str, from_cols: &[&str], to: (&str, &[&str])) -> UiSchemaForeignKey {
     UiSchemaForeignKey {
         name: name.to_owned(),
         from_columns: from_cols.iter().map(|s| s.to_string()).collect(),
         to_schema: "public".to_owned(),
-        to_table: to_table.to_owned(),
-        to_columns: to_cols.iter().map(|s| s.to_string()).collect(),
+        to_table: to.0.to_owned(),
+        to_columns: to.1.iter().map(|s| s.to_string()).collect(),
     }
 }
 
 /// N independent tables with no FK relationships.
 fn isolated_tables(n: usize) -> Vec<UiTableSummary> {
     (0..n)
-        .map(|i| make_table(&format!("iso_{i}"), vec![col("id", true)], vec![]))
+        .map(|i| make_table(&format!("iso_{i}"), vec![pk_col("id")], vec![]))
         .collect()
 }
 
@@ -79,11 +81,11 @@ fn star_tables(n: usize) -> Vec<UiTableSummary> {
     (0..n)
         .map(|i| {
             let fks = if i > 0 {
-                vec![simple_fk(&format!("fk_{i}_hub"), "hub_id", "star_0", "id")]
+                vec![simple_fk(&format!("fk_{i}_hub"), "hub_id", ("star_0", "id"))]
             } else {
                 vec![]
             };
-            make_table(&format!("star_{i}"), vec![col("id", true), col("hub_id", false)], fks)
+            make_table(&format!("star_{i}"), vec![pk_col("id"), col("hub_id")], fks)
         })
         .collect()
 }
@@ -96,13 +98,12 @@ fn chain_tables(n: usize) -> Vec<UiTableSummary> {
                 vec![simple_fk(
                     &format!("fk_{i}"),
                     "ref_id",
-                    &format!("chain_{}", i - 1),
-                    "id",
+                    (&format!("chain_{}", i - 1), "id"),
                 )]
             } else {
                 vec![]
             };
-            make_table(&format!("chain_{i}"), vec![col("id", true), col("ref_id", false)], fks)
+            make_table(&format!("chain_{i}"), vec![pk_col("id"), col("ref_id")], fks)
         })
         .collect()
 }
@@ -112,50 +113,57 @@ fn chain_tables(n: usize) -> Vec<UiTableSummary> {
 fn dense_1000_tables() -> Vec<UiTableSummary> {
     (0..1000)
         .map(|i| {
-            let mut fks = Vec::new();
-            // FK to predecessor table
-            if i > 0 {
-                fks.push(simple_fk(
-                    &format!("fk_{i}_a"),
-                    "parent_id",
-                    &format!("dense_{}", i - 1),
-                    "id",
-                ));
-            }
-            // FK to table 3 behind
-            if i > 2 {
-                fks.push(simple_fk(
-                    &format!("fk_{i}_b"),
-                    "mod_id",
-                    &format!("dense_{}", i - 3),
-                    "id",
-                ));
-            }
-            // FK to cluster table (i - i%10)
-            if i % 10 > 3 {
-                fks.push(simple_fk(
-                    &format!("fk_{i}_c"),
-                    "cluster_id",
-                    &format!("dense_{}", i - (i % 10)),
-                    "id",
-                ));
-            }
             make_table(
                 &format!("dense_{i}"),
-                vec![
-                    col("id", true),
-                    col("parent_id", false),
-                    col("mod_id", false),
-                    col("cluster_id", false),
-                ],
-                fks,
+                vec![pk_col("id"), col("parent_id"), col("mod_id"), col("cluster_id")],
+                dense_fks(i),
             )
         })
         .collect()
 }
 
+/// ~3 FKs per table: predecessor, three-back, and a cluster anchor.
+fn dense_fks(i: usize) -> Vec<UiSchemaForeignKey> {
+    let mut fks = Vec::new();
+    if i > 0 {
+        fks.push(simple_fk(
+            &format!("fk_{i}_a"),
+            "parent_id",
+            (&format!("dense_{}", i - 1), "id"),
+        ));
+    }
+    if i > 2 {
+        fks.push(simple_fk(
+            &format!("fk_{i}_b"),
+            "mod_id",
+            (&format!("dense_{}", i - 3), "id"),
+        ));
+    }
+    if i % 10 > 3 {
+        fks.push(simple_fk(
+            &format!("fk_{i}_c"),
+            "cluster_id",
+            (&format!("dense_{}", i - (i % 10)), "id"),
+        ));
+    }
+    fks
+}
+
 fn viewport_1280() -> egui::Rect {
     egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0))
+}
+
+/// Scenes for the same graph at two pan offsets — the shared arrange-then-
+/// prepare shape of the pan/zoom no-rebuild tests.
+fn two_pan_scenes(tables: &[UiTableSummary], grid: ErGridSpec) -> (ErRenderScene, ErRenderScene) {
+    let graph = ErGraph::build(tables, 1, grid);
+    let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
+    let vp1 = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
+    let vp2 = ErViewport::new(egui::vec2(500.0, 300.0), 1.0, egui::Pos2::ZERO);
+    (
+        prepare_render_scene(&graph, &spatial, &vp1, viewport_1280(), None),
+        prepare_render_scene(&graph, &spatial, &vp2, viewport_1280(), None),
+    )
 }
 
 // ===========================================================================
@@ -183,12 +191,12 @@ fn worker_shutdown_via_drop_no_leak() {
 #[test]
 fn worker_new_instance_after_drop_works() {
     let mut w1 = ErLayoutWorker::new();
-    let req1 = w1.request_layout(1, vec![], 2, 120.0);
+    let req1 = w1.request_layout(1, vec![], (2, 120.0));
     assert!(req1 >= 1);
     drop(w1);
 
     let mut w2 = ErLayoutWorker::new();
-    let req2 = w2.request_layout(1, vec![], 2, 120.0);
+    let req2 = w2.request_layout(1, vec![], (2, 120.0));
     assert!(req2 >= 1);
 }
 
@@ -198,7 +206,7 @@ fn worker_coalesces_rapid_requests() {
     let tables = star_tables(3);
 
     for v in 1..=5 {
-        worker.request_layout(v, tables.clone(), 2, 120.0);
+        worker.request_layout(v, tables.clone(), (2, 120.0));
     }
 
     let start = Instant::now();
@@ -252,33 +260,45 @@ fn saturating_add_never_wraps_to_zero() {
     assert_ne!(next, 0);
 }
 
-#[test]
-fn worker_latest_result_always_wins() {
-    let mut worker = ErLayoutWorker::new();
-    let tables = star_tables(2);
-
-    let req1 = worker.request_layout(1, tables.clone(), 2, 120.0);
-    let req2 = worker.request_layout(2, tables.clone(), 2, 120.0);
-    assert!(req2 > req1);
-
-    // Drain until the layout for the newest request is emitted, for the reason spelled
-    // out in worker_coalescing_latest_result_wins above: a worker the scheduler runs
-    // between the two sends lays out version 1 first, emits it, and only then handles
-    // version 2, so the first result cannot be asserted on.
+/// Drains worker results until the layout for `(want_id, want_version)` arrives
+/// or the deadline expires. The worker coalesces only what is already queued
+/// when it wakes up (layout.rs recv + try_recv drain), so a worker scheduled
+/// between two sends legitimately emits the older layout first — that
+/// superseded intermediate is returned in the second tuple element, and the
+/// deadline is seconds because a starved worker thread can take hundreds of
+/// milliseconds to run again on a shared CI runner (~2.4 s measured).
+fn drain_until_request(
+    worker: &mut ErLayoutWorker,
+    want_id: u64,
+    want_version: u64,
+) -> (ErLayoutResult, Vec<ErLayoutResult>) {
     const COALESCING_DEADLINE: Duration = Duration::from_secs(5);
-
     let start = Instant::now();
     let mut intermediate: Vec<ErLayoutResult> = Vec::new();
     let mut latest: Option<ErLayoutResult> = None;
     while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
         match worker.poll_result() {
-            Some(res) if res.request_id == req2 && res.graph_version == 2 => latest = Some(res),
+            Some(res) if res.request_id == want_id && res.graph_version == want_version => latest = Some(res),
             Some(res) => intermediate.push(res),
             None => std::thread::sleep(Duration::from_millis(5)),
         }
     }
+    (
+        latest.expect("worker should emit the layout for the latest request within the deadline"),
+        intermediate,
+    )
+}
 
-    let res = latest.expect("worker should emit the newest layout within the deadline");
+#[test]
+fn worker_latest_result_always_wins() {
+    let mut worker = ErLayoutWorker::new();
+    let tables = star_tables(2);
+
+    let req1 = worker.request_layout(1, tables.clone(), (2, 120.0));
+    let req2 = worker.request_layout(2, tables.clone(), (2, 120.0));
+    assert!(req2 > req1);
+
+    let (res, intermediate) = drain_until_request(&mut worker, req2, 2);
     assert!(res.graph_version >= 2);
     assert_eq!(res.request_id, req2);
 
@@ -314,8 +334,8 @@ fn version_increments_on_each_change() {
 fn graph_dirty_by_node_count_mismatch() {
     let a = isolated_tables(5);
     let b = isolated_tables(10);
-    let ga = ErGraph::build(&a, 1, 3, 120.0);
-    let gb = ErGraph::build(&b, 2, 3, 120.0);
+    let ga = ErGraph::build(&a, 1, (3, 120.0));
+    let gb = ErGraph::build(&b, 2, (3, 120.0));
     assert_ne!(ga.nodes.len(), gb.nodes.len());
     assert_ne!(ga.schema_version, gb.schema_version);
 }
@@ -323,8 +343,8 @@ fn graph_dirty_by_node_count_mismatch() {
 #[test]
 fn graph_clean_when_version_and_count_match() {
     let tables = star_tables(5);
-    let ga = ErGraph::build(&tables, 1, 3, 120.0);
-    let gb = ErGraph::build(&tables, 1, 3, 120.0);
+    let ga = ErGraph::build(&tables, 1, (3, 120.0));
+    let gb = ErGraph::build(&tables, 1, (3, 120.0));
     assert_eq!(ga.nodes.len(), gb.nodes.len());
     assert_eq!(ga.schema_version, gb.schema_version);
 }
@@ -332,7 +352,7 @@ fn graph_clean_when_version_and_count_match() {
 #[test]
 fn spatial_index_consistent_with_graph() {
     let tables = star_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let all_ids: HashSet<usize> = (0..graph.nodes.len()).collect();
@@ -347,7 +367,7 @@ fn spatial_index_consistent_with_graph() {
 #[test]
 fn old_graph_still_renders_during_computation() {
     let tables = star_tables(3);
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let vp = ErViewport::default();
@@ -359,7 +379,7 @@ fn old_graph_still_renders_during_computation() {
 #[test]
 fn computing_state_does_not_clear_previous_graph() {
     let tables = star_tables(3);
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     // Simulate: state is Computing, but old graph+spatial still usable
@@ -376,7 +396,7 @@ fn computing_state_does_not_clear_previous_graph() {
 #[test]
 fn scene_contains_only_visible_usize_ids() {
     let tables = isolated_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let vp = ErViewport::default();
 
@@ -394,7 +414,7 @@ fn scene_contains_only_visible_usize_ids() {
 #[test]
 fn scene_metrics_accurate() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let vp = ErViewport::default();
 
@@ -410,8 +430,8 @@ fn scene_metrics_accurate() {
 
 #[test]
 fn node_query_inside_one_bucket() {
-    let tables = vec![make_table("t0", vec![col("id", true)], vec![])];
-    let graph = ErGraph::build(&tables, 1, 1, 120.0);
+    let tables = vec![make_table("t0", vec![pk_col("id")], vec![])];
+    let graph = ErGraph::build(&tables, 1, (1, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let q = graph.nodes[0].world_rect.expand(1.0);
@@ -422,7 +442,7 @@ fn node_query_inside_one_bucket() {
 #[test]
 fn node_query_crosses_multiple_cells() {
     let tables = isolated_tables(20);
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
+    let graph = ErGraph::build(&tables, 1, (10, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let big = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(5000.0, 5000.0));
@@ -433,7 +453,7 @@ fn node_query_crosses_multiple_cells() {
 #[test]
 fn node_query_negative_coordinates() {
     let tables = isolated_tables(4);
-    let mut graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let mut graph = ErGraph::build(&tables, 1, (2, 120.0));
     for node in &mut graph.nodes {
         node.world_rect = node.world_rect.translate(egui::vec2(-5000.0, -5000.0));
     }
@@ -447,7 +467,7 @@ fn node_query_negative_coordinates() {
 #[test]
 fn node_query_giant_viewport() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let giant = egui::Rect::from_min_size(egui::pos2(-1e6, -1e6), egui::vec2(2e6, 2e6));
@@ -458,7 +478,7 @@ fn node_query_giant_viewport() {
 #[test]
 fn node_query_zero_size_viewport() {
     let tables = star_tables(3);
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let center = graph.nodes[0].world_rect.center();
@@ -469,8 +489,8 @@ fn node_query_zero_size_viewport() {
 
 #[test]
 fn node_query_on_cell_boundary() {
-    let tables = vec![make_table("t0", vec![col("id", true)], vec![])];
-    let mut graph = ErGraph::build(&tables, 1, 1, 120.0);
+    let tables = vec![make_table("t0", vec![pk_col("id")], vec![])];
+    let mut graph = ErGraph::build(&tables, 1, (1, 120.0));
     graph.nodes[0].world_rect = egui::Rect::from_min_size(egui::pos2(256.0, 0.0), egui::vec2(ER_NODE_WIDTH, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
@@ -482,7 +502,7 @@ fn node_query_on_cell_boundary() {
 #[test]
 fn node_query_no_duplicates() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let big = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(5000.0, 5000.0));
@@ -506,10 +526,10 @@ fn node_query_empty_index() {
 #[test]
 fn edge_query_uses_edge_buckets() {
     let tables = vec![
-        make_table("a", vec![col("id", true)], vec![]),
-        make_table("b", vec![col("id", true)], vec![simple_fk("fk_b_a", "a_id", "b", "id")]),
+        make_table("a", vec![pk_col("id")], vec![]),
+        make_table("b", vec![pk_col("id")], vec![simple_fk("fk_b_a", "a_id", ("b", "id"))]),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let q = graph.edges[0].world_bbox;
@@ -520,10 +540,10 @@ fn edge_query_uses_edge_buckets() {
 #[test]
 fn edge_query_no_fallback_scan() {
     let tables = vec![
-        make_table("a", vec![col("id", true)], vec![]),
-        make_table("b", vec![col("id", true)], vec![simple_fk("fk_b_a", "a_id", "b", "id")]),
+        make_table("a", vec![pk_col("id")], vec![]),
+        make_table("b", vec![pk_col("id")], vec![simple_fk("fk_b_a", "a_id", ("b", "id"))]),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let far = egui::Rect::from_min_size(egui::pos2(99999.0, 99999.0), egui::vec2(10.0, 10.0));
@@ -534,7 +554,7 @@ fn edge_query_no_fallback_scan() {
 #[test]
 fn edge_query_deduplicates() {
     let tables = star_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let big = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(5000.0, 5000.0));
@@ -558,7 +578,7 @@ fn edge_query_empty_index() {
 #[test]
 fn long_edge_bucket_count_bounded() {
     let tables = dense_1000_tables();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    let graph = ErGraph::build(&tables, 1, (10, 160.0));
     assert_eq!(graph.nodes.len(), 1000);
     assert!(graph.edges.len() > 2000);
 
@@ -606,7 +626,7 @@ fn long_edge_insert_capped_at_32_cells_per_dim() {
 #[test]
 fn metrics_reflects_actual_index() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let m = spatial.metrics();
@@ -632,7 +652,7 @@ fn metrics_empty_index() {
 #[test]
 fn metrics_dense_graph() {
     let tables = dense_1000_tables();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    let graph = ErGraph::build(&tables, 1, (10, 160.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let m = spatial.metrics();
@@ -654,7 +674,7 @@ fn metrics_dense_graph() {
 fn timing_20_tables() {
     let tables = isolated_tables(20);
     let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let _spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     assert_eq!(graph.nodes.len(), 20);
     assert!(
@@ -668,7 +688,7 @@ fn timing_20_tables() {
 fn timing_100_tables() {
     let tables = isolated_tables(100);
     let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
+    let graph = ErGraph::build(&tables, 1, (10, 120.0));
     let _spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     assert_eq!(graph.nodes.len(), 100);
     assert!(
@@ -682,7 +702,7 @@ fn timing_100_tables() {
 fn timing_500_tables() {
     let tables = isolated_tables(500);
     let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
+    let graph = ErGraph::build(&tables, 1, (10, 120.0));
     let _spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     assert_eq!(graph.nodes.len(), 500);
     assert!(
@@ -696,7 +716,7 @@ fn timing_500_tables() {
 fn timing_1000_tables_dense() {
     let tables = dense_1000_tables();
     let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    let graph = ErGraph::build(&tables, 1, (10, 160.0));
     let _spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     assert_eq!(graph.nodes.len(), 1000);
     assert!(
@@ -713,7 +733,7 @@ fn timing_1000_tables_dense() {
 #[test]
 fn scene_prep_1000_1280x800() {
     let tables = dense_1000_tables();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    let graph = ErGraph::build(&tables, 1, (10, 160.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let vp = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
 
@@ -734,7 +754,7 @@ fn scene_prep_1000_1280x800() {
 #[test]
 fn scene_prep_1000_1920x1080() {
     let tables = dense_1000_tables();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    let graph = ErGraph::build(&tables, 1, (10, 160.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let vp = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
     let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
@@ -755,16 +775,7 @@ fn scene_prep_1000_1920x1080() {
 
 #[test]
 fn pan_only_changes_viewport() {
-    let tables = dense_1000_tables();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
-    let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
-
-    let vp1 = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
-    let vp2 = ErViewport::new(egui::vec2(500.0, 300.0), 1.0, egui::Pos2::ZERO);
-
-    let s1 = prepare_render_scene(&graph, &spatial, &vp1, viewport_1280(), None);
-    let s2 = prepare_render_scene(&graph, &spatial, &vp2, viewport_1280(), None);
-
+    let (s1, s2) = two_pan_scenes(&dense_1000_tables(), (10, 160.0).into());
     assert_eq!(s1.metrics.total_nodes, s2.metrics.total_nodes);
     assert_eq!(s1.metrics.total_edges, s2.metrics.total_edges);
 }
@@ -772,7 +783,7 @@ fn pan_only_changes_viewport() {
 #[test]
 fn zoom_changes_lod_not_graph() {
     let tables = isolated_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let zoom_out = ErViewport::new(egui::Vec2::ZERO, 0.3, egui::Pos2::ZERO);
@@ -845,14 +856,14 @@ fn selected_node_at_compact_shows_detail() {
 #[test]
 fn bfs_subset_from_seed() {
     let tables = chain_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
 
-    let hop1 = graph.bfs_neighborhood(&[0], 1, 100);
+    let hop1 = graph.bfs_neighborhood(&[0], (1, 100));
     assert!(hop1.contains(&0));
     assert!(hop1.contains(&1));
     assert!(!hop1.contains(&5));
 
-    let hop2 = graph.bfs_neighborhood(&[0], 2, 100);
+    let hop2 = graph.bfs_neighborhood(&[0], (2, 100));
     assert!(hop2.len() == 3);
     assert!(hop2.contains(&2));
 }
@@ -860,8 +871,8 @@ fn bfs_subset_from_seed() {
 #[test]
 fn bfs_respects_max_nodes_cap() {
     let tables = chain_tables(20);
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
-    let result = graph.bfs_neighborhood(&[0], 10, 5);
+    let graph = ErGraph::build(&tables, 1, (10, 120.0));
+    let result = graph.bfs_neighborhood(&[0], (10, 5));
     assert!(result.len() <= 5);
 }
 
@@ -872,11 +883,11 @@ fn bfs_respects_max_nodes_cap() {
 #[test]
 fn bfs_deterministic_across_runs() {
     let tables = chain_tables(20);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
 
-    let r1 = graph.bfs_neighborhood(&[0], 3, 50);
-    let r2 = graph.bfs_neighborhood(&[0], 3, 50);
-    let r3 = graph.bfs_neighborhood(&[0], 3, 50);
+    let r1 = graph.bfs_neighborhood(&[0], (3, 50));
+    let r2 = graph.bfs_neighborhood(&[0], (3, 50));
+    let r3 = graph.bfs_neighborhood(&[0], (3, 50));
     assert_eq!(r1, r2);
     assert_eq!(r2, r3);
 }
@@ -888,16 +899,16 @@ fn bfs_reverse_relations_terminates() {
     // BFS from "a" (index 3) discovers nothing (no outgoing FK from a).
     // BFS from "d" (index 0) discovers all 4 via adjacency.
     let tables = vec![
-        make_table("d", vec![col("id", true)], vec![simple_fk("fk_d_c", "c_id", "c", "id")]),
-        make_table("c", vec![col("id", true)], vec![simple_fk("fk_c_b", "b_id", "b", "id")]),
-        make_table("b", vec![col("id", true)], vec![simple_fk("fk_b_a", "a_id", "a", "id")]),
-        make_table("a", vec![col("id", true)], vec![]),
+        make_table("d", vec![pk_col("id")], vec![simple_fk("fk_d_c", "c_id", ("c", "id"))]),
+        make_table("c", vec![pk_col("id")], vec![simple_fk("fk_c_b", "b_id", ("b", "id"))]),
+        make_table("b", vec![pk_col("id")], vec![simple_fk("fk_b_a", "a_id", ("a", "id"))]),
+        make_table("a", vec![pk_col("id")], vec![]),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
 
     // BFS from d (index 0): d→c→b→a = 4 nodes
-    let r1 = graph.bfs_neighborhood(&[0], 3, 100);
-    let r2 = graph.bfs_neighborhood(&[0], 3, 100);
+    let r1 = graph.bfs_neighborhood(&[0], (3, 100));
+    let r2 = graph.bfs_neighborhood(&[0], (3, 100));
     assert_eq!(r1, r2);
     assert_eq!(r1.len(), 4);
 }
@@ -907,14 +918,14 @@ fn bfs_cycles_terminate() {
     // Cycle: A→B→C→A via FK
     // Table "a" has FK to "b", "b" has FK to "c", "c" has FK to "a".
     let tables = vec![
-        make_table("a", vec![col("id", true)], vec![simple_fk("fk_a_b", "b_id", "b", "id")]),
-        make_table("b", vec![col("id", true)], vec![simple_fk("fk_b_c", "c_id", "c", "id")]),
-        make_table("c", vec![col("id", true)], vec![simple_fk("fk_c_a", "a_id", "a", "id")]),
+        make_table("a", vec![pk_col("id")], vec![simple_fk("fk_a_b", "b_id", ("b", "id"))]),
+        make_table("b", vec![pk_col("id")], vec![simple_fk("fk_b_c", "c_id", ("c", "id"))]),
+        make_table("c", vec![pk_col("id")], vec![simple_fk("fk_c_a", "a_id", ("a", "id"))]),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
 
     // BFS from a (index 0): a→b→c→a(cycle, already visited) = 3 nodes
-    let result = graph.bfs_neighborhood(&[0], 10, 100);
+    let result = graph.bfs_neighborhood(&[0], (10, 100));
     assert_eq!(result.len(), 3);
 }
 
@@ -922,12 +933,12 @@ fn bfs_cycles_terminate() {
 fn bfs_self_fk() {
     let tables = vec![make_table(
         "self_ref",
-        vec![col("id", true)],
-        vec![simple_fk("fk_self", "parent_id", "self_ref", "id")],
+        vec![pk_col("id")],
+        vec![simple_fk("fk_self", "parent_id", ("self_ref", "id"))],
     )];
-    let graph = ErGraph::build(&tables, 1, 1, 120.0);
+    let graph = ErGraph::build(&tables, 1, (1, 120.0));
 
-    let result = graph.bfs_neighborhood(&[0], 3, 100);
+    let result = graph.bfs_neighborhood(&[0], (3, 100));
     assert_eq!(result.len(), 1);
     assert_eq!(result[0], 0);
 }
@@ -935,19 +946,18 @@ fn bfs_self_fk() {
 #[test]
 fn bfs_composite_fk() {
     let tables = vec![
-        make_table("parent", vec![col("id", true)], vec![]),
+        make_table("parent", vec![pk_col("id")], vec![]),
         make_table(
             "child",
-            vec![col("id", true), col("tenant_id", false)],
+            vec![pk_col("id"), col("tenant_id")],
             vec![comp_fk(
                 "fk_child_parent",
                 &["tenant_id", "id"],
-                "parent",
-                &["tenant_id", "id"],
+                ("parent", &["tenant_id", "id"]),
             )],
         ),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
 
     let neighbors = graph.adjacency.get(&1).cloned().unwrap_or_default();
     assert!(neighbors.contains(&0));
@@ -956,16 +966,16 @@ fn bfs_composite_fk() {
 #[test]
 fn bfs_empty_seed() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
-    let result = graph.bfs_neighborhood(&[], 2, 100);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
+    let result = graph.bfs_neighborhood(&[], (2, 100));
     assert!(result.is_empty());
 }
 
 #[test]
 fn bfs_out_of_bounds_seed() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
-    let result = graph.bfs_neighborhood(&[999], 2, 100);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
+    let result = graph.bfs_neighborhood(&[999], (2, 100));
     assert!(result.is_empty());
 }
 
@@ -976,7 +986,7 @@ fn bfs_out_of_bounds_seed() {
 #[test]
 fn subset_bounds_smaller_than_full() {
     let tables = chain_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
 
     let full = graph.world_bounds;
     let sub = graph.active_subset_bounds(&[0, 1]);
@@ -988,7 +998,7 @@ fn subset_bounds_smaller_than_full() {
 #[test]
 fn empty_subset_falls_back_to_world_bounds() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let empty = graph.active_subset_bounds(&[]);
     assert_eq!(empty, graph.world_bounds);
 }
@@ -996,7 +1006,7 @@ fn empty_subset_falls_back_to_world_bounds() {
 #[test]
 fn single_node_subset() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let sub = graph.active_subset_bounds(&[2]);
     assert_eq!(sub, graph.nodes[2].world_rect.expand(ER_CANVAS_MARGIN));
 }
@@ -1008,7 +1018,7 @@ fn single_node_subset() {
 #[test]
 fn hit_test_center_of_node() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let center = graph.nodes[2].world_rect.center();
@@ -1018,7 +1028,7 @@ fn hit_test_center_of_node() {
 #[test]
 fn hit_test_outside_returns_none() {
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     assert_eq!(spatial.hit_test_node(egui::pos2(99999.0, 99999.0), &graph.nodes), None);
@@ -1026,8 +1036,8 @@ fn hit_test_outside_returns_none() {
 
 #[test]
 fn hit_test_on_boundary() {
-    let tables = vec![make_table("t0", vec![col("id", true)], vec![])];
-    let mut graph = ErGraph::build(&tables, 1, 1, 120.0);
+    let tables = vec![make_table("t0", vec![pk_col("id")], vec![])];
+    let mut graph = ErGraph::build(&tables, 1, (1, 120.0));
     graph.nodes[0].world_rect = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(ER_NODE_WIDTH, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
@@ -1038,10 +1048,10 @@ fn hit_test_on_boundary() {
 #[test]
 fn hit_test_overlap_deterministic() {
     let tables = vec![
-        make_table("t0", vec![col("id", true)], vec![]),
-        make_table("t1", vec![col("id", true)], vec![]),
+        make_table("t0", vec![pk_col("id")], vec![]),
+        make_table("t1", vec![pk_col("id")], vec![]),
     ];
-    let mut graph = ErGraph::build(&tables, 1, 1, 120.0);
+    let mut graph = ErGraph::build(&tables, 1, (1, 120.0));
     let shared = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(ER_NODE_WIDTH, 120.0));
     graph.nodes[0].world_rect = shared;
     graph.nodes[1].world_rect = shared;
@@ -1060,19 +1070,18 @@ fn hit_test_overlap_deterministic() {
 #[test]
 fn composite_fk_single_edge() {
     let tables = vec![
-        make_table("parent", vec![col("tenant_id", true), col("id", true)], vec![]),
+        make_table("parent", vec![pk_col("tenant_id"), pk_col("id")], vec![]),
         make_table(
             "child",
-            vec![col("id", true), col("parent_tenant", false), col("parent_id", false)],
+            vec![pk_col("id"), col("parent_tenant"), col("parent_id")],
             vec![comp_fk(
                 "fk_child_parent",
                 &["parent_tenant", "parent_id"],
-                "parent",
-                &["tenant_id", "id"],
+                ("parent", &["tenant_id", "id"]),
             )],
         ),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
 
     assert_eq!(graph.edges.len(), 1);
     assert_eq!(graph.edges[0].foreign_key.from_columns.len(), 2);
@@ -1091,7 +1100,7 @@ fn rebuild_stability_a_b_toggle_x10() {
     for i in 0..10 {
         let tables = if i % 2 == 0 { &tables_a } else { &tables_b };
         let version = (i as u64) + 1;
-        let graph = ErGraph::build(tables, version, 5, 120.0);
+        let graph = ErGraph::build(tables, version, (5, 120.0));
         let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
         let vp = ErViewport::default();
         let _scene = prepare_render_scene(&graph, &spatial, &vp, viewport_1280(), None);
@@ -1110,7 +1119,7 @@ fn worker_survives_rapid_schema_switches() {
 
     for i in 0..20 {
         let tables = isolated_tables(5 + (i % 5));
-        worker.request_layout((i + 1) as u64, tables, 3, 120.0);
+        worker.request_layout((i + 1) as u64, tables, (3, 120.0));
     }
 
     // Wait for at least one result
@@ -1167,12 +1176,12 @@ fn layout_state_failed_carries_message() {
 #[test]
 fn worker_disconnected_no_panic() {
     let mut w = ErLayoutWorker::new();
-    let _ = w.request_layout(1, vec![], 2, 120.0);
+    let _ = w.request_layout(1, vec![], (2, 120.0));
     drop(w);
 
     let mut w2 = ErLayoutWorker::new();
     for i in 0..5 {
-        w2.request_layout(i, vec![], 2, 120.0);
+        w2.request_layout(i, vec![], (2, 120.0));
     }
     let _ = w2.poll_result();
 }
@@ -1230,7 +1239,7 @@ fn worker_degraded_mode_not_alive() {
     // After drop(), is_alive() should be false.
     let mut worker = ErLayoutWorker::new();
     assert!(worker.is_alive());
-    let _ = worker.request_layout(1, vec![], 2, 120.0);
+    let _ = worker.request_layout(1, vec![], (2, 120.0));
     drop(worker);
     // After drop, creating a new worker works.
     let worker2 = ErLayoutWorker::new();
@@ -1257,9 +1266,9 @@ fn request_id_saturates_at_max() {
     // We can't set it directly, but we can verify the saturating_add behavior.
     // After u64::MAX requests, IDs stay at MAX.
     // Practically, we verify that request IDs are monotonically increasing.
-    let id1 = worker.request_layout(1, vec![], 2, 120.0);
-    let id2 = worker.request_layout(2, vec![], 2, 120.0);
-    let id3 = worker.request_layout(3, vec![], 2, 120.0);
+    let id1 = worker.request_layout(1, vec![], (2, 120.0));
+    let id2 = worker.request_layout(2, vec![], (2, 120.0));
+    let id3 = worker.request_layout(3, vec![], (2, 120.0));
     assert!(id2 > id1);
     assert!(id3 > id2);
 }
@@ -1302,8 +1311,8 @@ fn schema_version_overflow_still_distinguishes_via_node_count() {
     let version = u64::MAX;
     let tables_a = isolated_tables(5);
     let tables_b = isolated_tables(10);
-    let ga = ErGraph::build(&tables_a, version, 3, 120.0);
-    let gb = ErGraph::build(&tables_b, version, 3, 120.0);
+    let ga = ErGraph::build(&tables_a, version, (3, 120.0));
+    let gb = ErGraph::build(&tables_b, version, (3, 120.0));
 
     // Same version but different node count → dirty
     assert_eq!(ga.schema_version, gb.schema_version);
@@ -1347,42 +1356,14 @@ fn worker_coalescing_latest_result_wins() {
     let tables = star_tables(3);
 
     // Send request for version 5
-    let req_old = worker.request_layout(5, tables.clone(), 2, 120.0);
+    let req_old = worker.request_layout(5, tables.clone(), (2, 120.0));
     // Send request for version 6
-    let req_new = worker.request_layout(6, tables, 2, 120.0);
-
-    // Drain results until the worker emits the layout for the latest request, or the
-    // deadline expires.
-    //
-    // The worker coalesces only what is already queued when it wakes up (layout.rs:
-    // recv() followed by the try_recv() drain). When the scheduler runs it between the
-    // two sends it lays out version 5 on its own and emits that result before version 6
-    // arrives. That first result is a legitimate intermediate, not a coalescing failure:
-    // the app boundary rejects it because `request_id != diagram_latest_layout_request`
-    // (the shape pinned by stale_result_with_old_request_id_rejected_at_app_boundary
-    // above), and the layout the app commits is the *last* result the worker emits.
-    // Asserting on the first result therefore asserts on the scheduler, not on coalescing.
-    //
-    // The deadline is seconds rather than milliseconds because a descheduled worker
-    // thread can take hundreds of milliseconds to run again on a shared CI runner
-    // (~2.4 s measured under heavy starvation), while laying out three tables takes
-    // microseconds once the thread runs.
-    const COALESCING_DEADLINE: Duration = Duration::from_secs(5);
-
-    let start = Instant::now();
-    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
-    let mut latest: Option<ErLayoutResult> = None;
-    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
-        match worker.poll_result() {
-            Some(res) if res.request_id == req_new && res.graph_version == 6 => latest = Some(res),
-            Some(res) => intermediate.push(res),
-            None => std::thread::sleep(Duration::from_millis(5)),
-        }
-    }
+    let req_new = worker.request_layout(6, tables, (2, 120.0));
 
     // Coalescing means the latest request (version 6) is the layout the app ends up
-    // committing, and it carries that newest version into the graph it built.
-    let res = latest.expect("worker should emit the layout for the latest request within the deadline");
+    // committing, and it carries that newest version into the graph it built. See
+    // drain_until_request for why an intermediate result may legitimately arrive first.
+    let (res, intermediate) = drain_until_request(&mut worker, req_new, 6);
     assert_eq!(res.graph_version, 6);
     assert_eq!(res.request_id, req_new);
     assert_ne!(res.request_id, req_old);
@@ -1412,7 +1393,7 @@ fn worker_coalescing_latest_result_wins() {
 #[test]
 fn graph_and_spatial_index_always_match() {
     let tables = star_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     // Spatial index node count must equal graph node count
@@ -1425,7 +1406,7 @@ fn scene_commit_is_atomic_in_integration() {
     // Simulate the integration path: both graph and spatial_index
     // are assigned in the same code path (poll_result in draw_diagram).
     let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
+    let graph = ErGraph::build(&tables, 1, (3, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     // Both derived from same source — verify consistency
@@ -1508,8 +1489,8 @@ fn metrics_after_long_edge_insert() {
 #[test]
 fn node_touching_multiple_buckets_appears_once() {
     // Place a node that spans multiple cells (wider than cell_size=256)
-    let tables = vec![make_table("wide", vec![col("id", true)], vec![])];
-    let mut graph = ErGraph::build(&tables, 1, 1, 120.0);
+    let tables = vec![make_table("wide", vec![pk_col("id")], vec![])];
+    let mut graph = ErGraph::build(&tables, 1, (1, 120.0));
     // Make the node span 3 cells: width = 3 * 256 = 768
     graph.nodes[0].world_rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(768.0, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
@@ -1526,10 +1507,10 @@ fn node_touching_multiple_buckets_appears_once() {
 #[test]
 fn edge_touching_multiple_buckets_appears_once() {
     let tables = vec![
-        make_table("a", vec![col("id", true)], vec![]),
-        make_table("b", vec![col("id", true)], vec![simple_fk("fk", "a_id", "b", "id")]),
+        make_table("a", vec![pk_col("id")], vec![]),
+        make_table("b", vec![pk_col("id")], vec![simple_fk("fk", "a_id", ("b", "id"))]),
     ];
-    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+    let graph = ErGraph::build(&tables, 1, (2, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     // Query covering the full edge bbox
@@ -1548,7 +1529,7 @@ fn edge_touching_multiple_buckets_appears_once() {
 #[test]
 fn renderer_consumes_only_scene_visible_ids() {
     let tables = isolated_tables(20);
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
+    let graph = ErGraph::build(&tables, 1, (10, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let vp = ErViewport::default();
 
@@ -1568,7 +1549,7 @@ fn no_full_graph_traversal_in_frame_path() {
     // Verify that prepare_render_scene does not rebuild graph or spatial index.
     // It only reads from them via spatial queries.
     let tables = chain_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let vp = ErViewport::default();
 
@@ -1589,16 +1570,7 @@ fn no_full_graph_traversal_in_frame_path() {
 #[test]
 fn pan_does_not_trigger_layout_request() {
     // Simulate the integration: pan only changes diagram_pan, not graph/layout state.
-    let tables = chain_tables(5);
-    let graph = ErGraph::build(&tables, 1, 3, 120.0);
-    let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
-
-    let vp1 = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
-    let vp2 = ErViewport::new(egui::vec2(500.0, 300.0), 1.0, egui::Pos2::ZERO);
-
-    let s1 = prepare_render_scene(&graph, &spatial, &vp1, viewport_1280(), None);
-    let s2 = prepare_render_scene(&graph, &spatial, &vp2, viewport_1280(), None);
-
+    let (s1, s2) = two_pan_scenes(&chain_tables(5), (3, 120.0).into());
     // Graph and spatial index unchanged — only visible set differs
     assert_eq!(s1.metrics.total_nodes, s2.metrics.total_nodes);
     assert_eq!(s1.metrics.total_edges, s2.metrics.total_edges);
@@ -1607,7 +1579,7 @@ fn pan_does_not_trigger_layout_request() {
 #[test]
 fn zoom_does_not_trigger_layout_request() {
     let tables = isolated_tables(10);
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(&tables, 1, (5, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
     let vp_out = ErViewport::new(egui::Vec2::ZERO, 0.3, egui::Pos2::ZERO);
@@ -1629,10 +1601,10 @@ fn zoom_does_not_trigger_layout_request() {
 fn search_subset_reuses_existing_graph() {
     // Use chain: BFS from node 0 with depth 1 returns only 0 + 1
     let tables = chain_tables(20);
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
+    let graph = ErGraph::build(&tables, 1, (10, 120.0));
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
 
-    let subset = graph.bfs_neighborhood(&[0], 1, 100);
+    let subset = graph.bfs_neighborhood(&[0], (1, 100));
     assert!(subset.len() < graph.nodes.len());
 
     let vp = ErViewport::default();
@@ -1647,71 +1619,47 @@ fn search_subset_reuses_existing_graph() {
 // Performance evidence (item 16)
 // ===========================================================================
 
-#[test]
-fn perf_evidence_20_tables() {
-    let tables = isolated_tables(20);
+/// Builds graph + spatial index, then times the render-scene preparation — the
+/// shared body of the scale evidence tests so each prints the same line shape.
+fn measure_and_print(label: &str, tables: &[UiTableSummary], grid: ErGridSpec) {
     let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 5, 120.0);
+    let graph = ErGraph::build(tables, 1, grid);
     let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
     let graph_time = start.elapsed();
 
-    let vp = ErViewport::default();
     let scene_start = Instant::now();
-    let scene = prepare_render_scene(&graph, &spatial, &vp, viewport_1280(), None);
+    let scene = prepare_render_scene(&graph, &spatial, &ErViewport::default(), viewport_1280(), None);
     let scene_time = scene_start.elapsed();
 
     let m = spatial.metrics();
-    println!("20 tables: graph+index={:?}, scene={:?}, visible={}/{}, spatial_q={}µs, node_buckets={}, edge_buckets={}, node_refs={}, edge_refs={}, max_node={}, max_edge={}",
-        graph_time, scene_time,
-        scene.visible_nodes.len(), scene.visible_edges.len(),
+    println!(
+        "{label}: graph+index={graph_time:?}, scene={scene_time:?}, visible={}/{}, spatial_q={}µs, \
+         node_buckets={}, edge_buckets={}, node_refs={}, edge_refs={}, max_node={}, max_edge={}",
+        scene.visible_nodes.len(),
+        scene.visible_edges.len(),
         scene.metrics.spatial_query_micros,
-        m.node_bucket_count, m.edge_bucket_count,
-        m.node_references, m.edge_references,
-        m.max_node_bucket_size, m.max_edge_bucket_size);
+        m.node_bucket_count,
+        m.edge_bucket_count,
+        m.node_references,
+        m.edge_references,
+        m.max_node_bucket_size,
+        m.max_edge_bucket_size,
+    );
+}
+
+#[test]
+fn perf_evidence_20_tables() {
+    measure_and_print("20 tables", &isolated_tables(20), (5, 120.0).into());
 }
 
 #[test]
 fn perf_evidence_100_tables() {
-    let tables = isolated_tables(100);
-    let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
-    let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
-    let graph_time = start.elapsed();
-
-    let vp = ErViewport::default();
-    let scene_start = Instant::now();
-    let scene = prepare_render_scene(&graph, &spatial, &vp, viewport_1280(), None);
-    let scene_time = scene_start.elapsed();
-
-    let m = spatial.metrics();
-    println!("100 tables: graph+index={:?}, scene={:?}, visible={}/{}, spatial_q={}µs, node_buckets={}, edge_buckets={}, node_refs={}, edge_refs={}",
-        graph_time, scene_time,
-        scene.visible_nodes.len(), scene.visible_edges.len(),
-        scene.metrics.spatial_query_micros,
-        m.node_bucket_count, m.edge_bucket_count,
-        m.node_references, m.edge_references);
+    measure_and_print("100 tables", &isolated_tables(100), (10, 120.0).into());
 }
 
 #[test]
 fn perf_evidence_500_tables() {
-    let tables = isolated_tables(500);
-    let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 10, 120.0);
-    let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
-    let graph_time = start.elapsed();
-
-    let vp = ErViewport::default();
-    let scene_start = Instant::now();
-    let scene = prepare_render_scene(&graph, &spatial, &vp, viewport_1280(), None);
-    let scene_time = scene_start.elapsed();
-
-    let m = spatial.metrics();
-    println!("500 tables: graph+index={:?}, scene={:?}, visible={}/{}, spatial_q={}µs, node_buckets={}, edge_buckets={}, node_refs={}, edge_refs={}",
-        graph_time, scene_time,
-        scene.visible_nodes.len(), scene.visible_edges.len(),
-        scene.metrics.spatial_query_micros,
-        m.node_bucket_count, m.edge_bucket_count,
-        m.node_references, m.edge_references);
+    measure_and_print("500 tables", &isolated_tables(500), (10, 120.0).into());
 }
 
 #[test]
@@ -1736,7 +1684,7 @@ fn foreign_key_component_places_the_referenced_table_above_the_child() {
             to_columns: vec!["id".to_owned()],
         }],
     };
-    let graph = ErGraph::build(&[child, parent], 1, 4, 120.0);
+    let graph = ErGraph::build(&[child, parent], 1, (4, 120.0));
     let orders = graph.nodes.iter().find(|node| node.table.name == "orders").unwrap();
     let customers = graph.nodes.iter().find(|node| node.table.name == "customers").unwrap();
     assert!(
@@ -1747,23 +1695,5 @@ fn foreign_key_component_places_the_referenced_table_above_the_child() {
 
 #[test]
 fn perf_evidence_1000_tables_dense() {
-    let tables = dense_1000_tables();
-    let start = Instant::now();
-    let graph = ErGraph::build(&tables, 1, 10, 160.0);
-    let spatial = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
-    let graph_time = start.elapsed();
-
-    let vp = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
-    let scene_start = Instant::now();
-    let scene = prepare_render_scene(&graph, &spatial, &vp, viewport_1280(), None);
-    let scene_time = scene_start.elapsed();
-
-    let m = spatial.metrics();
-    println!("1000 tables dense: graph+index={:?}, scene={:?}, visible={}/{}, spatial_q={}µs, node_buckets={}, edge_buckets={}, node_refs={}, edge_refs={}, max_node={}, max_edge={}",
-        graph_time, scene_time,
-        scene.visible_nodes.len(), scene.visible_edges.len(),
-        scene.metrics.spatial_query_micros,
-        m.node_bucket_count, m.edge_bucket_count,
-        m.node_references, m.edge_references,
-        m.max_node_bucket_size, m.max_edge_bucket_size);
+    measure_and_print("1000 tables dense", &dense_1000_tables(), (10, 160.0).into());
 }

@@ -26,9 +26,34 @@ pub struct ErNode {
     pub world_rect: egui::Rect,
 }
 
+/// Which card edge an edge attaches to (`right_side`) and how many column rows
+/// are rendered at the current zoom (`max_columns`) — anchors land on the
+/// column row when it is visible, otherwise the card center.
+#[derive(Debug, Clone, Copy)]
+pub struct ErAnchorSpec {
+    pub right_side: bool,
+    pub max_columns: usize,
+}
+
+impl ErAnchorSpec {
+    pub fn right(max_columns: usize) -> Self {
+        Self {
+            right_side: true,
+            max_columns,
+        }
+    }
+
+    pub fn left(max_columns: usize) -> Self {
+        Self {
+            right_side: false,
+            max_columns,
+        }
+    }
+}
+
 impl ErNode {
-    pub fn column_anchor(&self, column_name: Option<&str>, right_side: bool, max_columns: usize) -> egui::Pos2 {
-        let visible_columns = self.table.columns.len().min(max_columns);
+    pub fn column_anchor(&self, column_name: Option<&str>, spec: ErAnchorSpec) -> egui::Pos2 {
+        let visible_columns = self.table.columns.len().min(spec.max_columns);
         let column_index = column_name
             .and_then(|name| {
                 self.table
@@ -44,7 +69,7 @@ impl ErNode {
             self.world_rect.top() + ER_HEADER_HEIGHT + ER_ROW_HEIGHT * (column_index as f32 + 0.5)
         };
         egui::pos2(
-            if right_side {
+            if spec.right_side {
                 self.world_rect.right()
             } else {
                 self.world_rect.left()
@@ -86,50 +111,43 @@ impl Default for ErGraph {
     }
 }
 
+/// Grid geometry shared by the layout passes: columns for the isolate grid and
+/// the uniform card height the LOD picked for this build.
+#[derive(Debug, Clone, Copy)]
+pub struct ErGridSpec {
+    pub grid_columns: usize,
+    pub node_height: f32,
+}
+
+impl From<(usize, f32)> for ErGridSpec {
+    fn from((grid_columns, node_height): (usize, f32)) -> Self {
+        Self {
+            grid_columns,
+            node_height,
+        }
+    }
+}
+
+/// Bounds for [`ErGraph::bfs_neighborhood`]: how many hops out to walk and the
+/// total node cap that keeps search subsets usable on large schemas.
+#[derive(Debug, Clone, Copy)]
+pub struct ErBfsOptions {
+    pub max_depth: usize,
+    pub max_nodes: usize,
+}
+
+impl From<(usize, usize)> for ErBfsOptions {
+    fn from((max_depth, max_nodes): (usize, usize)) -> Self {
+        Self { max_depth, max_nodes }
+    }
+}
+
 impl ErGraph {
-    pub fn build(tables: &[UiTableSummary], schema_version: u64, grid_columns: usize, node_height: f32) -> Self {
-        let mut nodes = Vec::with_capacity(tables.len());
-        let mut node_lookup = HashMap::with_capacity(tables.len());
-        let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
-
-        for (index, table) in tables.iter().enumerate() {
-            node_lookup.insert((table.schema.clone(), table.name.clone()), index);
-            nodes.push(ErNode {
-                id: index,
-                table: table.clone(),
-                world_rect: egui::Rect::ZERO,
-            });
-        }
-        assign_positions(&mut nodes, &node_lookup, grid_columns, node_height);
-
-        let mut edges = Vec::new();
-        let mut edge_id = 0;
-
-        for source_node in &nodes {
-            for fk in &source_node.table.foreign_keys {
-                if let Some(&target_index) = node_lookup.get(&(fk.to_schema.clone(), fk.to_table.clone())) {
-                    adjacency.entry(source_node.id).or_default().push(target_index);
-                    adjacency.entry(target_index).or_default().push(source_node.id);
-
-                    let world_bbox = edge_world_bbox(&nodes, source_node.id, target_index, fk);
-
-                    edges.push(ErEdge {
-                        id: edge_id,
-                        source: source_node.id,
-                        target: target_index,
-                        foreign_key: fk.clone(),
-                        world_bbox,
-                    });
-                    edge_id += 1;
-                }
-            }
-        }
-
-        for neighbors in adjacency.values_mut() {
-            neighbors.sort_unstable();
-            neighbors.dedup();
-        }
-
+    pub fn build(tables: &[UiTableSummary], schema_version: u64, grid: impl Into<ErGridSpec>) -> Self {
+        let grid = grid.into();
+        let (mut nodes, node_lookup) = collect_nodes(tables);
+        assign_positions(&mut nodes, &node_lookup, grid.grid_columns, grid.node_height);
+        let (edges, adjacency) = collect_edges(&nodes, &node_lookup);
         let world_bounds = nodes_world_bounds(&nodes);
 
         Self {
@@ -153,7 +171,7 @@ impl ErGraph {
         node.world_rect = egui::Rect::from_min_size(new_min, node.world_rect.size());
         for edge in &mut self.edges {
             if edge.source == node_id || edge.target == node_id {
-                edge.world_bbox = edge_world_bbox(&self.nodes, edge.source, edge.target, &edge.foreign_key);
+                edge.world_bbox = edge_world_bbox(&self.nodes, edge);
             }
         }
         self.world_bounds = self.world_bounds.union(self.nodes[node_id].world_rect);
@@ -181,7 +199,7 @@ impl ErGraph {
         }
         if moved {
             for edge in &mut self.edges {
-                edge.world_bbox = edge_world_bbox(&self.nodes, edge.source, edge.target, &edge.foreign_key);
+                edge.world_bbox = edge_world_bbox(&self.nodes, edge);
             }
             self.recompute_world_bounds();
         }
@@ -201,40 +219,115 @@ impl ErGraph {
         bounds.map_or(self.world_bounds, |b| b.expand(ER_CANVAS_MARGIN))
     }
 
-    pub fn bfs_neighborhood(&self, seed_indices: &[usize], max_depth: usize, max_nodes: usize) -> Vec<usize> {
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
-        let mut result = Vec::new();
-
+    pub fn bfs_neighborhood(&self, seed_indices: &[usize], options: impl Into<ErBfsOptions>) -> Vec<usize> {
+        let mut bfs = ErBfsTraversal::new(self, options.into());
         for &seed in seed_indices {
-            if seed < self.nodes.len() && visited.insert(seed) {
-                queue.push_back((seed, 0));
-                result.push(seed);
-                if result.len() >= max_nodes {
-                    return result;
-                }
+            if bfs.full() {
+                break;
+            }
+            if seed < self.nodes.len() {
+                bfs.push(seed, 0);
             }
         }
-
-        while let Some((current, depth)) = queue.pop_front() {
-            if depth >= max_depth || result.len() >= max_nodes {
+        while let Some((current, depth)) = bfs.queue.pop_front() {
+            if bfs.full() || depth >= bfs.options.max_depth {
                 continue;
             }
-            if let Some(neighbors) = self.adjacency.get(&current) {
-                for &neighbor in neighbors {
-                    if visited.insert(neighbor) {
-                        result.push(neighbor);
-                        queue.push_back((neighbor, depth + 1));
-                        if result.len() >= max_nodes {
-                            break;
-                        }
-                    }
-                }
-            }
+            bfs.expand(current, depth);
         }
-
-        result
+        bfs.result
     }
+}
+
+/// Bookkeeping for one `bfs_neighborhood` run: visited set, frontier queue, and
+/// the result order the caller sees. Bundled so the walk itself stays a flat
+/// seed-then-expand loop.
+struct ErBfsTraversal<'a> {
+    adjacency: &'a HashMap<usize, Vec<usize>>,
+    options: ErBfsOptions,
+    visited: HashSet<usize>,
+    queue: VecDeque<(usize, usize)>,
+    result: Vec<usize>,
+}
+
+impl ErBfsTraversal<'_> {
+    fn new(graph: &ErGraph, options: ErBfsOptions) -> ErBfsTraversal<'_> {
+        ErBfsTraversal {
+            adjacency: &graph.adjacency,
+            options,
+            visited: HashSet::new(),
+            queue: VecDeque::new(),
+            result: Vec::new(),
+        }
+    }
+
+    fn full(&self) -> bool {
+        self.result.len() >= self.options.max_nodes
+    }
+
+    fn push(&mut self, node: usize, depth: usize) {
+        if self.visited.insert(node) {
+            self.result.push(node);
+            self.queue.push_back((node, depth));
+        }
+    }
+
+    fn expand(&mut self, current: usize, depth: usize) {
+        let Some(neighbors) = self.adjacency.get(&current) else {
+            return;
+        };
+        for &neighbor in neighbors {
+            if self.full() {
+                return;
+            }
+            self.push(neighbor, depth + 1);
+        }
+    }
+}
+
+fn collect_nodes(tables: &[UiTableSummary]) -> (Vec<ErNode>, HashMap<(String, String), usize>) {
+    let mut nodes = Vec::with_capacity(tables.len());
+    let mut node_lookup = HashMap::with_capacity(tables.len());
+    for (index, table) in tables.iter().enumerate() {
+        node_lookup.insert((table.schema.clone(), table.name.clone()), index);
+        nodes.push(ErNode {
+            id: index,
+            table: table.clone(),
+            world_rect: egui::Rect::ZERO,
+        });
+    }
+    (nodes, node_lookup)
+}
+
+fn collect_edges(
+    nodes: &[ErNode],
+    node_lookup: &HashMap<(String, String), usize>,
+) -> (Vec<ErEdge>, HashMap<usize, Vec<usize>>) {
+    let mut edges = Vec::new();
+    let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
+    for source_node in nodes {
+        for fk in &source_node.table.foreign_keys {
+            let Some(&target_index) = node_lookup.get(&(fk.to_schema.clone(), fk.to_table.clone())) else {
+                continue;
+            };
+            adjacency.entry(source_node.id).or_default().push(target_index);
+            adjacency.entry(target_index).or_default().push(source_node.id);
+            let mut edge = ErEdge {
+                id: edges.len(),
+                source: source_node.id,
+                target: target_index,
+                foreign_key: fk.clone(),
+                world_bbox: egui::Rect::ZERO,
+            };
+            edge.world_bbox = edge_world_bbox(nodes, &edge);
+            edges.push(edge);
+        }
+    }
+    for neighbors in adjacency.values_mut() {
+        neighbors.sort_unstable();
+        neighbors.dedup();
+    }
+    (edges, adjacency)
 }
 
 /// Connected components sit in their own block. A component with foreign keys
@@ -264,18 +357,17 @@ fn assign_positions(
     }
     links.sort_unstable();
     links.dedup();
-    let mut parent: Vec<usize> = (0..count).collect();
-    let mut rank = vec![0u8; count];
+    let mut union_find = ErUnionFind::new(count);
     let mut linked = vec![false; count];
     for &(source, target) in &links {
-        unite(&mut parent, &mut rank, source, target);
+        union_find.unite(source, target);
         linked[source] = true;
         linked[target] = true;
     }
 
     let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
     for index in 0..count {
-        groups.entry(find(&mut parent, index)).or_default().push(index);
+        groups.entry(union_find.find(index)).or_default().push(index);
     }
     let mut components: Vec<Vec<usize>> = groups.into_values().collect();
     components.sort_by_key(|group| group.iter().copied().min().unwrap_or(0));
@@ -290,16 +382,14 @@ fn assign_positions(
             isolates.extend(group);
             continue;
         }
-        let width = layout_component(
+        let mut layout = ErLayoutContext {
             nodes,
-            &links,
-            &group,
-            cursor_x,
-            ER_CANVAS_MARGIN,
-            step_x,
-            step_y,
+            links: &links,
+            origin: egui::pos2(cursor_x, ER_CANVAS_MARGIN),
+            step: egui::vec2(step_x, step_y),
             node_height,
-        );
+        };
+        let width = layout_component(&mut layout, &group);
         cursor_x += width + ER_GAP_X;
     }
 
@@ -315,41 +405,90 @@ fn assign_positions(
     }
 }
 
-fn find(parent: &mut [usize], mut index: usize) -> usize {
-    while parent[index] != index {
-        parent[index] = parent[parent[index]];
-        index = parent[index];
-    }
-    index
+/// Union-find over node ids with path halving and union by rank — groups the
+/// graph into connected components before each is laid out as its own block.
+struct ErUnionFind {
+    parent: Vec<usize>,
+    rank: Vec<u8>,
 }
 
-fn unite(parent: &mut [usize], rank: &mut [u8], mut left: usize, mut right: usize) {
-    left = find(parent, left);
-    right = find(parent, right);
-    if left == right {
-        return;
+impl ErUnionFind {
+    fn new(count: usize) -> Self {
+        Self {
+            parent: (0..count).collect(),
+            rank: vec![0; count],
+        }
     }
-    if rank[left] < rank[right] {
-        std::mem::swap(&mut left, &mut right);
+
+    fn find(&mut self, mut index: usize) -> usize {
+        while self.parent[index] != index {
+            self.parent[index] = self.parent[self.parent[index]];
+            index = self.parent[index];
+        }
+        index
     }
-    parent[right] = left;
-    if rank[left] == rank[right] {
-        rank[left] = rank[left].saturating_add(1);
+
+    fn unite(&mut self, mut left: usize, mut right: usize) {
+        left = self.find(left);
+        right = self.find(right);
+        if left == right {
+            return;
+        }
+        if self.rank[left] < self.rank[right] {
+            std::mem::swap(&mut left, &mut right);
+        }
+        self.parent[right] = left;
+        if self.rank[left] == self.rank[right] {
+            self.rank[left] = self.rank[left].saturating_add(1);
+        }
     }
+}
+
+/// Shared geometry inputs for [`layout_component`] — keeps the layering and
+/// barycenter passes free of positional bookkeeping arguments.
+struct ErLayoutContext<'a> {
+    nodes: &'a mut [ErNode],
+    links: &'a [(usize, usize)],
+    origin: egui::Pos2,
+    step: egui::Vec2,
+    node_height: f32,
 }
 
 /// Returns the width occupied by the component.
-#[allow(clippy::too_many_arguments)]
-fn layout_component(
-    nodes: &mut [ErNode],
+fn layout_component(ctx: &mut ErLayoutContext<'_>, group: &[usize]) -> f32 {
+    let layer = layer_ranks(ctx.links, group);
+    let max_layer = layer.values().copied().max().unwrap_or(0);
+    let mut rows: Vec<Vec<usize>> = vec![Vec::new(); max_layer + 1];
+    for &id in group {
+        rows[layer[&id]].push(id);
+    }
+    for row in &mut rows {
+        row.sort_unstable();
+    }
+    let members: HashSet<usize> = group.iter().copied().collect();
+    barycenter_rows(&mut rows, ctx.links, &members);
+
+    let mut max_columns = 1usize;
+    for (row_index, row) in rows.iter().enumerate() {
+        max_columns = max_columns.max(row.len());
+        for (column, &id) in row.iter().enumerate() {
+            let position = egui::pos2(
+                ctx.origin.x + column as f32 * ctx.step.x,
+                ctx.origin.y + row_index as f32 * ctx.step.y,
+            );
+            ctx.nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, ctx.node_height));
+        }
+    }
+    max_columns as f32 * ctx.step.x
+}
+
+/// Kahn layering over the component's links: each member gets the row (depth)
+/// it sits on. Members unreachable from the topological walk fall back to 0.
+/// Incoming-degree and child lists for the links that stay inside `members`.
+fn component_link_maps(
     links: &[(usize, usize)],
     group: &[usize],
-    origin_x: f32,
-    origin_y: f32,
-    step_x: f32,
-    step_y: f32,
-    node_height: f32,
-) -> f32 {
+) -> (HashMap<usize, usize>, HashMap<usize, Vec<usize>>) {
     let members: HashSet<usize> = group.iter().copied().collect();
     let mut indegree: HashMap<usize, usize> = group.iter().copied().map(|id| (id, 0)).collect();
     let mut children: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -359,6 +498,11 @@ fn layout_component(
             children.entry(target).or_default().push(source);
         }
     }
+    (indegree, children)
+}
+
+fn layer_ranks(links: &[(usize, usize)], group: &[usize]) -> HashMap<usize, usize> {
+    let (mut indegree, children) = component_link_maps(links, group);
     let mut queue: Vec<usize> = indegree
         .iter()
         .filter(|(_, degree)| **degree == 0)
@@ -370,33 +514,51 @@ fn layout_component(
     while let Some(id) = queue.pop_front() {
         let my_layer = layer.get(&id).copied().unwrap_or(0);
         layer.entry(id).or_insert(my_layer);
-        if let Some(kids) = children.get(&id) {
-            for &kid in kids {
-                let next = my_layer + 1;
-                let kid_layer = layer.entry(kid).or_insert(0);
-                if *kid_layer < next {
-                    *kid_layer = next;
-                }
-                let degree = indegree.get_mut(&kid).expect("component member");
-                *degree = degree.saturating_sub(1);
-                if *degree == 0 {
-                    queue.push_back(kid);
-                }
+        let Some(kids) = children.get(&id) else {
+            continue;
+        };
+        for &kid in kids {
+            let next = my_layer + 1;
+            let kid_layer = layer.entry(kid).or_insert(0);
+            if *kid_layer < next {
+                *kid_layer = next;
+            }
+            // kid is always a component member: children only ever collects
+            // targets inside `members`. let-else keeps that invariant
+            // branch-free instead of panicking on it.
+            let Some(degree) = indegree.get_mut(&kid) else {
+                continue;
+            };
+            *degree = degree.saturating_sub(1);
+            if *degree == 0 {
+                queue.push_back(kid);
             }
         }
     }
     for &id in group {
         layer.entry(id).or_insert(0);
     }
-    let max_layer = layer.values().copied().max().unwrap_or(0);
-    let mut rows: Vec<Vec<usize>> = vec![Vec::new(); max_layer + 1];
-    for &id in group {
-        rows[layer[&id]].push(id);
-    }
-    for row in &mut rows {
-        row.sort_unstable();
-    }
-    // Parents of each child, built once for the barycenter pass.
+    layer
+}
+
+/// Mean column position of `id`'s upstream parents in the previous row,
+/// scaled by 1024 so the sort key stays integral. Falls back to `id` itself
+/// when the member has no parent in that row.
+fn barycenter_of(id: usize, parents: &HashMap<usize, Vec<usize>>, previous: &HashMap<usize, usize>) -> usize {
+    let (sum, count) = parents
+        .get(&id)
+        .into_iter()
+        .flatten()
+        .filter_map(|target| previous.get(target))
+        .fold((0usize, 0usize), |(sum, count), position| (sum + position, count + 1));
+    sum.saturating_mul(1024)
+        .checked_div(count)
+        .unwrap_or_else(|| id.saturating_mul(1024))
+}
+
+/// Reorders each row by the mean column position of its upstream parents
+/// (barycenter heuristic) so layered rows settle into readable columns.
+fn barycenter_rows(rows: &mut [Vec<usize>], links: &[(usize, usize)], members: &HashSet<usize>) {
     let mut parents: HashMap<usize, Vec<usize>> = HashMap::new();
     for &(source, target) in links {
         if members.contains(&source) && members.contains(&target) {
@@ -412,37 +574,11 @@ fn layout_component(
         let mut ranked: Vec<(usize, usize)> = rows[row_index]
             .iter()
             .copied()
-            .map(|id| {
-                let mut sum = 0usize;
-                let mut count = 0usize;
-                if let Some(targets) = parents.get(&id) {
-                    for target in targets {
-                        if let Some(position) = previous.get(target) {
-                            sum += *position;
-                            count += 1;
-                        }
-                    }
-                }
-                let barycenter = sum
-                    .saturating_mul(1024)
-                    .checked_div(count)
-                    .unwrap_or_else(|| id.saturating_mul(1024));
-                (barycenter, id)
-            })
+            .map(|id| (barycenter_of(id, &parents, &previous), id))
             .collect();
         ranked.sort_unstable();
         rows[row_index] = ranked.into_iter().map(|(_, id)| id).collect();
     }
-
-    let mut max_columns = 1usize;
-    for (row_index, row) in rows.iter().enumerate() {
-        max_columns = max_columns.max(row.len());
-        for (column, &id) in row.iter().enumerate() {
-            let position = egui::pos2(origin_x + column as f32 * step_x, origin_y + row_index as f32 * step_y);
-            nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
-        }
-    }
-    max_columns as f32 * step_x
 }
 
 fn nodes_world_bounds(nodes: &[ErNode]) -> egui::Rect {
@@ -459,38 +595,41 @@ fn nodes_world_bounds(nodes: &[ErNode]) -> egui::Rect {
 /// Bounding box covering an edge's anchors and both endpoint nodes, used for
 /// viewport culling. Shared by `ErGraph::build` and post-drag refresh so the
 /// margin math never diverges.
-fn edge_world_bbox(nodes: &[ErNode], source: usize, target: usize, fk: &UiSchemaForeignKey) -> egui::Rect {
-    let (Some(source_node), Some(target_node)) = (nodes.get(source), nodes.get(target)) else {
+fn edge_world_bbox(nodes: &[ErNode], edge: &ErEdge) -> egui::Rect {
+    let (Some(source_node), Some(target_node)) = (nodes.get(edge.source), nodes.get(edge.target)) else {
         return egui::Rect::ZERO;
     };
     let anchor_columns = super::lod::ErLod::Detailed.max_columns();
-    let source_anchor = source_node.column_anchor(fk.from_columns.first().map(String::as_str), true, anchor_columns);
-    let target_anchor = target_node.column_anchor(fk.to_columns.first().map(String::as_str), false, anchor_columns);
+    let fk = &edge.foreign_key;
+    let source_anchor = source_node.column_anchor(
+        fk.from_columns.first().map(String::as_str),
+        ErAnchorSpec::right(anchor_columns),
+    );
+    let target_anchor = target_node.column_anchor(
+        fk.to_columns.first().map(String::as_str),
+        ErAnchorSpec::left(anchor_columns),
+    );
 
-    let min_x = source_anchor
-        .x
-        .min(target_anchor.x)
-        .min(source_node.world_rect.left())
-        .min(target_node.world_rect.left())
-        - 40.0;
-    let max_x = source_anchor
-        .x
-        .max(target_anchor.x)
-        .max(source_node.world_rect.right())
-        .max(target_node.world_rect.right())
-        + 40.0;
-    let min_y = source_anchor
-        .y
-        .min(target_anchor.y)
-        .min(source_node.world_rect.top())
-        .min(target_node.world_rect.top())
-        - 20.0;
-    let max_y = source_anchor
-        .y
-        .max(target_anchor.y)
-        .max(source_node.world_rect.bottom())
-        .max(target_node.world_rect.bottom())
-        + 20.0;
+    let xs = [
+        source_anchor.x,
+        target_anchor.x,
+        source_node.world_rect.left(),
+        target_node.world_rect.left(),
+        source_node.world_rect.right(),
+        target_node.world_rect.right(),
+    ];
+    let ys = [
+        source_anchor.y,
+        target_anchor.y,
+        source_node.world_rect.top(),
+        target_node.world_rect.top(),
+        source_node.world_rect.bottom(),
+        target_node.world_rect.bottom(),
+    ];
+    let min_x = xs.iter().copied().fold(f32::INFINITY, f32::min) - 40.0;
+    let max_x = xs.iter().copied().fold(f32::NEG_INFINITY, f32::max) + 40.0;
+    let min_y = ys.iter().copied().fold(f32::INFINITY, f32::min) - 20.0;
+    let max_y = ys.iter().copied().fold(f32::NEG_INFINITY, f32::max) + 20.0;
 
     egui::Rect::from_min_max(egui::pos2(min_x, min_y), egui::pos2(max_x, max_y))
 }

@@ -1,4 +1,4 @@
-use super::model::ErGraph;
+use super::model::{ErGraph, ErGridSpec};
 use super::spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE};
 use crate::runtime::UiTableSummary;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
@@ -22,8 +22,7 @@ pub struct ErLayoutRequest {
     pub request_id: u64,
     pub graph_version: u64,
     pub tables: Vec<UiTableSummary>,
-    pub grid_columns: usize,
-    pub node_height: f32,
+    pub grid: ErGridSpec,
 }
 
 #[derive(Debug, Clone)]
@@ -54,51 +53,17 @@ impl ErLayoutWorker {
 
         let worker_result = thread::Builder::new()
             .name("db-pro-er-layout".to_owned())
-            .spawn(move || {
-                while let Ok(request) = request_rx.recv() {
-                    // Drain newer pending requests to coalesce and prioritize the latest schema.
-                    // Cap the drain count to prevent unbounded CPU usage under rapid refresh.
-                    let mut latest_request = request;
-                    let mut drain_count = 0;
-                    while drain_count < MAX_COALESCE_DRAIN {
-                        match request_rx.try_recv() {
-                            Ok(newer) => {
-                                latest_request = newer;
-                                drain_count += 1;
-                            }
-                            Err(TryRecvError::Empty) => break,
-                            Err(TryRecvError::Disconnected) => break,
-                        }
-                    }
-
-                    let start_time = Instant::now();
-                    let graph = ErGraph::build(
-                        &latest_request.tables,
-                        latest_request.graph_version,
-                        latest_request.grid_columns,
-                        latest_request.node_height,
-                    );
-                    let spatial_index = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
-                    let duration_ms = start_time.elapsed().as_secs_f32() * 1000.0;
-
-                    // If the receiver has been dropped (app shutting down), this send fails
-                    // silently — the worker thread exits naturally on the next recv() error.
-                    let _ = result_tx.send(ErLayoutResult {
-                        request_id: latest_request.request_id,
-                        graph_version: latest_request.graph_version,
-                        graph,
-                        spatial_index,
-                        duration_ms,
-                    });
-                }
-            });
+            .spawn(move || layout_worker_loop(request_rx, result_tx));
 
         // If thread spawn fails (extremely rare: resource exhaustion), the worker
         // operates in degraded mode: request_layout silently drops requests,
         // poll_result never returns a result, and is_alive() returns false.
         // The UI retains the last valid graph.
         let request_tx = if worker_result.is_err() {
-            tracing::warn!("failed to spawn ER layout worker thread — degraded mode: layout requests are dropped and the UI keeps the last valid graph");
+            tracing::warn!(
+                "failed to spawn ER layout worker thread — degraded mode: \
+                 layout requests are dropped and the UI keeps the last valid graph"
+            );
             drop(request_tx); // close the sending half so the receiver also sees disconnect
             None
         } else {
@@ -112,6 +77,24 @@ impl ErLayoutWorker {
         }
     }
 
+    /// Drains newer pending requests to coalesce and prioritize the latest
+    /// schema, then runs the layout. Returns the final request processed.
+    fn next_coalesced(request_rx: &Receiver<ErLayoutRequest>, first: ErLayoutRequest) -> ErLayoutRequest {
+        let mut latest_request = first;
+        // Cap the drain count to prevent unbounded CPU usage under rapid refresh.
+        let mut drain_count = 0;
+        while drain_count < MAX_COALESCE_DRAIN {
+            match request_rx.try_recv() {
+                Ok(newer) => {
+                    latest_request = newer;
+                    drain_count += 1;
+                }
+                Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
+            }
+        }
+        latest_request
+    }
+
     /// Returns `true` if the background worker thread is alive and the
     /// sending channel is connected.
     pub fn is_alive(&self) -> bool {
@@ -122,8 +105,7 @@ impl ErLayoutWorker {
         &mut self,
         graph_version: u64,
         tables: Vec<UiTableSummary>,
-        grid_columns: usize,
-        node_height: f32,
+        grid: impl Into<ErGridSpec>,
     ) -> u64 {
         let request_id = self.next_request_id;
         // Use saturating_add but cap at MAX - 1 so that the next call still
@@ -136,8 +118,7 @@ impl ErLayoutWorker {
                 request_id,
                 graph_version,
                 tables,
-                grid_columns,
-                node_height,
+                grid: grid.into(),
             });
         }
 
@@ -160,5 +141,32 @@ impl ErLayoutWorker {
             latest = Some(res);
         }
         latest
+    }
+}
+
+/// Worker thread body: build the graph + spatial index for each incoming
+/// request, always on the newest queued request. Exits when the request
+/// channel disconnects (worker dropped).
+fn layout_worker_loop(request_rx: Receiver<ErLayoutRequest>, result_tx: Sender<ErLayoutResult>) {
+    while let Ok(request) = request_rx.recv() {
+        let latest_request = ErLayoutWorker::next_coalesced(&request_rx, request);
+        let start_time = Instant::now();
+        let graph = ErGraph::build(
+            &latest_request.tables,
+            latest_request.graph_version,
+            latest_request.grid,
+        );
+        let spatial_index = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
+        let duration_ms = start_time.elapsed().as_secs_f32() * 1000.0;
+
+        // If the receiver has been dropped (app shutting down), this send fails
+        // silently — the worker thread exits naturally on the next recv() error.
+        let _ = result_tx.send(ErLayoutResult {
+            request_id: latest_request.request_id,
+            graph_version: latest_request.graph_version,
+            graph,
+            spatial_index,
+            duration_ms,
+        });
     }
 }

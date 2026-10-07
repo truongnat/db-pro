@@ -17,106 +17,51 @@ pub(crate) enum DiagramAction {
     ExecuteQuery(String),
 }
 
-pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) -> Option<DiagramAction> {
-    let all_table_count = ctx.explorer.schema.table_details.len();
-    let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
-    let search_query = ctx.diagram.search.trim().to_ascii_lowercase();
-    let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
+/// Per-frame measurements for the diagram page — table counts, search state,
+/// and the render cap that keep the toolbar, subset resolution, and layout
+/// dispatch consistent within one draw.
+struct ErDiagramFrame<'a> {
+    all_table_count: usize,
+    large_schema: bool,
+    listed: usize,
+    render_limit: usize,
+    search_query: &'a str,
+    search_mode: bool,
+}
 
-    // Poll background layout worker:
-    if let Some(res) = ctx.diagram.layout_worker.poll_result() {
-        if res.graph_version == ctx.diagram.schema_version && res.request_id == ctx.diagram.latest_layout_request {
-            let mut graph = res.graph;
-            let overrides_moved = ctx
-                .connection_id
-                .as_deref()
-                .and_then(|id| ctx.diagram.saved_layouts.get(id))
-                .is_some_and(|snapshot| graph.apply_position_overrides(&snapshot.positions));
-            ctx.diagram.spatial_index = if overrides_moved {
-                ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE)
-            } else {
-                res.spatial_index
-            };
-            ctx.diagram.graph = graph;
-            ctx.diagram.layout_state = ErLayoutState::Ready;
-            ctx.diagram.auto_fit_done = false;
-            ctx.diagram.drag_node = None;
-            ctx.diagram.selected_node = None;
-        }
-    }
+/// Outcome of [`resolve_active_subset`]: which node ids the canvas renders.
+enum ErSubsetResolution {
+    /// Render only this search/focus neighborhood.
+    Subset(Vec<usize>),
+    /// Render the whole graph.
+    All,
+    /// An empty state was painted; the caller returns early.
+    Handled,
+}
+
+pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) -> Option<DiagramAction> {
+    let search_query = ctx.diagram.search.trim().to_ascii_lowercase();
+
+    accept_layout_result(ctx);
 
     if ctx.explorer.schema.table_details.is_empty() {
         super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, 0, false, false);
         return None;
     }
 
-    let render_limit = if !large_schema || ctx.diagram.show_all {
-        all_table_count
-    } else {
-        ER_MAX_TABLES
-    };
-
-    // Counts only. Cloning every table summary each frame froze show-all on a large schema.
-    let listed = diagram_listed_count(
-        &ctx.explorer.schema.table_details,
-        &search_query,
-        search_mode,
-        render_limit,
-    );
-
-    let grid_columns = if listed <= 3 {
-        listed.max(1)
-    } else {
-        ((all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
-    };
-
-    // Card height follows the zoom LOD. Detailed (zoom ≥ 1.15) paints up to 12
-    // column rows; the old height was capped at 8, so those rows drew outside
-    // the card.
-    let node_height = diagram_node_height(ctx.diagram.zoom);
+    let frame = measure_diagram_frame(ctx, &search_query);
 
     // Layout runs in the background, including while the focus prompt is up,
     // so a search or Show all does not start from an empty graph.
-    ensure_diagram_graph(ctx, grid_columns, node_height);
+    ensure_diagram_graph(ctx, diagram_grid_spec(&frame, ctx.diagram.zoom));
 
-    // Determine active table subset:
-    let active_node_indices: Option<Vec<usize>> = if search_mode && !search_query.is_empty() {
-        let seed_indices: Vec<usize> = ctx
-            .diagram
-            .graph
-            .nodes
-            .iter()
-            .filter(|node| matches_diagram_search(&node.table, &search_query))
-            .map(|node| node.id)
-            .collect();
-        if seed_indices.is_empty() {
-            draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, listed, render_limit);
-            ui.add_space(10.0);
-            // An empty graph means the map is still being built, not that the
-            // name failed to match.
-            let no_matches = !ctx.diagram.graph.nodes.is_empty();
-            super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, no_matches);
-            return None;
-        }
-        Some(
-            ctx.diagram
-                .graph
-                .bfs_neighborhood(&seed_indices, ctx.diagram.neighborhood_depth, 100),
-        )
-    } else if search_mode && search_query.is_empty() && ctx.diagram.graph.nodes.is_empty() {
-        draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, listed, render_limit);
-        ui.add_space(10.0);
-        super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, false);
-        return None;
-    } else if search_mode && search_query.is_empty() {
-        // The catalog is ready. Show a neighborhood instead of a blank page.
-        let seeds: Vec<usize> = ctx.diagram.graph.nodes.iter().take(3).map(|node| node.id).collect();
-        Some(ctx.diagram.graph.bfs_neighborhood(&seeds, ctx.diagram.neighborhood_depth, 40))
-    } else {
-        None
+    let active_node_indices = match resolve_active_subset(ctx, ui, &frame) {
+        ErSubsetResolution::Handled => return None,
+        ErSubsetResolution::Subset(indices) => Some(indices),
+        ErSubsetResolution::All => None,
     };
 
-    draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, listed, render_limit);
+    draw_diagram_toolbar(ctx, ui, &frame);
     let design_action = super::diagram_design_panel_view::draw_er_design_panel(ctx, ui);
     ui.add_space(10.0);
 
@@ -124,7 +69,132 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
     design_action.or(canvas_action)
 }
 
-fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid_columns: usize, node_height: f32) {
+/// One frame's counts and search state, shared by the toolbar, subset
+/// resolution, and layout dispatch.
+fn measure_diagram_frame<'a>(ctx: &DiagramViewContext<'_>, search_query: &'a str) -> ErDiagramFrame<'a> {
+    let all_table_count = ctx.explorer.schema.table_details.len();
+    let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
+    let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
+    let render_limit = if !large_schema || ctx.diagram.show_all {
+        all_table_count
+    } else {
+        ER_MAX_TABLES
+    };
+    // Counts only. Cloning every table summary each frame froze show-all on a large schema.
+    let listed = diagram_listed_count(
+        &ctx.explorer.schema.table_details,
+        search_mode.then_some(search_query),
+        render_limit,
+    );
+    ErDiagramFrame {
+        all_table_count,
+        large_schema,
+        listed,
+        render_limit,
+        search_query,
+        search_mode,
+    }
+}
+
+/// Grid columns adapt to the listed subset; card height follows the zoom LOD.
+/// Detailed (zoom ≥ 1.15) paints up to 12 column rows — the old height was
+/// capped at 8, so those rows drew outside the card.
+fn diagram_grid_spec(frame: &ErDiagramFrame<'_>, zoom: f32) -> ErGridSpec {
+    let grid_columns = if frame.listed <= 3 {
+        frame.listed.max(1)
+    } else {
+        ((frame.all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
+    };
+    ErGridSpec { grid_columns, node_height: diagram_node_height(zoom) }
+}
+
+/// Applies the newest finished worker result — stale request ids and schema
+/// versions are dropped so an older layout can never overwrite a newer graph.
+fn accept_layout_result(ctx: &mut DiagramViewContext<'_>) {
+    let Some(res) = ctx.diagram.layout_worker.poll_result() else {
+        return;
+    };
+    if res.graph_version != ctx.diagram.schema_version
+        || res.request_id != ctx.diagram.latest_layout_request
+    {
+        return;
+    }
+    commit_graph(ctx, res.graph, Some(res.spatial_index));
+}
+
+/// Installs a freshly built graph: applies persisted node positions, rebuilds
+/// the spatial index when overrides moved nodes (or none was supplied), and
+/// resets per-graph interaction state.
+fn commit_graph(ctx: &mut DiagramViewContext<'_>, mut graph: ErGraph, spatial: Option<ErSpatialIndex>) {
+    let overrides_moved = ctx
+        .connection_id
+        .as_deref()
+        .and_then(|id| ctx.diagram.saved_layouts.get(id))
+        .is_some_and(|snapshot| graph.apply_position_overrides(&snapshot.positions));
+    ctx.diagram.spatial_index = match (spatial, overrides_moved) {
+        (Some(index), false) => index,
+        _ => ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE),
+    };
+    ctx.diagram.graph = graph;
+    ctx.diagram.layout_state = ErLayoutState::Ready;
+    ctx.diagram.auto_fit_done = false;
+    ctx.diagram.drag_node = None;
+    ctx.diagram.selected_node = None;
+}
+
+/// Paints the focus empty state (toolbar + hint). `no_matches` derives from the
+/// graph: an empty graph means the map is still building, not that the search
+/// failed to match.
+fn focus_empty_state(
+    ctx: &mut DiagramViewContext<'_>,
+    ui: &mut egui::Ui,
+    frame: &ErDiagramFrame<'_>,
+) -> ErSubsetResolution {
+    draw_diagram_toolbar(ctx, ui, frame);
+    ui.add_space(10.0);
+    let no_matches = !ctx.diagram.graph.nodes.is_empty();
+    super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, frame.all_table_count, true, no_matches);
+    ErSubsetResolution::Handled
+}
+
+/// Search/focus resolution for one frame — see [`ErSubsetResolution`].
+fn resolve_active_subset(
+    ctx: &mut DiagramViewContext<'_>,
+    ui: &mut egui::Ui,
+    frame: &ErDiagramFrame<'_>,
+) -> ErSubsetResolution {
+    if frame.search_mode && !frame.search_query.is_empty() {
+        let seed_indices: Vec<usize> = ctx
+            .diagram
+            .graph
+            .nodes
+            .iter()
+            .filter(|node| matches_diagram_search(&node.table, frame.search_query))
+            .map(|node| node.id)
+            .collect();
+        if seed_indices.is_empty() {
+            return focus_empty_state(ctx, ui, frame);
+        }
+        return ErSubsetResolution::Subset(
+            ctx.diagram
+                .graph
+                .bfs_neighborhood(&seed_indices, (ctx.diagram.neighborhood_depth, 100)),
+        );
+    }
+    if frame.search_mode && frame.search_query.is_empty() {
+        if ctx.diagram.graph.nodes.is_empty() {
+            return focus_empty_state(ctx, ui, frame);
+        }
+        // The catalog is ready. Show a neighborhood instead of a blank page.
+        let seeds: Vec<usize> = ctx.diagram.graph.nodes.iter().take(3).map(|node| node.id).collect();
+        return ErSubsetResolution::Subset(
+            ctx.diagram.graph.bfs_neighborhood(&seeds, (ctx.diagram.neighborhood_depth, 40)),
+        );
+    }
+    ErSubsetResolution::All
+}
+
+fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid: ErGridSpec) {
     let current_count = ctx.explorer.schema.table_details.len();
     let built_height = ctx
         .diagram
@@ -132,71 +202,53 @@ fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid_columns: usize, n
         .nodes
         .first()
         .map(|node| node.world_rect.height())
-        .unwrap_or(node_height);
+        .unwrap_or(grid.node_height);
     let graph_dirty = ctx.diagram.graph.nodes.len() != current_count
         || ctx.diagram.graph.schema_version != ctx.diagram.schema_version
-        || (built_height - node_height).abs() > 0.5;
+        || (built_height - grid.node_height).abs() > 0.5;
 
-    if graph_dirty && current_count > 0 {
-        // A large first layout used to run on the UI thread. Keep the small-schema
-        // instant paint, and send everything else to the worker. Do not enqueue
-        // another copy of the table list while that worker is still running.
-        if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
-            return;
-        }
-        let large_schema = current_count > ER_LARGE_SCHEMA_THRESHOLD;
-        if !large_schema && ctx.diagram.graph.nodes.is_empty() {
-            // First load: build immediately so canvas starts populated without blank frame
-            let mut graph = ErGraph::build(
-                &ctx.explorer.schema.table_details,
-                ctx.diagram.schema_version,
-                grid_columns,
-                node_height,
-            );
-            if let Some(snapshot) = ctx
-                .connection_id
-                .as_deref()
-                .and_then(|id| ctx.diagram.saved_layouts.get(id))
-            {
-                graph.apply_position_overrides(&snapshot.positions);
-            }
-            ctx.diagram.spatial_index = ErSpatialIndex::build(
-                &graph.nodes,
-                &graph.edges,
-                DEFAULT_SPATIAL_CELL_SIZE,
-            );
-            ctx.diagram.graph = graph;
-            ctx.diagram.layout_state = ErLayoutState::Ready;
-            ctx.diagram.auto_fit_done = false;
-            ctx.diagram.drag_node = None;
-            ctx.diagram.selected_node = None;
-        } else {
-            // Background worker update: keep old graph renderable and dispatch async request.
-            // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
-            // all produce the same version but the graph node count check (graph_dirty)
-            // prevents re-dispatch unless the actual table list changes.
-            ctx.diagram.schema_version = ctx.diagram.schema_version.saturating_add(1);
-            let request_id = ctx.diagram.layout_worker.request_layout(
-                ctx.diagram.schema_version,
-                ctx.explorer.schema.table_details.clone(),
-                grid_columns,
-                node_height,
-            );
-            ctx.diagram.latest_layout_request = request_id;
-
-            // If the worker is in degraded mode (spawn failed), the request was
-            // silently dropped. Transition to Failed state so the UI shows a
-            // concise error while retaining the last valid graph.
-            if ctx.diagram.layout_worker.dispatch_succeeded() {
-                ctx.diagram.layout_state = ErLayoutState::Computing {
-                    request_id,
-                    graph_version: ctx.diagram.schema_version,
-                };
-            } else {
-                ctx.diagram.layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
-            }
-        }
+    if !graph_dirty || current_count == 0 {
+        return;
     }
+    // A large first layout used to run on the UI thread. Keep the small-schema
+    // instant paint, and send everything else to the worker. Do not enqueue
+    // another copy of the table list while that worker is still running.
+    if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
+        return;
+    }
+    let large_schema = current_count > ER_LARGE_SCHEMA_THRESHOLD;
+    if !large_schema && ctx.diagram.graph.nodes.is_empty() {
+        // First load: build immediately so canvas starts populated without blank frame
+        let graph = ErGraph::build(&ctx.explorer.schema.table_details, ctx.diagram.schema_version, grid);
+        commit_graph(ctx, graph, None);
+    } else {
+        dispatch_layout_request(ctx, grid);
+    }
+}
+
+/// Sends the table list to the background worker and moves the layout state to
+/// Computing — or Failed when the worker is in degraded mode (spawn failure),
+/// where requests are silently dropped and the UI keeps the last valid graph.
+fn dispatch_layout_request(ctx: &mut DiagramViewContext<'_>, grid: ErGridSpec) {
+    // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
+    // all produce the same version but the graph node count check (graph_dirty)
+    // prevents re-dispatch unless the actual table list changes.
+    ctx.diagram.schema_version = ctx.diagram.schema_version.saturating_add(1);
+    let request_id = ctx.diagram.layout_worker.request_layout(
+        ctx.diagram.schema_version,
+        ctx.explorer.schema.table_details.clone(),
+        grid,
+    );
+    ctx.diagram.latest_layout_request = request_id;
+
+    ctx.diagram.layout_state = if ctx.diagram.layout_worker.dispatch_succeeded() {
+        ErLayoutState::Computing {
+            request_id,
+            graph_version: ctx.diagram.schema_version,
+        }
+    } else {
+        ErLayoutState::Failed("ER layout worker unavailable".to_owned())
+    };
 }
 
 #[cfg(test)]
@@ -243,30 +295,22 @@ pub(super) fn diagram_show_all_after_search_edit(show_all: bool, search_query: &
     }
 }
 
-fn diagram_listed_count(all_tables: &[UiTableSummary], search_query: &str, search_mode: bool, render_limit: usize) -> usize {
-    if search_mode {
-        all_tables
+fn diagram_listed_count(all_tables: &[UiTableSummary], search_query: Option<&str>, render_limit: usize) -> usize {
+    match search_query {
+        Some(query) => all_tables
             .iter()
-            .filter(|table| !search_query.is_empty() && matches_diagram_search(table, search_query))
+            .filter(|table| !query.is_empty() && matches_diagram_search(table, query))
             .take(render_limit + 1)
-            .count()
-    } else {
-        all_tables.len().min(render_limit.saturating_add(1))
+            .count(),
+        None => all_tables.len().min(render_limit.saturating_add(1)),
     }
 }
 
-fn draw_diagram_toolbar(
-    ctx: &mut DiagramViewContext<'_>,
-    ui: &mut egui::Ui,
-    large_schema: bool,
-    all_table_count: usize,
-    listed: usize,
-    render_limit: usize,
-) {
-    let visible_tables = if ctx.diagram.show_all || !large_schema || ctx.diagram.search.trim().is_empty() {
-        all_table_count
+fn draw_diagram_toolbar(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, frame: &ErDiagramFrame<'_>) {
+    let visible_tables = if ctx.diagram.show_all || !frame.large_schema || ctx.diagram.search.trim().is_empty() {
+        frame.all_table_count
     } else {
-        listed.min(render_limit)
+        frame.listed.min(frame.render_limit)
     };
     let relationship_count: usize = ctx.diagram.graph.edges.len();
 
@@ -287,84 +331,108 @@ fn draw_diagram_toolbar(
             badge(ui, "Arranging…", ctx.theme.surface_hover, ctx.theme.text_secondary);
         }
 
-        if large_schema {
-            ui.add_space(8.0);
-            let search_changed =
-                input(ui, &mut ctx.diagram.search, "Find table or column…", 200.0, ctx.theme).changed();
-            if search_changed {
-                ctx.diagram.search_changed_at = Some(std::time::Instant::now());
-                ctx.diagram.fitted_search.clear();
-            }
-            ctx.diagram.show_all =
-                diagram_show_all_after_search_edit(ctx.diagram.show_all, &ctx.diagram.search, search_changed);
-            let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
-            if search_mode {
-                if hop_button(ui, "1 hop", ctx.diagram.neighborhood_depth == 1, ctx.theme)
-                    .on_hover_text("Show matching tables and their direct relationships")
-                    .clicked()
-                {
-                    ctx.diagram.neighborhood_depth = 1;
-                }
-                if hop_button(ui, "2 hops", ctx.diagram.neighborhood_depth == 2, ctx.theme)
-                    .on_hover_text("Also include neighbors of neighbors")
-                    .clicked()
-                {
-                    ctx.diagram.neighborhood_depth = 2;
-                }
-                if compact_button(ui, format!("Show all {all_table_count}"), ctx.theme)
-                    .on_hover_text("Render every table — can be slow on very large schemas")
-                    .clicked()
-                {
-                    ctx.diagram.show_all = true;
-                }
-            } else if compact_button(ui, "Focus search", ctx.theme)
-                .on_hover_text("Back to the focused neighborhood map")
-                .clicked()
-            {
-                ctx.diagram.show_all = false;
-            }
+        if frame.large_schema {
+            draw_diagram_search_controls(ctx, ui, frame.all_table_count);
         }
-
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if compact_icon_button_active(ui, Icon::PencilRuler, ctx.diagram.design.enabled, ctx.theme)
-                .on_hover_text("Design Mode — draft schema edits, never mutates the database until Apply")
-                .clicked()
-            {
-                ctx.diagram.design.enabled = !ctx.diagram.design.enabled;
-                if ctx.diagram.design.enabled {
-                    let names: Vec<String> = ctx
-                        .explorer
-                        .schema
-                        .table_details
-                        .iter()
-                        .map(|t| format!("{}.{}", t.schema, t.name))
-                        .collect();
-                    ctx.diagram
-                        .design
-                        .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
-                }
-            }
-            let has_manual_layout = ctx
-                .connection_id
-                .as_deref()
-                .and_then(|id| ctx.diagram.saved_layouts.get(id))
-                .is_some_and(|snapshot| !snapshot.positions.is_empty());
-            if compact_icon_button_enabled(ui, Icon::RotateCcw, has_manual_layout, ctx.theme)
-                .on_hover_text("Reset layout — clear dragged positions and refit the map")
-                .clicked()
-            {
-                reset_diagram_layout(ctx);
-            }
-        });
+        draw_diagram_toolbar_actions(ctx, ui);
     });
 }
 
+/// Search input + neighborhood-depth toggles shown on large schemas.
+fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, all_table_count: usize) {
+    ui.add_space(8.0);
+    let search_changed =
+        input(ui, &mut ctx.diagram.search, "Find table or column…", 200.0, ctx.theme).changed();
+    if search_changed {
+        ctx.diagram.search_changed_at = Some(std::time::Instant::now());
+        ctx.diagram.fitted_search.clear();
+    }
+    ctx.diagram.show_all =
+        diagram_show_all_after_search_edit(ctx.diagram.show_all, &ctx.diagram.search, search_changed);
+    if diagram_search_mode(true, ctx.diagram.show_all) {
+        draw_hop_toggles(ctx, ui);
+        if compact_button(ui, format!("Show all {all_table_count}"), ctx.theme)
+            .on_hover_text("Render every table — can be slow on very large schemas")
+            .clicked()
+        {
+            ctx.diagram.show_all = true;
+        }
+    } else if compact_button(ui, "Focus search", ctx.theme)
+        .on_hover_text("Back to the focused neighborhood map")
+        .clicked()
+    {
+        ctx.diagram.show_all = false;
+    }
+}
+
+/// The two BFS depth options for the focused neighborhood map.
+fn draw_hop_toggles(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) {
+    let one_hop = ErToggleButton { label: "1 hop", selected: ctx.diagram.neighborhood_depth == 1 };
+    if hop_button(ui, one_hop, ctx.theme)
+        .on_hover_text("Show matching tables and their direct relationships")
+        .clicked()
+    {
+        ctx.diagram.neighborhood_depth = 1;
+    }
+    let two_hops = ErToggleButton { label: "2 hops", selected: ctx.diagram.neighborhood_depth == 2 };
+    if hop_button(ui, two_hops, ctx.theme)
+        .on_hover_text("Also include neighbors of neighbors")
+        .clicked()
+    {
+        ctx.diagram.neighborhood_depth = 2;
+    }
+}
+
+/// Right-aligned icon actions: Design mode toggle and manual-layout reset.
+fn draw_diagram_toolbar_actions(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        let design_toggle = ErIconToggle { icon: Icon::PencilRuler, active: ctx.diagram.design.enabled };
+        if compact_icon_button_active(ui, design_toggle, ctx.theme)
+            .on_hover_text("Design Mode — draft schema edits, never mutates the database until Apply")
+            .clicked()
+        {
+            ctx.diagram.design.enabled = !ctx.diagram.design.enabled;
+            if ctx.diagram.design.enabled {
+                let names: Vec<String> = ctx
+                    .explorer
+                    .schema
+                    .table_details
+                    .iter()
+                    .map(|t| format!("{}.{}", t.schema, t.name))
+                    .collect();
+                ctx.diagram
+                    .design
+                    .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
+            }
+        }
+        let has_manual_layout = ctx
+            .connection_id
+            .as_deref()
+            .and_then(|id| ctx.diagram.saved_layouts.get(id))
+            .is_some_and(|snapshot| !snapshot.positions.is_empty());
+        if compact_icon_button_enabled(ui, Icon::RotateCcw, has_manual_layout, ctx.theme)
+            .on_hover_text("Reset layout — clear dragged positions and refit the map")
+            .clicked()
+        {
+            reset_diagram_layout(ctx);
+        }
+    });
+}
+
+/// Label + selected state of a toolbar toggle — grouped so the button helpers
+/// stay under the three-parameter budget.
+#[derive(Clone, Copy)]
+struct ErToggleButton<'a> {
+    label: &'a str,
+    selected: bool,
+}
+
 /// Hop depth toggle. Selected state uses the soft accent, not egui's text-selection blue.
-fn hop_button(ui: &mut egui::Ui, label: &str, selected: bool, theme: DbProTheme) -> egui::Response {
-    let fill = if selected { theme.accent_soft } else { egui::Color32::TRANSPARENT };
-    let color = if selected { theme.accent } else { theme.text_secondary };
+fn hop_button(ui: &mut egui::Ui, toggle: ErToggleButton<'_>, theme: DbProTheme) -> egui::Response {
+    let fill = if toggle.selected { theme.accent_soft } else { egui::Color32::TRANSPARENT };
+    let color = if toggle.selected { theme.accent } else { theme.text_secondary };
     ui.add(
-        egui::Button::new(egui::RichText::new(label).size(12.0).color(color))
+        egui::Button::new(egui::RichText::new(toggle.label).size(12.0).color(color))
             .fill(fill)
             .min_size(egui::vec2(0.0, 24.0))
             .rounding(egui::Rounding::same(7.0))
@@ -372,18 +440,25 @@ fn hop_button(ui: &mut egui::Ui, label: &str, selected: bool, theme: DbProTheme)
     )
 }
 
+/// Icon + active state of a compact toolbar toggle.
+#[derive(Clone, Copy)]
+struct ErIconToggle {
+    icon: Icon,
+    active: bool,
+}
+
 /// 24px icon button with an `active` fill — the compact-row toggle variant of
 /// [`compact_icon_button`].
-fn compact_icon_button_active(ui: &mut egui::Ui, icon: Icon, active: bool, theme: DbProTheme) -> egui::Response {
+fn compact_icon_button_active(ui: &mut egui::Ui, toggle: ErIconToggle, theme: DbProTheme) -> egui::Response {
     let button = egui::Button::new(
-        RichText::new(char::from(icon).to_string())
+        RichText::new(char::from(toggle.icon).to_string())
             .font(egui::FontId::new(14.0, egui::FontFamily::Name("lucide".into())))
-            .color(if active { theme.accent } else { theme.text_muted }),
+            .color(if toggle.active { theme.accent } else { theme.text_muted }),
     )
     .min_size(egui::vec2(24.0, 24.0))
     .rounding(egui::Rounding::same(7.0))
     .stroke(egui::Stroke::NONE);
-    if active {
+    if toggle.active {
         ui.add(button.fill(theme.surface_active))
     } else {
         ui.add(button)
@@ -489,13 +564,17 @@ pub(super) fn paint_scene_edges(
         let source_on_right = source_node.world_rect.center().x < target_node.world_rect.center().x;
         let from_world = source_node.column_anchor(
             edge.foreign_key.from_columns.first().map(String::as_str),
-            source_on_right,
-            scene.lod.max_columns(),
+            ErAnchorSpec {
+                right_side: source_on_right,
+                max_columns: scene.lod.max_columns(),
+            },
         );
         let to_world = target_node.column_anchor(
             edge.foreign_key.to_columns.first().map(String::as_str),
-            !source_on_right,
-            scene.lod.max_columns(),
+            ErAnchorSpec {
+                right_side: !source_on_right,
+                max_columns: scene.lod.max_columns(),
+            },
         );
 
         let from = viewport.world_to_screen_pos(from_world);
@@ -577,15 +656,22 @@ pub(super) fn paint_scene_edges(
     }
 }
 
+/// Font + pixel budget for [`truncate_to_width`].
+#[derive(Clone)]
+struct ErTextFit {
+    font: FontId,
+    max_width: f32,
+}
+
 /// Truncates `text` so its rendered width fits `max_width`, measuring with the
 /// real font instead of a fixed char count — `schema.table` names otherwise
 /// clipped at ~18 chars while the card had room for ~36.
-fn truncate_to_width(painter: &egui::Painter, text: &str, font: FontId, max_width: f32) -> String {
-    if max_width <= 0.0 {
+fn truncate_to_width(painter: &egui::Painter, text: &str, fit: ErTextFit) -> String {
+    if fit.max_width <= 0.0 {
         return String::new();
     }
-    let galley = painter.layout_no_wrap(text.to_owned(), font.clone(), egui::Color32::WHITE);
-    if galley.size().x <= max_width {
+    let galley = painter.layout_no_wrap(text.to_owned(), fit.font.clone(), egui::Color32::WHITE);
+    if galley.size().x <= fit.max_width {
         return text.to_owned();
     }
     // The old ratio ignored the ellipsis and proportional widths, so the
@@ -598,10 +684,10 @@ fn truncate_to_width(painter: &egui::Painter, text: &str, font: FontId, max_widt
         let mid = (low + high) / 2;
         let candidate = crate::components::truncate_ellipsis(text, mid);
         let width = painter
-            .layout_no_wrap(candidate.clone(), font.clone(), egui::Color32::WHITE)
+            .layout_no_wrap(candidate.clone(), fit.font.clone(), egui::Color32::WHITE)
             .size()
             .x;
-        if width <= max_width {
+        if width <= fit.max_width {
             best = candidate;
             low = mid + 1;
         } else if mid == 0 {
@@ -674,8 +760,10 @@ pub(super) fn paint_er_node_lod(
             let title = truncate_to_width(
                 &painter,
                 &node.table.name,
-                FontId::proportional((12.0 * text_zoom).clamp(8.0, 14.0)),
-                screen_rect.width() - 18.0 * zoom,
+                ErTextFit {
+                    font: FontId::proportional((12.0 * text_zoom).clamp(8.0, 14.0)),
+                    max_width: screen_rect.width() - 18.0 * zoom,
+                },
             );
             painter.text(
                 screen_rect.center_top() + egui::vec2(0.0, 14.0 * zoom),
@@ -731,8 +819,10 @@ pub(super) fn paint_er_node_lod(
             let display_title = truncate_to_width(
                 &painter,
                 &node.table.name,
-                title_font.clone(),
-                screen_rect.width() - 24.0 * zoom,
+                ErTextFit {
+                    font: title_font.clone(),
+                    max_width: screen_rect.width() - 24.0 * zoom,
+                },
             );
             painter.text(
                 screen_rect.min + egui::vec2(12.0 * zoom, 15.0 * zoom),
@@ -756,8 +846,10 @@ pub(super) fn paint_er_node_lod(
             let subtitle = truncate_to_width(
                 &painter,
                 &subtitle,
-                FontId::proportional(9.5 * text_zoom),
-                screen_rect.width() - 24.0 * zoom,
+                ErTextFit {
+                    font: FontId::proportional(9.5 * text_zoom),
+                    max_width: screen_rect.width() - 24.0 * zoom,
+                },
             );
             painter.text(
                 screen_rect.min + egui::vec2(12.0 * zoom, 30.0 * zoom),
@@ -850,8 +942,10 @@ pub(super) fn paint_er_node_lod(
                 let type_display = truncate_to_width(
                     &painter,
                     &type_display,
-                    type_font.clone(),
-                    (screen_rect.width() - 40.0 * zoom) * 0.55,
+                    ErTextFit {
+                        font: type_font.clone(),
+                        max_width: (screen_rect.width() - 40.0 * zoom) * 0.55,
+                    },
                 );
                 let name_width = if lod.shows_data_types() {
                     // Leave room for the right-aligned type badge. Do not force a
@@ -862,7 +956,11 @@ pub(super) fn paint_er_node_lod(
                     (screen_rect.width() - (23.0 + 12.0) * zoom).max(0.0)
                 };
                 let name_font = FontId::proportional(11.0 * text_zoom);
-                let col_name = truncate_to_width(&painter, &column.name, name_font.clone(), name_width);
+                let col_name = truncate_to_width(
+                    &painter,
+                    &column.name,
+                    ErTextFit { font: name_font.clone(), max_width: name_width },
+                );
                 painter.text(
                     egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
                     egui::Align2::LEFT_CENTER,

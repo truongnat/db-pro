@@ -101,41 +101,30 @@ impl ErSpatialIndex {
     }
 
     pub fn query_nodes(&self, world_rect: egui::Rect) -> Vec<usize> {
-        let (min_x, max_x, min_y, max_y) = self.cell_range(world_rect);
-        let mut seen = HashSet::new();
-        let mut results = Vec::new();
-        for x in min_x..=max_x {
-            for y in min_y..=max_y {
-                if let Some(cell_nodes) = self.node_cells.get(&(x, y)) {
-                    for &id in cell_nodes {
-                        if seen.insert(id) {
-                            results.push(id);
-                        }
-                    }
-                }
-            }
-        }
-        results
+        query_cells(&self.node_cells, self.cell_range(world_rect))
     }
 
     pub fn query_edges(&self, world_rect: egui::Rect) -> Vec<usize> {
-        let (min_x, max_x, min_y, max_y) = self.cell_range(world_rect);
-        let mut seen = HashSet::new();
-        let mut results = Vec::new();
-        for x in min_x..=max_x {
-            for y in min_y..=max_y {
-                if let Some(cell_edges) = self.edge_cells.get(&(x, y)) {
-                    for &id in cell_edges {
-                        if seen.insert(id) {
-                            results.push(id);
-                        }
-                    }
-                }
-            }
-        }
-        results
+        query_cells(&self.edge_cells, self.cell_range(world_rect))
     }
+}
 
+fn query_cells(cells: &HashMap<(i32, i32), Vec<usize>>, range: (i32, i32, i32, i32)) -> Vec<usize> {
+    let (min_x, max_x, min_y, max_y) = range;
+    let mut seen = HashSet::new();
+    let mut results = Vec::new();
+    for x in min_x..=max_x {
+        for y in min_y..=max_y {
+            let Some(ids) = cells.get(&(x, y)) else {
+                continue;
+            };
+            results.extend(ids.iter().filter(|id| seen.insert(**id)));
+        }
+    }
+    results
+}
+
+impl ErSpatialIndex {
     pub fn hit_test_node(&self, world_pos: egui::Pos2, nodes: &[ErNode]) -> Option<usize> {
         let query_rect = egui::Rect::from_center_size(world_pos, egui::vec2(4.0, 4.0));
         let candidates = self.query_nodes(query_rect);
