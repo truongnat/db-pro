@@ -39,6 +39,7 @@ impl QueryActionsSurfaceContext<'_> {
         let menu = egui::Area::new(egui::Id::new("query_actions_menu"))
             .order(egui::Order::Foreground)
             .fixed_pos(menu_position)
+            .constrain_to(ctx.screen_rect().shrink(4.0))
             .show(ctx, |ui| {
                 egui::Frame {
                     fill: self.theme.surface_elevated,

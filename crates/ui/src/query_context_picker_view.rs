@@ -27,6 +27,7 @@ pub(super) fn draw_picker(
     let menu = egui::Area::new(egui::Id::new("query_context_picker"))
         .order(egui::Order::Foreground)
         .fixed_pos(menu_position)
+        .constrain_to(ctx.screen_rect().shrink(4.0))
         .show(ctx, |ui| {
             egui::Frame {
                 fill: context.theme.surface_elevated,

@@ -46,6 +46,7 @@ impl<'a> Popover<'a> {
         let popup = Area::new(id)
             .order(Order::Foreground)
             .fixed_pos(pos)
+            .constrain_to(screen_rect(ui).shrink(config::CONTEXT_MENU_SCREEN_INSET))
             .show(ui.ctx(), |ui| {
                 ui.set_opacity(fade_alpha(progress));
                 floating_surface(self.theme, config::POPOVER_RADIUS, Margin::same(10.0))
