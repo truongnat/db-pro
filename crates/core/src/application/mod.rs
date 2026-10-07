@@ -11,6 +11,7 @@ pub mod json_excel_transfer;
 pub mod migration_planner;
 pub mod monitoring_service;
 pub mod object_mutation_service;
+pub mod query_schema;
 pub mod query_service;
 pub mod registry;
 pub mod rls_service;
@@ -38,6 +39,7 @@ pub use json_excel_transfer::{ExcelFileTarget, JsonlFileSource, JsonlFileTarget}
 pub use migration_planner::MigrationPlanner;
 pub use monitoring_service::MonitoringService;
 pub use object_mutation_service::ObjectMutationService;
+pub use query_schema::active_query_schema;
 pub use query_service::{MultiQueryError, MultiQueryResult, QueryService, StatementResultKind};
 pub use registry::ConnectionRegistry;
 pub use rls_service::RlsService;

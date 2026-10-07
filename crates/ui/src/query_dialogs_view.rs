@@ -73,6 +73,7 @@ impl DbProApp {
             connection_id: request.connection_id.clone(),
             sql: request.sql.clone(),
             analyze: request.analyze,
+            schema: self.query.session.active_schema().map(str::to_owned),
         };
         if self.dispatch_command(command) {
             self.query_explain_context().commit_dispatched(request_id, &request);

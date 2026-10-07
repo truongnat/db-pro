@@ -8,5 +8,6 @@ pub mod monitoring;
 pub mod query_mapper;
 pub mod replication;
 pub mod rls_manager;
+mod search_path;
 pub mod settings;
 pub mod user_manager;

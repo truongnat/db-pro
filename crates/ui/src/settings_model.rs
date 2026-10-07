@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const SETTINGS_STORAGE_KEY: &str = "dbpro.native.settings-v1";
-pub(crate) const SETTINGS_VERSION: u32 = 1;
+pub(crate) const SETTINGS_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
@@ -73,13 +73,11 @@ impl Default for AppSettings {
 impl AppSettings {
     /// Migrate older blobs (or missing version) up to [`SETTINGS_VERSION`].
     pub(crate) fn migrate(mut self) -> Self {
-        if self.version == 0 {
-            self.version = SETTINGS_VERSION;
+        if self.version < 2 {
+            // SELECT * is how you look at a table. The warning used to be on by default.
+            self.editor.lint.select_star = false;
         }
-        if self.version > SETTINGS_VERSION {
-            // Future blob: keep fields we know, clamp version for honesty.
-            self.version = SETTINGS_VERSION;
-        }
+        self.version = SETTINGS_VERSION;
         self.editor.font_size = self.editor.font_size.clamp(10.0, 24.0);
         self.editor.tab_width = self.editor.tab_width.clamp(2, 8);
         self.data_grid.page_size = self.data_grid.page_size.clamp(25, 1_000);
@@ -162,7 +160,7 @@ impl Default for SqlLintSettings {
     fn default() -> Self {
         Self {
             enabled: true,
-            select_star: true,
+            select_star: false,
             null_compare: true,
             delete_no_where: true,
             update_no_where: true,
@@ -509,5 +507,17 @@ mod tests {
         assert!(!loaded.editor.lint.allows("lint.select-star"));
         assert!(!loaded.editor.lint.allows("lint.comma-join"));
         assert!(loaded.editor.lint.allows("lint.null-compare"));
+    }
+
+    #[test]
+    fn saved_select_star_warning_turns_off_once() {
+        let mut settings = AppSettings {
+            version: 1,
+            ..Default::default()
+        };
+        settings.editor.lint.select_star = true;
+        let loaded = AppSettings::from_json(&serde_json::to_string(&settings).unwrap()).unwrap();
+        assert!(!loaded.editor.lint.select_star);
+        assert_eq!(loaded.version, SETTINGS_VERSION);
     }
 }

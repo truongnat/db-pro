@@ -21,9 +21,9 @@ const FONT_SIZE: f32 = 13.5;
 const PADDING_LEFT: f32 = 10.0;
 const PADDING_TOP: f32 = 12.0;
 const PADDING_BOTTOM: f32 = 64.0;
-const CARET_WIDTH: f32 = 1.5;
-const CARET_BLINK_PERIOD_SECS: f64 = 1.05;
-const CARET_SOLID_AFTER_INPUT_SECS: f64 = 0.45;
+const CARET_BLINK_ON_SECS: f64 = 0.53;
+const CARET_BLINK_OFF_SECS: f64 = 0.53;
+const CARET_SOLID_AFTER_INPUT_SECS: f64 = 0.5;
 /// Flush with the query workspace — no card chrome around the buffer.
 const EDITOR_ROUNDING: f32 = 0.0;
 
@@ -564,13 +564,31 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
+        // Tokens after edits, so the caret, hit testing, and glyphs share one layout.
+        if let Some(cache) = self.cached_tokens.as_mut() {
+            cache.get_or_recompute(self.buffer, self.dialect);
+        }
+        let highlighter = SqlHighlighter::new(self.dialect);
+        let tokens: Vec<SyntaxToken> = if let Some(cache) = self.cached_tokens.as_deref() {
+            cache.tokens().to_vec()
+        } else {
+            highlighter.tokenize(self.buffer.text())
+        };
+
         // Mouse click & drag positioning
         let shift_pressed = ui.input(|i| i.modifiers.shift);
         let command_click = ui.input(|i| i.modifiers.command || i.modifiers.ctrl || i.modifiers.mac_cmd);
         if resp.double_clicked() {
             if let Some(mouse_pos) = resp.interact_pointer_pos() {
-                let offset =
-                    self.screen_pos_to_offset(self.buffer, mouse_pos, rect.min, gutter_w, line_height, char_width);
+                let offset = self.screen_pos_to_offset_laid_out(
+                    ui,
+                    mouse_pos,
+                    rect.min,
+                    gutter_w,
+                    line_height,
+                    &font_id,
+                    &tokens,
+                );
                 self.selection.select_word_at(self.buffer, offset);
                 self.cursor.set_offset(self.buffer, self.selection.active);
             }
@@ -583,8 +601,15 @@ impl<'a> SqlEditor<'a> {
             }
         } else if resp.drag_started() {
             if let Some(mouse_pos) = resp.interact_pointer_pos() {
-                let offset =
-                    self.screen_pos_to_offset(self.buffer, mouse_pos, rect.min, gutter_w, line_height, char_width);
+                let offset = self.screen_pos_to_offset_laid_out(
+                    ui,
+                    mouse_pos,
+                    rect.min,
+                    gutter_w,
+                    line_height,
+                    &font_id,
+                    &tokens,
+                );
                 self.cursor.set_offset(self.buffer, offset);
                 if !shift_pressed {
                     *self.selection = SelectionRange::point(offset);
@@ -594,8 +619,15 @@ impl<'a> SqlEditor<'a> {
             }
         } else if resp.dragged() {
             if let Some(mouse_pos) = resp.interact_pointer_pos() {
-                let offset =
-                    self.screen_pos_to_offset(self.buffer, mouse_pos, rect.min, gutter_w, line_height, char_width);
+                let offset = self.screen_pos_to_offset_laid_out(
+                    ui,
+                    mouse_pos,
+                    rect.min,
+                    gutter_w,
+                    line_height,
+                    &font_id,
+                    &tokens,
+                );
                 self.cursor.set_offset(self.buffer, offset);
                 self.selection.grow_to(offset);
             }
@@ -608,8 +640,15 @@ impl<'a> SqlEditor<'a> {
                     self.selection.select_line_at(self.buffer, target_line);
                     self.cursor.set_offset(self.buffer, self.selection.active);
                 } else {
-                    let offset =
-                        self.screen_pos_to_offset(self.buffer, mouse_pos, rect.min, gutter_w, line_height, char_width);
+                    let offset = self.screen_pos_to_offset_laid_out(
+                        ui,
+                        mouse_pos,
+                        rect.min,
+                        gutter_w,
+                        line_height,
+                        &font_id,
+                        &tokens,
+                    );
                     self.cursor.set_offset(self.buffer, offset);
                     if shift_pressed {
                         self.selection.grow_to(offset);
@@ -693,7 +732,8 @@ impl<'a> SqlEditor<'a> {
         // Selection Highlight
         if !self.selection.is_empty() {
             let (sel_start, sel_end) = self.selection.normalized();
-            let rects = self.range_to_screen_rects(
+            let rects = self.range_to_screen_rects_laid_out(
+                ui,
                 self.buffer,
                 sel_start,
                 sel_end,
@@ -701,6 +741,8 @@ impl<'a> SqlEditor<'a> {
                 gutter_w,
                 line_height,
                 char_width,
+                &font_id,
+                &tokens,
             );
             for s_rect in rects {
                 ui.painter()
@@ -754,26 +796,18 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Ensure token cache is recomputed if present before borrowing
-        if let Some(cache) = self.cached_tokens.as_mut() {
-            cache.get_or_recompute(self.buffer, self.dialect);
-        }
-
-        // Syntax Highlighting Tokens (zero-copy borrowed slice)
-        let highlighter = SqlHighlighter::new(self.dialect);
-        let temp_tokens;
-        let tokens: &[SyntaxToken] = if let Some(cache) = self.cached_tokens.as_deref() {
-            cache.tokens()
-        } else {
-            temp_tokens = highlighter.tokenize(self.buffer.text());
-            &temp_tokens
-        };
-
         if resp.hovered() && !self.completion_open {
             if let Some(pointer) = ui.input(|input| input.pointer.hover_pos()) {
                 if pointer.x >= rect.min.x + gutter_w {
-                    let offset =
-                        self.screen_pos_to_offset(self.buffer, pointer, rect.min, gutter_w, line_height, char_width);
+                    let offset = self.screen_pos_to_offset_laid_out(
+                        ui,
+                        pointer,
+                        rect.min,
+                        gutter_w,
+                        line_height,
+                        &font_id,
+                        &tokens,
+                    );
                     let token_idx = tokens.partition_point(|token| token.range.1 <= offset);
                     if let Some(token) = tokens.get(token_idx).filter(|token| {
                         offset >= token.range.0
@@ -830,35 +864,9 @@ impl<'a> SqlEditor<'a> {
                 self.theme.editor_line_number(is_curr),
             );
 
-            // Line Text Layout & Paint (sub-linear binary search token slicing)
             let line_text = self.buffer.line_at(line_idx).unwrap_or("");
             if !line_text.is_empty() {
-                let line_start_off = self.buffer.line_start_offset(line_idx);
-                let line_end_off = self.buffer.line_end_offset(line_idx);
-
-                let mut job = LayoutJob::default();
-                let start_token_idx = tokens.partition_point(|token| token.range.1 <= line_start_off);
-                for token in &tokens[start_token_idx..] {
-                    if token.range.0 >= line_end_off {
-                        break;
-                    }
-                    let seg_start = token.range.0.max(line_start_off);
-                    let seg_end = token.range.1.min(line_end_off);
-                    if seg_start < seg_end {
-                        let seg_text = &self.buffer.text()[seg_start..seg_end];
-                        let color = highlighter.token_color(token.kind, self.theme);
-                        job.append(
-                            seg_text,
-                            0.0,
-                            TextFormat {
-                                font_id: font_id.clone(),
-                                color,
-                                ..Default::default()
-                            },
-                        );
-                    }
-                }
-                let galley = ui.painter().layout_job(job);
+                let galley = layout_line(ui, self.buffer, &tokens, &highlighter, self.theme, line_idx, &font_id);
                 ui.painter().galley(
                     Pos2::new(rect.min.x + gutter_w + PADDING_LEFT, line_y),
                     galley,
@@ -916,14 +924,15 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Caret Screen Position
-        let cursor_screen = self.offset_to_screen_pos(
-            self.buffer,
+        // Caret follows the same glyph advances as the painted line.
+        let cursor_screen = self.offset_to_screen_pos_laid_out(
+            ui,
             self.cursor.offset,
             rect.min,
             gutter_w,
             line_height,
-            char_width,
+            &font_id,
+            &tokens,
         );
         response.cursor_screen_pos = Pos2::new(cursor_screen.x, cursor_screen.y + line_height);
 
@@ -986,7 +995,9 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Caret — thin bar, solid after input, then soft blink (Zed cadence).
+        // Caret — 2px bar in the text color. Solid after input, then a 530ms blink
+        // whose phase starts from that input so it does not vanish mid-cycle.
+        // The IME rect stays up while the bar is hidden, or the candidate window jumps.
         if focused {
             let now = ui.input(|i| i.time);
             let cursor_moved = self.cursor.offset != cursor_before || self.cursor.line != line_before;
@@ -997,46 +1008,47 @@ impl<'a> SqlEditor<'a> {
                 .ctx()
                 .data(|d| d.get_temp::<f64>(editor_id.with("last_input")))
                 .unwrap_or(now);
-            let since = now - last_input;
-            let blink_on =
-                since < CARET_SOLID_AFTER_INPUT_SECS || ((now / CARET_BLINK_PERIOD_SECS).fract() as f32) < 0.58;
+            let since = (now - last_input).max(0.0);
+            let cycle = CARET_BLINK_ON_SECS + CARET_BLINK_OFF_SECS;
+            let blink_on = self.theme.reduce_motion || {
+                if since < CARET_SOLID_AFTER_INPUT_SECS {
+                    true
+                } else {
+                    (since - CARET_SOLID_AFTER_INPUT_SECS) % cycle < CARET_BLINK_ON_SECS
+                }
+            };
+            let pixels = ui.ctx().pixels_per_point();
+            let caret_x = (cursor_screen.x * pixels).floor() / pixels;
+            let caret_w = (2.0f32 * pixels).round().max(1.0) / pixels;
+            let cursor_rect = Rect::from_min_size(Pos2::new(caret_x, cursor_screen.y), Vec2::new(caret_w, line_height));
             if blink_on {
-                let caret_h = (line_height - 2.0).max(line_height * 0.85);
-                let cursor_rect = Rect::from_min_size(
-                    Pos2::new(cursor_screen.x, cursor_screen.y + 1.0),
-                    Vec2::new(CARET_WIDTH, caret_h),
-                );
                 ui.painter()
-                    .rect_filled(cursor_rect, Rounding::same(0.5), self.theme.accent);
-                ui.output_mut(|o| {
-                    o.ime = Some(egui::output::IMEOutput {
-                        rect: cursor_rect,
-                        cursor_rect,
-                    });
-                });
+                    .rect_filled(cursor_rect, Rounding::ZERO, self.theme.text_primary);
             }
-            // Schedule the next blink toggle only — continuous request_repaint() kept the
-            // whole query shell at ~display refresh while the editor was focused.
-            const ON_FRAC: f64 = 0.58;
-            let next_secs = if since < CARET_SOLID_AFTER_INPUT_SECS {
+            ui.output_mut(|o| {
+                o.ime = Some(egui::output::IMEOutput {
+                    rect: cursor_rect,
+                    cursor_rect,
+                });
+            });
+            let next_secs = if self.theme.reduce_motion {
+                cycle
+            } else if since < CARET_SOLID_AFTER_INPUT_SECS {
                 CARET_SOLID_AFTER_INPUT_SECS - since
             } else {
-                let phase = (now / CARET_BLINK_PERIOD_SECS).fract();
-                if phase < ON_FRAC {
-                    (ON_FRAC - phase) * CARET_BLINK_PERIOD_SECS
+                let phase = (since - CARET_SOLID_AFTER_INPUT_SECS) % cycle;
+                if phase < CARET_BLINK_ON_SECS {
+                    CARET_BLINK_ON_SECS - phase
                 } else {
-                    (1.0 - phase) * CARET_BLINK_PERIOD_SECS
+                    cycle - phase
                 }
             };
             ui.ctx()
-                .request_repaint_after(Duration::from_secs_f64(next_secs.clamp(0.016, 0.55)));
+                .request_repaint_after(Duration::from_secs_f64(next_secs.clamp(0.016, cycle)));
         }
 
         // Keep caret inside the viewport after edits / moves.
-        let caret_local = Pos2::new(
-            gutter_w + PADDING_LEFT + (self.cursor.col as f32) * char_width,
-            PADDING_TOP + (self.cursor.line as f32) * line_height,
-        );
+        let caret_local = Pos2::new(cursor_screen.x - origin.x, cursor_screen.y - origin.y);
         let margin = 8.0;
         if caret_local.y < scroll.y + margin {
             scroll.y = (caret_local.y - margin).max(0.0);
@@ -1063,6 +1075,86 @@ impl<'a> SqlEditor<'a> {
         );
 
         response
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn screen_pos_to_offset_laid_out(
+        &self,
+        ui: &Ui,
+        pos: Pos2,
+        origin: Pos2,
+        gutter_w: f32,
+        line_height: f32,
+        font_id: &FontId,
+        tokens: &[SyntaxToken],
+    ) -> usize {
+        let rel_y = pos.y - (origin.y + PADDING_TOP);
+        let target_line = ((rel_y / line_height).floor() as usize).min(self.buffer.line_count().saturating_sub(1));
+        let highlighter = SqlHighlighter::new(self.dialect);
+        let galley = layout_line(ui, self.buffer, tokens, &highlighter, self.theme, target_line, font_id);
+        let local_x = pos.x - (origin.x + gutter_w + PADDING_LEFT);
+        let col = char_index_at_x(&galley, local_x);
+        self.buffer.line_col_to_offset(target_line, col)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn offset_to_screen_pos_laid_out(
+        &self,
+        ui: &Ui,
+        offset: usize,
+        origin: Pos2,
+        gutter_w: f32,
+        line_height: f32,
+        font_id: &FontId,
+        tokens: &[SyntaxToken],
+    ) -> Pos2 {
+        let (line, col) = self.buffer.offset_to_line_col(offset);
+        let highlighter = SqlHighlighter::new(self.dialect);
+        let galley = layout_line(ui, self.buffer, tokens, &highlighter, self.theme, line, font_id);
+        Pos2::new(
+            origin.x + gutter_w + PADDING_LEFT + glyph_x(&galley, col),
+            origin.y + PADDING_TOP + (line as f32) * line_height,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn range_to_screen_rects_laid_out(
+        &self,
+        ui: &Ui,
+        buffer: &TextBuffer,
+        start_offset: usize,
+        end_offset: usize,
+        origin: Pos2,
+        gutter_w: f32,
+        line_height: f32,
+        char_width: f32,
+        font_id: &FontId,
+        tokens: &[SyntaxToken],
+    ) -> Vec<Rect> {
+        let (start_line, start_col) = buffer.offset_to_line_col(start_offset);
+        let (end_line, end_col) = buffer.offset_to_line_col(end_offset);
+        let highlighter = SqlHighlighter::new(self.dialect);
+        let mut rects = Vec::with_capacity(end_line - start_line + 1);
+        for line_idx in start_line..=end_line {
+            let line_y = origin.y + PADDING_TOP + (line_idx as f32) * line_height;
+            let galley = layout_line(ui, buffer, tokens, &highlighter, self.theme, line_idx, font_id);
+            let col_start = if line_idx == start_line { start_col } else { 0 };
+            let (col_end, covers_break) = if line_idx == end_line {
+                (end_col, false)
+            } else {
+                (buffer.line_at(line_idx).unwrap_or("").chars().count(), true)
+            };
+            let x1 = origin.x + gutter_w + PADDING_LEFT + glyph_x(&galley, col_start);
+            let mut x2 = origin.x + gutter_w + PADDING_LEFT + glyph_x(&galley, col_end);
+            if covers_break {
+                x2 += char_width;
+            }
+            rects.push(Rect::from_min_max(
+                Pos2::new(x1, line_y),
+                Pos2::new(x2.max(x1), line_y + line_height),
+            ));
+        }
+        rects
     }
 
     pub fn offset_to_screen_pos(
@@ -1331,6 +1423,75 @@ impl<'a> SqlEditor<'a> {
             self.selection.collapse_to_active();
         }
     }
+}
+
+fn layout_line(
+    ui: &Ui,
+    buffer: &TextBuffer,
+    tokens: &[SyntaxToken],
+    highlighter: &SqlHighlighter,
+    theme: &DbProTheme,
+    line_idx: usize,
+    font_id: &FontId,
+) -> std::sync::Arc<egui::Galley> {
+    let mut job = LayoutJob::default();
+    let line_text = buffer.line_at(line_idx).unwrap_or("");
+    let line_start_off = buffer.line_start_offset(line_idx);
+    let line_end_off = buffer.line_end_offset(line_idx);
+    let mut appended = false;
+    if !line_text.is_empty() {
+        let start_token_idx = tokens.partition_point(|token| token.range.1 <= line_start_off);
+        for token in &tokens[start_token_idx..] {
+            if token.range.0 >= line_end_off {
+                break;
+            }
+            let seg_start = token.range.0.max(line_start_off);
+            let seg_end = token.range.1.min(line_end_off);
+            if seg_start < seg_end {
+                job.append(
+                    &buffer.text()[seg_start..seg_end],
+                    0.0,
+                    TextFormat {
+                        font_id: font_id.clone(),
+                        color: highlighter.token_color(token.kind, theme),
+                        ..Default::default()
+                    },
+                );
+                appended = true;
+            }
+        }
+    }
+    if !appended {
+        job.append(
+            line_text,
+            0.0,
+            TextFormat {
+                font_id: font_id.clone(),
+                color: theme.text_primary,
+                ..Default::default()
+            },
+        );
+    }
+    ui.painter().layout_job(job)
+}
+
+fn glyph_x(galley: &egui::Galley, char_index: usize) -> f32 {
+    galley
+        .pos_from_ccursor(egui::text::CCursor {
+            index: char_index,
+            prefer_next_row: false,
+        })
+        .min
+        .x
+}
+
+fn char_index_at_x(galley: &egui::Galley, local_x: f32) -> usize {
+    let y = galley
+        .rows
+        .first()
+        .map(|row| (row.min_y() + row.max_y()) * 0.5)
+        .unwrap_or(0.0);
+    galley.cursor_from_pos(egui::vec2(local_x.max(0.0), y)).ccursor.index
 }
 
 fn is_single_identifier_char(text: &str) -> bool {

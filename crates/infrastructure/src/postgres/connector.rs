@@ -203,30 +203,36 @@ impl DbConnector for PostgresConnector {
                 .await
                 .map_err(crate::error::from_sqlx)?;
             let _active = self.track_backend(handle.0, backend_pid);
+            let previous = super::search_path::push_session_search_path(&mut conn).await?;
 
-            let describe = conn.describe(sql).await.map_err(crate::error::from_sqlx)?;
-            let columns = super::query_mapper::columns_from_describe(&describe);
+            let queried = async {
+                let describe = conn.describe(sql).await.map_err(crate::error::from_sqlx)?;
+                let columns = super::query_mapper::columns_from_describe(&describe);
 
-            use futures_util::StreamExt;
-            let mut stream = sqlx::query_with(sql, pg_args).fetch(&mut *conn);
-            let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
-            while (result_rows.len() as u64) < max_rows {
-                let pg_row = match stream.next().await {
-                    Some(Ok(row)) => row,
-                    Some(Err(e)) => return Err(crate::error::from_sqlx(e)),
-                    None => break,
-                };
-                let row = super::query_mapper::map_row(&pg_row, &columns)?;
-                result_rows.push(row);
+                use futures_util::StreamExt;
+                let mut stream = sqlx::query_with(sql, pg_args).fetch(&mut *conn);
+                let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
+                while (result_rows.len() as u64) < max_rows {
+                    let pg_row = match stream.next().await {
+                        Some(Ok(row)) => row,
+                        Some(Err(e)) => return Err(crate::error::from_sqlx(e)),
+                        None => break,
+                    };
+                    let row = super::query_mapper::map_row(&pg_row, &columns)?;
+                    result_rows.push(row);
+                }
+
+                let row_count = result_rows.len() as u64;
+                Ok(QueryResult {
+                    columns,
+                    rows: result_rows,
+                    row_count,
+                    duration_ms: 0,
+                })
             }
-
-            let row_count = result_rows.len() as u64;
-            Ok(QueryResult {
-                columns,
-                rows: result_rows,
-                row_count,
-                duration_ms: 0,
-            })
+            .await;
+            let restored = super::search_path::pop_session_search_path(&mut conn, previous).await;
+            super::search_path::combine(queried, restored)
         };
 
         with_query_timeout(timeout, future).await
@@ -245,12 +251,23 @@ impl DbConnector for PostgresConnector {
             let mut pg_args = sqlx::postgres::PgArguments::default();
             super::query_mapper::bind_params(params, &mut pg_args)?;
 
-            let result = sqlx::query_with(sql, pg_args)
-                .execute(&pool)
-                .await
-                .map_err(crate::error::from_sqlx)?;
+            if super::search_path::requested_schema().is_none() {
+                let result = sqlx::query_with(sql, pg_args)
+                    .execute(&pool)
+                    .await
+                    .map_err(crate::error::from_sqlx)?;
+                return Ok(result.rows_affected());
+            }
 
-            Ok(result.rows_affected())
+            let mut conn = pool.acquire().await.map_err(crate::error::from_sqlx)?;
+            let previous = super::search_path::push_session_search_path(&mut conn).await?;
+            let executed = sqlx::query_with(sql, pg_args)
+                .execute(&mut *conn)
+                .await
+                .map(|result| result.rows_affected())
+                .map_err(crate::error::from_sqlx);
+            let restored = super::search_path::pop_session_search_path(&mut conn, previous).await;
+            super::search_path::combine(executed, restored)
         };
 
         with_query_timeout(timeout, future).await
@@ -293,6 +310,10 @@ impl DbConnector for PostgresConnector {
 
         let deadline = std::time::Instant::now() + timeout;
         let mut tx = with_query_timeout(timeout, async { pool.begin().await.map_err(crate::error::from_sqlx) }).await?;
+        if let Err(error) = super::search_path::set_local_search_path(&mut tx).await {
+            let _ = tx.rollback().await;
+            return Err(error);
+        }
         let mut total_affected: u64 = 0;
 
         for statement in statements {
@@ -405,6 +426,16 @@ impl DbConnector for PostgresConnector {
             Ok(pid) => self.track_backend(handle.0, pid),
             Err(_) => None,
         };
+        if let Err(error) = super::search_path::set_local_search_path(&mut tx).await {
+            let _ = tx.rollback().await;
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::RolledBack,
+                results: Vec::new(),
+                error,
+            });
+        }
 
         for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
@@ -679,11 +710,22 @@ impl DbConnector for PostgresConnector {
             format!("EXPLAIN (FORMAT JSON) {sql}")
         };
         with_query_timeout(timeout, async {
-            let row: (serde_json::Value,) = sqlx::query_as(&explain_sql)
-                .fetch_one(&pool)
+            if super::search_path::requested_schema().is_none() {
+                let row: (serde_json::Value,) = sqlx::query_as(&explain_sql)
+                    .fetch_one(&pool)
+                    .await
+                    .map_err(crate::error::from_sqlx)?;
+                return Ok(row.0);
+            }
+            let mut conn = pool.acquire().await.map_err(crate::error::from_sqlx)?;
+            let previous = super::search_path::push_session_search_path(&mut conn).await?;
+            let explained = sqlx::query_as(&explain_sql)
+                .fetch_one(&mut *conn)
                 .await
-                .map_err(crate::error::from_sqlx)?;
-            Ok(row.0)
+                .map(|(row,): (serde_json::Value,)| row)
+                .map_err(crate::error::from_sqlx);
+            let restored = super::search_path::pop_session_search_path(&mut conn, previous).await;
+            super::search_path::combine(explained, restored)
         })
         .await
     }
@@ -802,13 +844,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn postgres_cancel_is_explicitly_unsupported() {
+    async fn postgres_cancel_without_active_pool_returns_connection_failed() {
         let connector = PostgresConnector::new();
         let error = connector
             .cancel(&ConnectionHandle::new(1))
             .await
-            .expect_err("PostgreSQL must not claim unsupported cancellation succeeded");
+            .expect_err("cancel on unknown handle should fail");
 
-        assert!(matches!(error, DbError::Unsupported(message) if message.contains("cancellation")));
+        assert!(matches!(error, DbError::ConnectionFailed(_)));
     }
 }

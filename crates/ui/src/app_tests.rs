@@ -1352,6 +1352,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         connection_id,
         sql,
         analyze,
+        ..
     } = command_rx.try_recv().expect("explain command expected")
     else {
         panic!("expected ExplainQuery");
@@ -3290,7 +3291,7 @@ fn typed_agent_open_result_in_workspace_populates_query_document() {
 
     app.open_agent_result_in_workspace("query-1");
 
-    assert!(app.query.session.documents[0].query_results.first().is_some());
+    assert!(!app.query.session.documents[0].query_results.is_empty());
     let res = app.query.session.documents[0].query_results.first().unwrap();
     assert_eq!(res.columns.len(), 2);
     assert_eq!(res.rows.len(), 1);
@@ -3755,8 +3756,22 @@ fn sql_diagnostics_gate_ilike_and_glob_through_capabilities() {
 fn sql_lint_warns_on_select_star_and_null_compare() {
     let (messages, structured) =
         query_diagnostics_view::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
-    assert!(messages.iter().any(|m| m.contains("SELECT *")));
+    assert!(
+        !messages.iter().any(|m| m.contains("SELECT *")),
+        "SELECT * is a normal table read and does not warn unless the rule is enabled"
+    );
     assert!(messages.iter().any(|m| m.contains("IS NULL")));
+    assert!(!structured.iter().any(|d| d.code.as_deref() == Some("lint.select-star")));
+    let lint = crate::app::SqlLintSettings {
+        select_star: true,
+        ..Default::default()
+    };
+    let (messages, structured) = query_diagnostics_view::analyze_sql_diagnostics_with_lint(
+        "SELECT * FROM t WHERE id = NULL",
+        "PostgreSQL",
+        &lint,
+    );
+    assert!(messages.iter().any(|m| m.contains("SELECT *")));
     assert!(structured.iter().any(|d| {
         d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.select-star")
     }));
@@ -3854,14 +3869,14 @@ fn sql_lint_respects_disabled_and_suppressed_rules() {
 fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     let mut app = DbProApp::default();
     app.query.session.documents.clear();
-    let mut doc = crate::query::query_document::QueryDocument::new("doc-1", "Query 1", "SELECT * FROM t");
+    let mut doc = crate::query::query_document::QueryDocument::new("doc-1", "Query 1", "DELETE FROM t");
     let (_, structured) = query_diagnostics_view::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
     doc.diagnostics = structured;
     app.query.session.documents.push(doc);
 
     let entries = app.collect_problem_entries();
     assert!(!entries.is_empty());
-    assert!(entries.iter().any(|e| e.message.contains("SELECT *")));
+    assert!(entries.iter().any(|e| e.message.contains("DELETE without WHERE")));
 
     app.query.editor.problems_severity_filter = ProblemsSeverityFilter::Warnings;
     app.query.editor.problems_source_filter = ProblemsSourceFilter::Lint;
@@ -4311,12 +4326,17 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
     ];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
+    app.set_document_schema(0, Some("tenant1".to_owned()));
     app.dispatch_query();
 
-    let UiCommand::RunQuery { connection_id, .. } = command_rx.try_recv().expect("query command expected") else {
+    let UiCommand::RunQuery {
+        connection_id, schema, ..
+    } = command_rx.try_recv().expect("query command expected")
+    else {
         panic!("expected RunQuery command");
     };
     assert_eq!(connection_id, "active");
+    assert_eq!(schema.as_deref(), Some("tenant1"));
 }
 
 #[test]

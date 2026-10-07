@@ -52,7 +52,16 @@ pub(super) fn draw_picker(
                         } else {
                             format!("{name} · {environment}")
                         };
-                        if ui.selectable_label(selected, label).clicked() {
+                        if crate::components::select::paint_option(
+                            ui,
+                            crate::components::select::SelectOption {
+                                label: &label,
+                                selected,
+                                theme: context.theme,
+                            },
+                        )
+                        .clicked()
+                        {
                             action = Some(QueryContextPickerAction::SelectConnection(id.clone()));
                         }
                     }
@@ -61,7 +70,16 @@ pub(super) fn draw_picker(
                 ui.label(RichText::new("Schema").small().strong().color(context.theme.text_muted));
                 ui.add_space(4.0);
                 for schema in context.available_schemas {
-                    if ui.selectable_label(context.current_schema == schema, schema).clicked() {
+                    if crate::components::select::paint_option(
+                        ui,
+                        crate::components::select::SelectOption {
+                            label: schema,
+                            selected: context.current_schema == schema,
+                            theme: context.theme,
+                        },
+                    )
+                    .clicked()
+                    {
                         action = Some(QueryContextPickerAction::SelectSchema(schema.clone()));
                     }
                 }

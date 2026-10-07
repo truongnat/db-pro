@@ -311,6 +311,7 @@ fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> Ui
             request_id: prepared.request_id,
             connection_id: prepared.connection_id.clone(),
             sql: prepared.sql.clone(),
+            schema: prepared.schema.clone(),
         }
     } else {
         UiCommand::RunQuery {
@@ -318,6 +319,7 @@ fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> Ui
             connection_id: prepared.connection_id.clone(),
             sql: prepared.sql.clone(),
             params: prepared.params.clone(),
+            schema: prepared.schema.clone(),
         }
     }
 }

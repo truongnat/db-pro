@@ -13,6 +13,7 @@ pub(crate) struct PreparedQueryRun {
     pub(crate) sql: String,
     pub(crate) params: Vec<String>,
     pub(crate) all_statements: bool,
+    pub(crate) schema: Option<String>,
 }
 
 /// Coordinates query execution policy with the query document/session state.
@@ -116,8 +117,10 @@ impl<'a> QueryExecutionContext<'a> {
             }
         };
 
+        let schema = self.session.active_schema().map(str::to_owned);
         Some(PreparedQueryRun {
             request_id,
+            schema,
             connection_id,
             sql,
             params,
@@ -242,6 +245,7 @@ mod tests {
                 sql: "SELECT * FROM users WHERE id = $1".to_owned(),
                 params: vec!["7".to_owned()],
                 all_statements: false,
+                schema: None,
             }
         );
         assert_eq!(session.active_running_request(), Some(RequestId(9)));

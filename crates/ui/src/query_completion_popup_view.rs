@@ -62,7 +62,7 @@ pub(super) fn draw_floating_completion_popup(
     }
 
     let popup_width = 460.0;
-    let list_rows = doc.completion.items.len().min(COMPLETION_VISIBLE_ROWS).max(1);
+    let list_rows = doc.completion.items.len().clamp(1, COMPLETION_VISIBLE_ROWS);
     let popup_height = list_rows as f32 * COMPLETION_ROW_HEIGHT + 36.0;
     let popup_pos = crate::components::clamp_popup_to_screen(
         doc.completion.popup_position,

@@ -339,6 +339,7 @@ fn unite(parent: &mut [usize], rank: &mut [u8], mut left: usize, mut right: usiz
 }
 
 /// Returns the width occupied by the component.
+#[allow(clippy::too_many_arguments)]
 fn layout_component(
     nodes: &mut [ErNode],
     links: &[(usize, usize)],
@@ -422,11 +423,10 @@ fn layout_component(
                         }
                     }
                 }
-                let barycenter = if count == 0 {
-                    id.saturating_mul(1024)
-                } else {
-                    sum.saturating_mul(1024) / count
-                };
+                let barycenter = sum
+                    .saturating_mul(1024)
+                    .checked_div(count)
+                    .unwrap_or_else(|| id.saturating_mul(1024));
                 (barycenter, id)
             })
             .collect();

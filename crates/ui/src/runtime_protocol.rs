@@ -171,17 +171,21 @@ pub enum UiCommand {
         sql: String,
         /// Bound parameter values in placeholder order (#225). Mapped to `QueryParam::Text`.
         params: Vec<String>,
+        /// Schema chosen for this editor. Unqualified names resolve there.
+        schema: Option<String>,
     },
     RunQueryMulti {
         request_id: RequestId,
         connection_id: String,
         sql: String,
+        schema: Option<String>,
     },
     ExplainQuery {
         request_id: RequestId,
         connection_id: String,
         sql: String,
         analyze: bool,
+        schema: Option<String>,
     },
     Backup {
         request_id: RequestId,

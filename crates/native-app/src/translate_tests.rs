@@ -196,6 +196,7 @@ fn multi_query_command_routes_to_runtime() {
         request_id: RequestId(13),
         connection_id: "connection-1".to_owned(),
         sql: "SELECT 1; SELECT 2;".to_owned(),
+        schema: Some("tenant1".to_owned()),
     })
     .expect("multi-query command must reach runtime");
 

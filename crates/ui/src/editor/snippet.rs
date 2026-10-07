@@ -60,7 +60,11 @@ impl SnippetSession {
         if stops.is_empty() {
             return (out, None);
         }
-        let mut order: Vec<u16> = stops.iter().map(|stop| stop.index).filter(|index| *index != 0).collect();
+        let mut order: Vec<u16> = stops
+            .iter()
+            .map(|stop| stop.index)
+            .filter(|index| *index != 0)
+            .collect();
         order.sort_unstable();
         order.dedup();
         if stops.iter().any(|stop| stop.index == 0) {

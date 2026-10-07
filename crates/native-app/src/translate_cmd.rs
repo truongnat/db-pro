@@ -588,31 +588,37 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             connection_id,
             sql,
             params,
+            schema,
         } => Some(RuntimeCommand::ExecuteQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
             params,
+            schema,
         }),
         UiCommand::RunQueryMulti {
             request_id,
             connection_id,
             sql,
+            schema,
         } => Some(RuntimeCommand::ExecuteQueryMulti {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
+            schema,
         }),
         UiCommand::ExplainQuery {
             request_id,
             connection_id,
             sql,
             analyze,
+            schema,
         } => Some(RuntimeCommand::ExplainQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
             analyze,
+            schema,
         }),
         UiCommand::Backup {
             request_id,

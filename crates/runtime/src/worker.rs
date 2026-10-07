@@ -173,17 +173,21 @@ pub enum RuntimeCommand {
         sql: String,
         /// Bound parameter values in placeholder order (#225).
         params: Vec<String>,
+        /// Editor schema. Postgres applies it as `search_path` for this query only.
+        schema: Option<String>,
     },
     ExecuteQueryMulti {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
+        schema: Option<String>,
     },
     ExplainQuery {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
         analyze: bool,
+        schema: Option<String>,
     },
     Backup {
         request_id: RuntimeRequestId,
@@ -1530,6 +1534,7 @@ pub fn spawn_worker(
                     connection_id,
                     sql,
                     params,
+                    schema,
                 } => {
                     let (cancel_tx, cancel_rx) = oneshot::channel();
                     let query_api = runtime.query_api();
@@ -1557,7 +1562,7 @@ pub fn spawn_worker(
                                 &sql,
                                 &bound,
                                 None,
-                                None,
+                                schema.as_deref(),
                             ) => result,
                             _ = cancel_rx => Err(crate::DbErrorDto {
                                 code: "QUERY_CANCELLED".to_owned(),
@@ -1585,6 +1590,7 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     sql,
+                    schema,
                 } => {
                     let (cancel_tx, cancel_rx) = oneshot::channel();
                     let query_api = runtime.query_api();
@@ -1603,7 +1609,7 @@ pub fn spawn_worker(
                     let query_cancellations = Arc::clone(&query_cancellations);
                     tokio::spawn(async move {
                         let result = tokio::select! {
-                            result = query_api.execute_multi(&connection_id, &sql, None, None) => result,
+                            result = query_api.execute_multi(&connection_id, &sql, None, schema.as_deref()) => result,
                             _ = cancel_rx => Err(crate::DbErrorDto {
                                 code: "QUERY_CANCELLED".to_owned(),
                                 message: "Query cancelled".to_owned(),
@@ -1631,11 +1637,15 @@ pub fn spawn_worker(
                     connection_id,
                     sql,
                     analyze,
+                    schema,
                 } => {
                     let query_api = runtime.query_api();
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
-                        let event = match query_api.explain(&connection_id, &sql, analyze).await {
+                        let event = match query_api
+                            .explain(&connection_id, &sql, analyze, schema.as_deref())
+                            .await
+                        {
                             Ok(plan) => match serde_json::to_string_pretty(&plan) {
                                 Ok(plan) => RuntimeEvent::ExplainCompleted { request_id, plan },
                                 Err(error) => RuntimeEvent::Failed {

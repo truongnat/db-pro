@@ -159,7 +159,7 @@ impl QueryService {
         let policy = self.safety_policy_for(connection_id).await?;
         validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
 
-        let result = self.connector.query(&handle, sql, params).await?;
+        let result = super::query_schema::with_query_schema(schema, self.connector.query(&handle, sql, params)).await?;
         result.validate().map_err(DbError::QueryFailed)?;
         self.invalidate_schema_cache_if_ddl(connection_id, sql).await;
 
@@ -227,11 +227,14 @@ impl QueryService {
             started_at: std::time::Instant::now(),
         };
 
-        let mut result = if statements.len() > 1 && has_mutation {
-            execution.execute_transactional().await
-        } else {
-            execution.execute_sequential().await
-        };
+        let mut result = super::query_schema::with_query_schema(schema, async {
+            if statements.len() > 1 && has_mutation {
+                execution.execute_transactional().await
+            } else {
+                execution.execute_sequential().await
+            }
+        })
+        .await;
         if result.error.is_some() {
             return Ok(result);
         }
@@ -265,6 +268,7 @@ impl QueryService {
         connection_id: &ConnectionId,
         sql: &str,
         analyze: bool,
+        schema: Option<&str>,
     ) -> Result<serde_json::Value, DbError> {
         reject_multi_statement(sql)?;
 
@@ -282,7 +286,7 @@ impl QueryService {
         };
         validate_against_policy(&policy_sql, &policy).map_err(DbError::QueryFailed)?;
 
-        self.connector.explain(&handle, sql, analyze).await
+        super::query_schema::with_query_schema(schema, self.connector.explain(&handle, sql, analyze)).await
     }
 
     pub async fn get_history(&self, connection_id: &ConnectionId, limit: u32) -> Result<Vec<QueryHistory>, DbError> {

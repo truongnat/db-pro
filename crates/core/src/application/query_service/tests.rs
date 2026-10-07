@@ -204,7 +204,7 @@ async fn explain_rejects_mutating_explain_analyze_on_read_only_connection() {
     );
 
     let error = svc
-        .explain(&conn_id, "DELETE FROM users WHERE id = 1", true)
+        .explain(&conn_id, "DELETE FROM users WHERE id = 1", true, None)
         .await
         .expect_err("mutating EXPLAIN ANALYZE must be rejected");
     assert!(matches!(error, DbError::QueryFailed(message) if message.contains("read-only")));

@@ -341,10 +341,11 @@ impl QueryApi {
         connection_id: &str,
         sql: &str,
         analyze: bool,
+        schema: Option<&str>,
     ) -> Result<serde_json::Value, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
-            .explain(&connection_id, sql, analyze)
+            .explain(&connection_id, sql, analyze, schema)
             .await
             .map_err(Into::into)
     }
@@ -513,58 +514,58 @@ fn summarize_introspection(result: IntrospectResult) -> SchemaSummary {
         })
         .collect();
     SchemaSummary {
-            schemas: result.schemas.into_iter().map(|schema| schema.name).collect(),
-            tables: result.tables.into_iter().map(|table| table.name).collect(),
-            columns: result.columns.into_iter().map(|column| column.name).collect(),
-            table_details,
-            views: result
-                .views
-                .into_iter()
-                .map(|view| ViewSummary {
-                    schema: view.schema,
-                    name: view.name,
-                    definition: view.definition,
-                })
-                .collect(),
-            triggers: result
-                .triggers
-                .into_iter()
-                .map(|trigger| TriggerSummary {
-                    schema: trigger.schema,
-                    name: trigger.name,
-                    table_name: trigger.table_name,
-                    timing: trigger.timing,
-                    event: trigger.event,
-                    definition: trigger.definition,
-                    enabled: trigger.enabled,
-                })
-                .collect(),
-            functions: result
-                .functions
-                .into_iter()
-                .map(|function| FunctionSummary {
-                    schema: function.schema,
-                    name: function.name,
-                    routine_type: function.routine_type,
-                    data_type: function.data_type,
-                    definition: function.definition,
-                    identity_arguments: function.identity_arguments,
-                    language: function.language,
-                    volatility: function.volatility,
-                    security_definer: function.security_definer,
-                    parameters: function
-                        .parameters
-                        .into_iter()
-                        .map(|p| RoutineParameterSummary {
-                            name: p.name,
-                            data_type: p.data_type,
-                            mode: p.mode,
-                            has_default: p.has_default,
-                            default_expr: p.default_expr,
-                        })
-                        .collect(),
-                })
-                .collect(),
+        schemas: result.schemas.into_iter().map(|schema| schema.name).collect(),
+        tables: result.tables.into_iter().map(|table| table.name).collect(),
+        columns: result.columns.into_iter().map(|column| column.name).collect(),
+        table_details,
+        views: result
+            .views
+            .into_iter()
+            .map(|view| ViewSummary {
+                schema: view.schema,
+                name: view.name,
+                definition: view.definition,
+            })
+            .collect(),
+        triggers: result
+            .triggers
+            .into_iter()
+            .map(|trigger| TriggerSummary {
+                schema: trigger.schema,
+                name: trigger.name,
+                table_name: trigger.table_name,
+                timing: trigger.timing,
+                event: trigger.event,
+                definition: trigger.definition,
+                enabled: trigger.enabled,
+            })
+            .collect(),
+        functions: result
+            .functions
+            .into_iter()
+            .map(|function| FunctionSummary {
+                schema: function.schema,
+                name: function.name,
+                routine_type: function.routine_type,
+                data_type: function.data_type,
+                definition: function.definition,
+                identity_arguments: function.identity_arguments,
+                language: function.language,
+                volatility: function.volatility,
+                security_definer: function.security_definer,
+                parameters: function
+                    .parameters
+                    .into_iter()
+                    .map(|p| RoutineParameterSummary {
+                        name: p.name,
+                        data_type: p.data_type,
+                        mode: p.mode,
+                        has_default: p.has_default,
+                        default_expr: p.default_expr,
+                    })
+                    .collect(),
+            })
+            .collect(),
     }
 }
 
@@ -633,7 +634,11 @@ mod summarize_tests {
             .find(|table| table.schema == "sales")
             .unwrap();
         assert_eq!(
-            sales.columns.iter().map(|column| column.name.as_str()).collect::<Vec<_>>(),
+            sales
+                .columns
+                .iter()
+                .map(|column| column.name.as_str())
+                .collect::<Vec<_>>(),
             vec!["id", "total"]
         );
         assert_eq!(sales.foreign_keys.len(), 1);
