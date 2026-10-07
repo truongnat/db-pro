@@ -1,11 +1,12 @@
-use super::query_editor_support::{apply_completion_item, draw_completion_explanation};
+use super::query_editor_support::apply_completion_item;
 use super::*;
 use crate::editor::{CompletionItem, CompletionItemKind, SqlDialect};
 use egui::RichText;
 
-const COMPLETION_ROW_HEIGHT: f32 = 28.0;
+const COMPLETION_ROW_HEIGHT: f32 = 30.0;
 const COMPLETION_ROW_OVERSCAN: usize = 2;
-const COMPLETION_LIST_MAX_HEIGHT: f32 = 170.0;
+const COMPLETION_VISIBLE_ROWS: usize = 8;
+const COMPLETION_KIND_WIDTH: f32 = 58.0;
 
 pub(super) fn draw_floating_completion_popup(
     ctx: &egui::Context,
@@ -60,8 +61,9 @@ pub(super) fn draw_floating_completion_popup(
         return;
     }
 
-    let popup_height = 300.0;
-    let popup_width = 420.0;
+    let popup_width = 460.0;
+    let list_rows = doc.completion.items.len().min(COMPLETION_VISIBLE_ROWS).max(1);
+    let popup_height = list_rows as f32 * COMPLETION_ROW_HEIGHT + 36.0;
     let popup_pos = crate::components::clamp_popup_to_screen(
         doc.completion.popup_position,
         egui::vec2(popup_width, popup_height),
@@ -76,34 +78,23 @@ pub(super) fn draw_floating_completion_popup(
         .fixed_pos(popup_pos)
         .show(ctx, |ui| {
             egui::Frame {
-                // Panel tone contrasts against the flush editor buffer in both themes.
                 fill: theme.surface_panel,
-                rounding: egui::Rounding::same(8.0),
+                rounding: egui::Rounding::same(10.0),
                 stroke: egui::Stroke::new(1.0, theme.border_default),
                 shadow: theme.floating_shadow(),
-                inner_margin: egui::Margin::same(4.0),
+                inner_margin: egui::Margin::symmetric(4.0, 4.0),
                 ..Default::default()
             }
             .show(ui, |ui| {
-                ui.set_max_width(popup_width);
-                ui.set_max_height(popup_height);
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Suggestions").small().strong().color(theme.text_primary));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new("↑↓ navigate · Enter accept · Esc close")
-                                .small()
-                                .color(theme.text_muted),
-                        );
-                    });
-                });
-                ui.separator();
+                ui.set_width(popup_width);
+                ui.spacing_mut().item_spacing.y = 2.0;
 
                 let prefix = doc.completion.query_prefix.clone();
                 let count = doc.completion.items.len();
                 let sel_idx = doc.completion.selected_index.min(count.saturating_sub(1));
+                let list_height = (count.min(COMPLETION_VISIBLE_ROWS) as f32 * COMPLETION_ROW_HEIGHT).max(COMPLETION_ROW_HEIGHT);
                 let click_idx = egui::ScrollArea::vertical()
-                    .max_height(COMPLETION_LIST_MAX_HEIGHT)
+                    .max_height(list_height)
                     .show_viewport(ui, |ui, viewport| {
                         // Fixed content height keeps the scrollbar matched to the full list
                         // while only the visible rows (plus overscan) are built.
@@ -155,20 +146,12 @@ pub(super) fn draw_floating_completion_popup(
                 if let Some(idx) = click_idx {
                     clicked_item = doc.completion.items.get(idx).cloned();
                 }
-                if let Some(item) = doc.completion.current_item() {
-                    ui.separator();
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(ui.available_width(), 58.0),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| draw_completion_explanation(ui, item, &theme),
+                if let Some(note) = doc.completion.current_item().and_then(completion_note) {
+                    ui.add_space(2.0);
+                    ui.add(
+                        egui::Label::new(RichText::new(note).font(font_caption()).color(theme.text_muted)).truncate(),
                     );
                 }
-                ui.separator();
-                ui.label(
-                    RichText::new("Ctrl/Cmd+Space open · ↑↓ navigate · Enter accept · Esc close")
-                        .small()
-                        .color(theme.text_muted),
-                );
             });
         });
 
@@ -205,10 +188,11 @@ fn draw_completion_row(
     theme: DbProTheme,
 ) -> bool {
     if selected {
+        let highlight = rect.shrink2(egui::vec2(2.0, 1.0));
         ui.painter()
-            .rect_filled(rect, egui::Rounding::same(5.0), theme.accent_soft);
+            .rect_filled(highlight, egui::Rounding::same(6.0), theme.accent_soft);
     }
-    let content = rect.shrink2(egui::vec2(8.0, 4.0));
+    let content = rect.shrink2(egui::vec2(10.0, 0.0));
     ui.allocate_new_ui(
         egui::UiBuilder::new()
             .max_rect(content)
@@ -216,55 +200,30 @@ fn draw_completion_row(
             .layout(egui::Layout::left_to_right(egui::Align::Center)),
         |ui| {
             ui.set_clip_rect(rect.intersect(ui.clip_rect()));
-            ui.spacing_mut().item_spacing.y = 0.0;
-            let (badge_text, badge_color) = match item.kind {
-                CompletionItemKind::Keyword => ("KEY", theme.code_keyword),
-                CompletionItemKind::Table => ("TBL", theme.accent),
-                CompletionItemKind::View => ("VIEW", theme.info),
-                CompletionItemKind::Column => ("COL", theme.code_variable),
-                CompletionItemKind::Function => ("FN", theme.code_function),
-                CompletionItemKind::Schema => ("SCH", theme.warning),
-                CompletionItemKind::Snippet => ("SNP", theme.success),
-                CompletionItemKind::Cte => ("CTE", theme.code_type),
-            };
-            egui::Frame::none()
-                .fill(theme.soft_tint(badge_color))
-                .rounding(egui::Rounding::same(3.0))
-                .inner_margin(egui::Margin::symmetric(4.0, 1.0))
-                .show(ui, |ui| {
-                    ui.label(
-                        RichText::new(badge_text)
-                            .font(FontId::monospace(9.0))
-                            .color(badge_color),
-                    );
-                });
-            ui.add_space(6.0);
-
-            let detail = item.detail.as_deref().unwrap_or("");
+            ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);
+            ui.add_sized(
+                [COMPLETION_KIND_WIDTH, content.height()],
+                egui::Label::new(RichText::new(completion_kind_label(item.kind)).font(font_caption()).color(theme.text_muted)),
+            );
+            let detail = completion_row_detail(item);
             let available = ui.available_width().max(0.0);
-            let gap = if detail.is_empty() { 0.0 } else { 4.0 };
             let detail_budget = if detail.is_empty() {
                 0.0
             } else {
-                (available * 0.42).clamp(48.0, 150.0).min((available - gap).max(0.0))
+                (available * 0.38).clamp(72.0, 180.0).min(available)
             };
-            let label_budget = (available - detail_budget - gap).max(0.0);
-            let row_h = content.height().max(16.0);
+            let label_budget = (available - detail_budget).max(0.0);
             ui.add_sized(
-                [label_budget, row_h],
-                egui::Label::new(completion_label_job(
-                    &item.label,
-                    prefix,
-                    theme.text_primary,
-                    theme.accent,
-                ))
-                .truncate(),
+                [label_budget, content.height()],
+                egui::Label::new(completion_label_job(&item.label, prefix, theme.text_primary, theme.accent)).truncate(),
             );
             if !detail.is_empty() {
-                ui.add_sized(
-                    [detail_budget, row_h],
-                    egui::Label::new(RichText::new(detail).font(font_caption()).color(theme.text_muted)).truncate(),
-                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_sized(
+                        [detail_budget, content.height()],
+                        egui::Label::new(RichText::new(detail).font(font_caption()).color(theme.text_muted)).truncate(),
+                    );
+                });
             }
         },
     );
@@ -274,13 +233,35 @@ fn draw_completion_row(
     if selected {
         response.scroll_to_me(Some(egui::Align::Center));
     }
-    if response.hovered() {
-        response.clone().on_hover_ui(|ui| {
-            ui.set_max_width(320.0);
-            draw_completion_explanation(ui, item, &theme);
-        });
-    }
     response.clicked()
+}
+
+fn completion_kind_label(kind: CompletionItemKind) -> &'static str {
+    match kind {
+        CompletionItemKind::Keyword => "key",
+        CompletionItemKind::Table => "table",
+        CompletionItemKind::View => "view",
+        CompletionItemKind::Column => "column",
+        CompletionItemKind::Function => "fn",
+        CompletionItemKind::Schema => "schema",
+        CompletionItemKind::Snippet => "join",
+        CompletionItemKind::Cte => "cte",
+    }
+}
+
+/// Drop the leading kind word. The row already shows it in the left column.
+fn completion_row_detail(item: &CompletionItem) -> &str {
+    let Some(detail) = item.detail.as_deref() else {
+        return "";
+    };
+    detail.split_once(" · ").map(|(_, rest)| rest.trim()).unwrap_or(detail)
+}
+
+fn completion_note(item: &CompletionItem) -> Option<&str> {
+    item.documentation
+        .as_deref()
+        .filter(|text| !text.is_empty())
+        .or_else(|| item.detail.as_deref().filter(|text| !text.is_empty()))
 }
 
 fn completion_label_job(
@@ -289,7 +270,7 @@ fn completion_label_job(
     text_color: egui::Color32,
     accent: egui::Color32,
 ) -> egui::text::LayoutJob {
-    let font_id = FontId::monospace(12.5);
+    let font_id = FontId::proportional(13.0);
     let normal = egui::TextFormat {
         font_id: font_id.clone(),
         color: text_color,

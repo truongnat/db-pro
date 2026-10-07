@@ -456,21 +456,6 @@ pub(super) fn draw_signature_help(
         });
 }
 
-pub(super) fn draw_completion_explanation(ui: &mut egui::Ui, item: &CompletionItem, theme: &DbProTheme) {
-    ui.label(
-        RichText::new(&item.label)
-            .font(FontId::monospace(12.5))
-            .strong()
-            .color(theme.text_primary),
-    );
-    if let Some(detail) = item.detail.as_deref() {
-        ui.label(RichText::new(detail).small().color(theme.text_secondary));
-    }
-    if let Some(documentation) = item.documentation.as_deref() {
-        ui.add(egui::Label::new(RichText::new(documentation).small().color(theme.text_muted)).wrap());
-    }
-}
-
 pub(super) fn apply_completion_item(doc: &mut QueryDocument, item: &CompletionItem, dialect: SqlDialect) -> bool {
     if !doc.completion.can_apply_to_version(doc.buffer.version()) {
         doc.completion.close();
