@@ -296,7 +296,7 @@ impl ChartRenderer {
                 Align2::CENTER_CENTER,
                 "No positive values",
                 egui::FontId::proportional(12.0),
-                Color32::GRAY,
+                theme.text_muted,
             );
             return;
         }

@@ -122,7 +122,8 @@ pub(super) fn draw_pagination(
             .width(90.0)
             .show_ui(ui, |ui| {
                 ui.scope(|ui| {
-                    ui.style_mut().visuals.widgets.active.fg_stroke.color = egui::Color32::WHITE;
+                    ui.style_mut().visuals.widgets.active.fg_stroke.color =
+                        context.theme.text_on_solid(context.theme.accent_hover);
                     for limit in [50, 100, 250, 500, 1000] {
                         ui.selectable_value(&mut context.query.limit, limit, format!("{limit} / page"));
                     }

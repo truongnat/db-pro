@@ -322,7 +322,7 @@ impl ShellTopbarContext<'_> {
             ui.painter().rect_filled(rect, egui::Rounding::same(4.0), fill);
         }
         let icon_color = if is_close && response.hovered() {
-            egui::Color32::WHITE
+            theme.text_on_solid(theme.danger)
         } else {
             theme.text_secondary
         };
