@@ -310,14 +310,11 @@ pub(super) fn refresh_diagnostics(query: &mut QueryFeatureState, driver: &str, l
             return;
         }
         if let Some(doc) = query.session.documents.get_mut(doc_index) {
-            doc.diagnostics = deduplicate_diagnostics(
-                query
-                    .editor
-                    .diagnostics_lint_structured
-                    .iter()
-                    .cloned()
-                    .chain(doc.execution_diagnostic.clone())
-                    .collect(),
+            let execution = doc.execution_diagnostic.clone();
+            doc.diagnostics = merge_editor_diagnostics(
+                query.editor.diagnostics_lint_structured.iter().cloned(),
+                execution,
+                &doc.diagnostics,
             );
         }
         query.editor.diagnostics_exec_fp = exec_fp;
@@ -341,8 +338,8 @@ pub(super) fn refresh_diagnostics(query: &mut QueryFeatureState, driver: &str, l
         let (raw_diags, structured) = analyze_sql_diagnostics_with_lint(doc.text(), driver, lint);
         query.editor.diagnostics = raw_diags;
         query.editor.diagnostics_lint_structured = structured.clone();
-        doc.diagnostics =
-            deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
+        let execution = doc.execution_diagnostic.clone();
+        doc.diagnostics = merge_editor_diagnostics(structured, execution, &doc.diagnostics);
     } else {
         query.editor.diagnostics = analyze_sql_diagnostics_with_lint(query.session.active_text(), driver, lint).0;
         query.editor.diagnostics_lint_structured.clear();
@@ -351,4 +348,29 @@ pub(super) fn refresh_diagnostics(query: &mut QueryFeatureState, driver: &str, l
     query.editor.diagnostics_cache_driver = driver.to_owned();
     query.editor.diagnostics_exec_fp = exec_fp;
     query.editor.diagnostics_debounce_at = None;
+}
+
+fn preserved_syntax_diagnostics(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code.as_deref() == Some("syntax"))
+        .cloned()
+        .collect()
+}
+
+fn merge_editor_diagnostics(
+    structured: impl IntoIterator<Item = Diagnostic>,
+    execution: Option<Diagnostic>,
+    existing: &[Diagnostic],
+) -> Vec<Diagnostic> {
+    let syntax = preserved_syntax_diagnostics(existing);
+    let mut combined: Vec<Diagnostic> = structured.into_iter().collect();
+    if !syntax.is_empty() {
+        combined.retain(|diagnostic| !diagnostic.message.starts_with("SQL parser:"));
+    }
+    if let Some(execution) = execution {
+        combined.push(execution);
+    }
+    combined.extend(syntax);
+    deduplicate_diagnostics(combined)
 }

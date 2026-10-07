@@ -80,6 +80,23 @@ pub(crate) fn map_table_data_sort(sort: UiTableDataSort) -> SortClause {
     }
 }
 
+/// Grid cells are owned strings. A multi-megabyte text, JSON, or bytea value
+/// would be copied into every open result, so the UI keeps a bounded prefix.
+const MAX_CELL_TEXT_BYTES: usize = 65_536;
+
+fn cap_text(mut value: String) -> String {
+    if value.len() <= MAX_CELL_TEXT_BYTES {
+        return value;
+    }
+    let mut end = MAX_CELL_TEXT_BYTES;
+    while !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    value.truncate(end);
+    value.push('…');
+    value
+}
+
 pub(crate) fn map_cell(cell: db_pro_core::domain::query::CellValue) -> UiCell {
     use db_pro_core::domain::query::CellValue;
 
@@ -98,9 +115,20 @@ pub(crate) fn map_cell(cell: db_pro_core::domain::query::CellValue) -> UiCell {
         | CellValue::Date(value)
         | CellValue::Time(value)
         | CellValue::Interval(value)
-        | CellValue::Inet(value) => UiCell::Text(value),
-        CellValue::Bytes(value) => UiCell::Bytes(format!("\\x{}", hex_encode(&value))),
-        CellValue::Json(value) => UiCell::Json(value.to_string()),
+        | CellValue::Inet(value) => UiCell::Text(cap_text(value)),
+        CellValue::Bytes(value) => {
+            let capped = if value.len() > MAX_CELL_TEXT_BYTES / 2 {
+                &value[..MAX_CELL_TEXT_BYTES / 2]
+            } else {
+                value.as_slice()
+            };
+            let mut rendered = format!("\\x{}", hex_encode(capped));
+            if capped.len() < value.len() {
+                rendered.push('…');
+            }
+            UiCell::Bytes(rendered)
+        }
+        CellValue::Json(value) => UiCell::Json(cap_text(value.to_string())),
     }
 }
 

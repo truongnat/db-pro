@@ -43,7 +43,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                     || self
                         .explorer
                         .explorer_filter
-                        .name_matches(&v.name.to_ascii_lowercase(), search_query)
+                        .name_matches(&v.name, search_query)
             })
             .collect();
         let count = views.len();
@@ -91,7 +91,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                     || self
                         .explorer
                         .explorer_filter
-                        .name_matches(&f.name.to_ascii_lowercase(), search_query)
+                        .name_matches(&f.name, search_query)
             })
             .collect();
         let count = functions.len();
@@ -139,7 +139,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                     || self
                         .explorer
                         .explorer_filter
-                        .name_matches(&t.name.to_ascii_lowercase(), search_query)
+                        .name_matches(&t.name, search_query)
             })
             .collect();
         let count = triggers.len();

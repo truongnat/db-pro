@@ -5,7 +5,7 @@ use crate::editor::{
     CompletionIntent, CompletionTriggerKind, EditorInteractionPolicy, SqlDialect, SqlEditor, SqlEditorResponse,
 };
 use crate::query::{CompletionContext, SchemaCompletionProvider};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Default)]
 pub(super) struct QueryEditorEffects {
@@ -19,6 +19,7 @@ pub(super) enum QueryEditorAction {
     DispatchStatement,
     DispatchAll,
     SaveQuery,
+    OpenIdentified(super::query_editor_support::IdentifierNavigation),
 }
 
 #[derive(Debug, Clone)]
@@ -62,8 +63,23 @@ impl<'view> QueryEditorSurfaceContext<'view> {
             return effects;
         };
         let cursor_in_string_or_comment = self.apply_editor_response(&frame, &mut effects);
+        if frame.response.wants_identifier_typed
+            && !frame.is_completion_open
+            && self.query_session.documents[frame.doc_index].completion_due_at.is_some()
+        {
+            ui.ctx().request_repaint_after(Duration::from_millis(150));
+        }
         self.maybe_request_prediction(&frame, cursor_in_string_or_comment, &active_schema, &mut effects);
-        self.resolve_completion(&frame, &active_schema);
+        let completion_timer_due = {
+            let doc = &mut self.query_session.documents[frame.doc_index];
+            if doc.completion_due_at.is_some_and(|due| Instant::now() >= due) {
+                doc.completion_due_at = None;
+                !frame.is_completion_open && doc.selection.is_empty() && !cursor_in_string_or_comment
+            } else {
+                false
+            }
+        };
+        self.resolve_completion(&frame, &active_schema, completion_timer_due);
         self.append_terminal_actions(&frame, &mut effects);
         let signature_visible = self.draw_signature_help(ui, &frame, &active_schema);
         self.draw_hover_popup(ui, &frame, &active_schema, signature_visible);
@@ -93,6 +109,10 @@ impl<'view> QueryEditorSurfaceContext<'view> {
         .with_cached_tokens(&mut doc.cached_tokens)
         .with_search(&search_query, doc.search.active_match_index)
         .with_completion_open(is_completion_open)
+        .with_snippet(
+            doc.snippet.is_some(),
+            doc.snippet.as_ref().and_then(|session| session.active_range()),
+        )
         .with_execution_range(execution_range)
         .with_prediction_visible(self.preferences.prediction_mode == PredictionMode::Eager || doc.prediction_reveal);
         editor.font_size = self.query_editor.editor_font_size;
@@ -146,6 +166,31 @@ impl<'view> QueryEditorSurfaceContext<'view> {
         } else {
             None
         };
+        if response.end_snippet {
+            doc.snippet = None;
+        } else if response.snippet_delta != 0 {
+            if let Some(session) = doc.snippet.as_mut() {
+                match session.move_by(response.snippet_delta as i32) {
+                    crate::editor::SnippetMove::Select(start, end) => {
+                        doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, end);
+                        doc.selection = crate::editor::SelectionRange::new(start, end);
+                    }
+                    crate::editor::SnippetMove::Finished => doc.snippet = None,
+                }
+            }
+        } else if response.changed {
+            if let Some(mut session) = doc.snippet.take() {
+                if session.note_edit(&mut doc.buffer) {
+                    if let Some((_, end)) = session.active_range() {
+                        doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, end);
+                        doc.selection = crate::editor::SelectionRange::point(end);
+                    }
+                    doc.snippet = Some(session);
+                }
+            }
+        }
+        self.query_editor.query_cursor_line = doc.cursor.line + 1;
+        self.query_editor.query_cursor_column = doc.cursor.col + 1;
         if response.changed {
             doc.reanalyze(self.dialect);
             doc.dirty = true;
@@ -154,8 +199,20 @@ impl<'view> QueryEditorSurfaceContext<'view> {
         let cursor_in_string_or_comment = doc
             .cached_tokens
             .is_in_string_or_comment(doc.cursor.offset.saturating_sub(1));
+        if frame.is_completion_open {
+            doc.completion_due_at = None;
+        } else if response.wants_identifier_typed && doc.selection.is_empty() && !cursor_in_string_or_comment {
+            doc.completion_due_at = Some(Instant::now() + Duration::from_millis(150));
+        } else if response.changed || cursor_context_changed || !doc.selection.is_empty() {
+            doc.completion_due_at = None;
+        }
         if let Some(selected_text) = selected_text {
             self.query_session.selected_text = selected_text;
+        }
+        if let Some(name) = response.clicked_identifier.as_deref() {
+            effects.actions.push(QueryEditorAction::OpenIdentified(
+                query_editor_support::navigate_identifier(&self.schema.schema, self.active_schema, name),
+            ));
         }
         cursor_in_string_or_comment
     }
@@ -266,15 +323,23 @@ impl<'view> QueryEditorSurfaceContext<'view> {
         })
     }
 
-    fn resolve_completion(&mut self, frame: &QueryEditorFrame, active_schema: &str) {
+    fn resolve_completion(
+        &mut self,
+        frame: &QueryEditorFrame,
+        active_schema: &str,
+        completion_timer_due: bool,
+    ) {
         let document = &self.query_session.documents[frame.doc_index];
         let cursor_context_changed =
             frame.previous_cursor != document.cursor.offset || frame.previous_selection != document.selection;
-        let intent = EditorInteractionPolicy::completion_intent(
+        let mut intent = EditorInteractionPolicy::completion_intent(
             &frame.response,
             frame.is_completion_open,
             cursor_context_changed,
         );
+        if completion_timer_due && intent == CompletionIntent::None {
+            intent = CompletionIntent::Open(CompletionTriggerKind::Automatic);
+        }
         let Some((trigger_kind, is_manual_trigger)) = (match intent {
             CompletionIntent::Open(trigger) => Some((trigger, trigger == CompletionTriggerKind::Manual)),
             CompletionIntent::Refresh => {

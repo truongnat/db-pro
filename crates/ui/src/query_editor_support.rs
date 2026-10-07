@@ -491,5 +491,197 @@ pub(super) fn apply_completion_item(doc: &mut QueryDocument, item: &CompletionIt
     doc.dirty = true;
     doc.prediction = None;
     doc.completion.close();
+    // The surface timer already opens completion once `completion_due_at` is due.
+    if item.insert_text.ends_with('.') {
+        doc.completion_due_at = Some(std::time::Instant::now());
+    }
     true
+}
+
+/// Where a Ctrl/Cmd+click identifier should go.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum IdentifierNavigation {
+    Table(String),
+    SchemaObject {
+        selection: SchemaObjectSelection,
+        schema: String,
+        name: String,
+        kind: String,
+    },
+    Missing(String),
+}
+
+pub(super) fn navigate_identifier(schema: &UiSchemaSummary, active_schema: &str, name: &str) -> IdentifierNavigation {
+    if let Some(table) = find_named(
+        &schema.table_details,
+        active_schema,
+        name,
+        |table| &table.schema,
+        |table| &table.name,
+    ) {
+        return IdentifierNavigation::Table(table.name.clone());
+    }
+    if let Some(table) = schema.table_details.iter().find(|table| {
+        columns_match(table, name) && (active_schema.is_empty() || table.schema.eq_ignore_ascii_case(active_schema))
+    }) {
+        return IdentifierNavigation::Table(table.name.clone());
+    }
+    if let Some(table) = schema.table_details.iter().find(|table| columns_match(table, name)) {
+        return IdentifierNavigation::Table(table.name.clone());
+    }
+    if let Some(view) = find_named(
+        &schema.views,
+        active_schema,
+        name,
+        |view| &view.schema,
+        |view| &view.name,
+    ) {
+        return IdentifierNavigation::SchemaObject {
+            selection: SchemaObjectSelection::View(view.name.clone()),
+            schema: view.schema.clone(),
+            name: view.name.clone(),
+            kind: "view".to_owned(),
+        };
+    }
+    if let Some(function) = find_named(
+        &schema.functions,
+        active_schema,
+        name,
+        |function| &function.schema,
+        |function| &function.name,
+    ) {
+        return IdentifierNavigation::SchemaObject {
+            selection: SchemaObjectSelection::Function {
+                name: function.name.clone(),
+                identity_arguments: function.identity_arguments.clone(),
+            },
+            schema: function.schema.clone(),
+            name: function.name.clone(),
+            kind: "function".to_owned(),
+        };
+    }
+    if let Some(trigger) = find_named(
+        &schema.triggers,
+        active_schema,
+        name,
+        |trigger| &trigger.schema,
+        |trigger| &trigger.name,
+    ) {
+        return IdentifierNavigation::SchemaObject {
+            selection: SchemaObjectSelection::Trigger(trigger.name.clone()),
+            schema: trigger.schema.clone(),
+            name: trigger.name.clone(),
+            kind: "trigger".to_owned(),
+        };
+    }
+    IdentifierNavigation::Missing(format!("Open {name}"))
+}
+
+fn columns_match(table: &UiTableSummary, name: &str) -> bool {
+    table
+        .columns
+        .iter()
+        .any(|column| column.name.eq_ignore_ascii_case(name))
+}
+
+fn find_named<'a, T>(
+    items: &'a [T],
+    active_schema: &str,
+    name: &str,
+    schema_of: impl Fn(&T) -> &str,
+    name_of: impl Fn(&T) -> &str,
+) -> Option<&'a T> {
+    if !active_schema.is_empty() {
+        if let Some(item) = items.iter().find(|item| {
+            name_of(item).eq_ignore_ascii_case(name) && schema_of(item).eq_ignore_ascii_case(active_schema)
+        }) {
+            return Some(item);
+        }
+    }
+    items.iter().find(|item| name_of(item).eq_ignore_ascii_case(name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::editor::{CompletionItemKind, CompletionTriggerKind, EditorSnapshot};
+
+    fn column_item(insert_text: &str, range: (usize, usize)) -> CompletionItem {
+        CompletionItem {
+            label: insert_text.to_owned(),
+            insert_text: insert_text.to_owned(),
+            kind: CompletionItemKind::Column,
+            detail: None,
+            documentation: None,
+            replacement_range: range,
+            sort_score: 1,
+        }
+    }
+
+    #[test]
+    fn completion_undo_restores_replaced_prefix() {
+        let mut doc = QueryDocument::new("q", "Query", "SELECT ");
+        let prefix_start = doc.buffer.len_bytes();
+        doc.buffer.type_text(
+            prefix_start,
+            "p",
+            EditorSnapshot {
+                cursor_offset: prefix_start,
+                anchor_offset: prefix_start,
+            },
+            EditorSnapshot {
+                cursor_offset: prefix_start + 1,
+                anchor_offset: prefix_start + 1,
+            },
+        );
+        doc.buffer.type_text(
+            prefix_start + 1,
+            "u",
+            EditorSnapshot {
+                cursor_offset: prefix_start + 1,
+                anchor_offset: prefix_start + 1,
+            },
+            EditorSnapshot {
+                cursor_offset: prefix_start + 2,
+                anchor_offset: prefix_start + 2,
+            },
+        );
+        let end = doc.buffer.len_bytes();
+        let version = doc.buffer.version();
+        let item = column_item("purchase_order_id", (prefix_start, end));
+        doc.completion.open(
+            end,
+            version,
+            egui::Pos2::ZERO,
+            "pu".to_owned(),
+            vec![item.clone()],
+            CompletionTriggerKind::Automatic,
+        );
+
+        assert!(apply_completion_item(&mut doc, &item, SqlDialect::Postgres));
+        assert_eq!(doc.buffer.text(), "SELECT purchase_order_id");
+        assert!(doc.buffer.undo().is_some());
+        assert_eq!(doc.buffer.text(), "SELECT pu");
+    }
+
+    #[test]
+    fn completion_undo_dot_reopens_completion() {
+        let mut doc = QueryDocument::new("q", "Query", "SELECT ");
+        let end = doc.buffer.len_bytes();
+        let version = doc.buffer.version();
+        let item = column_item("public.", (end, end));
+        doc.completion.open(
+            end,
+            version,
+            egui::Pos2::ZERO,
+            String::new(),
+            vec![item.clone()],
+            CompletionTriggerKind::Automatic,
+        );
+
+        assert!(apply_completion_item(&mut doc, &item, SqlDialect::Postgres));
+        assert_eq!(doc.buffer.text(), "SELECT public.");
+        assert_eq!(doc.cursor.offset, doc.buffer.len_bytes());
+        assert!(doc.completion_due_at.is_some());
+    }
 }

@@ -206,6 +206,9 @@ impl WorkspaceSessionContext<'_> {
         let mut notes = Vec::new();
         self.workspace.activity = parse_activity(&session.activity);
         self.workspace.active_tab = parse_tab(&session.active_tab);
+        if self.workspace.active_tab == WorkspaceTab::Diagram {
+            self.workspace.diagram_open = true;
+        }
         self.workspace.sidebar_open = session.sidebar_open;
         self.workspace.agent_open = session.agent_open;
         self.workspace.set_sidebar_width(session.sidebar_width);

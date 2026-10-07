@@ -1,3 +1,4 @@
+use super::workspace_shell::WorkspaceLocation;
 use super::*;
 impl DbProApp {
     pub(super) fn draw_topbar(&mut self, ctx: &egui::Context) {
@@ -8,11 +9,12 @@ impl DbProApp {
             .active_connection()
             .map(|connection| self.connection_indicator(connection))
             .unwrap_or((Icon::Circle, self.theme.warning));
+        self.record_workspace_navigation();
         let actions = shell_topbar_view::ShellTopbarContext {
             theme: self.theme,
             sidebar_open: self.workspace.sidebar_open,
-            active_document_index: self.query.session.active_document_index,
-            document_count: self.query.session.documents.len(),
+            can_go_back: !self.workspace.nav_back.is_empty(),
+            can_go_forward: !self.workspace.nav_forward.is_empty(),
             has_connection,
             connection_name: &connection_name,
             connection_icon,
@@ -31,12 +33,8 @@ impl DbProApp {
                 shell_topbar_view::ShellTopbarAction::ToggleSidebar => {
                     self.workspace.sidebar_open = !self.workspace.sidebar_open;
                 }
-                shell_topbar_view::ShellTopbarAction::PreviousDocument => {
-                    self.switch_query_document(self.query.session.active_document_index.saturating_sub(1));
-                }
-                shell_topbar_view::ShellTopbarAction::NextDocument => {
-                    self.switch_query_document(self.query.session.active_document_index + 1);
-                }
+                shell_topbar_view::ShellTopbarAction::PreviousDocument => self.go_back(),
+                shell_topbar_view::ShellTopbarAction::NextDocument => self.go_forward(),
                 shell_topbar_view::ShellTopbarAction::OpenCommandPalette => {
                     self.palette.open(PaletteMode::Commands);
                 }
@@ -54,6 +52,63 @@ impl DbProApp {
                 }
             }
         }
+    }
+
+    pub(crate) fn record_workspace_navigation(&mut self) {
+        let current = WorkspaceLocation {
+            tab: self.workspace.active_tab,
+            query_index: self.query.session.active_document_index,
+        };
+        if !self.workspace.nav_ready {
+            self.workspace.nav_ready = true;
+            self.workspace.nav_current = current;
+            return;
+        }
+        if self.workspace.nav_suppress {
+            self.workspace.nav_suppress = false;
+            self.workspace.nav_current = current;
+            return;
+        }
+        if current == self.workspace.nav_current {
+            return;
+        }
+        let previous = self.workspace.nav_current;
+        self.workspace.nav_back.push(previous);
+        if self.workspace.nav_back.len() > 64 {
+            self.workspace.nav_back.remove(0);
+        }
+        self.workspace.nav_forward.clear();
+        self.workspace.nav_current = current;
+    }
+
+    pub(crate) fn go_back(&mut self) {
+        let Some(previous) = self.workspace.nav_back.pop() else {
+            return;
+        };
+        let current = self.workspace.nav_current;
+        self.workspace.nav_forward.push(current);
+        self.workspace.nav_suppress = true;
+        self.restore_workspace_location(previous);
+    }
+
+    pub(crate) fn go_forward(&mut self) {
+        let Some(next) = self.workspace.nav_forward.pop() else {
+            return;
+        };
+        let current = self.workspace.nav_current;
+        self.workspace.nav_back.push(current);
+        self.workspace.nav_suppress = true;
+        self.restore_workspace_location(next);
+    }
+
+    fn restore_workspace_location(&mut self, location: WorkspaceLocation) {
+        match location.tab {
+            WorkspaceTab::Welcome => self.workspace.welcome_open = true,
+            WorkspaceTab::Diagram => self.workspace.diagram_open = true,
+            WorkspaceTab::Query => self.switch_query_document(location.query_index),
+            _ => {}
+        }
+        self.workspace.active_tab = location.tab;
     }
 
     pub(super) fn draw_statusbar(&mut self, ctx: &egui::Context) {

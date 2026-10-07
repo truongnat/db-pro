@@ -1,5 +1,5 @@
 use super::diagram_view::{
-    diagram_candidates, diagram_foreign_key_label, diagram_search_mode,
+    diagram_candidates, diagram_foreign_key_label, diagram_node_height, diagram_search_mode,
     diagram_show_all_after_search_edit,
 };
 use super::*;
@@ -1562,6 +1562,32 @@ fn editor_status_lives_on_query_strip_not_shell_statusbar() {
 }
 
 #[test]
+fn back_and_forward_return_to_the_previous_workspace_tab() {
+    let mut app = DbProApp::default();
+    app.record_workspace_navigation();
+    app.open_diagram_tab();
+    app.record_workspace_navigation();
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Diagram);
+
+    app.go_back();
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
+    assert!(app.workspace.diagram_open);
+
+    app.go_forward();
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Diagram);
+}
+
+#[test]
+fn diagram_tab_stays_open_until_it_is_closed() {
+    let mut app = DbProApp::default();
+    app.open_diagram_tab();
+    app.workspace.active_tab = WorkspaceTab::Query;
+    assert!(app.workspace.diagram_open);
+    app.request_close_workspace_tab(WorkspaceTab::Diagram);
+    assert!(!app.workspace.diagram_open);
+}
+
+#[test]
 fn switching_query_documents_resets_editor_cursor_metadata() {
     let mut app = DbProApp {
         workspace: WorkspaceFeatureState {
@@ -2184,6 +2210,9 @@ fn diagram_lod_transitions_and_rules() {
     assert!(detailed.shows_columns());
     assert!(detailed.shows_edge_labels());
     assert_eq!(detailed.max_columns(), 12);
+    assert_eq!(diagram_node_height(1.0), ER_HEADER_HEIGHT + ER_ROW_HEIGHT * 6.0);
+    assert_eq!(diagram_node_height(1.4), ER_HEADER_HEIGHT + ER_ROW_HEIGHT * 12.0);
+    assert!(diagram_node_height(1.4) > diagram_node_height(1.0));
 }
 
 #[test]
@@ -2656,6 +2685,13 @@ fn explorer_search_matches_table_names_case_insensitively() {
         "orders",
         ExplorerMatchMode::Prefix
     ));
+    let (fuzzy_count, fuzzy_visible) = filtered_explorer_tables(
+        &["customer_id".to_owned(), "orders".to_owned()],
+        "custid",
+        ExplorerMatchMode::Contains,
+    );
+    assert_eq!(fuzzy_count, 1);
+    assert_eq!(fuzzy_visible, vec!["customer_id".to_owned()]);
 
     let tables = (0..=EXPLORER_MAX_TABLES)
         .map(|index| format!("orders_{index}"))
@@ -3254,8 +3290,8 @@ fn typed_agent_open_result_in_workspace_populates_query_document() {
 
     app.open_agent_result_in_workspace("query-1");
 
-    assert!(app.query.session.documents[0].query_result.is_some());
-    let res = app.query.session.documents[0].query_result.as_ref().unwrap();
+    assert!(app.query.session.documents[0].query_results.first().is_some());
+    let res = app.query.session.documents[0].query_results.first().unwrap();
     assert_eq!(res.columns.len(), 2);
     assert_eq!(res.rows.len(), 1);
     assert_eq!(res.duration_ms, 42);
@@ -4953,8 +4989,8 @@ fn test_multi_tab_query_result_routing() {
     // Tab 1 should have received its result and message, but Tab 2 is active and has no result yet
     assert_eq!(
         app.query.session.documents[0]
-            .query_result
-            .as_ref()
+            .query_results
+            .first()
             .map(|r| r.row_count),
         Some(1)
     );

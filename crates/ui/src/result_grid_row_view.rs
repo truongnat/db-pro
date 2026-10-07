@@ -49,6 +49,15 @@ pub(super) fn draw_row(
             .input(|input| input.pointer.hover_pos())
             .or_else(debug_pointer_pos);
         let row_hovered = hover_pos.is_some_and(|pos| row_rect.contains(pos));
+        let origin_x = ui.cursor().left();
+        let clip = ui.clip_rect();
+        let window = crate::grid_column_window(
+            context.rows.order,
+            context.rows.widths,
+            GRID_ROW_NUMBER_WIDTH,
+            (clip.left() - origin_x).max(0.0),
+            (clip.right() - origin_x).max(0.0),
+        );
         let row_number = crate::displayed_row_number(context.rows.row_offset, context.row_index);
         let gutter_response = result_grid_row_gutter_view::draw_row_gutter(
             ui,
@@ -62,7 +71,10 @@ pub(super) fn draw_row(
             return;
         }
 
-        for &column_index in context.rows.order {
+        if window.leading > 0.0 {
+            ui.add_space(window.leading);
+        }
+        for &column_index in &context.rows.order[window.start..window.end] {
             let cell = context.row.get(column_index).unwrap_or(&UiCell::Null);
             let width = context.rows.widths.get(column_index).copied().unwrap_or(180.0);
             renderer.draw_cell(
@@ -81,6 +93,23 @@ pub(super) fn draw_row(
                     width,
                     cell,
                 },
+            );
+        }
+
+        if window.trailing > 0.0 {
+            let (skipped, _) = ui.allocate_exact_size(egui::vec2(window.trailing, 28.0), egui::Sense::hover());
+            let fill = if context.row_selected {
+                context.theme.soft_tint(context.theme.accent)
+            } else if row_hovered {
+                context.theme.surface_hover
+            } else {
+                context.theme.surface_editor
+            };
+            ui.painter().rect_filled(skipped, egui::Rounding::ZERO, fill);
+            ui.painter().hline(
+                skipped.x_range(),
+                skipped.bottom(),
+                egui::Stroke::new(1.0, context.theme.border_subtle),
             );
         }
 

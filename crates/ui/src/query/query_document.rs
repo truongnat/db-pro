@@ -6,6 +6,7 @@ use crate::editor::document::SqlDocumentAnalysis;
 use crate::editor::hover::HoverState;
 use crate::editor::prediction::EditPrediction;
 use crate::editor::selection::SelectionRange;
+use crate::editor::snippet::SnippetSession;
 use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
 use crate::runtime::{UiQueryExecutionOutput, UiQueryResult};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -104,6 +105,9 @@ pub struct QueryDocument {
     pub analysis: SqlDocumentAnalysis,
     pub diagnostics: Vec<Diagnostic>,
     pub completion: CompletionState,
+    pub(crate) completion_due_at: Option<Instant>,
+    /// Active `${n:placeholder}` stops. `$1` query parameters are not stops.
+    pub snippet: Option<SnippetSession>,
     pub prediction: Option<EditPrediction>,
     pub pending_prediction_request: Option<crate::runtime::RequestId>,
     pub prediction_debounce_deadline: Option<Instant>,
@@ -177,6 +181,8 @@ impl QueryDocument {
             analysis,
             diagnostics: Vec::new(),
             completion: CompletionState::new(),
+            completion_due_at: None,
+            snippet: None,
             prediction: None,
             pending_prediction_request: None,
             prediction_debounce_deadline: None,
@@ -258,6 +264,12 @@ impl QueryDocument {
         self.analysis =
             SqlDocumentAnalysis::from_tokens(self.buffer.text(), self.cached_tokens.tokens(), self.buffer.version());
         self.search.update_matches(self.buffer.text());
+        crate::editor::diagnostics::sync_statement_syntax_diagnostic(
+            &mut self.diagnostics,
+            self.buffer.text(),
+            self.cursor.offset,
+            dialect,
+        );
     }
 
     /// Resolves the executable SQL: selected text if non-empty, otherwise the current statement at cursor, otherwise full buffer.

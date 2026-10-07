@@ -1,3 +1,4 @@
+mod completion_scope;
 pub mod intelligence;
 pub mod query_document;
 pub mod schema_completion;

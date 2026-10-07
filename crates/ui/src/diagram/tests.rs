@@ -1715,6 +1715,37 @@ fn perf_evidence_500_tables() {
 }
 
 #[test]
+fn foreign_key_component_places_the_referenced_table_above_the_child() {
+    let parent = UiTableSummary {
+        schema: "public".to_owned(),
+        name: "customers".to_owned(),
+        row_count: None,
+        columns: vec![],
+        foreign_keys: vec![],
+    };
+    let child = UiTableSummary {
+        schema: "public".to_owned(),
+        name: "orders".to_owned(),
+        row_count: None,
+        columns: vec![],
+        foreign_keys: vec![UiSchemaForeignKey {
+            name: "orders_customer".to_owned(),
+            from_columns: vec!["customer_id".to_owned()],
+            to_schema: "public".to_owned(),
+            to_table: "customers".to_owned(),
+            to_columns: vec!["id".to_owned()],
+        }],
+    };
+    let graph = ErGraph::build(&[child, parent], 1, 4, 120.0);
+    let orders = graph.nodes.iter().find(|node| node.table.name == "orders").unwrap();
+    let customers = graph.nodes.iter().find(|node| node.table.name == "customers").unwrap();
+    assert!(
+        customers.world_rect.top() < orders.world_rect.top(),
+        "referenced table sits on the layer above the table that points at it"
+    );
+}
+
+#[test]
 fn perf_evidence_1000_tables_dense() {
     let tables = dense_1000_tables();
     let start = Instant::now();

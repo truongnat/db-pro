@@ -9,7 +9,7 @@ impl DbProApp {
             PaletteAction::History => self.open_palette_activity(Activity::History),
             PaletteAction::Data => self.open_palette_activity(Activity::Data),
             PaletteAction::Files => self.open_palette_activity(Activity::Files),
-            PaletteAction::Diagram => self.workspace.active_tab = WorkspaceTab::Diagram,
+            PaletteAction::Diagram => self.open_diagram_tab(),
             PaletteAction::SchemaWorkbench => self.open_schema_workbench(),
             PaletteAction::SchemaCompare => {
                 self.workspace.activity = Activity::Compare;

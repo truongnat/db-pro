@@ -43,8 +43,8 @@ pub use components::{
 };
 pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
 pub use result_grid::{
-    cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes,
-    grid_keyboard_selection, GridProjectionCache, GridProjectionKey,
+    cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes, grid_column_window,
+    grid_keyboard_selection, GridColumnWindow, GridProjectionCache, GridProjectionKey,
 };
 pub use runtime::{
     RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,

@@ -58,6 +58,15 @@ impl<'a> GridHeaderViewContext<'a> {
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
+            let origin_x = ui.cursor().left();
+            let clip = ui.clip_rect();
+            let window = crate::grid_column_window(
+                order,
+                widths,
+                GRID_ROW_NUMBER_WIDTH,
+                (clip.left() - origin_x).max(0.0),
+                (clip.right() - origin_x).max(0.0),
+            );
             let (gutter_rect, _) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::hover());
             ui.painter()
                 .rect_filled(gutter_rect, Rounding::ZERO, self.theme.surface_elevated);
@@ -79,7 +88,10 @@ impl<'a> GridHeaderViewContext<'a> {
                 self.theme.text_tertiary,
             );
 
-            for (visual_idx, &col_idx) in order.iter().enumerate() {
+            if window.leading > 0.0 {
+                ui.add_space(window.leading);
+            }
+            for (visual_idx, &col_idx) in order.iter().enumerate().take(window.end).skip(window.start) {
                 let Some(column) = result.columns.get(col_idx) else {
                     continue;
                 };
@@ -246,6 +258,17 @@ impl<'a> GridHeaderViewContext<'a> {
                 if divider.double_clicked() {
                     auto_size_req = Some(col_idx);
                 }
+            }
+
+            if window.trailing > 0.0 {
+                let (skipped, _) = ui.allocate_exact_size(egui::vec2(window.trailing, 28.0), Sense::hover());
+                ui.painter()
+                    .rect_filled(skipped, Rounding::ZERO, self.theme.surface_elevated);
+                ui.painter().hline(
+                    skipped.x_range(),
+                    skipped.bottom(),
+                    Stroke::new(1.0, self.theme.border_default),
+                );
             }
 
             // Trailing header filler — the header band and its bottom border

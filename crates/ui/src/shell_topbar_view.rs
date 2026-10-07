@@ -128,8 +128,8 @@ struct WindowControl<'a> {
 pub(super) struct ShellTopbarContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) sidebar_open: bool,
-    pub(super) active_document_index: usize,
-    pub(super) document_count: usize,
+    pub(super) can_go_back: bool,
+    pub(super) can_go_forward: bool,
     pub(super) has_connection: bool,
     pub(super) connection_name: &'a str,
     pub(super) connection_icon: Icon,
@@ -189,28 +189,26 @@ impl ShellTopbarContext<'_> {
         }
         ui.add_space(2.0);
 
-        let can_go_back = self.active_document_index > 0;
         if Button::new(self.theme)
             .icon(Icon::ArrowLeft)
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::IconSm)
-            .enabled(can_go_back)
-            .access_label("Previous Document")
-            .tooltip("Previous Document")
+            .enabled(self.can_go_back)
+            .access_label("Back")
+            .tooltip("Back")
             .show(ui)
             .clicked()
         {
             actions.push(ShellTopbarAction::PreviousDocument);
         }
 
-        let can_go_forward = self.active_document_index + 1 < self.document_count;
         if Button::new(self.theme)
             .icon(Icon::ArrowRight)
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::IconSm)
-            .enabled(can_go_forward)
-            .access_label("Next Document")
-            .tooltip("Next Document")
+            .enabled(self.can_go_forward)
+            .access_label("Forward")
+            .tooltip("Forward")
             .show(ui)
             .clicked()
         {

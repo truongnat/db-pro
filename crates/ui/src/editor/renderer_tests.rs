@@ -272,6 +272,7 @@ fn completion_opens_only_for_dot_or_explicit_shortcut() {
         render_editor_event("", egui::Event::Text("select".to_owned()), "ordinary-completion-input");
     assert_eq!(typed_text, "select");
     assert!(!typed_response.wants_completion);
+    assert!(!typed_response.wants_identifier_typed);
 
     let (dot_text, dot_response) =
         render_editor_event("users", egui::Event::Text(".".to_owned()), "dot-completion-input");
@@ -296,6 +297,14 @@ fn completion_opens_only_for_dot_or_explicit_shortcut() {
     assert_eq!(shortcut_text, "SELECT ");
     assert!(shortcut_response.wants_completion);
     assert!(shortcut_response.wants_manual_completion);
+}
+
+#[test]
+fn identifier_typing_sets_debounce_intent_without_opening_completion() {
+    let (_, response) = render_editor_event("", egui::Event::Text("s".to_owned()), "identifier-completion-input");
+
+    assert!(response.wants_identifier_typed);
+    assert!(!response.wants_completion);
 }
 
 #[test]

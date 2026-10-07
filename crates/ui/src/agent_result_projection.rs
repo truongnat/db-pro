@@ -66,8 +66,8 @@ impl<'a> AgentResultWorkspaceContext<'a> {
 
         let sample_len = ui_result.rows.len();
         let total_rows = ui_result.row_count;
-        document.query_result = Some(ui_result.clone());
         document.query_results = vec![ui_result];
+        document.query_result = None;
         document.active_result_index = 0;
         self.output.active_tab = super::OutputTab::Results;
         self.table_data.invalidate_grid_projection();

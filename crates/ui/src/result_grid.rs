@@ -50,6 +50,60 @@ pub fn grid_keyboard_selection(
 use bigdecimal::BigDecimal;
 use std::cmp::Ordering;
 
+/// Parsed once per sorted cell. The comparator then compares these keys and
+/// only falls back to the original text when the two cells are not the same type.
+enum SortKey {
+    Missing,
+    Bool(bool),
+    Number(Option<BigDecimal>),
+    Rfc(chrono::DateTime<chrono::FixedOffset>),
+    Naive(chrono::NaiveDateTime),
+    Date(chrono::NaiveDate),
+    Text,
+}
+
+fn sort_key(cell: Option<&UiCell>) -> SortKey {
+    match cell {
+        None | Some(UiCell::Null) => SortKey::Missing,
+        Some(UiCell::Boolean(value)) => SortKey::Bool(*value),
+        Some(UiCell::Number(value)) => SortKey::Number(value.parse().ok()),
+        Some(UiCell::Text(value)) if looks_like_iso_temporal(value) => {
+            if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(value) {
+                SortKey::Rfc(parsed)
+            } else if let Ok(parsed) = chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S") {
+                SortKey::Naive(parsed)
+            } else if let Ok(parsed) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+                SortKey::Date(parsed)
+            } else {
+                SortKey::Text
+            }
+        }
+        Some(_) => SortKey::Text,
+    }
+}
+
+fn cmp_sort_keys(left: &SortKey, right: &SortKey, left_cell: Option<&UiCell>, right_cell: Option<&UiCell>) -> Ordering {
+    match (left, right) {
+        (SortKey::Missing, SortKey::Missing) => Ordering::Equal,
+        (SortKey::Missing, _) => Ordering::Greater,
+        (_, SortKey::Missing) => Ordering::Less,
+        (SortKey::Bool(left), SortKey::Bool(right)) => left.cmp(right),
+        (SortKey::Number(Some(left)), SortKey::Number(Some(right))) => left.cmp(right),
+        (SortKey::Number(_), SortKey::Number(_)) => cell_text_cmp(left_cell, right_cell),
+        (SortKey::Rfc(left), SortKey::Rfc(right)) => left.cmp(right),
+        (SortKey::Naive(left), SortKey::Naive(right)) => left.cmp(right),
+        (SortKey::Date(left), SortKey::Date(right)) => left.cmp(right),
+        _ => cell_text_cmp(left_cell, right_cell),
+    }
+}
+
+fn cell_text_cmp(left: Option<&UiCell>, right: Option<&UiCell>) -> Ordering {
+    match (left, right) {
+        (Some(left), Some(right)) => cell_text_as_str(left).cmp(cell_text_as_str(right)),
+        _ => Ordering::Equal,
+    }
+}
+
 /// Borrow the string representation of a cell without heap allocation.
 pub fn cell_text_as_str(cell: &UiCell) -> &str {
     match cell {
@@ -145,16 +199,24 @@ pub fn filtered_sorted_indexes(
         .collect();
 
     if let Some(column) = sort_column {
-        indexes.sort_by(|left, right| {
-            let left_cell = result.rows[*left].get(column);
-            let right_cell = result.rows[*right].get(column);
-            let ordering = compare_ui_cells(left_cell, right_cell);
+        // Parse each cell once. Comparing the keys avoids parsing decimals and
+        // timestamps again inside every O(n log n) comparison.
+        let keys: Vec<SortKey> = indexes
+            .iter()
+            .map(|&index| sort_key(result.rows[index].get(column)))
+            .collect();
+        let mut order: Vec<usize> = (0..indexes.len()).collect();
+        order.sort_by(|&left, &right| {
+            let left_cell = result.rows[indexes[left]].get(column);
+            let right_cell = result.rows[indexes[right]].get(column);
+            let ordering = cmp_sort_keys(&keys[left], &keys[right], left_cell, right_cell);
             if sort_desc {
                 ordering.reverse()
             } else {
                 ordering
             }
         });
+        indexes = order.into_iter().map(|position| indexes[position]).collect();
     }
 
     indexes
@@ -227,6 +289,64 @@ impl GridProjectionCache {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct GridColumnWindow {
+    pub start: usize,
+    pub end: usize,
+    pub leading: f32,
+    pub trailing: f32,
+}
+
+/// Columns that intersect the horizontal viewport, plus a small overscan.
+///
+/// `leading` and `trailing` are the widths of the columns skipped on each side
+/// so the row still occupies the full scroll width.
+pub fn grid_column_window(
+    order: &[usize],
+    widths: &[f32],
+    gutter: f32,
+    visible_left: f32,
+    visible_right: f32,
+) -> GridColumnWindow {
+    let full = GridColumnWindow {
+        start: 0,
+        end: order.len(),
+        leading: 0.0,
+        trailing: 0.0,
+    };
+    if order.is_empty() || visible_right - visible_left < 1.0 {
+        return full;
+    }
+    const OVERSCAN: f32 = 80.0;
+    let left = visible_left - OVERSCAN;
+    let right = visible_right + OVERSCAN;
+    let width_of = |column: usize| widths.get(column).copied().unwrap_or(180.0);
+    let mut x = gutter;
+    let mut start = 0;
+    let mut end = order.len();
+    for (index, &column) in order.iter().enumerate() {
+        let width = width_of(column);
+        let next = x + width;
+        if next < left {
+            start = index + 1;
+        }
+        if x > right {
+            end = index;
+            break;
+        }
+        x = next;
+    }
+    if start > end {
+        start = end;
+    }
+    GridColumnWindow {
+        start,
+        end,
+        leading: order[..start].iter().map(|column| width_of(*column)).sum(),
+        trailing: order[end..].iter().map(|column| width_of(*column)).sum(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,6 +371,53 @@ mod tests {
         assert!(!looks_like_iso_temporal("Alice"));
         assert!(!looks_like_iso_temporal("2026"));
         assert!(!looks_like_iso_temporal("abc-def-ghi"));
+    }
+
+    #[test]
+    fn column_window_skips_columns_outside_the_viewport() {
+        let order = [0, 1, 2, 3];
+        let widths = [100.0, 100.0, 100.0, 100.0];
+        let window = grid_column_window(&order, &widths, 48.0, 48.0, 180.0);
+        assert_eq!(window.start, 0);
+        assert!(window.end < order.len());
+        assert!(window.trailing > 0.0);
+        let wide = grid_column_window(&order, &widths, 48.0, 0.0, 10_000.0);
+        assert_eq!((wide.start, wide.end), (0, 4));
+    }
+
+    #[test]
+    fn prepared_sort_keys_match_pairwise_cell_order() {
+        let cells = [
+            UiCell::Null,
+            UiCell::Number("10".to_owned()),
+            UiCell::Number("2".to_owned()),
+            UiCell::Number("not-a-number".to_owned()),
+            UiCell::Text("2024-01-02".to_owned()),
+            UiCell::Text("2024-01-02T00:00:00Z".to_owned()),
+            UiCell::Text("2024-03-01 10:00:00".to_owned()),
+            UiCell::Text("alice".to_owned()),
+            UiCell::Boolean(false),
+            UiCell::Boolean(true),
+            UiCell::Json("{\"b\":1}".to_owned()),
+        ];
+        let result = UiQueryResult {
+            columns: vec![],
+            rows: cells.iter().map(|cell| vec![cell.clone()]).collect(),
+            row_count: cells.len() as u64,
+            duration_ms: 0,
+        };
+        let indexes = filtered_sorted_indexes(&result, "", Some(0), false);
+        for pair in indexes.windows(2) {
+            let left = result.rows[pair[0]].first();
+            let right = result.rows[pair[1]].first();
+            assert_ne!(
+                compare_ui_cells(left, right),
+                std::cmp::Ordering::Greater,
+                "row {} sorted after row {}",
+                pair[0],
+                pair[1]
+            );
+        }
     }
 
     #[test]

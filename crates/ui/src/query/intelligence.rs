@@ -1,6 +1,7 @@
 use crate::editor::{CachedSqlTokens, SqlDialect, SyntaxTokenKind};
 use crate::runtime::{UiFunctionSummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiTableSummary};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqlSymbolHelp {
@@ -78,10 +79,10 @@ pub enum RichHoverHelp {
 
 #[derive(Debug, Clone, Default)]
 pub struct SchemaSymbolIndex {
-    tables: HashMap<String, Vec<SqlSymbolHelp>>,
-    views: HashMap<String, Vec<SqlSymbolHelp>>,
-    columns: HashMap<String, Vec<SqlSymbolHelp>>,
-    functions: HashMap<String, Vec<SqlSignatureHelp>>,
+    tables: HashMap<String, Vec<Arc<SqlSymbolHelp>>>,
+    views: HashMap<String, Vec<Arc<SqlSymbolHelp>>>,
+    columns: HashMap<String, Vec<Arc<SqlSymbolHelp>>>,
+    functions: HashMap<String, Vec<Arc<SqlSignatureHelp>>>,
 }
 
 impl SchemaSymbolIndex {
@@ -118,16 +119,17 @@ impl SchemaSymbolIndex {
                     ),
                     documentation: format!("Column of {qualified_name}"),
                 };
+                let help = Arc::new(help);
                 index
                     .columns
                     .entry(normalize(&column.name))
                     .or_default()
-                    .push(help.clone());
+                    .push(Arc::clone(&help));
                 index
                     .columns
                     .entry(normalize(&format!("{}.{}", table.name, column.name)))
                     .or_default()
-                    .push(help.clone());
+                    .push(Arc::clone(&help));
                 index
                     .columns
                     .entry(normalize(&format!("{}.{}.{}", table.schema, table.name, column.name)))
@@ -143,7 +145,12 @@ impl SchemaSymbolIndex {
                 detail: "Database view".to_owned(),
                 documentation: summarize_definition(&view.definition),
             };
-            index.views.entry(normalize(&view.name)).or_default().push(help.clone());
+            let help = Arc::new(help);
+            index
+                .views
+                .entry(normalize(&view.name))
+                .or_default()
+                .push(Arc::clone(&help));
             index.views.entry(normalize(&qualified_name)).or_default().push(help);
         }
         for function in &schema.functions {
@@ -179,11 +186,15 @@ impl SchemaSymbolIndex {
     ) -> Option<SqlSignatureHelp> {
         let call = function_call_context(sql, cursor_offset, tokens)?;
         let normalized_call = normalize(&call.name);
-        let mut candidates = self.functions.get(&normalized_call).cloned().unwrap_or_default();
+        let mut candidates = self
+            .functions
+            .get(&normalized_call)
+            .map(|items| items.iter().map(|item| item.as_ref().clone()).collect::<Vec<_>>())
+            .unwrap_or_default();
         if !call.name.contains('.') && !active_schema.is_empty() {
             let qualified = normalize(&format!("{active_schema}.{}", call.name));
             if let Some(active_schema_candidates) = self.functions.get(&qualified) {
-                candidates.splice(0..0, active_schema_candidates.iter().cloned());
+                candidates.splice(0..0, active_schema_candidates.iter().map(|item| item.as_ref().clone()));
             }
         }
         if let Some(builtin) = builtin_signature(&call.name, dialect) {
@@ -203,16 +214,17 @@ impl SchemaSymbolIndex {
     }
 
     fn insert_table(&mut self, name: &str, qualified_name: &str, help: SqlSymbolHelp) {
-        self.tables.entry(normalize(name)).or_default().push(help.clone());
+        let help = Arc::new(help);
+        self.tables.entry(normalize(name)).or_default().push(Arc::clone(&help));
         self.tables.entry(normalize(qualified_name)).or_default().push(help);
     }
 
     fn insert_function(&mut self, function: &UiFunctionSummary) {
-        let signature = function_signature(function);
+        let signature = Arc::new(function_signature(function));
         self.functions
             .entry(normalize(&function.name))
             .or_default()
-            .push(signature.clone());
+            .push(Arc::clone(&signature));
         self.functions
             .entry(normalize(&format!("{}.{}", function.schema, function.name)))
             .or_default()
@@ -229,7 +241,7 @@ impl SchemaSymbolIndex {
         self.functions
             .get(&normalized)
             .and_then(|signatures| signatures.first())
-            .map(signature_symbol_help)
+            .map(|signature| signature_symbol_help(signature))
     }
 
     /// Rich hover that returns structured content instead of a flat `SqlSymbolHelp`.
@@ -401,17 +413,17 @@ fn is_identifier_character(character: char) -> bool {
     character.is_alphanumeric() || matches!(character, '_' | '.' | '$' | '"')
 }
 
-fn resolve_unambiguous(candidates: Option<&Vec<SqlSymbolHelp>>, active_schema: &str) -> Option<SqlSymbolHelp> {
+fn resolve_unambiguous(candidates: Option<&Vec<Arc<SqlSymbolHelp>>>, active_schema: &str) -> Option<SqlSymbolHelp> {
     let candidates = candidates?;
     if candidates.len() == 1 {
-        return candidates.first().cloned();
+        return candidates.first().map(|help| help.as_ref().clone());
     }
     let schema_prefix = format!("{active_schema}.");
     let active_candidates: Vec<_> = candidates
         .iter()
         .filter(|candidate| candidate.title.starts_with(&schema_prefix))
         .collect();
-    (active_candidates.len() == 1).then(|| active_candidates[0].clone())
+    (active_candidates.len() == 1).then(|| active_candidates[0].as_ref().clone())
 }
 
 fn function_signature(function: &UiFunctionSummary) -> SqlSignatureHelp {

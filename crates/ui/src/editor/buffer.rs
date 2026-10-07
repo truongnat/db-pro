@@ -157,6 +157,10 @@ pub struct TextBuffer {
     max_line_chars: usize,
     pub undo_stack: UndoStack,
     version: u64,
+    /// `(start, old_end, new_end)` of the latest edit, in bytes.
+    /// `None` after undo/redo or when the edit covers more than two lines,
+    /// so the highlighter retokenizes the whole buffer instead of splicing.
+    pub(crate) last_edit: Option<(usize, usize, usize)>,
 }
 
 impl TextBuffer {
@@ -167,6 +171,7 @@ impl TextBuffer {
             max_line_chars: 0,
             undo_stack: UndoStack::new(),
             version: 0,
+            last_edit: None,
         };
         buffer.rebuild_line_index();
         buffer
@@ -179,6 +184,7 @@ impl TextBuffer {
             max_line_chars: 0,
             undo_stack: UndoStack::new(),
             version: 0,
+            last_edit: None,
         };
         buffer.rebuild_line_index();
         buffer
@@ -392,6 +398,7 @@ impl TextBuffer {
         );
         self.content.insert_str(clamped, text);
         self.version = self.version.wrapping_add(1);
+        self.last_edit = bounded_edit(clamped, clamped, clamped + text.len(), 0, newline_count(text));
         self.rebuild_line_index();
     }
 
@@ -403,6 +410,7 @@ impl TextBuffer {
         self.undo_stack.push_typing_insert(clamped, text, before, after);
         self.content.insert_str(clamped, text);
         self.version = self.version.wrapping_add(1);
+        self.last_edit = bounded_edit(clamped, clamped, clamped + text.len(), 0, newline_count(text));
         self.rebuild_line_index();
     }
 
@@ -447,6 +455,7 @@ impl TextBuffer {
         );
         self.content.replace_range(clamped_start..clamped_end, "");
         self.version = self.version.wrapping_add(1);
+        self.last_edit = bounded_edit(clamped_start, clamped_end, clamped_start, newline_count(&deleted), 0);
         self.rebuild_line_index();
         deleted
     }
@@ -480,6 +489,11 @@ impl TextBuffer {
         if clamped_start == clamped_end && text.is_empty() {
             return;
         }
+        let removed_newlines = if clamped_start != clamped_end {
+            newline_count(&self.content[clamped_start..clamped_end])
+        } else {
+            0
+        };
         self.undo_stack.break_typing_group();
         self.undo_stack.begin_group(before);
         if clamped_start != clamped_end {
@@ -507,6 +521,13 @@ impl TextBuffer {
         }
         self.undo_stack.end_group(after);
         self.version = self.version.wrapping_add(1);
+        self.last_edit = bounded_edit(
+            clamped_start,
+            clamped_end,
+            clamped_start + text.len(),
+            removed_newlines,
+            newline_count(text),
+        );
         self.rebuild_line_index();
     }
 
@@ -519,6 +540,7 @@ impl TextBuffer {
     pub fn set_text_initial(&mut self, text: impl Into<String>) {
         self.content = text.into();
         self.version = self.version.wrapping_add(1);
+        self.last_edit = None;
         self.undo_stack.clear();
         self.rebuild_line_index();
     }
@@ -533,6 +555,7 @@ impl TextBuffer {
         let restored_cursor = (step.before.cursor_offset, step.before.anchor_offset);
         self.undo_stack.redo_list.push_back(step);
         self.version = self.version.wrapping_add(1);
+        self.last_edit = None;
         self.rebuild_line_index();
         Some(restored_cursor)
     }
@@ -543,6 +566,7 @@ impl TextBuffer {
         let restored_cursor = (step.after.cursor_offset, step.after.anchor_offset);
         self.undo_stack.undo_list.push_back(step);
         self.version = self.version.wrapping_add(1);
+        self.last_edit = None;
         self.rebuild_line_index();
         Some(restored_cursor)
     }
@@ -597,6 +621,25 @@ impl TextBuffer {
             .map(|l| self.line_at(l).unwrap_or("").chars().count())
             .max()
             .unwrap_or(0);
+    }
+}
+
+fn newline_count(text: &str) -> usize {
+    text.bytes().filter(|byte| *byte == b'\n').count()
+}
+
+/// One newline stays inside two adjacent lines. More than that cannot be spliced safely.
+fn bounded_edit(
+    start: usize,
+    old_end: usize,
+    new_end: usize,
+    removed_newlines: usize,
+    inserted_newlines: usize,
+) -> Option<(usize, usize, usize)> {
+    if removed_newlines > 1 || inserted_newlines > 1 {
+        None
+    } else {
+        Some((start, old_end, new_end))
     }
 }
 

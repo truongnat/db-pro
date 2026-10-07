@@ -140,15 +140,22 @@ impl DbProApp {
             .get_mut(self.query.session.active_document_index)
         {
             let offset = document.cursor.offset.min(document.buffer.len_bytes());
-            let insertion = if offset > 0 && !document.buffer.text()[..offset].ends_with('\n') {
-                format!("\n{snippet}")
-            } else {
-                snippet.to_owned()
-            };
+            let (body, mut session) = crate::editor::SnippetSession::expand(snippet);
+            let needs_break = offset > 0 && !document.buffer.text()[..offset].ends_with('\n');
+            let insertion = if needs_break { format!("\n{body}") } else { body };
+            if let Some(session) = session.as_mut() {
+                session.translate(offset + usize::from(needs_break));
+            }
             document.buffer.insert(offset, &insertion);
-            let new_offset = offset + insertion.len();
-            document.cursor = crate::editor::CursorPosition::from_offset(&document.buffer, new_offset);
-            document.selection = crate::editor::SelectionRange::point(new_offset);
+            document.snippet = session;
+            if let Some((start, end)) = document.snippet.as_ref().and_then(|session| session.active_range()) {
+                document.cursor = crate::editor::CursorPosition::from_offset(&document.buffer, end);
+                document.selection = crate::editor::SelectionRange::new(start, end);
+            } else {
+                let new_offset = offset + insertion.len();
+                document.cursor = crate::editor::CursorPosition::from_offset(&document.buffer, new_offset);
+                document.selection = crate::editor::SelectionRange::point(new_offset);
+            }
             document.dirty = true;
             self.query.editor.query_cursor_line = document.cursor.line + 1;
             self.query.editor.query_cursor_column = document.cursor.col + 1;

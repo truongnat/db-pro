@@ -16,7 +16,7 @@ pub(super) struct QueryMultiResultContext<'a> {
 pub(super) fn on_query_multi_completed(
     context: &mut QueryMultiResultContext<'_>,
     request_id: RequestId,
-    output: UiQueryExecutionOutput,
+    mut output: UiQueryExecutionOutput,
 ) {
     let QueryMultiResultContext {
         query_session,
@@ -30,6 +30,11 @@ pub(super) fn on_query_multi_completed(
     let Some(doc_id) = target_doc_id else {
         return;
     };
+    let result_row_count: u64 = output
+        .statements
+        .iter()
+        .filter_map(|statement| statement.result_set.as_ref().map(|result| result.row_count))
+        .sum();
     // Same as the single-statement path: the result sets behind the grid are being replaced.
     table_data.invalidate_grid_projection();
     let mut history = None;
@@ -44,10 +49,10 @@ pub(super) fn on_query_multi_completed(
         ));
         doc.query_results = output
             .statements
-            .iter()
-            .filter_map(|statement| statement.result_set.clone())
+            .iter_mut()
+            .filter_map(|statement| statement.result_set.take())
             .collect();
-        doc.query_result = doc.query_results.first().cloned();
+        doc.query_result = None;
         doc.active_result_index = 0;
         doc.execution_output = Some(output.clone());
         doc.execution_state = if output.statements.iter().any(|statement| statement.error.is_some()) {
@@ -107,13 +112,7 @@ pub(super) fn on_query_multi_completed(
                     UiQueryHistoryStatus::Success
                 },
                 duration_ms,
-                row_count: Some(
-                    output
-                        .statements
-                        .iter()
-                        .filter_map(|statement| statement.result_set.as_ref().map(|result| result.row_count))
-                        .sum(),
-                ),
+                row_count: Some(result_row_count),
                 affected_rows: Some(
                     output
                         .statements

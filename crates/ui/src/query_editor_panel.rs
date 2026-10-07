@@ -65,6 +65,18 @@ impl DbProApp {
                 Action::SaveQuery => {
                     self.save_query_document();
                 }
+                Action::OpenIdentified(target) => match target {
+                    query_editor_support::IdentifierNavigation::Table(table) => self.open_table(table),
+                    query_editor_support::IdentifierNavigation::SchemaObject {
+                        selection,
+                        schema,
+                        name,
+                        kind,
+                    } => self.open_schema_object(selection, &schema, &name, &kind),
+                    query_editor_support::IdentifierNavigation::Missing(message) => {
+                        self.feedback.set_runtime_message(message);
+                    }
+                },
             }
         }
     }

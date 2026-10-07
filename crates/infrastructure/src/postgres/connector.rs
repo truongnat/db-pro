@@ -11,8 +11,13 @@ use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::RwLock;
+
+/// One desktop connection should not open the driver's default pool (10) against
+/// a large server, and introspection already runs its catalog reads together.
+const PG_POOL_MAX_CONNECTIONS: u32 = 5;
 
 struct PostgresDialect;
 impl SqlDialect for PostgresDialect {
@@ -29,6 +34,31 @@ pub struct PoolEntry {
     pub pool: PgPool,
     pub query_timeout: std::time::Duration,
     pub max_rows: u64,
+    /// Backends currently executing a query on this handle. Cancel calls
+    /// `pg_cancel_backend` for each one from a different pooled connection.
+    active_backends: Mutex<Vec<i32>>,
+}
+
+/// Removes a backend pid when the query future ends, including on error.
+struct ActiveBackend<'a> {
+    pools: &'a RwLock<HashMap<u64, PoolEntry>>,
+    handle_id: u64,
+    pid: i32,
+}
+
+impl Drop for ActiveBackend<'_> {
+    fn drop(&mut self) {
+        let Ok(pools) = self.pools.try_read() else {
+            return;
+        };
+        let Some(entry) = pools.get(&self.handle_id) else {
+            return;
+        };
+        let mut pids = entry.active_backends.lock().unwrap_or_else(|error| error.into_inner());
+        if let Some(index) = pids.iter().position(|pid| *pid == self.pid) {
+            pids.swap_remove(index);
+        }
+    }
 }
 
 pub struct PostgresConnector {
@@ -66,6 +96,25 @@ impl PostgresConnector {
         pools.get(&handle.0).map(|entry| entry.pool.clone())
     }
 
+    fn track_backend(&self, handle_id: u64, pid: i32) -> Option<ActiveBackend<'_>> {
+        let Ok(pools) = self.pools.try_read() else {
+            return None;
+        };
+        if let Some(entry) = pools.get(&handle_id) {
+            entry
+                .active_backends
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .push(pid);
+        }
+        drop(pools);
+        Some(ActiveBackend {
+            pools: &self.pools,
+            handle_id,
+            pid,
+        })
+    }
+
     pub async fn query_timeout(&self, handle: &ConnectionHandle) -> Result<Duration, DbError> {
         let pools = self.pools.read().await;
         pools
@@ -82,6 +131,7 @@ impl DbConnector for PostgresConnector {
         let timeout = Duration::from_millis(config.query_timeout_ms.clamp(1_000, 5_000));
         let pool = with_query_timeout(timeout, async {
             sqlx::postgres::PgPoolOptions::new()
+                .max_connections(PG_POOL_MAX_CONNECTIONS)
                 .acquire_timeout(timeout)
                 .connect_with(options)
                 .await
@@ -94,6 +144,7 @@ impl DbConnector for PostgresConnector {
             pool,
             query_timeout: std::time::Duration::from_millis(config.query_timeout_ms),
             max_rows: config.max_rows,
+            active_backends: Mutex::new(Vec::new()),
         };
         self.pools.write().await.insert(id, entry);
         Ok(ConnectionHandle::new(id))
@@ -112,6 +163,7 @@ impl DbConnector for PostgresConnector {
         let timeout = Duration::from_millis(config.query_timeout_ms.clamp(1_000, 5_000));
         let pool = with_query_timeout(timeout, async {
             sqlx::postgres::PgPoolOptions::new()
+                .max_connections(PG_POOL_MAX_CONNECTIONS)
                 .acquire_timeout(timeout)
                 .connect_with(options)
                 .await
@@ -144,11 +196,19 @@ impl DbConnector for PostgresConnector {
             let mut pg_args = sqlx::postgres::PgArguments::default();
             super::query_mapper::bind_params(params, &mut pg_args)?;
 
-            let describe = pool.describe(sql).await.map_err(crate::error::from_sqlx)?;
+            // One connection for describe + fetch so cancel targets this backend.
+            let mut conn = pool.acquire().await.map_err(crate::error::from_sqlx)?;
+            let backend_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(crate::error::from_sqlx)?;
+            let _active = self.track_backend(handle.0, backend_pid);
+
+            let describe = conn.describe(sql).await.map_err(crate::error::from_sqlx)?;
             let columns = super::query_mapper::columns_from_describe(&describe);
 
             use futures_util::StreamExt;
-            let mut stream = sqlx::query_with(sql, pg_args).fetch(&pool);
+            let mut stream = sqlx::query_with(sql, pg_args).fetch(&mut *conn);
             let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
             while (result_rows.len() as u64) < max_rows {
                 let pg_row = match stream.next().await {
@@ -196,10 +256,30 @@ impl DbConnector for PostgresConnector {
         with_query_timeout(timeout, future).await
     }
 
-    async fn cancel(&self, _handle: &ConnectionHandle) -> Result<(), DbError> {
-        Err(DbError::Unsupported(
-            "PostgreSQL query cancellation is not available for this connector".into(),
-        ))
+    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        let pids = entry
+            .active_backends
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        let pool = entry.pool.clone();
+        drop(pools);
+        // Nothing is running. The UI cancel button still has to succeed.
+        if pids.is_empty() {
+            return Ok(());
+        }
+        for pid in pids {
+            sqlx::query("SELECT pg_cancel_backend($1)")
+                .bind(pid)
+                .execute(&pool)
+                .await
+                .map_err(crate::error::from_sqlx)?;
+        }
+        Ok(())
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
@@ -318,6 +398,13 @@ impl DbConnector for PostgresConnector {
                 }
             };
         let mut results = Vec::with_capacity(statements.len());
+        let _active_backend = match sqlx::query_scalar::<_, i32>("SELECT pg_backend_pid()")
+            .fetch_one(&mut *tx)
+            .await
+        {
+            Ok(pid) => self.track_backend(handle.0, pid),
+            Err(_) => None,
+        };
 
         for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());

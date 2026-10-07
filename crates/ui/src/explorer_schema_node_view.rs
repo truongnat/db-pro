@@ -19,6 +19,7 @@ pub(crate) enum SchemaNodeAction {
     OpenErDiagram,
     RefreshSchema,
     CopyName,
+    DropSchema,
 }
 
 pub(crate) struct SchemaNodeRender {
@@ -115,6 +116,19 @@ impl SchemaNodeContext<'_> {
                 Icon::Copy,
                 "Copy Schema Name",
             );
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Trash2),
+                "Drop Schema...",
+                None,
+                self.theme.danger,
+                self.theme,
+            )
+            .clicked()
+            {
+                actions.push(SchemaNodeAction::DropSchema);
+                *close_menu = true;
+            }
         });
         actions
     }

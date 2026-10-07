@@ -526,7 +526,8 @@ impl<'a> WorkspaceTabsViewContext<'a> {
     }
 
     fn draw_static_tab(&mut self, ui: &mut egui::Ui, tab: WorkspaceTab, icon: Icon, title: &str) {
-        if self.workspace.active_tab != tab {
+        let pinned = tab == WorkspaceTab::Diagram && self.workspace.diagram_open;
+        if self.workspace.active_tab != tab && !pinned {
             return;
         }
 
@@ -535,7 +536,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
             ui,
             self.theme,
             WorkspaceTabItem {
-                selected: true,
+                selected: self.workspace.active_tab == tab,
                 icon,
                 title,
                 unsaved: false,
@@ -566,6 +567,8 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         );
         if action.close_clicked || close_requested {
             self.request_close_workspace_tab(tab);
+        } else if action.clicked && self.workspace.active_tab != tab {
+            self.activate_tab(tab);
         }
     }
     fn emit(&mut self, action: WorkspaceTabsAction) {

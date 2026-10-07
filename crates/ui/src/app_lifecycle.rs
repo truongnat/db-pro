@@ -234,7 +234,7 @@ impl DbProApp {
             }
             Action::OpenDiagram => {
                 self.workspace.activity = Activity::Diagram;
-                self.workspace.active_tab = WorkspaceTab::Diagram;
+                self.open_diagram_tab();
                 self.workspace.sidebar_open = true;
             }
             Action::OpenSchemaCompare => {

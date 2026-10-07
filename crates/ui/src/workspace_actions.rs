@@ -852,7 +852,7 @@ impl DbProApp {
         self.preferences.dark_mode = !light;
         self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.workspace.activity = Activity::Diagram;
-        self.workspace.active_tab = WorkspaceTab::Diagram;
+        self.open_diagram_tab();
         self.connection.catalog.replace(vec![crate::UiConnectionSummary {
             id: "capture-conn".to_owned(),
             name: "Sample E-Commerce (SQLite)".to_owned(),
@@ -944,6 +944,11 @@ impl DbProApp {
         }
     }
 
+    pub(crate) fn open_diagram_tab(&mut self) {
+        self.workspace.diagram_open = true;
+        self.workspace.active_tab = WorkspaceTab::Diagram;
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
@@ -966,6 +971,7 @@ impl DbProApp {
                 self.table.data_query.request = None;
             }
             WorkspaceTab::Diagram => {
+                self.workspace.diagram_open = false;
                 self.schema.diagram.search.clear();
                 self.schema.diagram.show_all = false;
                 self.schema.diagram.pan = egui::Vec2::ZERO;

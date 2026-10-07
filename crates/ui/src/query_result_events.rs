@@ -42,6 +42,8 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
     // A new result set replaces the rows behind the grid, so nothing the projection cache holds
     // may survive it.
     table_data.invalidate_grid_projection();
+    let completed_row_count = result.row_count;
+    let completed_column_count = result.columns.len();
     let mut history = None;
     if let Some(doc_id) = &target_doc_id {
         if let Some(doc) = query_session.documents.iter_mut().find(|doc| &doc.id == doc_id) {
@@ -53,15 +55,17 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
                 started_at,
                 duration_ms,
             ));
-            doc.query_result = Some(result.clone());
-            doc.query_results = vec![result.clone()];
+            // One owned copy. `query_result` and `execution_output.result_set`
+            // used to each hold another full grid.
+            doc.query_results = vec![result];
+            doc.query_result = None;
             doc.active_result_index = 0;
             doc.execution_output = Some(UiQueryExecutionOutput {
                 statements: vec![UiStatementOutput {
                     statement_index: 0,
-                    result_set: Some(result.clone()),
+                    result_set: None,
                     affected_rows: None,
-                    duration_ms: result.duration_ms,
+                    duration_ms,
                     message: None,
                     error: None,
                 }],
@@ -73,7 +77,7 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
             doc.executing_version = None;
             doc.execution_diagnostic = None;
             doc.query_messages
-                .push(format!("Query completed · {} rows", result.row_count));
+                .push(format!("Query completed · {completed_row_count} rows"));
         }
     }
     if let Some((sql, connection_id, schema, started_at, duration_ms)) = history {
@@ -86,7 +90,7 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
                 started_at,
                 status: UiQueryHistoryStatus::Success,
                 duration_ms,
-                row_count: Some(result.row_count),
+                row_count: Some(completed_row_count),
                 affected_rows: None,
                 error_code: None,
                 error_summary: None,
@@ -99,9 +103,9 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
         .is_some_and(|doc| target_doc_id.as_ref() == Some(&doc.id));
 
     if is_active_doc {
-        feedback.set_runtime_message(format!("Query completed · {} rows", result.row_count));
+        feedback.set_runtime_message(format!("Query completed · {completed_row_count} rows"));
         table_data.grid_sort_column = None;
-        table_data.grid_column_widths = vec![180.0; result.columns.len()];
+        table_data.grid_column_widths = vec![180.0; completed_column_count];
         table_data.selected_cell = None;
         table_data.selected_row = None;
         table_data.selected_rows.clear();

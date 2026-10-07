@@ -37,6 +37,8 @@ pub struct CachedSqlTokens {
     version: u64,
     dialect: SqlDialect,
     initialized: bool,
+    /// Start byte of the last splice. `None` when the last update tokenized from byte 0.
+    last_incremental_from: Option<usize>,
 }
 
 impl CachedSqlTokens {
@@ -45,14 +47,133 @@ impl CachedSqlTokens {
     }
 
     pub fn get_or_recompute(&mut self, buffer: &TextBuffer, dialect: SqlDialect) -> &[SyntaxToken] {
-        if !self.initialized || self.version != buffer.version() || self.dialect != dialect {
-            let highlighter = SqlHighlighter::new(dialect);
-            self.tokens = highlighter.tokenize(buffer.text());
-            self.version = buffer.version();
-            self.dialect = dialect;
-            self.initialized = true;
+        if self.initialized && self.version == buffer.version() && self.dialect == dialect {
+            return &self.tokens;
         }
+        if self.try_incremental(buffer, dialect) {
+            return &self.tokens;
+        }
+        let highlighter = SqlHighlighter::new(dialect);
+        self.tokens = highlighter.tokenize(buffer.text());
+        self.version = buffer.version();
+        self.dialect = dialect;
+        self.initialized = true;
+        self.last_incremental_from = None;
         &self.tokens
+    }
+
+    /// Retokenize the edited line and the next one, then splice. Falls back when the
+    /// edit is not a single version step, spans more than two lines, or a string/comment
+    /// token crosses that window.
+    fn try_incremental(&mut self, buffer: &TextBuffer, dialect: SqlDialect) -> bool {
+        if !self.initialized || self.dialect != dialect || self.version.wrapping_add(1) != buffer.version() {
+            return false;
+        }
+        let Some((start, old_end, new_end)) = buffer.last_edit else {
+            return false;
+        };
+        let text = buffer.text();
+        if start > new_end || new_end > text.len() || old_end < start {
+            return false;
+        }
+        let delta = new_end as isize - old_end as isize;
+        let (edit_line, _) = buffer.offset_to_line_col(start.min(text.len()));
+        let mut region_start = buffer.line_start_offset(edit_line);
+        let anchor = if new_end > start {
+            new_end - 1
+        } else {
+            start.min(text.len())
+        };
+        let (end_line, _) = buffer.offset_to_line_col(anchor);
+        let last_line = buffer.line_count().saturating_sub(1);
+        let through = (end_line + 1).min(last_line);
+        let mut region_end = if through + 1 < buffer.line_count() {
+            buffer.line_start_offset(through + 1)
+        } else {
+            text.len()
+        };
+        if region_end < new_end {
+            region_end = new_end;
+        }
+        let mut region_end_old = match (region_end as isize).checked_sub(delta) {
+            Some(value) if value >= 0 => value as usize,
+            _ => return false,
+        };
+
+        for _ in 0..self.tokens.len() {
+            let Some(token) = self
+                .tokens
+                .iter()
+                .find(|token| token.range.0 < region_start && token.range.1 > region_start)
+            else {
+                break;
+            };
+            if is_literal(token.kind) {
+                return false;
+            }
+            region_start = token.range.0;
+        }
+        for _ in 0..self.tokens.len() {
+            let Some(token) = self
+                .tokens
+                .iter()
+                .find(|token| token.range.0 < region_end_old && token.range.1 > region_end_old)
+            else {
+                break;
+            };
+            if is_literal(token.kind) {
+                return false;
+            }
+            let extra = token.range.1 - region_end_old;
+            region_end_old = token.range.1;
+            region_end = region_end.saturating_add(extra);
+            if region_end > text.len() {
+                return false;
+            }
+        }
+        if region_start > start || region_end < new_end || region_end_old < old_end {
+            return false;
+        }
+        let Some(slice) = text.get(region_start..region_end) else {
+            return false;
+        };
+        let highlighter = SqlHighlighter::new(dialect);
+        let mut fresh = highlighter.tokenize(slice);
+        for token in &mut fresh {
+            token.range.0 += region_start;
+            token.range.1 += region_start;
+        }
+
+        let mut spliced = Vec::with_capacity(self.tokens.len());
+        for token in &self.tokens {
+            if token.range.1 <= region_start {
+                spliced.push(token.clone());
+            }
+        }
+        spliced.extend(fresh);
+        for token in &self.tokens {
+            if token.range.0 >= region_end_old {
+                let Some(shifted_start) = shift_offset(token.range.0, delta) else {
+                    return false;
+                };
+                let Some(shifted_end) = shift_offset(token.range.1, delta) else {
+                    return false;
+                };
+                spliced.push(SyntaxToken {
+                    range: (shifted_start, shifted_end),
+                    kind: token.kind,
+                });
+            }
+        }
+        if !tokens_cover(&spliced, text.len()) {
+            return false;
+        }
+        self.tokens = spliced;
+        self.version = buffer.version();
+        self.dialect = dialect;
+        self.initialized = true;
+        self.last_incremental_from = Some(region_start);
+        true
     }
 
     pub fn tokens(&self) -> &[SyntaxToken] {
@@ -78,6 +199,28 @@ impl CachedSqlTokens {
     pub fn invalidate(&mut self) {
         self.initialized = false;
     }
+}
+
+fn is_literal(kind: SyntaxTokenKind) -> bool {
+    matches!(
+        kind,
+        SyntaxTokenKind::String | SyntaxTokenKind::DollarQuote | SyntaxTokenKind::Comment
+    )
+}
+
+fn shift_offset(offset: usize, delta: isize) -> Option<usize> {
+    offset.checked_add_signed(delta)
+}
+
+fn tokens_cover(tokens: &[SyntaxToken], len: usize) -> bool {
+    let mut cursor = 0usize;
+    for token in tokens {
+        if token.range.0 != cursor || token.range.1 < token.range.0 {
+            return false;
+        }
+        cursor = token.range.1;
+    }
+    cursor == len
 }
 
 const SQL_KEYWORDS: &[&str] = &[
@@ -538,5 +681,59 @@ mod tests {
         assert!(cache.is_in_string_or_comment(10)); // inside 'hello world'
         assert!(!cache.is_in_string_or_comment(2)); // inside SELECT
         assert!(cache.is_in_string_or_comment(26)); // inside comment
+    }
+
+    fn large_sql() -> String {
+        let mut text = String::from("SELECT id FROM orders WHERE status = 'open';\n");
+        for index in 0..180 {
+            text.push_str(&format!("SELECT col_{index} FROM table_{index} WHERE id = {index};\n"));
+        }
+        text
+    }
+
+    fn assert_tokens_match(actual: &[SyntaxToken], expected: &[SyntaxToken]) {
+        assert_eq!(actual.len(), expected.len(), "token count");
+        for (index, (left, right)) in actual.iter().zip(expected).enumerate() {
+            assert_eq!(left, right, "token {index}");
+        }
+    }
+
+    #[test]
+    fn incremental_token_splice_matches_full_tokenize_outside_a_string() {
+        let text = large_sql();
+        let needle = "FROM table_90";
+        let insert_at = text.find(needle).expect("needle") + 2;
+        let mut buf = TextBuffer::from_string(&text);
+        let mut cache = CachedSqlTokens::new();
+        cache.get_or_recompute(&buf, SqlDialect::Postgres);
+        buf.insert(insert_at, "X");
+
+        let spliced = cache.get_or_recompute(&buf, SqlDialect::Postgres).to_vec();
+        assert!(
+            cache.last_incremental_from.is_some_and(|from| from > 0),
+            "edit outside a string must not retokenize from byte 0"
+        );
+        let full = SqlHighlighter::new(SqlDialect::Postgres).tokenize(buf.text());
+        assert_tokens_match(&spliced, &full);
+        let string_at = buf.text().find("'open'").expect("string") + 2;
+        assert!(cache.is_in_string_or_comment(string_at));
+        assert!(!cache.is_in_string_or_comment(insert_at));
+    }
+
+    #[test]
+    fn incremental_token_multiline_comment_falls_back_to_full_tokenize() {
+        let mut commented = String::from("/*\n");
+        commented.push_str(&large_sql());
+        commented.push_str("*/\nSELECT ready;\n");
+        let insert_at = commented.find("FROM table_90").expect("needle") + 2;
+        let mut buf = TextBuffer::from_string(&commented);
+        let mut cache = CachedSqlTokens::new();
+        cache.get_or_recompute(&buf, SqlDialect::Postgres);
+        buf.insert(insert_at, "X");
+
+        let spliced = cache.get_or_recompute(&buf, SqlDialect::Postgres).to_vec();
+        assert!(cache.last_incremental_from.is_none());
+        let full = SqlHighlighter::new(SqlDialect::Postgres).tokenize(buf.text());
+        assert_tokens_match(&spliced, &full);
     }
 }

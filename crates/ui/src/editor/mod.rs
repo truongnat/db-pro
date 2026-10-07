@@ -10,6 +10,7 @@ pub mod interaction;
 pub mod prediction;
 pub mod renderer;
 pub mod selection;
+pub mod snippet;
 pub mod syntax;
 
 pub use buffer::{EditorSnapshot, TextBuffer, UndoAction, UndoStack, UndoStep};
@@ -23,4 +24,5 @@ pub use interaction::{CompletionIntent, EditorInteractionPolicy};
 pub use prediction::{AiSqlContext, EditPrediction, PredictionMode, PredictionState, PredictionStatus};
 pub use renderer::{SqlEditor, SqlEditorResponse};
 pub use selection::SelectionRange;
+pub use snippet::{SnippetMove, SnippetSession};
 pub use syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};

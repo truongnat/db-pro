@@ -65,6 +65,9 @@ impl SchemaCompletionProvider {
         let text_before = ctx.text_before_cursor;
         let prefix = extract_word_prefix(text_before);
         let prefix_lower = prefix.to_lowercase();
+        // An empty prefix matches every name. Ctrl/Cmd+Space must stay on the
+        // clause (its columns/tables and keywords), not walk the whole catalog.
+        let manual_blank = ctx.is_manual_trigger && prefix.is_empty();
         let replacement_start = ctx.cursor_offset.saturating_sub(prefix.len());
         let replacement_range = (replacement_start, ctx.cursor_offset);
 
@@ -72,19 +75,31 @@ impl SchemaCompletionProvider {
         let before_prefix = &text_before[..text_before.len() - prefix.len()];
         let qualifier = extract_qualifier(before_prefix);
 
-        let mut full_doc = String::with_capacity(ctx.text_before_cursor.len() + ctx.text_after_cursor.len() + 1);
+        // Scope the real text. A space injected at the cursor splits the word
+        // being typed (`ord|ers` becomes `ord ers`) and invents a false alias.
+        let mut real_doc = String::with_capacity(ctx.text_before_cursor.len() + ctx.text_after_cursor.len());
+        real_doc.push_str(ctx.text_before_cursor);
+        real_doc.push_str(ctx.text_after_cursor);
+        let cursor = ctx.text_before_cursor.len().min(real_doc.len());
+        let scope = super::completion_scope::analyze(&real_doc, cursor, prefix.len());
+        let mut full_doc = String::with_capacity(real_doc.len() + 1);
         full_doc.push_str(ctx.text_before_cursor);
         full_doc.push(' ');
         full_doc.push_str(ctx.text_after_cursor);
-
-        let ctes = extract_cte_definitions(&full_doc);
-        let aliases = extract_table_aliases(&full_doc);
-        let subquery_aliases = extract_subquery_aliases(&full_doc);
-        let clause = detect_clause_context(before_prefix);
-        let mutation_target = extract_mutation_target(&full_doc);
-        let parsed_select = parse_select_context(text_before, ctx.text_after_cursor, ctx.is_sqlite);
+        let statement = &full_doc[scope.statement_start..scope.statement_end];
+        let cursor_in_statement = cursor.saturating_sub(scope.statement_start).min(statement.len());
+        let ctes = extract_cte_definitions(statement);
+        let aliases = &scope.aliases;
+        let subquery_aliases = extract_subquery_aliases(statement);
+        let clause = scope.clause;
+        let mutation_target = extract_mutation_target(statement);
+        let parsed_select = parse_select_context(
+            &statement[..cursor_in_statement],
+            &statement[cursor_in_statement..],
+            ctx.is_sqlite,
+        );
         let inserted_columns = if clause == SqlClause::InsertInto {
-            extract_inserted_column_names(&full_doc)
+            extract_inserted_column_names(statement)
         } else {
             HashSet::new()
         };
@@ -123,8 +138,7 @@ impl SchemaCompletionProvider {
                         }
                     }
                 }
-                rank_items(&mut items, &prefix_lower);
-                return (prefix.to_owned(), items);
+                return finish_ranked(prefix, &prefix_lower, items);
             }
 
             // 2. Check if qualifier is a schema name (e.g. "public.")
@@ -184,8 +198,7 @@ impl SchemaCompletionProvider {
                     }
                 }
                 if !items.is_empty() {
-                    rank_items(&mut items, &prefix_lower);
-                    return (prefix.to_owned(), items);
+                    return finish_ranked(prefix, &prefix_lower, items);
                 }
             }
 
@@ -252,8 +265,7 @@ impl SchemaCompletionProvider {
                     }
                 }
                 if !items.is_empty() {
-                    rank_items(&mut items, &prefix_lower);
-                    return (prefix.to_owned(), items);
+                    return finish_ranked(prefix, &prefix_lower, items);
                 }
             }
 
@@ -272,8 +284,7 @@ impl SchemaCompletionProvider {
                     }
                 }
                 if !items.is_empty() {
-                    rank_items(&mut items, &prefix_lower);
-                    return (prefix.to_owned(), items);
+                    return finish_ranked(prefix, &prefix_lower, items);
                 }
             }
 
@@ -307,21 +318,15 @@ impl SchemaCompletionProvider {
                 }
             }
 
-            rank_items(&mut items, &prefix_lower);
-            return (prefix.to_owned(), items);
+            return finish_ranked(prefix, &prefix_lower, items);
         }
 
         // Clause-driven completions when no dot qualifier is present:
 
-        // An ON clause gets relationship-aware snippets first. We only emit a
-        // condition when both FK endpoints have explicit aliases, avoiding a
-        // potentially wrong condition for ambiguous table references.
+        // JOIN / ON: foreign-key predicate. `ON` is inserted only when it has
+        // not been typed yet. A side without an alias is qualified by table name.
         if clause == SqlClause::JoinOn {
-            items.extend(foreign_key_join_suggestions(
-                ctx.schema_summary,
-                &aliases,
-                replacement_range,
-            ));
+            items.extend(fk_join_items(ctx.schema_summary, &scope, false, replacement_range));
         }
 
         // 1. FROM / JOIN clauses: suggest Tables, Views, CTEs, Schemas
@@ -398,39 +403,27 @@ impl SchemaCompletionProvider {
                     });
                 }
             }
+            if clause == SqlClause::Join {
+                items.extend(fk_join_items(ctx.schema_summary, &scope, true, replacement_range));
+                items.extend(fk_join_target_items(
+                    ctx.schema_summary,
+                    &scope,
+                    &prefix_lower,
+                    replacement_range,
+                ));
+            }
             // Keywords for FROM / JOIN
             add_clause_keywords(&mut items, clause, &prefix_lower, replacement_range);
-            rank_items(&mut items, &prefix_lower);
-            return (prefix.to_owned(), items);
+            return finish_ranked(prefix, &prefix_lower, items);
         }
 
-        // 2. SELECT / WHERE / GROUP BY / ORDER BY / HAVING / RETURNING clauses:
-        // Prioritize columns from referenced tables/aliases and detect ambiguous columns
-        let mut referenced_table_names = Vec::new();
-        if let Some(ref target) = mutation_target {
-            referenced_table_names.push(target.clone());
-        }
-        let mut alias_tables: Vec<String> = aliases.values().cloned().collect();
-        alias_tables.sort_unstable();
-        alias_tables.dedup();
-        for t in &alias_tables {
-            if !referenced_table_names.contains(t) {
-                referenced_table_names.push(t.clone());
-            }
-        }
-        for table in &ctx.schema_summary.table_details {
-            if full_doc.to_lowercase().contains(&table.name.to_lowercase())
-                && !referenced_table_names
-                    .iter()
-                    .any(|t| t.eq_ignore_ascii_case(&table.name))
-            {
-                referenced_table_names.push(table.name.clone());
-            }
-        }
+        // 2. SELECT / WHERE / GROUP BY / ORDER BY / HAVING / RETURNING:
+        // columns of tables named by FROM / JOIN / UPDATE / INTO in this statement.
+        let referenced_table_names = &scope.referenced_tables;
 
         // Detect column name frequencies across referenced tables for ambiguity check
         let mut col_frequencies: HashMap<String, usize> = HashMap::new();
-        for t_name in &referenced_table_names {
+        for t_name in referenced_table_names {
             if let Some(t) = ctx
                 .schema_summary
                 .table_details
@@ -444,7 +437,7 @@ impl SchemaCompletionProvider {
         }
 
         // Suggest columns from referenced tables
-        for t_name in &referenced_table_names {
+        for t_name in referenced_table_names {
             if let Some(table) = ctx
                 .schema_summary
                 .table_details
@@ -482,6 +475,22 @@ impl SchemaCompletionProvider {
                                 documentation: None,
                                 replacement_range,
                                 sort_score: if is_ambiguous { 960 } else { 920 },
+                            });
+                        } else if is_ambiguous {
+                            let qualified = format!("{}.{}", table.name, col.name);
+                            items.push(CompletionItem {
+                                label: qualified.clone(),
+                                insert_text: qualified,
+                                kind: CompletionItemKind::Column,
+                                detail: Some(format!(
+                                    "Column · {} ({}){}",
+                                    col.data_type,
+                                    table.name,
+                                    if col.is_primary_key { " [PK]" } else { "" }
+                                )),
+                                documentation: None,
+                                replacement_range,
+                                sort_score: 960,
                             });
                         }
                         // Suggest bare col
@@ -550,8 +559,9 @@ impl SchemaCompletionProvider {
             }
         }
 
-        // Fallback: suggest all table columns in active schema
-        if items.is_empty() {
+        // Catalog-wide columns are a typed-prefix fallback only. Blank Ctrl/Cmd+Space
+        // already collected the columns this clause wants from referenced tables.
+        if items.is_empty() && !manual_blank {
             for table in &ctx.schema_summary.table_details {
                 for col in &table.columns {
                     if col.name.to_lowercase().contains(&prefix_lower) {
@@ -569,41 +579,42 @@ impl SchemaCompletionProvider {
             }
         }
 
-        // Suggest Tables and Views
-        for table in &ctx.schema_summary.table_details {
-            if table.name.to_lowercase().contains(&prefix_lower) {
-                items.push(CompletionItem {
-                    label: table.name.clone(),
-                    insert_text: table.name.clone(),
-                    kind: CompletionItemKind::Table,
-                    detail: Some(format!("Table · {}.{}", table.schema, table.name)),
-                    documentation: None,
-                    replacement_range,
-                    sort_score: 700,
-                });
+        // Tables and functions outside FROM/JOIN are prefix searches. An empty
+        // manual trigger must not append every table_details row.
+        if !manual_blank {
+            for table in &ctx.schema_summary.table_details {
+                if table.name.to_lowercase().contains(&prefix_lower) {
+                    items.push(CompletionItem {
+                        label: table.name.clone(),
+                        insert_text: table.name.clone(),
+                        kind: CompletionItemKind::Table,
+                        detail: Some(format!("Table · {}.{}", table.schema, table.name)),
+                        documentation: None,
+                        replacement_range,
+                        sort_score: 700,
+                    });
+                }
             }
-        }
 
-        // Suggest Functions
-        for func in &ctx.schema_summary.functions {
-            if func.name.to_lowercase().contains(&prefix_lower) {
-                items.push(CompletionItem {
-                    label: format!("{}()", func.name),
-                    insert_text: format!("{}(", func.name),
-                    kind: CompletionItemKind::Function,
-                    detail: Some(format!("Function · {}.{}", func.schema, func.name)),
-                    documentation: (!func.data_type.is_empty()).then(|| format!("Returns: {}", func.data_type)),
-                    replacement_range,
-                    sort_score: 650,
-                });
+            for func in &ctx.schema_summary.functions {
+                if func.name.to_lowercase().contains(&prefix_lower) {
+                    items.push(CompletionItem {
+                        label: format!("{}()", func.name),
+                        insert_text: format!("{}(", func.name),
+                        kind: CompletionItemKind::Function,
+                        detail: Some(format!("Function · {}.{}", func.schema, func.name)),
+                        documentation: (!func.data_type.is_empty()).then(|| format!("Returns: {}", func.data_type)),
+                        replacement_range,
+                        sort_score: 650,
+                    });
+                }
             }
         }
 
         // Keywords
         add_clause_keywords(&mut items, clause, &prefix_lower, replacement_range);
 
-        rank_items(&mut items, &prefix_lower);
-        (prefix.to_owned(), items)
+        finish_ranked(prefix, &prefix_lower, items)
     }
 
     pub fn build_ai_sql_context(
@@ -762,68 +773,49 @@ fn skip_quoted_text(text: &str, start: usize, quote: char) -> usize {
     offset
 }
 
-fn foreign_key_join_suggestions(
+/// Tables not yet in the statement that the current tables reference, inserted
+/// as `customers ON orders.customer_id = customers.id`.
+fn fk_join_target_items(
     summary: &UiSchemaSummary,
-    aliases: &HashMap<String, String>,
+    scope: &super::completion_scope::CompletionScope,
+    prefix_lower: &str,
     replacement_range: (usize, usize),
 ) -> Vec<CompletionItem> {
-    let mut suggestions = Vec::new();
-    let mut seen = HashSet::new();
-    for source_table in &summary.table_details {
-        let Some(source_alias) = alias_for_table(aliases, &source_table.name) else {
-            continue;
-        };
-        for foreign_key in &source_table.foreign_keys {
-            let Some(target_table) = summary
-                .table_details
-                .iter()
-                .find(|table| table.name.eq_ignore_ascii_case(&foreign_key.to_table))
-            else {
-                continue;
-            };
-            let Some(target_alias) = alias_for_table(aliases, &target_table.name) else {
-                continue;
-            };
-            if foreign_key.from_columns.len() != foreign_key.to_columns.len()
-                || foreign_key.from_columns.is_empty()
-                || source_alias.eq_ignore_ascii_case(&target_alias)
-            {
-                continue;
-            }
-            let predicates = foreign_key
-                .from_columns
-                .iter()
-                .zip(&foreign_key.to_columns)
-                .map(|(source_column, target_column)| {
-                    format!("{source_alias}.{source_column} = {target_alias}.{target_column}")
-                })
-                .collect::<Vec<_>>();
-            let condition = predicates.join(" AND ");
-            if !seen.insert(condition.to_lowercase()) {
-                continue;
-            }
-            suggestions.push(CompletionItem {
-                label: condition.clone(),
-                insert_text: condition,
-                kind: CompletionItemKind::Snippet,
-                detail: Some(format!("FK · {}", foreign_key.name)),
-                documentation: Some(format!(
-                    "Join {} to {} using the declared foreign key",
-                    source_table.name, target_table.name
-                )),
-                replacement_range,
-                sort_score: 1_000,
-            });
-        }
-    }
-    suggestions
+    scope
+        .foreign_key_join_targets(summary)
+        .into_iter()
+        .filter(|snippet| prefix_lower.is_empty() || snippet.label.to_lowercase().contains(prefix_lower))
+        .map(|snippet| CompletionItem {
+            label: snippet.label,
+            insert_text: snippet.insert_text,
+            kind: CompletionItemKind::Snippet,
+            detail: Some(snippet.detail),
+            documentation: Some(snippet.documentation),
+            replacement_range,
+            sort_score: 970,
+        })
+        .collect()
 }
 
-fn alias_for_table(aliases: &HashMap<String, String>, table_name: &str) -> Option<String> {
-    aliases
-        .iter()
-        .find(|(_, table)| table.eq_ignore_ascii_case(table_name))
-        .map(|(alias, _)| alias.clone())
+fn fk_join_items(
+    summary: &UiSchemaSummary,
+    scope: &super::completion_scope::CompletionScope,
+    prepend_on: bool,
+    replacement_range: (usize, usize),
+) -> Vec<CompletionItem> {
+    scope
+        .foreign_key_join_snippets(summary, prepend_on)
+        .into_iter()
+        .map(|snippet| CompletionItem {
+            label: snippet.label,
+            insert_text: snippet.insert_text,
+            kind: CompletionItemKind::Snippet,
+            detail: Some(snippet.detail),
+            documentation: Some(snippet.documentation),
+            replacement_range,
+            sort_score: 1_000,
+        })
+        .collect()
 }
 
 fn extract_inserted_column_names(text: &str) -> HashSet<String> {
@@ -1073,22 +1065,78 @@ pub fn build_ai_sql_context(
     }
 }
 
+const MAX_COMPLETION_ITEMS: usize = 50;
+
+/// Rank first, then keep the best 50. Truncating earlier would drop a
+/// higher-scored column that was collected after a run of weaker matches.
+fn finish_ranked(prefix: &str, prefix_lower: &str, mut items: Vec<CompletionItem>) -> (String, Vec<CompletionItem>) {
+    rank_items(&mut items, prefix_lower);
+    items.truncate(MAX_COMPLETION_ITEMS);
+    (prefix.to_owned(), items)
+}
+
 fn rank_items(items: &mut [CompletionItem], prefix: &str) {
-    items.sort_by(|a, b| {
-        let a_exact = a.label.to_lowercase() == prefix;
-        let b_exact = b.label.to_lowercase() == prefix;
-        if a_exact != b_exact {
-            return b_exact.cmp(&a_exact);
-        }
-
-        let a_starts = a.label.to_lowercase().starts_with(prefix);
-        let b_starts = b.label.to_lowercase().starts_with(prefix);
-        if a_starts != b_starts {
-            return b_starts.cmp(&a_starts);
-        }
-
-        b.sort_score.cmp(&a.sort_score).then_with(|| a.label.cmp(&b.label))
+    let prefix_lower = prefix.to_ascii_lowercase();
+    let mut ranked: Vec<(usize, bool, bool, i32)> = items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let label = item.label.to_ascii_lowercase();
+            (
+                index,
+                label == prefix_lower,
+                label.starts_with(&prefix_lower),
+                subsequence_score(&prefix_lower, &label),
+            )
+        })
+        .collect();
+    ranked.sort_by(|left, right| {
+        right.1.cmp(&left.1).then(right.2.cmp(&left.2)).then_with(|| {
+            let left_item = &items[left.0];
+            let right_item = &items[right.0];
+            right_item
+                .sort_score
+                .cmp(&left_item.sort_score)
+                .then(right.3.cmp(&left.3))
+                .then_with(|| left_item.label.cmp(&right_item.label))
+        })
     });
+    let snapshot = items.to_vec();
+    for (new_index, (old_index, _, _, _)) in ranked.into_iter().enumerate() {
+        items[new_index] = snapshot[old_index].clone();
+    }
+}
+
+/// Higher when the query is a tighter subsequence of the label.
+/// A label that does not contain the query in order scores 0, so this only
+/// breaks ties inside one context-score bucket.
+fn subsequence_score(query: &str, label: &str) -> i32 {
+    if query.is_empty() {
+        return 0;
+    }
+    let query = query.as_bytes();
+    let label = label.as_bytes();
+    let mut query_index = 0;
+    let mut score = 0i32;
+    let mut previous = usize::MAX;
+    for (index, byte) in label.iter().copied().enumerate() {
+        if query_index < query.len() && byte == query[query_index] {
+            score += 1;
+            if previous != usize::MAX && previous + 1 == index {
+                score += 2;
+            }
+            if index == 0 || label[index - 1] == b'_' {
+                score += 2;
+            }
+            previous = index;
+            query_index += 1;
+        }
+    }
+    if query_index < query.len() {
+        0
+    } else {
+        score
+    }
 }
 
 fn extract_word_prefix(text: &str) -> &str {
@@ -1921,5 +1969,104 @@ mod tests {
         let ai_ctx = build_ai_sql_context(sql, sql.len(), "public", &UiSchemaSummary::default());
         assert_eq!(ai_ctx.current_statement, "SELECT u.id FROM users u WHERE u.");
         assert_eq!(ai_ctx.sql_before_cursor, sql);
+    }
+
+    fn text_column(name: &str) -> UiSchemaColumn {
+        UiSchemaColumn {
+            name: name.to_owned(),
+            data_type: "text".to_owned(),
+            nullable: true,
+            is_primary_key: false,
+        }
+    }
+
+    fn bare_table(name: &str, columns: Vec<UiSchemaColumn>) -> UiTableSummary {
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: name.to_owned(),
+            row_count: None,
+            columns,
+            foreign_keys: vec![],
+        }
+    }
+
+    fn provide_at(sql: &str, summary: &UiSchemaSummary, manual: bool) -> (String, Vec<CompletionItem>) {
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: "",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: manual,
+        };
+        SchemaCompletionProvider::provide(&ctx)
+    }
+
+    #[test]
+    fn completion_manual_empty_prefix_does_not_return_the_catalog() {
+        let mut tables = Vec::with_capacity(51);
+        for index in 0..50 {
+            let columns = (0..40).map(|col| text_column(&format!("c{index}_{col}"))).collect();
+            tables.push(bare_table(&format!("tbl{index:03}"), columns));
+        }
+        tables.push(bare_table("users", vec![text_column("id"), text_column("email")]));
+        tables.push(bare_table("zzz_other", vec![text_column("zzz_col")]));
+        let summary = UiSchemaSummary {
+            table_details: tables,
+            ..Default::default()
+        };
+
+        let (_, bare_select) = provide_at("SELECT ", &summary, true);
+        assert!(bare_select.len() <= 50, "returned {}", bare_select.len());
+        assert!(bare_select.len() < 1000, "returned {}", bare_select.len());
+        assert!(
+            bare_select.iter().all(|item| item.kind == CompletionItemKind::Keyword),
+            "blank SELECT should stay on clause keywords, got {:?}",
+            bare_select.iter().map(|item| item.label.as_str()).collect::<Vec<_>>()
+        );
+        assert!(bare_select.iter().any(|item| item.label == "FROM"));
+
+        let (_, where_items) = provide_at("SELECT * FROM users WHERE ", &summary, true);
+        assert!(where_items.len() <= 50, "returned {}", where_items.len());
+        assert!(where_items.iter().any(|item| item.label == "email"));
+        assert!(where_items.iter().any(|item| item.kind == CompletionItemKind::Keyword));
+        assert!(!where_items
+            .iter()
+            .any(|item| item.label == "zzz_other" || item.label == "zzz_col"));
+        assert!(!where_items.iter().any(|item| item.label.starts_with("c0_")));
+    }
+
+    #[test]
+    fn completion_result_length_is_at_most_50() {
+        let mut columns = vec![text_column("name")];
+        for index in 0..60 {
+            columns.push(text_column(&format!("c{index:03}")));
+        }
+        let wide = UiSchemaSummary {
+            table_details: vec![bare_table("users", columns)],
+            ..Default::default()
+        };
+        let sql = "SELECT name AS display_name FROM users ORDER BY ";
+        let (_, items) = provide_at(sql, &wide, true);
+        assert!(items.len() <= 50, "returned {}", items.len());
+        assert_eq!(items.len(), 50);
+        // display_name scores above the 60 columns collected before it, so the cap has to run after rank.
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("display_name"));
+
+        let mut tables = Vec::with_capacity(61);
+        for index in 0..60 {
+            tables.push(bare_table(&format!("m_{index:03}"), vec![]));
+        }
+        tables.push(bare_table("aaa_table", vec![]));
+        let catalog = UiSchemaSummary {
+            table_details: tables,
+            ..Default::default()
+        };
+        let (_, from_items) = provide_at("SELECT * FROM ", &catalog, true);
+        assert_eq!(from_items.len(), 50);
+        assert!(from_items.iter().all(|item| item.kind == CompletionItemKind::Table));
+        assert_eq!(from_items[0].label, "aaa_table");
     }
 }

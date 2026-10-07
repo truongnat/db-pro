@@ -9,6 +9,8 @@ use super::*;
 pub(crate) struct WorkspaceShellState {
     pub(crate) activity: Activity,
     pub(crate) welcome_open: bool,
+    /// Stays set after the ER Diagram tab is opened, until the user closes that tab.
+    pub(crate) diagram_open: bool,
     pub(crate) active_tab: WorkspaceTab,
     pub(crate) sidebar_open: bool,
     pub(crate) sidebar_width: f32,
@@ -21,6 +23,18 @@ pub(crate) struct WorkspaceShellState {
     pub(crate) sidebar_open_before_agent: Option<bool>,
     pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
     pub(crate) split_editor_secondary: Option<usize>,
+    pub(crate) nav_back: Vec<WorkspaceLocation>,
+    pub(crate) nav_forward: Vec<WorkspaceLocation>,
+    pub(crate) nav_current: WorkspaceLocation,
+    pub(crate) nav_ready: bool,
+    pub(crate) nav_suppress: bool,
+}
+
+/// One place the Back / Forward buttons can return to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WorkspaceLocation {
+    pub(crate) tab: WorkspaceTab,
+    pub(crate) query_index: usize,
 }
 
 impl Default for WorkspaceShellState {
@@ -28,6 +42,7 @@ impl Default for WorkspaceShellState {
         Self {
             activity: Activity::Explorer,
             welcome_open: true,
+            diagram_open: false,
             active_tab: WorkspaceTab::Welcome,
             sidebar_open: true,
             sidebar_width: 260.0,
@@ -40,6 +55,14 @@ impl Default for WorkspaceShellState {
             sidebar_open_before_agent: None,
             pending_navigation_action: None,
             split_editor_secondary: None,
+            nav_back: Vec::new(),
+            nav_forward: Vec::new(),
+            nav_current: WorkspaceLocation {
+                tab: WorkspaceTab::Welcome,
+                query_index: 0,
+            },
+            nav_ready: false,
+            nav_suppress: false,
         }
     }
 }

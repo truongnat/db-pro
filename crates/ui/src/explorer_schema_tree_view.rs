@@ -14,6 +14,7 @@ pub(super) enum ExplorerSchemaTreeAction {
     ActivateSchema(String),
     OpenErDiagram,
     CopySchemaName(String),
+    DropSchema(String),
     SchemaObjects(ExplorerSchemaObjectsAction),
 }
 
@@ -135,6 +136,7 @@ impl<'a> ExplorerSchemaTreeView<'a> {
                 SchemaNodeAction::OpenErDiagram => ExplorerSchemaTreeAction::OpenErDiagram,
                 SchemaNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema,
                 SchemaNodeAction::CopyName => ExplorerSchemaTreeAction::CopySchemaName(schema.to_owned()),
+                SchemaNodeAction::DropSchema => ExplorerSchemaTreeAction::DropSchema(schema.to_owned()),
             });
         }
         actions

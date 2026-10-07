@@ -114,8 +114,12 @@ fn draw_editor_tools(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -
     }
 }
 
-/// Row-cap selector matching the Stitch toolbar (`100 / 500 / 1,000 / No limit`).
-/// The cap is applied to dispatched reads that do not carry their own clause.
+/// Row-cap selector (`100 / 500 / 1,000 / 100,000`).
+///
+/// The top step is the product ceiling (`ConnectionConfig::max_rows`). A real
+/// "no limit" made the server sort or scan a whole table before the client
+/// stopped reading.
+const QUERY_ROW_CAP_CEILING: u64 = 100_000;
 fn draw_row_limit_picker(context: &mut QueryContextViewContext<'_>, ui: &mut egui::Ui) {
     let (sep, _) = ui.allocate_exact_size(egui::vec2(1.0, 16.0), egui::Sense::hover());
     ui.painter().vline(
@@ -123,11 +127,14 @@ fn draw_row_limit_picker(context: &mut QueryContextViewContext<'_>, ui: &mut egu
         sep.y_range(),
         egui::Stroke::new(1.0, context.theme.border_subtle),
     );
+    if context.execution.query_row_limit.is_none() {
+        context.execution.query_row_limit = Some(QUERY_ROW_CAP_CEILING);
+    }
     const OPTIONS: [(Option<u64>, &str); 4] = [
         (Some(100), "100 rows"),
         (Some(500), "500 rows"),
         (Some(1_000), "1,000 rows"),
-        (None, "No limit"),
+        (Some(QUERY_ROW_CAP_CEILING), "100,000 rows"),
     ];
     let mut selected = OPTIONS
         .iter()

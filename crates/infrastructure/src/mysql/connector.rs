@@ -8,14 +8,22 @@ use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
 use sqlx::{Column, Row as SqlxRow};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
 use super::introspect::MySqlIntrospect;
 use super::query_mapper::MySqlQueryMapper;
 
+struct MySqlEntry {
+    pool: MySqlPool,
+    max_rows: u64,
+    /// `CONNECTION_ID()` of queries running on this handle. Cancel issues `KILL QUERY`.
+    active_connections: Mutex<Vec<u64>>,
+}
+
 pub struct MySqlConnector {
-    pools: RwLock<HashMap<u64, MySqlPool>>,
+    pools: RwLock<HashMap<u64, MySqlEntry>>,
     next_id: AtomicU64,
 }
 
@@ -28,7 +36,37 @@ impl MySqlConnector {
     }
 
     pub async fn get_pool(&self, handle: &ConnectionHandle) -> Option<MySqlPool> {
-        self.pools.read().await.get(&handle.0).cloned()
+        self.pools.read().await.get(&handle.0).map(|entry| entry.pool.clone())
+    }
+
+    fn track_connection(&self, handle_id: u64, connection_id: u64) {
+        let Ok(pools) = self.pools.try_read() else {
+            return;
+        };
+        let Some(entry) = pools.get(&handle_id) else {
+            return;
+        };
+        entry
+            .active_connections
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .push(connection_id);
+    }
+
+    fn untrack_connection(&self, handle_id: u64, connection_id: u64) {
+        let Ok(pools) = self.pools.try_read() else {
+            return;
+        };
+        let Some(entry) = pools.get(&handle_id) else {
+            return;
+        };
+        let mut active = entry
+            .active_connections
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if let Some(index) = active.iter().position(|id| *id == connection_id) {
+            active.swap_remove(index);
+        }
     }
 }
 
@@ -70,13 +108,20 @@ impl DbConnector for MySqlConnector {
             .map_err(|e| DbError::ConnectionFailed(format!("MySQL connect failed: {}", e)))?;
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        self.pools.write().await.insert(id, pool);
+        self.pools.write().await.insert(
+            id,
+            MySqlEntry {
+                pool,
+                max_rows: config.max_rows,
+                active_connections: Mutex::new(Vec::new()),
+            },
+        );
         Ok(ConnectionHandle::new(id))
     }
 
     async fn disconnect(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
-        if let Some(pool) = self.pools.write().await.remove(&handle.0) {
-            pool.close().await;
+        if let Some(entry) = self.pools.write().await.remove(&handle.0) {
+            entry.pool.close().await;
         }
         Ok(())
     }
@@ -92,20 +137,44 @@ impl DbConnector for MySqlConnector {
         sql: &str,
         params: &[QueryParam],
     ) -> Result<db_pro_core::domain::query::QueryResult, DbError> {
-        let pool = self
-            .get_pool(handle)
-            .await
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+        let max_rows = entry.max_rows;
+        let pool = entry.pool.clone();
+        drop(pools);
 
         let mut args = sqlx::mysql::MySqlArguments::default();
         super::query_mapper::bind_params(params, &mut args)?;
 
-        let rows = sqlx::query_with(sql, args)
-            .fetch_all(&pool)
+        let mut conn = pool
+            .acquire()
             .await
-            .map_err(|e| DbError::QueryFailed(format!("MySQL query failed: {}", e)))?;
+            .map_err(|error| DbError::QueryFailed(format!("MySQL acquire failed: {error}")))?;
+        let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *conn)
+            .await
+            .map_err(|error| DbError::QueryFailed(format!("MySQL connection id failed: {error}")))?;
+        self.track_connection(handle.0, connection_id);
 
-        MySqlQueryMapper::map_rows(rows)
+        use futures_util::StreamExt;
+        let mut stream = sqlx::query_with(sql, args).fetch(&mut *conn);
+        let mut rows = Vec::new();
+        let result = loop {
+            if rows.len() as u64 >= max_rows {
+                break MySqlQueryMapper::map_rows(rows);
+            }
+            match stream.next().await {
+                Some(Ok(row)) => rows.push(row),
+                Some(Err(error)) => {
+                    break Err(DbError::QueryFailed(format!("MySQL query failed: {error}")));
+                }
+                None => break MySqlQueryMapper::map_rows(rows),
+            }
+        };
+        self.untrack_connection(handle.0, connection_id);
+        result
     }
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
@@ -125,10 +194,30 @@ impl DbConnector for MySqlConnector {
         Ok(result.rows_affected())
     }
 
-    async fn cancel(&self, _handle: &ConnectionHandle) -> Result<(), DbError> {
-        Err(DbError::Unsupported(
-            "MySQL connector does not support cancellation".into(),
-        ))
+    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
+        let pools = self.pools.read().await;
+        let Some(entry) = pools.get(&handle.0) else {
+            return Err(DbError::ConnectionFailed("no MySQL pool for handle".into()));
+        };
+        let connection_ids = entry
+            .active_connections
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        let pool = entry.pool.clone();
+        drop(pools);
+        if connection_ids.is_empty() {
+            return Ok(());
+        }
+        for connection_id in connection_ids {
+            // KILL QUERY does not accept a placeholder.
+            let statement = format!("KILL QUERY {connection_id}");
+            sqlx::query(&statement)
+                .execute(&pool)
+                .await
+                .map_err(|error| DbError::QueryFailed(format!("MySQL cancel failed: {error}")))?;
+        }
+        Ok(())
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {

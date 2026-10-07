@@ -43,10 +43,10 @@ impl Default for ExplorerObjectFilter {
 }
 
 impl ExplorerObjectFilter {
-    pub(crate) fn name_matches(&self, name_lower: &str, query_lower: &str) -> bool {
+    pub(crate) fn name_matches(&self, name: &str, query_lower: &str) -> bool {
         match self.mode {
-            ExplorerMatchMode::Contains => name_lower.contains(query_lower),
-            ExplorerMatchMode::Prefix => name_lower.starts_with(query_lower),
+            ExplorerMatchMode::Contains => super::app_types::ascii_contains_ignore_case(name, query_lower),
+            ExplorerMatchMode::Prefix => super::app_types::ascii_starts_with_ignore_case(name, query_lower),
         }
     }
 

@@ -44,7 +44,7 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             ConnectionRowAction::OpenErDiagram => {
-                self.workspace.active_tab = WorkspaceTab::Diagram;
+                self.open_diagram_tab();
                 if !is_connected {
                     self.connect_to_connection(connection);
                 }
@@ -98,12 +98,13 @@ impl DbProApp {
                 .activate(&schema);
             }
             ExplorerSchemaTreeAction::OpenErDiagram => {
-                self.workspace.active_tab = WorkspaceTab::Diagram;
+                self.open_diagram_tab();
             }
             ExplorerSchemaTreeAction::CopySchemaName(schema) => {
                 ui.output_mut(|output| output.copied_text = schema.clone());
                 self.feedback.runtime_message = format!("Copied `{schema}` to clipboard");
             }
+            ExplorerSchemaTreeAction::DropSchema(schema) => self.plan_drop_schema(&schema),
             ExplorerSchemaTreeAction::SchemaObjects(action) => {
                 self.apply_schema_objects_action(action, ui);
             }

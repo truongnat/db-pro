@@ -26,6 +26,7 @@ type ClientHandle = Arc<Mutex<SqlServerClient>>;
 
 pub struct SqlServerConnector {
     clients: RwLock<HashMap<u64, ClientHandle>>,
+    max_rows: RwLock<HashMap<u64, u64>>,
     next_id: AtomicU64,
 }
 
@@ -33,6 +34,7 @@ impl SqlServerConnector {
     pub fn new() -> Self {
         Self {
             clients: RwLock::new(HashMap::new()),
+            max_rows: RwLock::new(HashMap::new()),
             next_id: AtomicU64::new(1),
         }
     }
@@ -53,6 +55,7 @@ impl SqlServerConnector {
         params: &[QueryParam],
     ) -> Result<QueryResult, DbError> {
         let client = self.client(handle).await?;
+        let max_rows = self.max_rows.read().await.get(&handle.0).copied().unwrap_or(500);
         let mut client = client.lock().await;
         let query = bind_query(sql, params)?;
         let started = Instant::now();
@@ -80,6 +83,9 @@ impl SqlServerConnector {
                         .collect();
                 }
                 QueryItem::Row(row) if row.result_index() == 0 => {
+                    if rows.len() as u64 >= max_rows {
+                        break;
+                    }
                     let cells = (0..row.len())
                         .map(|index| decode_cell(&row, index))
                         .collect::<Result<Vec<_>, _>>()?;
@@ -165,11 +171,13 @@ impl DbConnector for SqlServerConnector {
             .map_err(|error| DbError::ConnectionFailed(format!("SQL Server login failed: {error}")))?;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         self.clients.write().await.insert(id, Arc::new(Mutex::new(client)));
+        self.max_rows.write().await.insert(id, config.max_rows);
         Ok(ConnectionHandle::new(id))
     }
 
     async fn disconnect(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
         self.clients.write().await.remove(&handle.0);
+        self.max_rows.write().await.remove(&handle.0);
         Ok(())
     }
 

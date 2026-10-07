@@ -30,10 +30,15 @@ pub(super) fn draw_diagram_empty_state(
         ui.vertical_centered(|ui| {
             let top_space = if no_matches { 56.0 } else { 40.0 };
             ui.add_space(top_space);
+            let arranging = search_mode
+                && !no_matches
+                && matches!(ctx.diagram.layout_state, crate::diagram::ErLayoutState::Computing { .. });
             ui.label(icon_text(
                 if no_matches { Icon::Search } else { Icon::Workflow },
                 if no_matches {
                     "No matching tables"
+                } else if arranging {
+                    "Loading the schema map"
                 } else if search_mode {
                     "Focus the schema map"
                 } else {
@@ -44,6 +49,9 @@ pub(super) fn draw_diagram_empty_state(
             ui.add_space(8.0);
             let description = if no_matches {
                 "Try a different table or column name.".to_owned()
+            } else if search_mode && matches!(ctx.diagram.layout_state, crate::diagram::ErLayoutState::Computing { .. })
+            {
+                format!("Arranging {all_table_count} tables…")
             } else if search_mode {
                 format!(
                     "This schema has {all_table_count} tables. Search by table or column to open a focused neighborhood map, or show all tables explicitly."

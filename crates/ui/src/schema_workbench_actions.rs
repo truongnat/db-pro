@@ -1,6 +1,6 @@
 //! Schema Workbench — action handling and mutation dispatch.
 
-use super::schema_workbench::QuoteDialect;
+use super::schema_workbench::{QuoteDialect, SchemaWorkbenchMode};
 use super::schema_workbench_form::SchemaWorkbenchFormAction;
 use super::*;
 use db_pro_core::application::ObjectMutationService;
@@ -27,6 +27,29 @@ impl DbProApp {
                 self.workspace.activity = Activity::Queries;
             }
         }
+    }
+
+    pub(crate) fn plan_drop_schema(&mut self, schema: &str) {
+        let schema = schema.trim();
+        if schema.is_empty() || !is_user_visible_schema(schema) {
+            self.feedback.runtime_message = format!("Cannot drop schema `{schema}`");
+            return;
+        }
+        if self.active_driver().eq_ignore_ascii_case("sqlite") {
+            self.feedback.runtime_message = "SQLite has no DROP SCHEMA".to_owned();
+            return;
+        }
+        self.schema.workbench.mode = SchemaWorkbenchMode::SchemaDb;
+        self.schema.workbench.schema = schema.to_owned();
+        self.schema.workbench.name = schema.to_owned();
+        self.schema.workbench.cascade = true;
+        self.plan_workbench_action(ObjectAction::Drop);
+        self.schema.workbench.apply_confirmation = true;
+        self.workspace.activity = Activity::Schema;
+        self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+        self.workspace.sidebar_open = true;
+        self.feedback
+            .runtime_message = format!("Planned DROP SCHEMA \"{schema}\" CASCADE");
     }
 
     pub(crate) fn plan_workbench_action(&mut self, action: ObjectAction) {

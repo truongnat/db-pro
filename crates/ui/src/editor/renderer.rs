@@ -34,6 +34,12 @@ pub struct SqlEditorResponse {
     /// Interactive viewport rect — used to anchor find/completion overlays.
     pub rect: Rect,
     pub wants_completion: bool,
+    pub wants_identifier_typed: bool,
+    /// Tab moves the snippet stop by this many steps. `0` means Tab was not used for a snippet.
+    pub snippet_delta: i8,
+    pub end_snippet: bool,
+    /// Word under a Ctrl/Cmd+click. The editor does not navigate; the query surface does.
+    pub clicked_identifier: Option<String>,
     pub wants_manual_completion: bool,
     pub wants_manual_prediction: bool,
     pub wants_execute_statement: bool,
@@ -53,6 +59,10 @@ impl Default for SqlEditorResponse {
             cursor_screen_pos: Pos2::ZERO,
             rect: Rect::NOTHING,
             wants_completion: false,
+            wants_identifier_typed: false,
+            snippet_delta: 0,
+            end_snippet: false,
+            clicked_identifier: None,
             wants_manual_completion: false,
             wants_manual_prediction: false,
             wants_execute_statement: false,
@@ -87,6 +97,8 @@ pub struct SqlEditor<'a> {
     pub search_query: &'a str,
     pub active_search_match_index: usize,
     pub completion_open: bool,
+    pub snippet_active: bool,
+    pub snippet_range: Option<(usize, usize)>,
     pub auto_focus: bool,
     pub execution_range: Option<(usize, usize)>,
     pub font_size: f32,
@@ -120,6 +132,8 @@ impl<'a> SqlEditor<'a> {
             search_query: "",
             active_search_match_index: 0,
             completion_open: false,
+            snippet_active: false,
+            snippet_range: None,
             auto_focus: false,
             execution_range: None,
             font_size: FONT_SIZE,
@@ -140,6 +154,12 @@ impl<'a> SqlEditor<'a> {
 
     pub fn with_completion_open(mut self, completion_open: bool) -> Self {
         self.completion_open = completion_open;
+        self
+    }
+
+    pub fn with_snippet(mut self, active: bool, range: Option<(usize, usize)>) -> Self {
+        self.snippet_active = active;
+        self.snippet_range = range;
         self
     }
 
@@ -326,6 +346,10 @@ impl<'a> SqlEditor<'a> {
                                 if self.completion_open {
                                     continue;
                                 }
+                                if self.snippet_active {
+                                    response.snippet_delta = if shift { -1 } else { 1 };
+                                    continue;
+                                }
 
                                 // Accept AI prediction on Tab if prediction is active and no popup
                                 if let Some(pred) = self.prediction {
@@ -485,6 +509,9 @@ impl<'a> SqlEditor<'a> {
                             Key::Escape => {
                                 self.selection.collapse_to_active();
                                 response.wants_dismiss_prediction = true;
+                                if self.snippet_active {
+                                    response.end_snippet = true;
+                                }
                             }
                             _ => {}
                         }
@@ -500,6 +527,7 @@ impl<'a> SqlEditor<'a> {
                         }
                         self.type_text(&text);
                         response.changed = true;
+                        response.wants_identifier_typed = is_single_identifier_char(&text);
                         if text == "." {
                             response.wants_completion = true;
                         }
@@ -507,6 +535,7 @@ impl<'a> SqlEditor<'a> {
                     Event::Ime(egui::ImeEvent::Commit(text)) if !text.is_empty() => {
                         self.type_text(&text);
                         response.changed = true;
+                        response.wants_identifier_typed = is_single_identifier_char(&text);
                         if text == "." {
                             response.wants_completion = true;
                         }
@@ -537,6 +566,7 @@ impl<'a> SqlEditor<'a> {
 
         // Mouse click & drag positioning
         let shift_pressed = ui.input(|i| i.modifiers.shift);
+        let command_click = ui.input(|i| i.modifiers.command || i.modifiers.ctrl || i.modifiers.mac_cmd);
         if resp.double_clicked() {
             if let Some(mouse_pos) = resp.interact_pointer_pos() {
                 let offset =
@@ -585,6 +615,11 @@ impl<'a> SqlEditor<'a> {
                         self.selection.grow_to(offset);
                     } else {
                         self.selection.collapse_to_active();
+                    }
+                    if command_click {
+                        if let Some(name) = identifier_at(self.buffer, offset) {
+                            response.clicked_identifier = Some(name);
+                        }
                     }
                 }
             }
@@ -1194,6 +1229,15 @@ impl<'a> SqlEditor<'a> {
     }
 
     fn type_text(&mut self, text: &str) {
+        if let Some((start, end)) = self.snippet_range {
+            if self.selection.normalized() == (start, end) && start < end {
+                self.buffer.replace(start, end, text);
+                let cursor = start + text.len();
+                self.cursor.set_offset(self.buffer, cursor);
+                *self.selection = super::selection::SelectionRange::point(cursor);
+                return;
+            }
+        }
         if !self.selection.is_empty() {
             self.delete_selection();
         }
@@ -1287,6 +1331,52 @@ impl<'a> SqlEditor<'a> {
             self.selection.collapse_to_active();
         }
     }
+}
+
+fn is_single_identifier_char(text: &str) -> bool {
+    text.len() == 1 && (text.as_bytes()[0].is_ascii_alphanumeric() || text == "_")
+}
+
+fn identifier_at(buffer: &TextBuffer, offset: usize) -> Option<String> {
+    let text = buffer.text();
+    if text.is_empty() {
+        return None;
+    }
+    let mut index = buffer.floor_char_boundary(offset.min(text.len()));
+    if index >= text.len() || !is_ident_char_at(text, index) {
+        if index == 0 {
+            return None;
+        }
+        index = buffer.prev_char_boundary(index);
+    }
+    if !is_ident_char_at(text, index) {
+        return None;
+    }
+    let mut start = index;
+    while start > 0 {
+        let prev = buffer.prev_char_boundary(start);
+        if !is_ident_char_at(text, prev) {
+            break;
+        }
+        start = prev;
+    }
+    let mut end = index;
+    while end < text.len() && is_ident_char_at(text, end) {
+        end = buffer.next_char_boundary(end);
+    }
+    let word = &text[start..end];
+    if word.is_empty() {
+        None
+    } else {
+        Some(word.to_owned())
+    }
+}
+
+fn is_ident_char_at(text: &str, offset: usize) -> bool {
+    text[offset..]
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_alphanumeric() || ch == '_' || ch == '$')
 }
 
 fn paint_editor_scrollbars(

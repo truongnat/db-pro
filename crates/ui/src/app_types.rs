@@ -311,7 +311,7 @@ pub(crate) fn ddl_impact_summary(sql: &str, target: &str) -> String {
 }
 
 pub(crate) fn matches_explorer_table(table: &str, query: &str) -> bool {
-    query.is_empty() || table.to_ascii_lowercase().contains(query)
+    query.is_empty() || ascii_contains_ignore_case(table, query)
 }
 
 pub(crate) fn matches_explorer_table_with_mode(
@@ -322,9 +322,56 @@ pub(crate) fn matches_explorer_table_with_mode(
     match mode {
         super::schema_explorer_state::ExplorerMatchMode::Contains => matches_explorer_table(table, query),
         super::schema_explorer_state::ExplorerMatchMode::Prefix => {
-            query.is_empty() || table.to_ascii_lowercase().starts_with(query)
+            query.is_empty() || ascii_starts_with_ignore_case(table, query)
         }
     }
+}
+
+/// Case-fold ASCII only. SQL names are ASCII, so the search does not allocate
+/// a lowercase copy of every name on each keystroke.
+pub(crate) fn ascii_contains_ignore_case(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+    let needle = needle_lower.as_bytes();
+    let bytes = haystack.as_bytes();
+    if needle.len() > bytes.len() {
+        return false;
+    }
+    bytes.windows(needle.len()).any(|window| {
+        window
+            .iter()
+            .zip(needle)
+            .all(|(left, right)| left.to_ascii_lowercase() == *right)
+    })
+}
+
+pub(crate) fn ascii_starts_with_ignore_case(haystack: &str, needle_lower: &str) -> bool {
+    let needle = needle_lower.as_bytes();
+    let bytes = haystack.as_bytes();
+    bytes.len() >= needle.len()
+        && bytes
+            .iter()
+            .zip(needle)
+            .all(|(left, right)| left.to_ascii_lowercase() == *right)
+}
+
+/// True when every query character appears in order. `custid` matches `customer_id`.
+pub(crate) fn ascii_subsequence_ignore_case(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+    let mut needle = needle_lower.bytes();
+    let mut expected = needle.next();
+    for byte in haystack.bytes() {
+        let Some(want) = expected else {
+            return true;
+        };
+        if byte.to_ascii_lowercase() == want {
+            expected = needle.next();
+        }
+    }
+    expected.is_none()
 }
 
 pub(crate) fn filtered_explorer_tables(
@@ -332,16 +379,24 @@ pub(crate) fn filtered_explorer_tables(
     query: &str,
     mode: super::schema_explorer_state::ExplorerMatchMode,
 ) -> (usize, Vec<String>) {
-    let matching_count = tables
+    let matches = |table: &&String| matches_explorer_table_with_mode(table, query, mode);
+    let mut matching_count = tables.iter().filter(matches).count();
+    let mut visible_tables: Vec<String> = tables
         .iter()
-        .filter(|table| matches_explorer_table_with_mode(table, query, mode))
-        .count();
-    let visible_tables = tables
-        .iter()
-        .filter(|table| matches_explorer_table_with_mode(table, query, mode))
+        .filter(matches)
         .take(EXPLORER_MAX_TABLES)
         .cloned()
         .collect();
+    // Contains found nothing: fall back to a subsequence so `custid` still
+    // finds `customer_id`. Prefix mode stays strict.
+    if matching_count == 0
+        && !query.is_empty()
+        && mode == super::schema_explorer_state::ExplorerMatchMode::Contains
+    {
+        let fuzzy = |table: &&String| ascii_subsequence_ignore_case(table, query);
+        matching_count = tables.iter().filter(fuzzy).count();
+        visible_tables = tables.iter().filter(fuzzy).take(EXPLORER_MAX_TABLES).cloned().collect();
+    }
     (matching_count, visible_tables)
 }
 

@@ -56,30 +56,27 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
         ER_MAX_TABLES
     };
 
-    let (_candidate_count, tables) = diagram_candidates(
+    // Counts only. Cloning every table summary each frame froze show-all on a large schema.
+    let listed = diagram_listed_count(
         &ctx.explorer.schema.table_details,
         &search_query,
         search_mode,
         render_limit,
     );
 
-    let grid_columns = if tables.len() <= 3 {
-        tables.len().max(1)
+    let grid_columns = if listed <= 3 {
+        listed.max(1)
     } else {
         ((all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
     };
 
-    let max_visible_columns = ctx
-        .explorer
-        .schema
-        .table_details
-        .iter()
-        .take(50)
-        .map(|table| table.columns.len().clamp(1, ER_MAX_COLUMNS))
-        .max()
-        .unwrap_or(1);
-    let node_height = ER_HEADER_HEIGHT + ER_ROW_HEIGHT * max_visible_columns as f32;
+    // Card height follows the zoom LOD. Detailed (zoom ≥ 1.15) paints up to 12
+    // column rows; the old height was capped at 8, so those rows drew outside
+    // the card.
+    let node_height = diagram_node_height(ctx.diagram.zoom);
 
+    // Layout runs in the background, including while the focus prompt is up,
+    // so a search or Show all does not start from an empty graph.
     ensure_diagram_graph(ctx, grid_columns, node_height);
 
     // Determine active table subset:
@@ -93,9 +90,12 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
             .map(|node| node.id)
             .collect();
         if seed_indices.is_empty() {
-            draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, &tables, render_limit);
+            draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, listed, render_limit);
             ui.add_space(10.0);
-            super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, true);
+            // An empty graph means the map is still being built, not that the
+            // name failed to match.
+            let no_matches = !ctx.diagram.graph.nodes.is_empty();
+            super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, no_matches);
             return None;
         }
         Some(
@@ -103,16 +103,20 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
                 .graph
                 .bfs_neighborhood(&seed_indices, ctx.diagram.neighborhood_depth, 100),
         )
-    } else if search_mode && search_query.is_empty() {
-        draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, &tables, render_limit);
+    } else if search_mode && search_query.is_empty() && ctx.diagram.graph.nodes.is_empty() {
+        draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, listed, render_limit);
         ui.add_space(10.0);
         super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, false);
         return None;
+    } else if search_mode && search_query.is_empty() {
+        // The catalog is ready. Show a neighborhood instead of a blank page.
+        let seeds: Vec<usize> = ctx.diagram.graph.nodes.iter().take(3).map(|node| node.id).collect();
+        Some(ctx.diagram.graph.bfs_neighborhood(&seeds, ctx.diagram.neighborhood_depth, 40))
     } else {
         None
     };
 
-    draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, &tables, render_limit);
+    draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, listed, render_limit);
     let design_action = super::diagram_design_panel_view::draw_er_design_panel(ctx, ui);
     ui.add_space(10.0);
 
@@ -122,11 +126,26 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
 
 fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid_columns: usize, node_height: f32) {
     let current_count = ctx.explorer.schema.table_details.len();
+    let built_height = ctx
+        .diagram
+        .graph
+        .nodes
+        .first()
+        .map(|node| node.world_rect.height())
+        .unwrap_or(node_height);
     let graph_dirty = ctx.diagram.graph.nodes.len() != current_count
-        || ctx.diagram.graph.schema_version != ctx.diagram.schema_version;
+        || ctx.diagram.graph.schema_version != ctx.diagram.schema_version
+        || (built_height - node_height).abs() > 0.5;
 
     if graph_dirty && current_count > 0 {
-        if ctx.diagram.graph.nodes.is_empty() {
+        // A large first layout used to run on the UI thread. Keep the small-schema
+        // instant paint, and send everything else to the worker. Do not enqueue
+        // another copy of the table list while that worker is still running.
+        if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
+            return;
+        }
+        let large_schema = current_count > ER_LARGE_SCHEMA_THRESHOLD;
+        if !large_schema && ctx.diagram.graph.nodes.is_empty() {
             // First load: build immediately so canvas starts populated without blank frame
             let mut graph = ErGraph::build(
                 &ctx.explorer.schema.table_details,
@@ -180,6 +199,7 @@ fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid_columns: usize, n
     }
 }
 
+#[cfg(test)]
 pub(super) fn diagram_candidates(
     all_tables: &[UiTableSummary],
     search_query: &str,
@@ -223,18 +243,30 @@ pub(super) fn diagram_show_all_after_search_edit(show_all: bool, search_query: &
     }
 }
 
+fn diagram_listed_count(all_tables: &[UiTableSummary], search_query: &str, search_mode: bool, render_limit: usize) -> usize {
+    if search_mode {
+        all_tables
+            .iter()
+            .filter(|table| !search_query.is_empty() && matches_diagram_search(table, search_query))
+            .take(render_limit + 1)
+            .count()
+    } else {
+        all_tables.len().min(render_limit.saturating_add(1))
+    }
+}
+
 fn draw_diagram_toolbar(
     ctx: &mut DiagramViewContext<'_>,
     ui: &mut egui::Ui,
     large_schema: bool,
     all_table_count: usize,
-    tables: &[UiTableSummary],
+    listed: usize,
     render_limit: usize,
 ) {
-    let visible_tables = if ctx.diagram.show_all || !large_schema {
+    let visible_tables = if ctx.diagram.show_all || !large_schema || ctx.diagram.search.trim().is_empty() {
         all_table_count
     } else {
-        tables.len().min(render_limit)
+        listed.min(render_limit)
     };
     let relationship_count: usize = ctx.diagram.graph.edges.len();
 
@@ -267,15 +299,13 @@ fn draw_diagram_toolbar(
                 diagram_show_all_after_search_edit(ctx.diagram.show_all, &ctx.diagram.search, search_changed);
             let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
             if search_mode {
-                if ui
-                    .selectable_label(ctx.diagram.neighborhood_depth == 1, "1 hop")
+                if hop_button(ui, "1 hop", ctx.diagram.neighborhood_depth == 1, ctx.theme)
                     .on_hover_text("Show matching tables and their direct relationships")
                     .clicked()
                 {
                     ctx.diagram.neighborhood_depth = 1;
                 }
-                if ui
-                    .selectable_label(ctx.diagram.neighborhood_depth == 2, "2 hops")
+                if hop_button(ui, "2 hops", ctx.diagram.neighborhood_depth == 2, ctx.theme)
                     .on_hover_text("Also include neighbors of neighbors")
                     .clicked()
                 {
@@ -327,6 +357,19 @@ fn draw_diagram_toolbar(
             }
         });
     });
+}
+
+/// Hop depth toggle. Selected state uses the soft accent, not egui's text-selection blue.
+fn hop_button(ui: &mut egui::Ui, label: &str, selected: bool, theme: DbProTheme) -> egui::Response {
+    let fill = if selected { theme.accent_soft } else { egui::Color32::TRANSPARENT };
+    let color = if selected { theme.accent } else { theme.text_secondary };
+    ui.add(
+        egui::Button::new(egui::RichText::new(label).size(12.0).color(color))
+            .fill(fill)
+            .min_size(egui::vec2(0.0, 24.0))
+            .rounding(egui::Rounding::same(7.0))
+            .stroke(egui::Stroke::NONE),
+    )
 }
 
 /// 24px icon button with an `active` fill — the compact-row toggle variant of
@@ -538,13 +581,46 @@ pub(super) fn paint_scene_edges(
 /// real font instead of a fixed char count — `schema.table` names otherwise
 /// clipped at ~18 chars while the card had room for ~36.
 fn truncate_to_width(painter: &egui::Painter, text: &str, font: FontId, max_width: f32) -> String {
+    if max_width <= 0.0 {
+        return String::new();
+    }
     let galley = painter.layout_no_wrap(text.to_owned(), font.clone(), egui::Color32::WHITE);
     if galley.size().x <= max_width {
         return text.to_owned();
     }
-    let char_count = text.chars().count().max(1) as f32;
-    let budget = ((max_width / galley.size().x) * char_count).floor() as usize;
-    crate::components::truncate_ellipsis(text, budget.max(4))
+    // The old ratio ignored the ellipsis and proportional widths, so the
+    // painted string was wider than the slot and ran into the type label.
+    let char_count = text.chars().count();
+    let mut low = 1usize;
+    let mut high = char_count;
+    let mut best = "…".to_owned();
+    while low <= high {
+        let mid = (low + high) / 2;
+        let candidate = crate::components::truncate_ellipsis(text, mid);
+        let width = painter
+            .layout_no_wrap(candidate.clone(), font.clone(), egui::Color32::WHITE)
+            .size()
+            .x;
+        if width <= max_width {
+            best = candidate;
+            low = mid + 1;
+        } else if mid == 0 {
+            break;
+        } else {
+            high = mid - 1;
+        }
+    }
+    best
+}
+
+/// World height of one card at this zoom. Text rows must fit inside it.
+pub(super) fn diagram_node_height(zoom: f32) -> f32 {
+    let lod = ErLod::from_zoom(zoom);
+    if lod.shows_columns() {
+        ER_HEADER_HEIGHT + ER_ROW_HEIGHT * lod.max_columns() as f32
+    } else {
+        ER_HEADER_HEIGHT
+    }
 }
 
 /// `to_table.to_column` (or just the table for composite keys) — the FK target
@@ -577,29 +653,35 @@ pub(super) fn paint_er_node_lod(
     lod: ErLod,
     theme: DbProTheme,
 ) {
+    // Keep glyphs inside the card. A row or label that overruns the rect used
+    // to paint on top of the neighbouring table when the view was zoomed in.
+    let painter = painter.with_clip_rect(screen_rect);
     // The node rect is already screen-scaled, so derive zoom back from its width.
     let zoom = screen_rect.width() / ER_NODE_WIDTH;
+    // Past this point the card keeps growing but the type stays readable, so
+    // zooming in reveals more of the name instead of magnifying the same cutoff.
+    let text_zoom = zoom.min(1.2);
     match lod {
         ErLod::Compact if !selected => {
-            // Compact pill card: only header with table name and PK count
-            painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_panel);
+            // One fill, then one stroke. A second fill used to cover the border.
+            let radius = (6.0 * zoom).clamp(4.0, 8.0);
+            painter.rect_filled(screen_rect, egui::Rounding::same(radius), theme.surface_hover);
             painter.rect_stroke(
                 screen_rect,
-                egui::Rounding::same(6.0),
+                egui::Rounding::same(radius),
                 egui::Stroke::new(if hovered { 1.4 } else { 1.0 }, theme.border_default),
             );
-            painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_hover);
             let title = truncate_to_width(
-                painter,
+                &painter,
                 &node.table.name,
-                FontId::proportional((12.0 * zoom).clamp(8.0, 14.0)),
+                FontId::proportional((12.0 * text_zoom).clamp(8.0, 14.0)),
                 screen_rect.width() - 18.0 * zoom,
             );
             painter.text(
                 screen_rect.center_top() + egui::vec2(0.0, 14.0 * zoom),
                 egui::Align2::CENTER_CENTER,
                 title,
-                FontId::proportional((12.0 * zoom).clamp(8.0, 14.0)),
+                FontId::proportional((12.0 * text_zoom).clamp(8.0, 14.0)),
                 theme.text_primary,
             );
             let pk_count = node.table.columns.iter().filter(|c| c.is_primary_key).count();
@@ -608,14 +690,33 @@ pub(super) fn paint_er_node_lod(
                     egui::pos2(screen_rect.right() - 8.0 * zoom, screen_rect.center().y),
                     egui::Align2::RIGHT_CENTER,
                     format!("{pk_count} PK"),
-                    FontId::proportional((9.0 * zoom).clamp(7.0, 11.0)),
+                    FontId::proportional((9.0 * text_zoom).clamp(7.0, 11.0)),
                     theme.warning,
                 );
             }
         }
         _ => {
-            // Header:
-            painter.rect_filled(screen_rect, egui::Rounding::same(8.0), theme.surface_panel);
+            // One rounded body, a header that is round only on top, then a
+            // single stroke. Filling the header with a full radius and then
+            // squaring its bottom left mixed corners and a second edge.
+            let radius = (8.0 * zoom).clamp(4.0, 10.0);
+            painter.rect_filled(screen_rect, egui::Rounding::same(radius), theme.surface_panel);
+            let header_height = ER_HEADER_HEIGHT * zoom;
+            let header_rect = egui::Rect::from_min_max(
+                screen_rect.min,
+                egui::pos2(screen_rect.max.x, screen_rect.min.y + header_height),
+            );
+            let header_fill = if selected { theme.accent_soft } else { theme.surface_hover };
+            painter.rect_filled(
+                header_rect,
+                egui::Rounding {
+                    nw: radius,
+                    ne: radius,
+                    sw: 0.0,
+                    se: 0.0,
+                },
+                header_fill,
+            );
             let border_stroke = if selected {
                 egui::Stroke::new(1.5, theme.accent)
             } else if hovered {
@@ -623,33 +724,12 @@ pub(super) fn paint_er_node_lod(
             } else {
                 egui::Stroke::new(1.0, theme.border_default)
             };
-            painter.rect_stroke(screen_rect, egui::Rounding::same(8.0), border_stroke);
-
-            let header_height = ER_HEADER_HEIGHT * zoom;
-            let header_rect = egui::Rect::from_min_max(
-                screen_rect.min,
-                egui::pos2(screen_rect.max.x, screen_rect.min.y + header_height),
-            );
-            let header_fill = if selected {
-                theme.accent_soft
-            } else {
-                theme.surface_hover
-            };
-            painter.rect_filled(header_rect, egui::Rounding::same(8.0), header_fill);
-            painter.rect_filled(
-                egui::Rect::from_min_max(
-                    egui::pos2(header_rect.min.x, header_rect.max.y - 8.0 * zoom),
-                    header_rect.max,
-                ),
-                egui::Rounding::ZERO,
-                header_fill,
-            );
 
             // Two-line header: table name gets the full width (measured, not a
             // fixed char cap); schema + column count sit muted underneath.
-            let title_font = FontId::proportional(12.5 * zoom);
+            let title_font = FontId::proportional(12.5 * text_zoom);
             let display_title = truncate_to_width(
-                painter,
+                &painter,
                 &node.table.name,
                 title_font.clone(),
                 screen_rect.width() - 24.0 * zoom,
@@ -674,25 +754,32 @@ pub(super) fn paint_er_node_lod(
                 parts.join(" · ")
             };
             let subtitle = truncate_to_width(
-                painter,
+                &painter,
                 &subtitle,
-                FontId::proportional(9.5 * zoom),
+                FontId::proportional(9.5 * text_zoom),
                 screen_rect.width() - 24.0 * zoom,
             );
             painter.text(
                 screen_rect.min + egui::vec2(12.0 * zoom, 30.0 * zoom),
                 egui::Align2::LEFT_CENTER,
                 subtitle,
-                FontId::proportional(9.5 * zoom),
+                FontId::proportional(9.5 * text_zoom),
                 if selected { theme.accent } else { theme.text_muted },
             );
 
             // Columns:
+            let row_height = ER_ROW_HEIGHT * zoom;
+            let rows_that_fit = if row_height > 1.0 {
+                ((screen_rect.height() - header_height) / row_height).floor() as usize
+            } else {
+                0
+            };
             let max_cols = if selected && lod == ErLod::Compact {
                 3
             } else {
                 lod.max_columns()
-            };
+            }
+            .min(rows_that_fit);
             // The overflow hint takes the LAST row slot instead of painting on
             // top of a real column — `max_cols - 1` columns then "+ N more".
             let overflow = node.table.columns.len() > max_cols;
@@ -704,7 +791,15 @@ pub(super) fn paint_er_node_lod(
                     egui::pos2(screen_rect.max.x, row_top + ER_ROW_HEIGHT * zoom),
                 );
                 if index % 2 == 0 {
-                    painter.rect_filled(row_rect, egui::Rounding::ZERO, theme.surface_app);
+                    // Stay clear of the rounded bottom corners so the stripe
+                    // does not paint a square over the card curve.
+                    let stripe = egui::Rect::from_min_max(
+                        row_rect.min,
+                        egui::pos2(row_rect.max.x, row_rect.max.y.min(screen_rect.max.y - radius)),
+                    );
+                    if stripe.height() > 1.0 {
+                        painter.rect_filled(stripe, egui::Rounding::ZERO, theme.surface_app);
+                    }
                 }
                 let foreign_key = node
                     .table
@@ -724,7 +819,7 @@ pub(super) fn paint_er_node_lod(
                         marker_pos,
                         egui::Align2::CENTER_CENTER,
                         char::from(icon),
-                        FontId::new(10.0 * zoom, egui::FontFamily::Name("lucide".into())),
+                        FontId::new(10.0 * text_zoom, egui::FontFamily::Name("lucide".into())),
                         marker_color,
                     );
                 } else {
@@ -751,34 +846,28 @@ pub(super) fn paint_er_node_lod(
                 } else {
                     column.data_type.clone()
                 };
+                let type_font = FontId::monospace(9.5 * text_zoom);
                 let type_display = truncate_to_width(
-                    painter,
+                    &painter,
                     &type_display,
-                    FontId::monospace(9.5 * zoom),
-                    screen_rect.width() * 0.55,
+                    type_font.clone(),
+                    (screen_rect.width() - 40.0 * zoom) * 0.55,
                 );
                 let name_width = if lod.shows_data_types() {
-                    // Leave room for the right-aligned type badge.
-                    let type_galley = painter.layout_no_wrap(
-                        type_display.clone(),
-                        FontId::monospace(9.5 * zoom),
-                        egui::Color32::WHITE,
-                    );
-                    screen_rect.width() - (23.0 + 12.0) * zoom - type_galley.size().x - 8.0 * zoom
+                    // Leave room for the right-aligned type badge. Do not force a
+                    // minimum that overlaps that badge.
+                    let type_galley = painter.layout_no_wrap(type_display.clone(), type_font, egui::Color32::WHITE);
+                    (screen_rect.width() - (23.0 + 12.0) * zoom - type_galley.size().x - 8.0 * zoom).max(0.0)
                 } else {
-                    screen_rect.width() - (23.0 + 12.0) * zoom
+                    (screen_rect.width() - (23.0 + 12.0) * zoom).max(0.0)
                 };
-                let col_name = truncate_to_width(
-                    painter,
-                    &column.name,
-                    FontId::proportional(11.0 * zoom),
-                    name_width.max(24.0 * zoom),
-                );
+                let name_font = FontId::proportional(11.0 * text_zoom);
+                let col_name = truncate_to_width(&painter, &column.name, name_font.clone(), name_width);
                 painter.text(
                     egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
                     egui::Align2::LEFT_CENTER,
                     col_name,
-                    FontId::proportional(11.0 * zoom),
+                    name_font,
                     theme.text_primary,
                 );
                 if lod.shows_data_types() {
@@ -786,7 +875,7 @@ pub(super) fn paint_er_node_lod(
                         egui::pos2(row_rect.max.x - 12.0 * zoom, row_rect.center().y),
                         egui::Align2::RIGHT_CENTER,
                         type_display,
-                        FontId::monospace(9.5 * zoom),
+                        FontId::monospace(9.5 * text_zoom),
                         if column.is_primary_key {
                             theme.warning
                         } else if foreign_key.is_some() {
@@ -803,10 +892,11 @@ pub(super) fn paint_er_node_lod(
                     egui::pos2(screen_rect.min.x + 14.0 * zoom, row_top + ER_ROW_HEIGHT * zoom * 0.5),
                     egui::Align2::LEFT_CENTER,
                     format!("+ {} more columns", node.table.columns.len() - shown_cols),
-                    FontId::proportional(10.0 * zoom),
+                    FontId::proportional(10.0 * text_zoom),
                     theme.text_muted,
                 );
             }
+            painter.rect_stroke(screen_rect, egui::Rounding::same(radius), border_stroke);
         }
     }
 }
