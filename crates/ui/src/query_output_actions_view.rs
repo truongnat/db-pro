@@ -140,10 +140,13 @@ pub(super) fn draw_history_pane(
         ui.horizontal(|ui| {
             ui.label(RichText::new("Recent Executions").font(font_subheading()).strong());
             ui.add_space(SPACE_MD);
-            let search_edit = egui::TextEdit::singleline(&mut context.editor.query_history_search)
-                .hint_text("Filter history…")
-                .desired_width(180.0);
-            ui.add(search_edit);
+            input(
+                ui,
+                &mut context.editor.query_history_search,
+                "Filter history…",
+                180.0,
+                context.theme,
+            );
             if !context.editor.query_history_search.is_empty()
                 && compact_button(ui, "Clear", context.theme).clicked()
             {
@@ -243,7 +246,18 @@ pub(super) fn draw_history_pane(
                             } else {
                                 preview
                             };
-                            ui.label(RichText::new(truncated).monospace().small().color(context.theme.text_primary));
+                            if ui
+                                .label(RichText::new(truncated).monospace().small().color(context.theme.text_primary))
+                                .interact(egui::Sense::click())
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .on_hover_text("Open in a new editor")
+                                .clicked()
+                            {
+                                action = Some(QueryOutputAction::OpenHistory(
+                                    Box::new(entry.clone()),
+                                    false,
+                                ));
+                            }
                         });
                     ui.add_space(4.0);
                 }
