@@ -337,96 +337,11 @@ impl AgentRunOrchestrator {
 
     async fn handle_tool_call(&mut self, call: AgentToolCall) -> Result<Option<AgentWorkflowEvent>, AgentToolError> {
         let fingerprint = call.input.fingerprint();
-        if let Some(pending) = &self.pending_tool {
-            if pending.call_id == call.call_id {
-                if pending.confirmation.tool != call.tool || pending.confirmation.input_fingerprint != fingerprint {
-                    return Err(AgentToolError::ProviderProtocolError(format!(
-                        "Pending confirmation collision for call_id '{}': mismatched tool ({:?} vs {:?}) or input",
-                        call.call_id, pending.confirmation.tool, call.tool
-                    )));
-                }
-                let preview = match &pending.confirmation.kind {
-                    AgentConfirmationKind::ApplyPatch => match &pending.confirmation.request.input {
-                        AgentToolInput::Patch { patch } => {
-                            let current_text = self
-                                .execution_context
-                                .document
-                                .as_ref()
-                                .map(|d| d.sql.as_str())
-                                .unwrap_or("");
-                            let (start, end) = patch.range;
-                            let original = current_text.get(start..end).unwrap_or("").to_owned();
-                            let proposed = patch
-                                .apply_to(
-                                    &pending.confirmation.document_id,
-                                    pending.confirmation.document_version,
-                                    current_text,
-                                )
-                                .unwrap_or_default();
-                            Some(AgentToolOutput::PatchPreview {
-                                patch: patch.clone(),
-                                original,
-                                proposed,
-                            })
-                        }
-                        _ => None,
-                    },
-                    _ => None,
-                };
-                return Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
-                    run_id: self.run_id()?,
-                    session_id: self.workflow.session().id,
-                    document_id: self.workflow.session().document_id.clone(),
-                    call_id: call.call_id,
-                    kind: pending.confirmation.kind,
-                    preview,
-                }));
-            }
+        if let Some(event) = self.pending_confirmation_event(&call, &fingerprint)? {
+            return Ok(Some(event));
         }
-
-        if let Some(cached) = self.completed_tool_calls.get(&call.call_id) {
-            if cached.tool != call.tool || cached.input_fingerprint != fingerprint {
-                return Err(AgentToolError::ProviderProtocolError(format!(
-                    "Tool call collision for ID '{}': mismatched tool ({:?} vs {:?}) or input",
-                    call.call_id, cached.tool, call.tool
-                )));
-            }
-            let run_id = self.run_id()?;
-            match &cached.outcome {
-                CachedToolOutcome::Success(output) => {
-                    let result = db_pro_core::domain::agent::AgentToolResult {
-                        tool: call.tool,
-                        output: output.clone(),
-                    };
-                    return Ok(Some(AgentWorkflowEvent::ToolCompleted {
-                        run_id,
-                        session_id: self.workflow.session().id,
-                        document_id: self.workflow.session().document_id.clone(),
-                        call_id: call.call_id,
-                        result,
-                    }));
-                }
-                CachedToolOutcome::Failed(error) => {
-                    return Ok(Some(AgentWorkflowEvent::ToolFailed {
-                        run_id,
-                        session_id: self.workflow.session().id,
-                        document_id: self.workflow.session().document_id.clone(),
-                        call_id: call.call_id,
-                        tool: call.tool,
-                        error: error.clone(),
-                    }));
-                }
-                CachedToolOutcome::Rejected(kind) => {
-                    return Ok(Some(AgentWorkflowEvent::ToolFailed {
-                        run_id,
-                        session_id: self.workflow.session().id,
-                        document_id: self.workflow.session().document_id.clone(),
-                        call_id: call.call_id,
-                        tool: call.tool,
-                        error: AgentToolError::ConfirmationRejected { kind: *kind },
-                    }));
-                }
-            }
+        if let Some(event) = self.cached_call_event(&call, &fingerprint)? {
+            return Ok(Some(event));
         }
 
         if !self.seen_call_ids.insert(call.call_id.clone()) {
@@ -452,98 +367,207 @@ impl AgentRunOrchestrator {
         ) {
             Ok(disposition) => disposition,
             Err(error) => {
+                return Ok(Some(self.cache_tool_failure(&call, fingerprint, run_id, error)));
+            }
+        };
+        match disposition {
+            AgentToolDisposition::Execute(request) => self.execute_tool_call(&call, fingerprint, run_id, request).await,
+            AgentToolDisposition::PatchPreview { preview, confirmation } => {
+                Ok(Some(self.require_confirmation(&call, confirmation, Some(preview))?))
+            }
+            AgentToolDisposition::ConfirmationRequired(confirmation) => {
+                Ok(Some(self.require_confirmation(&call, confirmation, None)?))
+            }
+        }
+    }
+
+    /// A repeated call_id that matches the pending confirmation replays the
+    /// confirmation event; the same id with a different tool or input is a
+    /// provider protocol error.
+    fn pending_confirmation_event(
+        &self,
+        call: &AgentToolCall,
+        fingerprint: &str,
+    ) -> Result<Option<AgentWorkflowEvent>, AgentToolError> {
+        let Some(pending) = &self.pending_tool else {
+            return Ok(None);
+        };
+        if pending.call_id != call.call_id {
+            return Ok(None);
+        }
+        if pending.confirmation.tool != call.tool || pending.confirmation.input_fingerprint != fingerprint {
+            return Err(AgentToolError::ProviderProtocolError(format!(
+                "Pending confirmation collision for call_id '{}': mismatched tool ({:?} vs {:?}) or input",
+                call.call_id, pending.confirmation.tool, call.tool
+            )));
+        }
+        let preview = match &pending.confirmation.kind {
+            AgentConfirmationKind::ApplyPatch => match &pending.confirmation.request.input {
+                AgentToolInput::Patch { patch } => {
+                    let current_text = self
+                        .execution_context
+                        .document
+                        .as_ref()
+                        .map(|d| d.sql.as_str())
+                        .unwrap_or("");
+                    let (start, end) = patch.range;
+                    let original = current_text.get(start..end).unwrap_or("").to_owned();
+                    let proposed = patch
+                        .apply_to(
+                            &pending.confirmation.document_id,
+                            pending.confirmation.document_version,
+                            current_text,
+                        )
+                        .unwrap_or_default();
+                    Some(AgentToolOutput::PatchPreview {
+                        patch: patch.clone(),
+                        original,
+                        proposed,
+                    })
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
+            run_id: self.run_id()?,
+            session_id: self.workflow.session().id,
+            document_id: self.workflow.session().document_id.clone(),
+            call_id: call.call_id.clone(),
+            kind: pending.confirmation.kind,
+            preview,
+        }))
+    }
+
+    /// A call_id already present in `completed_tool_calls` replays its cached
+    /// outcome as the matching event without re-executing the tool.
+    fn cached_call_event(
+        &self,
+        call: &AgentToolCall,
+        fingerprint: &str,
+    ) -> Result<Option<AgentWorkflowEvent>, AgentToolError> {
+        let Some(cached) = self.completed_tool_calls.get(&call.call_id) else {
+            return Ok(None);
+        };
+        if cached.tool != call.tool || cached.input_fingerprint != fingerprint {
+            return Err(AgentToolError::ProviderProtocolError(format!(
+                "Tool call collision for ID '{}': mismatched tool ({:?} vs {:?}) or input",
+                call.call_id, cached.tool, call.tool
+            )));
+        }
+        let run_id = self.run_id()?;
+        match &cached.outcome {
+            CachedToolOutcome::Success(output) => {
+                let result = db_pro_core::domain::agent::AgentToolResult {
+                    tool: call.tool,
+                    output: output.clone(),
+                };
+                Ok(Some(AgentWorkflowEvent::ToolCompleted {
+                    run_id,
+                    session_id: self.workflow.session().id,
+                    document_id: self.workflow.session().document_id.clone(),
+                    call_id: call.call_id.clone(),
+                    result,
+                }))
+            }
+            CachedToolOutcome::Failed(error) => Ok(Some(AgentWorkflowEvent::ToolFailed {
+                run_id,
+                session_id: self.workflow.session().id,
+                document_id: self.workflow.session().document_id.clone(),
+                call_id: call.call_id.clone(),
+                tool: call.tool,
+                error: error.clone(),
+            })),
+            CachedToolOutcome::Rejected(kind) => Ok(Some(AgentWorkflowEvent::ToolFailed {
+                run_id,
+                session_id: self.workflow.session().id,
+                document_id: self.workflow.session().document_id.clone(),
+                call_id: call.call_id.clone(),
+                tool: call.tool,
+                error: AgentToolError::ConfirmationRejected { kind: *kind },
+            })),
+        }
+    }
+
+    /// Records a tool failure in the completed-call cache and the provider
+    /// transcript, then builds the ToolFailed event for it.
+    fn cache_tool_failure(
+        &mut self,
+        call: &AgentToolCall,
+        fingerprint: String,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        error: AgentToolError,
+    ) -> AgentWorkflowEvent {
+        self.completed_tool_calls.insert(
+            call.call_id.clone(),
+            CachedToolExecution {
+                tool: call.tool,
+                input_fingerprint: fingerprint,
+                outcome: CachedToolOutcome::Failed(error.clone()),
+            },
+        );
+        self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
+        AgentWorkflowEvent::ToolFailed {
+            run_id,
+            session_id: self.workflow.session().id,
+            document_id: self.workflow.session().document_id.clone(),
+            call_id: call.call_id.clone(),
+            tool: call.tool,
+            error,
+        }
+    }
+
+    async fn execute_tool_call(
+        &mut self,
+        call: &AgentToolCall,
+        fingerprint: String,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        request: AgentToolRequest,
+    ) -> Result<Option<AgentWorkflowEvent>, AgentToolError> {
+        match self.tool_runner.execute(&request, &self.execution_context).await {
+            Ok(result) => {
+                let output = result.output.clone();
+                self.refresh_context_from_output(&output, run_id)?;
                 self.completed_tool_calls.insert(
                     call.call_id.clone(),
                     CachedToolExecution {
                         tool: call.tool,
                         input_fingerprint: fingerprint,
-                        outcome: CachedToolOutcome::Failed(error.clone()),
+                        outcome: CachedToolOutcome::Success(output.clone()),
                     },
                 );
-                self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
-                return Ok(Some(AgentWorkflowEvent::ToolFailed {
+                self.push_tool_result(call.call_id.clone(), call.tool, output);
+                Ok(Some(AgentWorkflowEvent::ToolCompleted {
                     run_id,
                     session_id: self.workflow.session().id,
                     document_id: self.workflow.session().document_id.clone(),
-                    call_id: call.call_id,
-                    tool: call.tool,
-                    error,
-                }));
-            }
-        };
-        match disposition {
-            AgentToolDisposition::Execute(request) => {
-                match self.tool_runner.execute(&request, &self.execution_context).await {
-                    Ok(result) => {
-                        let output = result.output.clone();
-                        self.refresh_context_from_output(&output, run_id)?;
-                        self.completed_tool_calls.insert(
-                            call.call_id.clone(),
-                            CachedToolExecution {
-                                tool: call.tool,
-                                input_fingerprint: fingerprint,
-                                outcome: CachedToolOutcome::Success(output.clone()),
-                            },
-                        );
-                        self.push_tool_result(call.call_id.clone(), call.tool, output);
-                        Ok(Some(AgentWorkflowEvent::ToolCompleted {
-                            run_id,
-                            session_id: self.workflow.session().id,
-                            document_id: self.workflow.session().document_id.clone(),
-                            call_id: call.call_id,
-                            result,
-                        }))
-                    }
-                    Err(error) => {
-                        self.completed_tool_calls.insert(
-                            call.call_id.clone(),
-                            CachedToolExecution {
-                                tool: call.tool,
-                                input_fingerprint: fingerprint,
-                                outcome: CachedToolOutcome::Failed(error.clone()),
-                            },
-                        );
-                        self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
-                        Ok(Some(AgentWorkflowEvent::ToolFailed {
-                            run_id,
-                            session_id: self.workflow.session().id,
-                            document_id: self.workflow.session().document_id.clone(),
-                            call_id: call.call_id,
-                            tool: call.tool,
-                            error,
-                        }))
-                    }
-                }
-            }
-            AgentToolDisposition::PatchPreview { preview, confirmation } => {
-                self.pending_tool = Some(PendingToolCall {
                     call_id: call.call_id.clone(),
-                    confirmation: confirmation.clone(),
-                });
-                Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
-                    run_id,
-                    session_id: self.workflow.session().id,
-                    document_id: self.workflow.session().document_id.clone(),
-                    call_id: call.call_id,
-                    kind: confirmation.kind,
-                    preview: Some(preview),
+                    result,
                 }))
             }
-            AgentToolDisposition::ConfirmationRequired(confirmation) => {
-                self.pending_tool = Some(PendingToolCall {
-                    call_id: call.call_id.clone(),
-                    confirmation: confirmation.clone(),
-                });
-                Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
-                    run_id,
-                    session_id: self.workflow.session().id,
-                    document_id: self.workflow.session().document_id.clone(),
-                    call_id: call.call_id,
-                    kind: confirmation.kind,
-                    preview: None,
-                }))
-            }
+            Err(error) => Ok(Some(self.cache_tool_failure(call, fingerprint, run_id, error))),
         }
+    }
+
+    /// Registers the pending confirmation and builds its ConfirmationRequired event.
+    fn require_confirmation(
+        &mut self,
+        call: &AgentToolCall,
+        confirmation: db_pro_core::domain::agent_workflow::PendingAgentConfirmation,
+        preview: Option<AgentToolOutput>,
+    ) -> Result<AgentWorkflowEvent, AgentToolError> {
+        self.pending_tool = Some(PendingToolCall {
+            call_id: call.call_id.clone(),
+            confirmation: confirmation.clone(),
+        });
+        Ok(AgentWorkflowEvent::ConfirmationRequired {
+            run_id: self.run_id()?,
+            session_id: self.workflow.session().id,
+            document_id: self.workflow.session().document_id.clone(),
+            call_id: call.call_id.clone(),
+            kind: confirmation.kind,
+            preview,
+        })
     }
 
     fn request_for_call(&self, call: &AgentToolCall) -> Result<AgentToolRequest, AgentToolError> {

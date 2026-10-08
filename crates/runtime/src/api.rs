@@ -470,33 +470,8 @@ impl SchemaApi {
 /// Walking `columns` and `foreign_keys` again for every table is quadratic, and
 /// a few thousand tables makes schema load unusable.
 fn summarize_introspection(result: IntrospectResult) -> SchemaSummary {
-    use std::collections::HashMap;
-
-    let mut columns_by_table: HashMap<(String, String), Vec<ColumnSummary>> = HashMap::new();
-    for column in &result.columns {
-        columns_by_table
-            .entry((column.schema.clone(), column.table_name.clone()))
-            .or_default()
-            .push(ColumnSummary {
-                name: column.name.clone(),
-                data_type: column.data_type.clone(),
-                nullable: column.nullable,
-                is_primary_key: column.is_primary_key,
-            });
-    }
-    let mut foreign_keys_by_table: HashMap<(String, String), Vec<ForeignKeySummary>> = HashMap::new();
-    for foreign_key in &result.foreign_keys {
-        foreign_keys_by_table
-            .entry((foreign_key.schema.clone(), foreign_key.from_table.clone()))
-            .or_default()
-            .push(ForeignKeySummary {
-                name: foreign_key.name.clone(),
-                from_columns: foreign_key.from_columns.clone(),
-                to_schema: foreign_key.to_schema.clone(),
-                to_table: foreign_key.to_table.clone(),
-                to_columns: foreign_key.to_columns.clone(),
-            });
-    }
+    let mut columns_by_table = group_columns_by_table(&result.columns);
+    let mut foreign_keys_by_table = group_foreign_keys_by_table(&result.foreign_keys);
     let table_details = result
         .tables
         .iter()
@@ -518,52 +493,89 @@ fn summarize_introspection(result: IntrospectResult) -> SchemaSummary {
         tables: result.tables.into_iter().map(|table| table.name).collect(),
         columns: result.columns.into_iter().map(|column| column.name).collect(),
         table_details,
-        views: result
-            .views
+        views: result.views.into_iter().map(summarize_view).collect(),
+        triggers: result.triggers.into_iter().map(summarize_trigger).collect(),
+        functions: result.functions.into_iter().map(summarize_function).collect(),
+    }
+}
+
+fn group_columns_by_table(
+    columns: &[db_pro_core::domain::schema::Column],
+) -> std::collections::HashMap<(String, String), Vec<ColumnSummary>> {
+    let mut by_table = std::collections::HashMap::new();
+    for column in columns {
+        by_table
+            .entry((column.schema.clone(), column.table_name.clone()))
+            .or_insert_with(Vec::new)
+            .push(ColumnSummary {
+                name: column.name.clone(),
+                data_type: column.data_type.clone(),
+                nullable: column.nullable,
+                is_primary_key: column.is_primary_key,
+            });
+    }
+    by_table
+}
+
+fn group_foreign_keys_by_table(
+    foreign_keys: &[db_pro_core::domain::schema::ForeignKey],
+) -> std::collections::HashMap<(String, String), Vec<ForeignKeySummary>> {
+    let mut by_table = std::collections::HashMap::new();
+    for foreign_key in foreign_keys {
+        by_table
+            .entry((foreign_key.schema.clone(), foreign_key.from_table.clone()))
+            .or_insert_with(Vec::new)
+            .push(ForeignKeySummary {
+                name: foreign_key.name.clone(),
+                from_columns: foreign_key.from_columns.clone(),
+                to_schema: foreign_key.to_schema.clone(),
+                to_table: foreign_key.to_table.clone(),
+                to_columns: foreign_key.to_columns.clone(),
+            });
+    }
+    by_table
+}
+
+fn summarize_view(view: db_pro_core::domain::schema::View) -> ViewSummary {
+    ViewSummary {
+        schema: view.schema,
+        name: view.name,
+        definition: view.definition,
+    }
+}
+
+fn summarize_trigger(trigger: db_pro_core::domain::schema::Trigger) -> TriggerSummary {
+    TriggerSummary {
+        schema: trigger.schema,
+        name: trigger.name,
+        table_name: trigger.table_name,
+        timing: trigger.timing,
+        event: trigger.event,
+        definition: trigger.definition,
+        enabled: trigger.enabled,
+    }
+}
+
+fn summarize_function(function: db_pro_core::domain::schema::Function) -> FunctionSummary {
+    FunctionSummary {
+        schema: function.schema,
+        name: function.name,
+        routine_type: function.routine_type,
+        data_type: function.data_type,
+        definition: function.definition,
+        identity_arguments: function.identity_arguments,
+        language: function.language,
+        volatility: function.volatility,
+        security_definer: function.security_definer,
+        parameters: function
+            .parameters
             .into_iter()
-            .map(|view| ViewSummary {
-                schema: view.schema,
-                name: view.name,
-                definition: view.definition,
-            })
-            .collect(),
-        triggers: result
-            .triggers
-            .into_iter()
-            .map(|trigger| TriggerSummary {
-                schema: trigger.schema,
-                name: trigger.name,
-                table_name: trigger.table_name,
-                timing: trigger.timing,
-                event: trigger.event,
-                definition: trigger.definition,
-                enabled: trigger.enabled,
-            })
-            .collect(),
-        functions: result
-            .functions
-            .into_iter()
-            .map(|function| FunctionSummary {
-                schema: function.schema,
-                name: function.name,
-                routine_type: function.routine_type,
-                data_type: function.data_type,
-                definition: function.definition,
-                identity_arguments: function.identity_arguments,
-                language: function.language,
-                volatility: function.volatility,
-                security_definer: function.security_definer,
-                parameters: function
-                    .parameters
-                    .into_iter()
-                    .map(|p| RoutineParameterSummary {
-                        name: p.name,
-                        data_type: p.data_type,
-                        mode: p.mode,
-                        has_default: p.has_default,
-                        default_expr: p.default_expr,
-                    })
-                    .collect(),
+            .map(|p| RoutineParameterSummary {
+                name: p.name,
+                data_type: p.data_type,
+                mode: p.mode,
+                has_default: p.has_default,
+                default_expr: p.default_expr,
             })
             .collect(),
     }
@@ -575,6 +587,7 @@ mod summarize_tests {
     use db_pro_core::domain::schema::{Column, ForeignKey, IntrospectResult, Table};
 
     #[test]
+    // cc-scan:allow HUGE_FUNCTION — one linear arrange-act-assert scenario; splitting it fragments the case under test
     fn columns_stay_with_their_table_without_a_cross_product() {
         let result = IntrospectResult {
             schemas: vec![],
