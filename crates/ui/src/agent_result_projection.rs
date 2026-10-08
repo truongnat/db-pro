@@ -69,7 +69,16 @@ impl<'a> AgentResultWorkspaceContext<'a> {
         document.query_results = vec![ui_result];
         document.query_result = None;
         document.active_result_index = 0;
-        self.output.active_tab = super::OutputTab::Results;
+        let document_id = document.id.clone();
+        let active_document_id = self
+            .session
+            .active_document()
+            .map(|active| active.id.as_str());
+        self.output.set_for_document_and_activate_if_active(
+            &document_id,
+            active_document_id,
+            super::OutputTab::Results,
+        );
         self.table_data.invalidate_grid_projection();
         self.feedback.runtime_message = if total_rows > sample_len as u64 {
             format!("Showing {sample_len} sampled rows of {total_rows} total rows.")

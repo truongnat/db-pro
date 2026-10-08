@@ -162,7 +162,13 @@ impl DbProApp {
 
     pub(super) fn export_results_from_palette(&mut self) {
         if self.query.session.active_result().is_some() {
-            self.query.output.active_tab = OutputTab::Results;
+            self.query.output.set_active_for_optional_document(
+                self.query
+                    .session
+                    .active_document()
+                    .map(|document| document.id.as_str()),
+                OutputTab::Results,
+            );
             self.overlay.export_open = true;
             self.workspace.active_tab = WorkspaceTab::Query;
         } else {
