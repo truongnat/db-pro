@@ -66,6 +66,15 @@ fn draw_hover_column_row(ui: &mut egui::Ui, col: &HoverColumn, theme: &DbProThem
     });
 }
 
+// The hover popup is not scrollable: the pointer leaving the editor token closes it, so a
+// scroll region inside can never be interacted with. Cap the rows instead so the card stays
+// within a sane height budget, and — critically — so `content_ui.min_size()` always reports
+// the full content height to the enclosing `Area`. A `ScrollArea` reports only the visible
+// viewport height; once the Area stores a short size the clip locks and rows disappear.
+const MAX_HOVER_COLUMN_ROWS: usize = 10;
+const MAX_HOVER_FK_ROWS: usize = 3;
+const HOVER_POPUP_MAX_HEIGHT: f32 = 400.0;
+
 /// Draw the rich hover popup for any `RichHoverHelp` variant.
 pub(super) fn draw_rich_hover_popup(
     ctx: &egui::Context,
@@ -85,11 +94,9 @@ pub(super) fn draw_rich_hover_popup(
         RichHoverHelp::Keyword { example: Some(_), .. } => 500.0,
         _ => 380.0,
     };
-    let max_height: f32 = 400.0;
-
     let position = crate::components::clamp_popup_to_screen(
         anchor.left_bottom() + egui::vec2(0.0, 6.0),
-        egui::vec2(popup_width, max_height),
+        egui::vec2(popup_width, HOVER_POPUP_MAX_HEIGHT),
         ctx.screen_rect(),
         10.0,
     );
@@ -107,11 +114,7 @@ pub(super) fn draw_rich_hover_popup(
                 .inner_margin(egui::Margin::same(10.0))
                 .show(ui, |ui| {
                     ui.set_max_width(popup_width);
-                    egui::ScrollArea::vertical()
-                        .max_height(max_height - 20.0)
-                        .show(ui, |ui| {
-                            draw_rich_hover_content(ui, help, theme);
-                        });
+                    draw_rich_hover_content(ui, help, theme);
                 });
         });
 }
@@ -171,14 +174,17 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 );
                 ui.add_space(2.0);
                 ui.separator();
-                for col in columns.iter().take(20) {
+                for col in columns.iter().take(MAX_HOVER_COLUMN_ROWS) {
                     draw_hover_column_row(ui, col, theme);
                 }
-                if columns.len() > 20 {
+                if columns.len() > MAX_HOVER_COLUMN_ROWS {
                     ui.label(
-                        RichText::new(format!("… and {} more columns", columns.len() - 20))
-                            .small()
-                            .color(theme.text_muted),
+                        RichText::new(format!(
+                            "… and {} more columns",
+                            columns.len() - MAX_HOVER_COLUMN_ROWS
+                        ))
+                        .small()
+                        .color(theme.text_muted),
                     );
                 }
             }
@@ -187,7 +193,7 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 ui.add_space(6.0);
                 ui.label(RichText::new("Foreign keys").small().strong().color(theme.text_muted));
                 ui.add_space(2.0);
-                for fk in foreign_keys {
+                for fk in foreign_keys.iter().take(MAX_HOVER_FK_ROWS) {
                     ui.label(
                         RichText::new(format!(
                             "({}) → {}({})",
@@ -197,6 +203,13 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                         ))
                         .font(FontId::monospace(11.0))
                         .color(theme.text_secondary),
+                    );
+                }
+                if foreign_keys.len() > MAX_HOVER_FK_ROWS {
+                    ui.label(
+                        RichText::new(format!("… and {} more", foreign_keys.len() - MAX_HOVER_FK_ROWS))
+                            .small()
+                            .color(theme.text_muted),
                     );
                 }
             }
@@ -600,6 +613,69 @@ mod tests {
             documentation: None,
             replacement_range: range,
             sort_score: 1,
+        }
+    }
+
+    fn table_hover_help(column_count: usize) -> RichHoverHelp {
+        let columns = (0..column_count)
+            .map(|i| HoverColumn {
+                name: format!("col_{i}"),
+                data_type: "TEXT".to_owned(),
+                nullable: true,
+                is_primary_key: i == 0,
+                is_foreign_key: false,
+            })
+            .collect();
+        RichHoverHelp::Table {
+            qualified_name: "main.customers".to_owned(),
+            kind: "Table".to_owned(),
+            row_count: None,
+            columns,
+            foreign_keys: Vec::new(),
+        }
+    }
+
+    fn run_hover_pass(ctx: &egui::Context, help: &RichHoverHelp) -> egui::FullOutput {
+        ctx.run(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0))),
+                ..Default::default()
+            },
+            |ctx| {
+                let anchor = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(60.0, 18.0));
+                draw_rich_hover_popup(ctx, anchor, (0, 9), help, &DbProTheme::default());
+            },
+        )
+    }
+
+    fn painted_texts(output: &egui::FullOutput) -> Vec<String> {
+        output
+            .shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_owned()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Regression test for the hover popup "shrink lock": egui `Area` confines its child to
+    /// the size measured on the previous frame. If the popup first renders short content for
+    /// a token (e.g. a `Symbol` card while introspection is still streaming) and later grows
+    /// to a tall `Table` card for the same token range, every row must still be painted.
+    #[test]
+    fn rich_hover_popup_grows_and_paints_every_column_row() {
+        let ctx = egui::Context::default();
+        let short_help = RichHoverHelp::Symbol(SqlSymbolHelp {
+            title: "customers".to_owned(),
+            kind: "Symbol".to_owned(),
+            detail: "unresolved".to_owned(),
+            documentation: "Resolving schema…".to_owned(),
+        });
+        let _ = run_hover_pass(&ctx, &short_help);
+        let texts = painted_texts(&run_hover_pass(&ctx, &table_hover_help(5)));
+        for i in 0..5 {
+            assert!(texts.iter().any(|t| t.contains(&format!("col_{i}"))), "missing col_{i}");
         }
     }
 

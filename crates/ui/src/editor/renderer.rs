@@ -97,6 +97,7 @@ pub struct SqlEditor<'a> {
     pub search_query: &'a str,
     pub active_search_match_index: usize,
     pub completion_open: bool,
+    pub rich_hover_open: bool,
     pub snippet_active: bool,
     pub snippet_range: Option<(usize, usize)>,
     pub auto_focus: bool,
@@ -132,6 +133,7 @@ impl<'a> SqlEditor<'a> {
             search_query: "",
             active_search_match_index: 0,
             completion_open: false,
+            rich_hover_open: false,
             snippet_active: false,
             snippet_range: None,
             auto_focus: false,
@@ -154,6 +156,11 @@ impl<'a> SqlEditor<'a> {
 
     pub fn with_completion_open(mut self, completion_open: bool) -> Self {
         self.completion_open = completion_open;
+        self
+    }
+
+    pub fn with_rich_hover_open(mut self, rich_hover_open: bool) -> Self {
+        self.rich_hover_open = rich_hover_open;
         self
     }
 
@@ -904,7 +911,9 @@ impl<'a> SqlEditor<'a> {
                 );
 
                 if let Some(pos) = pointer_pos {
-                    if d_rect.contains(pos) {
+                    // A diagnostic tooltip must not fight the completion popup or the
+                    // delayed rich-hover card — those popups own the hover real estate.
+                    if d_rect.contains(pos) && !self.completion_open && !self.rich_hover_open {
                         egui::show_tooltip(ui.ctx(), ui.layer_id(), egui::Id::new("diag_hover"), |ui| {
                             ui.horizontal(|ui| {
                                 let badge = match diag.severity {
