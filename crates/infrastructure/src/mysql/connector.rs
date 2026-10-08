@@ -580,6 +580,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn execute_parameterized_transaction_reports_validation_failure_on_unknown_handle() {
+        use db_pro_core::ports::ParameterizedTransactionStatement;
+
+        let connector = MySqlConnector::new();
+        let handle = ConnectionHandle::new(999); // Handle not connected
+        let statements = vec![ParameterizedTransactionStatement {
+            sql: "INSERT INTO users VALUES (?)".to_string(),
+            params: vec![QueryParam::Text("user1".into())],
+            expect_affected_rows: true,
+            max_affected_rows: Some(1),
+        }];
+
+        let failure = connector
+            .execute_parameterized_transaction(&handle, &statements)
+            .await
+            .expect_err("execute_parameterized_transaction on unknown handle must fail validation");
+
+        assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+        assert_eq!(
+            failure.statement_index, 0,
+            "statement_index must be 0 for Validation phase failure"
+        );
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
     async fn execute_batch_reports_error_on_unknown_handle() {
         let connector = MySqlConnector::new();
         let handle = ConnectionHandle::new(999);
