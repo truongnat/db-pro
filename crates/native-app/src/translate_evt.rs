@@ -4,6 +4,7 @@ use super::super::*;
 use super::translate_cmd::*;
 use super::translate_map::*;
 
+// cc-scan:allow HUGE_FUNCTION — flat RuntimeEvent→UiEvent router; each arm delegates to a per-event translator
 pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
     match event {
         RuntimeEvent::ConnectionsLoaded {

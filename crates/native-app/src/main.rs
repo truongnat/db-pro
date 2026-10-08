@@ -43,14 +43,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         Ok::<_, Box<dyn Error>>(spawn_worker(runtime, 64))
     })?;
 
-    let command_runtime_tx = runtime_tx.clone();
-    let command_handle = tokio_runtime.handle().clone();
-    let picker_event_tx = event_tx.clone();
+    spawn_command_picker(
+        command_rx,
+        runtime_tx.clone(),
+        event_tx.clone(),
+        tokio_runtime.handle().clone(),
+    );
+
+    spawn_event_pump(runtime_rx, event_tx, tokio_runtime.handle().clone());
+
+    run_native_app(bridge)
+}
+
+/// Bridges file-picker commands (rfd, blocking) onto a dedicated thread so
+/// native dialogs never stall the egui update; everything else translates and
+/// forwards to the runtime channel.
+fn spawn_command_picker(
+    command_rx: std::sync::mpsc::Receiver<UiCommand>,
+    runtime_tx: tokio::sync::mpsc::Sender<RuntimeCommand>,
+    event_tx: std::sync::mpsc::SyncSender<UiEvent>,
+    command_handle: tokio::runtime::Handle,
+) {
     thread::spawn(move || {
         let send_picked = |request_id, kind: &str, path: Option<String>| {
             // Fire-and-forget: a picker result is only dropped once the UI has
             // gone away, which means the whole app is shutting down.
-            let _ = picker_event_tx.send(UiEvent::FilePicked {
+            let _ = event_tx.send(UiEvent::FilePicked {
                 request_id,
                 kind: kind.to_owned(),
                 path,
@@ -101,7 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let Some(command) = translate_command(command) else {
                         continue;
                     };
-                    let send_result = command_handle.block_on(command_runtime_tx.send(command));
+                    let send_result = command_handle.block_on(runtime_tx.send(command));
                     if send_result.is_err() {
                         break;
                     }
@@ -109,10 +127,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
-
-    spawn_event_pump(runtime_rx, event_tx, tokio_runtime.handle().clone());
-
-    run_native_app(bridge)
 }
 
 fn init_tracing() {

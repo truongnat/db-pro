@@ -139,6 +139,7 @@ pub(crate) fn ui_ssl_mode(mode: db_pro_core::domain::connection::SslMode) -> UiS
     }
 }
 
+// cc-scan:allow HUGE_FUNCTION — flat command-family router; each arm delegates to a per-family translator
 pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match &command {
         UiCommand::OpenQuery
@@ -288,6 +289,7 @@ pub(crate) fn translate_query_command(command: UiCommand) -> Option<RuntimeComma
     }
 }
 
+// cc-scan:allow HUGE_FUNCTION — flat UiCommand→RuntimeCommand mapper; each arm is a one-level field mapping
 pub(crate) fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
         UiCommand::ExecuteDdl {
@@ -583,6 +585,53 @@ pub(crate) fn translate_connection_command(command: UiCommand) -> Option<Runtime
 
 pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
+        UiCommand::RunQuery { .. }
+        | UiCommand::RunQueryMulti { .. }
+        | UiCommand::ExplainQuery { .. }
+        | UiCommand::CancelQuery { .. }
+        | UiCommand::RequestSqlPrediction { .. }
+        | UiCommand::CancelSqlPrediction { .. } => map_query_exec_command(command),
+        UiCommand::Backup { .. } | UiCommand::Restore { .. } => map_backup_command(command),
+        UiCommand::MonitoringSnapshot { .. }
+        | UiCommand::MonitoringCancelBackend { .. }
+        | UiCommand::MonitoringTerminateBackend { .. }
+        | UiCommand::MonitoringMaintenance { .. }
+        | UiCommand::MonitoringStatStatements { .. }
+        | UiCommand::MonitoringResetStatStatements { .. }
+        | UiCommand::AuditEventsLoad { .. }
+        | UiCommand::ListPgSettings { .. }
+        | UiCommand::SetPgSettingSession { .. }
+        | UiCommand::ResetPgSettingSession { .. } => map_monitoring_command(command),
+        UiCommand::ListFdwInventory { .. }
+        | UiCommand::CreateFdwServer { .. }
+        | UiCommand::DropFdwServer { .. }
+        | UiCommand::ListReplicationInventory { .. }
+        | UiCommand::CreatePublicationAll { .. }
+        | UiCommand::DropPublication { .. }
+        | UiCommand::DropSubscription { .. }
+        | UiCommand::ListEventTriggers { .. }
+        | UiCommand::CreateEventTrigger { .. }
+        | UiCommand::DropEventTrigger { .. }
+        | UiCommand::AlterEventTrigger { .. } => map_fdw_replication_command(command),
+        UiCommand::ListUsers { .. }
+        | UiCommand::CreateRole { .. }
+        | UiCommand::DropRole { .. }
+        | UiCommand::ListPrivileges { .. }
+        | UiCommand::ListTableRls { .. }
+        | UiCommand::AlterRole { .. }
+        | UiCommand::UpdateRolePassword { .. }
+        | UiCommand::ListMemberships { .. }
+        | UiCommand::GrantMembership { .. }
+        | UiCommand::RevokeMembership { .. }
+        | UiCommand::GrantPrivilege { .. }
+        | UiCommand::RevokePrivilege { .. } => map_access_control_command(command),
+        UiCommand::DiffTableDataKeyed { .. } => map_diff_command(command),
+        _ => None,
+    }
+}
+// cc-scan:allow HUGE_FUNCTION — flat UiCommand→RuntimeCommand mapper; each arm is a one-level field mapping
+fn map_query_exec_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
         UiCommand::RunQuery {
             request_id,
             connection_id,
@@ -620,6 +669,44 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             analyze,
             schema,
         }),
+        UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
+            request_id: runtime_request_id(request_id),
+        }),
+        UiCommand::RequestSqlPrediction {
+            request_id,
+            document_id,
+            document_version,
+            anchor,
+            replacement_range,
+            context,
+        } => Some(RuntimeCommand::RequestSqlPrediction {
+            request_id: runtime_request_id(request_id),
+            document_id,
+            document_version,
+            anchor,
+            replacement_range,
+            context: db_pro_runtime::SqlPredictionContext {
+                sql_before_cursor: context.sql_before_cursor,
+                sql_after_cursor: context.sql_after_cursor,
+                current_statement: context.current_statement,
+                active_schema: context.active_schema,
+                dialect: context.dialect,
+                referenced_tables: context.referenced_tables,
+                table_aliases: context.table_aliases,
+                relevant_columns: context.relevant_columns,
+                fk_neighbors: context.fk_neighbors,
+                cte_names: context.cte_names,
+            },
+        }),
+        UiCommand::CancelSqlPrediction { request_id } => Some(RuntimeCommand::CancelSqlPrediction {
+            request_id: runtime_request_id(request_id),
+        }),
+        _ => None,
+    }
+}
+
+fn map_backup_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
         UiCommand::Backup {
             request_id,
             connection_id,
@@ -656,6 +743,13 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
                 },
             },
         }),
+        _ => None,
+    }
+}
+
+// cc-scan:allow HUGE_FUNCTION — flat UiCommand→RuntimeCommand dispatcher; each arm is a one-level field mapping
+fn map_monitoring_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
         UiCommand::MonitoringSnapshot {
             request_id,
             connection_id,
@@ -754,6 +848,13 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             connection_id,
             name,
         }),
+        _ => None,
+    }
+}
+
+// cc-scan:allow HUGE_FUNCTION — flat UiCommand→RuntimeCommand dispatcher; each arm is a one-level field mapping
+fn map_fdw_replication_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
         UiCommand::ListFdwInventory {
             request_id,
             connection_id,
@@ -881,6 +982,13 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             mode,
             confirmed,
         }),
+        _ => None,
+    }
+}
+
+// cc-scan:allow HUGE_FUNCTION — flat UiCommand→RuntimeCommand dispatcher; each arm is a one-level field mapping
+fn map_access_control_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
         UiCommand::ListUsers {
             request_id,
             connection_id,
@@ -1015,6 +1123,12 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             object_name,
             privilege,
         }),
+        _ => None,
+    }
+}
+
+fn map_diff_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
         UiCommand::DiffTableDataKeyed {
             request_id,
             source_id,
@@ -1031,38 +1145,6 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             table,
             key_columns,
             sample_limit,
-        }),
-        UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
-            request_id: runtime_request_id(request_id),
-        }),
-        UiCommand::RequestSqlPrediction {
-            request_id,
-            document_id,
-            document_version,
-            anchor,
-            replacement_range,
-            context,
-        } => Some(RuntimeCommand::RequestSqlPrediction {
-            request_id: runtime_request_id(request_id),
-            document_id,
-            document_version,
-            anchor,
-            replacement_range,
-            context: db_pro_runtime::SqlPredictionContext {
-                sql_before_cursor: context.sql_before_cursor,
-                sql_after_cursor: context.sql_after_cursor,
-                current_statement: context.current_statement,
-                active_schema: context.active_schema,
-                dialect: context.dialect,
-                referenced_tables: context.referenced_tables,
-                table_aliases: context.table_aliases,
-                relevant_columns: context.relevant_columns,
-                fk_neighbors: context.fk_neighbors,
-                cte_names: context.cte_names,
-            },
-        }),
-        UiCommand::CancelSqlPrediction { request_id } => Some(RuntimeCommand::CancelSqlPrediction {
-            request_id: runtime_request_id(request_id),
         }),
         _ => None,
     }

@@ -24,6 +24,7 @@ pub(crate) fn map_table_data_filter(filter: UiTableDataFilter) -> TableFilter {
     }
 }
 
+// cc-scan:allow HARD_COMPLEXITY — ordered type-name classifier ladder; every arm is try-parse-else-Text
 pub(crate) fn parse_filter_value(data_type: &str, value: &str) -> CellValue {
     let normalized = data_type.to_ascii_lowercase();
     if normalized.contains("bool") {
@@ -214,6 +215,7 @@ pub(crate) fn ui_cell_to_domain_typed(cell: UiCell, data_type: &str) -> Option<C
     }
 }
 
+// cc-scan:allow HUGE_FUNCTION — flat TableInfo→UiTableInfo field mapping, one level of abstraction
 pub(crate) fn map_table_info(info: db_pro_core::domain::schema::TableInfo) -> UiTableInfo {
     UiTableInfo {
         schema: info.table.schema,

@@ -247,95 +247,108 @@ impl CaptureApp {
         // documents the password input + eye toggle (the affected surface for the
         // input click-steal fix) instead of the default window. Gated by an env var
         // so a normal launch is unaffected.
+        self.opened_dialog = self.open_dialog_capture()
+            || self.open_query_capture(ctx)
+            || self.open_table_capture()
+            || self.open_workspace_capture();
+    }
+
+    /// Connection-dialog captures: open the dialog surface, nothing else.
+    fn open_dialog_capture(&mut self) -> bool {
+        let inner = &mut self.inner;
         if std::env::var_os(NEW_CONNECTION_ENV).is_some() {
-            self.inner.open_new_connection_for_capture();
-            self.opened_dialog = true;
+            inner.open_new_connection_for_capture();
         } else if std::env::var_os(CONNECTION_ERROR_ENV).is_some() {
-            self.inner.open_connection_error_for_capture();
-            self.opened_dialog = true;
+            inner.open_connection_error_for_capture();
         } else if std::env::var_os(EDIT_CONNECTION_ENV).is_some() {
-            self.inner.open_edit_connection_for_capture();
-            self.opened_dialog = true;
+            inner.open_edit_connection_for_capture();
         } else if std::env::var_os("DB_PRO_CAPTURE_WELCOME").is_some() {
-            self.inner
-                .open_welcome_workspace_for_capture(std::env::var_os("DB_PRO_CAPTURE_WELCOME_LIGHT").is_some());
-            self.opened_dialog = true;
-        } else if std::env::var_os(QUERY_WORKSPACE_ENV).is_some() {
-            if std::env::var_os(QUERY_LIGHT_ENV).is_some() {
-                self.inner.open_query_workspace_for_capture_light();
-            } else {
-                self.inner.open_query_workspace_for_capture();
-            }
-            if std::env::var_os("DB_PRO_CAPTURE_QUERY_LIMIT").is_some() {
-                ctx.memory_mut(|memory| memory.open_popup(egui::Id::new("query_row_limit")));
-            }
-            self.opened_dialog = true;
-        } else if std::env::var_os(TABLE_WORKSPACE_ENV).is_some() {
-            if std::env::var_os("DB_PRO_CAPTURE_TABLE_DDL").is_some() {
-                self.inner
-                    .open_table_ddl_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os(TABLE_PROFILE_ENV).is_some() {
-                self.inner
-                    .open_table_profile_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_STRUCTURE").is_some() {
-                self.inner
-                    .open_table_structure_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_FOREIGN_KEYS").is_some() {
-                self.inner
-                    .open_table_foreign_keys_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_CONSTRAINTS").is_some() {
-                self.inner
-                    .open_table_constraints_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_DEPENDENCIES").is_some() {
-                self.inner
-                    .open_table_dependencies_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os(TABLE_INDEXES_ENV).is_some() {
-                self.inner
-                    .open_table_indexes_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os(TABLE_COMPLETION_ENV).is_some() {
-                self.inner
-                    .open_table_condition_completion_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
-            } else if std::env::var_os(TABLE_LIGHT_ENV).is_some() {
-                self.inner.open_table_workspace_for_capture_light();
-            } else {
-                self.inner.open_table_workspace_for_capture();
-            }
-            if let Ok(state) = std::env::var("DB_PRO_CAPTURE_TABLE_RECORD") {
-                self.inner.prepare_table_record_for_capture(&state);
-            }
-            self.opened_dialog = true;
-        } else if std::env::var_os(DIAGRAM_WORKSPACE_ENV).is_some() {
-            self.inner.open_diagram_workspace_for_capture();
-            self.opened_dialog = true;
+            inner.open_welcome_workspace_for_capture(std::env::var_os("DB_PRO_CAPTURE_WELCOME_LIGHT").is_some());
+        } else {
+            return false;
+        }
+        true
+    }
+
+    /// Query workspace capture; DB_PRO_CAPTURE_QUERY_LIMIT additionally opens the
+    /// row-limit popup so evidence covers it.
+    fn open_query_capture(&mut self, ctx: &egui::Context) -> bool {
+        if std::env::var_os(QUERY_WORKSPACE_ENV).is_none() {
+            return false;
+        }
+        if std::env::var_os(QUERY_LIGHT_ENV).is_some() {
+            self.inner.open_query_workspace_for_capture_light();
+        } else {
+            self.inner.open_query_workspace_for_capture();
+        }
+        if std::env::var_os("DB_PRO_CAPTURE_QUERY_LIMIT").is_some() {
+            ctx.memory_mut(|memory| memory.open_popup(egui::Id::new("query_row_limit")));
+        }
+        true
+    }
+
+    /// Table workspace capture; the specific surface env wins over the base
+    /// workspace, and DB_PRO_CAPTURE_TABLE_RECORD primes a record view.
+    fn open_table_capture(&mut self) -> bool {
+        if std::env::var_os(TABLE_WORKSPACE_ENV).is_none() {
+            return false;
+        }
+        let light = std::env::var_os(TABLE_LIGHT_ENV).is_some();
+        if std::env::var_os("DB_PRO_CAPTURE_TABLE_DDL").is_some() {
+            self.inner.open_table_ddl_for_capture(light);
+        } else if std::env::var_os(TABLE_PROFILE_ENV).is_some() {
+            self.inner.open_table_profile_for_capture(light);
+        } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_STRUCTURE").is_some() {
+            self.inner.open_table_structure_for_capture(light);
+        } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_FOREIGN_KEYS").is_some() {
+            self.inner.open_table_foreign_keys_for_capture(light);
+        } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_CONSTRAINTS").is_some() {
+            self.inner.open_table_constraints_for_capture(light);
+        } else if std::env::var_os("DB_PRO_CAPTURE_TABLE_DEPENDENCIES").is_some() {
+            self.inner.open_table_dependencies_for_capture(light);
+        } else if std::env::var_os(TABLE_INDEXES_ENV).is_some() {
+            self.inner.open_table_indexes_for_capture(light);
+        } else if std::env::var_os(TABLE_COMPLETION_ENV).is_some() {
+            self.inner.open_table_condition_completion_for_capture(light);
+        } else if light {
+            self.inner.open_table_workspace_for_capture_light();
+        } else {
+            self.inner.open_table_workspace_for_capture();
+        }
+        if let Ok(state) = std::env::var("DB_PRO_CAPTURE_TABLE_RECORD") {
+            self.inner.prepare_table_record_for_capture(&state);
+        }
+        true
+    }
+
+    /// Remaining single-shot workspace captures, dispatched by env var.
+    fn open_workspace_capture(&mut self) -> bool {
+        let inner = &mut self.inner;
+        if std::env::var_os(DIAGRAM_WORKSPACE_ENV).is_some() {
+            inner.open_diagram_workspace_for_capture();
         } else if std::env::var_os(SETTINGS_WORKSPACE_ENV).is_some() {
-            self.inner.open_settings_workspace_for_capture();
-            self.opened_dialog = true;
+            inner.open_settings_workspace_for_capture();
         } else if std::env::var_os(AGENT_WORKSPACE_ENV).is_some() {
-            self.inner.open_agent_workspace_for_capture();
-            self.opened_dialog = true;
+            inner.open_agent_workspace_for_capture();
         } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
-            self.inner.open_component_gallery_for_capture();
-            self.opened_dialog = true;
+            inner.open_component_gallery_for_capture();
         } else if std::env::var_os(EXPLORER_FILTER_ENV).is_some() {
-            self.inner.open_explorer_filter_for_capture();
-            self.opened_dialog = true;
+            inner.open_explorer_filter_for_capture();
         } else if std::env::var_os(HISTORY_ACTIVITY_ENV).is_some() {
-            self.inner.open_history_activity_for_capture();
-            self.opened_dialog = true;
+            inner.open_history_activity_for_capture();
         } else if std::env::var_os(COMPARE_WORKSPACE_ENV).is_some() {
-            self.inner.open_schema_compare_for_capture();
-            self.opened_dialog = true;
+            inner.open_schema_compare_for_capture();
         } else if std::env::var_os("DB_PRO_CAPTURE_RESULTS").is_some() {
-            self.inner
-                .open_results_dock_for_capture(std::env::var_os("DB_PRO_CAPTURE_RESULTS_LIGHT").is_some());
-            self.opened_dialog = true;
+            inner.open_results_dock_for_capture(std::env::var_os("DB_PRO_CAPTURE_RESULTS_LIGHT").is_some());
         } else if std::env::var_os(QUICK_OPEN_ENV).is_some() {
-            self.inner.open_quick_open_for_capture(
+            inner.open_quick_open_for_capture(
                 std::env::var_os(QUICK_OPEN_LIGHT_ENV).is_some(),
                 std::env::var_os(QUICK_OPEN_EMPTY_ENV).is_some(),
             );
-            self.opened_dialog = true;
+        } else {
+            return false;
         }
+        true
     }
 
     fn pin_viewport(&self, ctx: &egui::Context) {
