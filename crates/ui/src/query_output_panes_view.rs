@@ -83,7 +83,11 @@ pub(super) fn draw_chart_pane(
         if let Some(document) = context.session.documents.get_mut(document_index) {
             let config = &mut document.chart_config;
             ui.horizontal(|ui| {
-                let select = |ui: &mut egui::Ui, salt: &'static str, selected: &mut usize, options: &[String], width: f32| {
+                let select = |ui: &mut egui::Ui,
+                              salt: &'static str,
+                              selected: &mut usize,
+                              options: &[String],
+                              width: f32| {
                     crate::components::Select::new(salt, selected, options)
                         .theme(context.theme)
                         .size(crate::components::SelectSize::Sm)
