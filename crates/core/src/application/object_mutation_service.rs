@@ -51,37 +51,42 @@ impl ObjectMutationService {
 
 fn unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
     let driver = request.driver.to_ascii_lowercase();
-    let is_sqlite = driver.contains("sqlite");
-    let is_pg = driver.contains("postgres") || driver == "pg";
+    if driver.contains("sqlite") {
+        return sqlite_unsupported_reason(request);
+    }
+    if driver.contains("postgres") || driver == "pg" {
+        return None;
+    }
+    if matches!(
+        request.definition,
+        ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_)
+    ) {
+        return Some("row-level security policies require PostgreSQL".into());
+    }
+    None
+}
 
+/// SQLite has no catalog objects beyond tables/views/triggers — every row here
+/// is a documented "unsupported" answer for the workbench.
+fn sqlite_unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
     match (&request.definition, request.action) {
-        (ObjectDefinition::MaterializedView(_), _) if is_sqlite => {
-            Some("SQLite does not support materialized views".into())
-        }
-        (ObjectDefinition::Sequence(_), _) if is_sqlite => Some("SQLite does not support CREATE SEQUENCE".into()),
-        (ObjectDefinition::EnumType(_), _) if is_sqlite => {
-            Some("SQLite does not support CREATE TYPE ... AS ENUM".into())
-        }
-        (ObjectDefinition::DomainType(_), _) if is_sqlite => Some("SQLite does not support CREATE DOMAIN".into()),
-        (ObjectDefinition::Extension(_), _) if is_sqlite => Some("SQLite does not support CREATE EXTENSION".into()),
-        (ObjectDefinition::Partition(_), _) if is_sqlite => Some("SQLite does not support table partitions".into()),
-        (ObjectDefinition::Routine(_), _) if is_sqlite => {
-            Some("SQLite does not support stored functions/procedures".into())
-        }
-        (ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_), _) if is_sqlite => {
+        (ObjectDefinition::MaterializedView(_), _) => Some("SQLite does not support materialized views".into()),
+        (ObjectDefinition::Sequence(_), _) => Some("SQLite does not support CREATE SEQUENCE".into()),
+        (ObjectDefinition::EnumType(_), _) => Some("SQLite does not support CREATE TYPE ... AS ENUM".into()),
+        (ObjectDefinition::DomainType(_), _) => Some("SQLite does not support CREATE DOMAIN".into()),
+        (ObjectDefinition::Extension(_), _) => Some("SQLite does not support CREATE EXTENSION".into()),
+        (ObjectDefinition::Partition(_), _) => Some("SQLite does not support table partitions".into()),
+        (ObjectDefinition::Routine(_), _) => Some("SQLite does not support stored functions/procedures".into()),
+        (ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_), _) => {
             Some("SQLite does not support row-level security policies".into())
         }
-        (ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_), _) if !is_pg => {
-            Some("row-level security policies require PostgreSQL".into())
-        }
-        (ObjectDefinition::Schema(_), ObjectAction::Create | ObjectAction::Drop) if is_sqlite => {
+        (ObjectDefinition::Schema(_), ObjectAction::Create | ObjectAction::Drop) => {
             Some("SQLite has no CREATE/DROP SCHEMA".into())
         }
-        (ObjectDefinition::Database(_), _) if is_sqlite => {
+        (ObjectDefinition::Database(_), _) => {
             Some("SQLite CREATE/DROP DATABASE is not supported in this workbench".into())
         }
-        (ObjectDefinition::Comment(_), _) if is_sqlite => Some("SQLite COMMENT ON is not supported".into()),
-        (ObjectDefinition::Trigger(_), ObjectAction::Create) if is_pg || is_sqlite => None,
+        (ObjectDefinition::Comment(_), _) => Some("SQLite COMMENT ON is not supported".into()),
         _ => None,
     }
 }

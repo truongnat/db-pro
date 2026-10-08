@@ -47,6 +47,7 @@ pub struct CloudConnectionPreset {
     pub token_auth_supported: bool,
 }
 
+// cc-scan:allow HUGE_FUNCTION — static preset catalog; the vec! literal IS the data table
 pub fn presets() -> Vec<CloudConnectionPreset> {
     vec![
         CloudConnectionPreset {

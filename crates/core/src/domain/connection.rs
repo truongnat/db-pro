@@ -256,7 +256,19 @@ const MAX_MAX_ROWS: u64 = 100_000;
 impl ConnectionConfig {
     pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
         let mut errors = Vec::new();
+        self.validate_name(&mut errors);
+        self.validate_network_fields(&mut errors);
+        self.validate_tunnel_support(&mut errors);
+        self.validate_field_bounds(&mut errors);
+        self.validate_ssh_tunnel(&mut errors);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
 
+    fn validate_name(&self, errors: &mut Vec<ValidationError>) {
         if self.name.trim().is_empty() {
             errors.push(ValidationError {
                 field: "name".into(),
@@ -268,96 +280,99 @@ impl ConnectionConfig {
                 message: format!("Connection name must be at most {MAX_CONNECTION_NAME_LEN} characters"),
             });
         }
+    }
 
-        match self.driver {
-            DriverType::Postgres | DriverType::Mysql | DriverType::SqlServer => {
-                if self.host.trim().is_empty() {
-                    errors.push(ValidationError {
-                        field: "host".into(),
-                        message: "Host is required".into(),
-                    });
-                }
-                if self.port == 0 {
-                    errors.push(ValidationError {
-                        field: "port".into(),
-                        message: "Port must be between 1 and 65535".into(),
-                    });
-                }
-                if self.username.trim().is_empty() {
-                    errors.push(ValidationError {
-                        field: "username".into(),
-                        message: "Username is required".into(),
-                    });
-                }
-            }
-            DriverType::SQLite => {}
+    /// Host/port/credentials apply to network drivers; SQLite opens a file.
+    fn validate_network_fields(&self, errors: &mut Vec<ValidationError>) {
+        if matches!(self.driver, DriverType::SQLite) {
+            return;
         }
-
-        if self.driver == DriverType::SQLite && self.ssh_tunnel.is_some() {
+        if self.host.trim().is_empty() {
             errors.push(ValidationError {
-                field: "ssh_tunnel".into(),
-                message: "SSH tunnels are supported only for PostgreSQL".into(),
+                field: "host".into(),
+                message: "Host is required".into(),
             });
         }
-        if self.driver == DriverType::SqlServer && self.ssh_tunnel.is_some() {
+        if self.port == 0 {
             errors.push(ValidationError {
-                field: "ssh_tunnel".into(),
-                message: "SQL Server SSH tunneling is not implemented by the provider yet".into(),
+                field: "port".into(),
+                message: "Port must be between 1 and 65535".into(),
             });
         }
+        if self.username.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "username".into(),
+                message: "Username is required".into(),
+            });
+        }
+    }
 
+    /// SSH tunnels are a PostgreSQL-only capability today.
+    fn validate_tunnel_support(&self, errors: &mut Vec<ValidationError>) {
+        if self.ssh_tunnel.is_none() {
+            return;
+        }
+        let message = match self.driver {
+            DriverType::SQLite => Some("SSH tunnels are supported only for PostgreSQL"),
+            DriverType::SqlServer => Some("SQL Server SSH tunneling is not implemented by the provider yet"),
+            DriverType::Postgres | DriverType::Mysql => None,
+        };
+        if let Some(message) = message {
+            errors.push(ValidationError {
+                field: "ssh_tunnel".into(),
+                message: message.into(),
+            });
+        }
+    }
+
+    fn validate_field_bounds(&self, errors: &mut Vec<ValidationError>) {
         if self.database.trim().is_empty() {
             errors.push(ValidationError {
                 field: "database".into(),
                 message: "Database is required".into(),
             });
         }
-
         if self.query_timeout_ms == 0 {
             errors.push(ValidationError {
                 field: "query_timeout_ms".into(),
                 message: "Query timeout must be greater than 0".into(),
             });
         }
-
         if self.max_rows == 0 || self.max_rows > MAX_MAX_ROWS {
             errors.push(ValidationError {
                 field: "max_rows".into(),
                 message: format!("max_rows must be between 1 and {MAX_MAX_ROWS}"),
             });
         }
+    }
 
-        if let Some(ref ssh) = self.ssh_tunnel {
-            if ssh.host.trim().is_empty() {
-                errors.push(ValidationError {
-                    field: "ssh_tunnel.host".into(),
-                    message: "SSH tunnel host is required".into(),
-                });
-            }
-            if ssh.port == 0 {
-                errors.push(ValidationError {
-                    field: "ssh_tunnel.port".into(),
-                    message: "SSH tunnel port must be between 1 and 65535".into(),
-                });
-            }
-            if ssh.user.trim().is_empty() {
-                errors.push(ValidationError {
-                    field: "ssh_tunnel.user".into(),
-                    message: "SSH tunnel user is required".into(),
-                });
-            }
-            if ssh.private_key_path.trim().is_empty() {
-                errors.push(ValidationError {
-                    field: "ssh_tunnel.private_key_path".into(),
-                    message: "SSH tunnel private key path is required".into(),
-                });
-            }
+    fn validate_ssh_tunnel(&self, errors: &mut Vec<ValidationError>) {
+        let Some(ssh) = self.ssh_tunnel.as_ref() else {
+            return;
+        };
+        if ssh.host.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "ssh_tunnel.host".into(),
+                message: "SSH tunnel host is required".into(),
+            });
         }
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
+        if ssh.port == 0 {
+            errors.push(ValidationError {
+                field: "ssh_tunnel.port".into(),
+                message: "SSH tunnel port must be between 1 and 65535".into(),
+            });
+        }
+        if ssh.user.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "ssh_tunnel.user".into(),
+                message: "SSH tunnel user is required".into(),
+            });
+        }
+        if ssh.private_key_path.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "ssh_tunnel.private_key_path".into(),
+                message: "SSH tunnel private key path is required".into(),
+            });
         }
     }
 }

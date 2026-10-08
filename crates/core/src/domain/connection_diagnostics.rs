@@ -72,130 +72,142 @@ pub fn redact_diag_message(raw: &str) -> String {
 
 /// Run pre-auth network stages locally. Auth is reported from the caller after test_connection.
 pub fn probe_network_stages(config: &ConnectionConfig) -> ConnectionDiagnosticsReport {
-    let mut stages = Vec::new();
-    let mut failed_stage = None;
-
     // SQLite is local-file — skip network stages.
     if config.driver == DriverType::SQLite {
-        stages.push(StageResult {
-            stage: ConnectionStage::Dns,
-            ok: true,
-            message: "SQLite uses a local file path — DNS/TCP/SSH/TLS not applicable".into(),
-        });
         return ConnectionDiagnosticsReport {
-            stages,
+            stages: vec![StageResult {
+                stage: ConnectionStage::Dns,
+                ok: true,
+                message: "SQLite uses a local file path — DNS/TCP/SSH/TLS not applicable".into(),
+            }],
             failed_stage: None,
         };
     }
 
     let host = config.host.trim();
     if host.is_empty() {
-        stages.push(StageResult {
-            stage: ConnectionStage::Dns,
-            ok: false,
-            message: "Host is empty".into(),
-        });
         return ConnectionDiagnosticsReport {
-            stages,
+            stages: vec![StageResult {
+                stage: ConnectionStage::Dns,
+                ok: false,
+                message: "Host is empty".into(),
+            }],
             failed_stage: Some(ConnectionStage::Dns),
         };
     }
 
-    let addr = format!("{host}:{}", config.port);
+    let mut stages = Vec::new();
+    if let Err(report) = probe_dns(host, config.port, &mut stages) {
+        return report;
+    }
+    if let Err(report) = probe_tcp(host, config.port, &mut stages) {
+        return report;
+    }
+    stages.push(ssh_stage(config));
+    stages.push(tls_stage(config));
+    ConnectionDiagnosticsReport {
+        stages,
+        failed_stage: None,
+    }
+}
+
+/// Stages that end the probe early return `Err(report)` carrying the finished
+/// failure report; `Ok` leaves a successful stage pushed on `stages`.
+fn probe_dns(host: &str, port: u16, stages: &mut Vec<StageResult>) -> Result<(), ConnectionDiagnosticsReport> {
+    let addr = format!("{host}:{port}");
     match std::net::ToSocketAddrs::to_socket_addrs(&addr) {
-        Ok(mut iter) => {
-            if let Some(resolved) = iter.next() {
+        Ok(mut iter) => match iter.next() {
+            Some(resolved) => {
                 stages.push(StageResult {
                     stage: ConnectionStage::Dns,
                     ok: true,
                     message: format!("Resolved {host} → {resolved}"),
                 });
-            } else {
-                stages.push(StageResult {
-                    stage: ConnectionStage::Dns,
-                    ok: false,
-                    message: format!("No addresses resolved for {host}"),
-                });
-                failed_stage = Some(ConnectionStage::Dns);
-                return ConnectionDiagnosticsReport { stages, failed_stage };
+                Ok(())
             }
-        }
-        Err(err) => {
-            stages.push(StageResult {
-                stage: ConnectionStage::Dns,
-                ok: false,
-                message: redact_diag_message(&format!("DNS failed: {err}")),
-            });
-            failed_stage = Some(ConnectionStage::Dns);
-            return ConnectionDiagnosticsReport { stages, failed_stage };
-        }
+            None => Err(fail_at(
+                stages,
+                ConnectionStage::Dns,
+                format!("No addresses resolved for {host}"),
+            )),
+        },
+        Err(err) => Err(fail_at(
+            stages,
+            ConnectionStage::Dns,
+            redact_diag_message(&format!("DNS failed: {err}")),
+        )),
     }
+}
 
-    let tcp_target = format!("{host}:{}", config.port);
+fn probe_tcp(host: &str, port: u16, stages: &mut Vec<StageResult>) -> Result<(), ConnectionDiagnosticsReport> {
+    let tcp_target = format!("{host}:{port}");
     match std::net::TcpStream::connect_timeout(
         &std::net::ToSocketAddrs::to_socket_addrs(&tcp_target)
             .ok()
             .and_then(|mut i| i.next())
-            .unwrap_or_else(|| std::net::SocketAddr::from(([127, 0, 0, 1], config.port))),
+            .unwrap_or_else(|| std::net::SocketAddr::from(([127, 0, 0, 1], port))),
         std::time::Duration::from_secs(3),
     ) {
-        Ok(_) => stages.push(StageResult {
-            stage: ConnectionStage::Tcp,
-            ok: true,
-            message: format!("TCP connect to {tcp_target} succeeded"),
-        }),
-        Err(err) => {
+        Ok(_) => {
             stages.push(StageResult {
                 stage: ConnectionStage::Tcp,
-                ok: false,
-                message: redact_diag_message(&format!("TCP failed: {err}")),
+                ok: true,
+                message: format!("TCP connect to {tcp_target} succeeded"),
             });
-            failed_stage = Some(ConnectionStage::Tcp);
-            return ConnectionDiagnosticsReport { stages, failed_stage };
+            Ok(())
         }
+        Err(err) => Err(fail_at(
+            stages,
+            ConnectionStage::Tcp,
+            redact_diag_message(&format!("TCP failed: {err}")),
+        )),
     }
+}
 
-    if config.ssh_tunnel.is_some() || config.ssh_profile_id.is_some() {
-        stages.push(StageResult {
-            stage: ConnectionStage::Ssh,
-            ok: true,
-            message: "SSH tunnel configured (validated separately via Test SSH when available)".into(),
-        });
+fn fail_at(stages: &mut Vec<StageResult>, stage: ConnectionStage, message: String) -> ConnectionDiagnosticsReport {
+    stages.push(StageResult {
+        stage,
+        ok: false,
+        message,
+    });
+    ConnectionDiagnosticsReport {
+        stages: std::mem::take(stages),
+        failed_stage: Some(stage),
+    }
+}
+
+fn ssh_stage(config: &ConnectionConfig) -> StageResult {
+    let message = if config.ssh_tunnel.is_some() || config.ssh_profile_id.is_some() {
+        "SSH tunnel configured (validated separately via Test SSH when available)"
     } else {
-        stages.push(StageResult {
-            stage: ConnectionStage::Ssh,
-            ok: true,
-            message: "SSH not configured — skipped".into(),
-        });
+        "SSH not configured — skipped"
+    };
+    StageResult {
+        stage: ConnectionStage::Ssh,
+        ok: true,
+        message: message.into(),
     }
+}
 
-    let tls_msg = match config.ssl_mode {
+fn tls_stage(config: &ConnectionConfig) -> StageResult {
+    let root_ca = || {
+        config
+            .ssl_root_cert_path
+            .as_deref()
+            .filter(|p| !p.is_empty())
+            .unwrap_or("(system CAs)")
+    };
+    let message = match config.ssl_mode {
         SslMode::Disable => "TLS disabled".to_owned(),
         SslMode::Require => "TLS required (encrypted, cert not verified)".to_owned(),
-        SslMode::VerifyCa => {
-            let ca = config
-                .ssl_root_cert_path
-                .as_deref()
-                .filter(|p| !p.is_empty())
-                .unwrap_or("(system CAs)");
-            format!("TLS VerifyCa using root cert path `{ca}`")
-        }
-        SslMode::VerifyFull => {
-            let ca = config
-                .ssl_root_cert_path
-                .as_deref()
-                .filter(|p| !p.is_empty())
-                .unwrap_or("(system CAs)");
-            format!("TLS VerifyFull (hostname check) using root cert path `{ca}`")
-        }
+        SslMode::VerifyCa => format!("TLS VerifyCa using root cert path `{}`", root_ca()),
+        SslMode::VerifyFull => format!("TLS VerifyFull (hostname check) using root cert path `{}`", root_ca()),
     };
-    stages.push(StageResult {
+    StageResult {
         stage: ConnectionStage::Tls,
         ok: true,
-        message: tls_msg,
-    });
-
-    ConnectionDiagnosticsReport { stages, failed_stage }
+        message,
+    }
 }
 
 pub fn with_auth_result(

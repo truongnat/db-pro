@@ -81,6 +81,7 @@ impl Rng {
     }
 }
 
+// cc-scan:allow HARD_COMPLEXITY — ordered type-name classifier ladder; first substring match wins
 pub fn infer_generator(data_type: &str) -> ColumnGeneratorKind {
     let t = data_type.to_ascii_lowercase();
     if t.contains("uuid") || t.contains("guid") {
