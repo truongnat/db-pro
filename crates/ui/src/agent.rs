@@ -129,7 +129,10 @@ pub fn respond(prompt: &str, context: &AgentContext) -> AgentMessage {
     if let Some(table) = table {
         return assistant(
             &format!("Here is a read-only query draft for `{table}`."),
-            Some(format!("SELECT *\nFROM {table}\nLIMIT 100;")),
+            Some(format!(
+                "SELECT *\nFROM {}\nLIMIT 100;",
+                crate::app::result_grid_export::quote_sql_identifier(&table)
+            )),
             false,
         );
     }
@@ -186,10 +189,11 @@ fn explain_response(prompt: &str, table: Option<&str>, driver: &str) -> Option<A
             false,
         ));
     };
+    let from = crate::app::result_grid_export::quote_sql_identifier(table);
     let sql = if driver.eq_ignore_ascii_case("sqlite") {
-        format!("EXPLAIN QUERY PLAN\nSELECT *\nFROM {table}\nLIMIT 100;")
+        format!("EXPLAIN QUERY PLAN\nSELECT *\nFROM {from}\nLIMIT 100;")
     } else {
-        format!("EXPLAIN\nSELECT *\nFROM {table}\nLIMIT 100;")
+        format!("EXPLAIN\nSELECT *\nFROM {from}\nLIMIT 100;")
     };
     Some(assistant(
         &format!("Here is a read-only query plan draft for `{table}`."),
@@ -243,7 +247,9 @@ fn relationship_response(prompt: &str, mentioned_tables: &[String]) -> Option<Ag
     }
     let left = &mentioned_tables[0];
     let right = &mentioned_tables[1];
-    let sql = format!("SELECT *\nFROM {left}\nJOIN {right} ON {left}.id = {right}.id\nLIMIT 100;");
+    let left_sql = crate::app::result_grid_export::quote_sql_identifier(left);
+    let right_sql = crate::app::result_grid_export::quote_sql_identifier(right);
+    let sql = format!("SELECT *\nFROM {left_sql}\nJOIN {right_sql} ON {left_sql}.id = {right_sql}.id\nLIMIT 100;");
     Some(assistant(
         &format!("I drafted a join for `{left}` and `{right}`. The ON clause is a placeholder because foreign-key details are not in the summary context."),
         Some(sql),
@@ -264,7 +270,10 @@ fn count_response(prompt: &str, table: Option<&str>) -> Option<AgentMessage> {
     };
     Some(assistant(
         &format!("Here is a count query for `{table}`."),
-        Some(format!("SELECT COUNT(*) AS row_count\nFROM {table};")),
+        Some(format!(
+            "SELECT COUNT(*) AS row_count\nFROM {};",
+            crate::app::result_grid_export::quote_sql_identifier(table)
+        )),
         false,
     ))
 }
@@ -277,7 +286,11 @@ fn mutation_draft(table: Option<&str>, template: &str, content: &str) -> AgentMe
             false,
         );
     };
-    assistant(content, Some(template.replace("{table}", table)), true)
+    assistant(
+        content,
+        Some(template.replace("{table}", &crate::app::result_grid_export::quote_sql_identifier(table))),
+        true,
+    )
 }
 
 fn assistant(content: &str, sql: Option<String>, requires_confirmation: bool) -> AgentMessage {
@@ -338,7 +351,7 @@ mod tests {
         let message = OfflineAgentProvider
             .respond("show customers", &context())
             .expect("offline provider should respond");
-        assert_eq!(message.sql.as_deref(), Some("SELECT *\nFROM customers\nLIMIT 100;"));
+        assert_eq!(message.sql.as_deref(), Some("SELECT *\nFROM \"customers\"\nLIMIT 100;"));
         assert!(!message.requires_confirmation);
     }
 
@@ -352,7 +365,7 @@ mod tests {
     #[test]
     fn table_prompt_generates_read_only_sql() {
         let message = respond("show customers", &context());
-        assert_eq!(message.sql.as_deref(), Some("SELECT *\nFROM customers\nLIMIT 100;"));
+        assert_eq!(message.sql.as_deref(), Some("SELECT *\nFROM \"customers\"\nLIMIT 100;"));
         assert!(!message.requires_confirmation);
     }
 
@@ -368,7 +381,7 @@ mod tests {
     fn mutation_is_marked_for_confirmation() {
         let message = respond("update customers", &context());
         assert!(message.requires_confirmation);
-        assert!(message.sql.unwrap().contains("UPDATE customers"));
+        assert!(message.sql.unwrap().contains("UPDATE \"customers\""));
     }
 
     #[test]

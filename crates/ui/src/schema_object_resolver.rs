@@ -27,7 +27,10 @@ pub(super) fn resolve_schema_object(
                 schema: view.schema.clone(),
                 definition: view.definition,
                 metadata: None,
-                query: format!("SELECT *\nFROM \"{}\".\"{}\"\nLIMIT 100;", view.schema, view.name),
+                query: format!(
+                    "SELECT *\nFROM {}\nLIMIT 100;",
+                    result_grid_export::qualified_sql_name(&view.schema, &view.name)
+                ),
             })
         }
         SchemaObjectSelection::Trigger(name) => {
@@ -103,7 +106,7 @@ mod tests {
         assert_eq!(details.kind, "VIEW");
         assert_eq!(
             details.query,
-            "SELECT *\nFROM \"public\".\"order\"summary\"\nLIMIT 100;"
+            "SELECT *\nFROM \"public\".\"order\"\"summary\"\nLIMIT 100;"
         );
     }
 

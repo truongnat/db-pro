@@ -2,8 +2,21 @@
 
 use super::*;
 
-pub(super) fn quote_sql_identifier(identifier: &str) -> String {
+pub(crate) fn quote_sql_identifier(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+/// `schema.name` with every part ANSI-quoted for generated SQL (Postgres and SQLite share `"`
+/// quoting). Quoting each part keeps dotted identifiers — e.g. an AdventureWorks-style table
+/// literally named `HumanResources.Department` inside schema `main` — from being reparsed by
+/// the engine as extra qualification parts.
+pub(crate) fn qualified_sql_name(schema: &str, name: &str) -> String {
+    let name = quote_sql_identifier(name);
+    if schema.is_empty() {
+        name
+    } else {
+        format!("{}.{}", quote_sql_identifier(schema), name)
+    }
 }
 
 pub(super) fn cell_sql_literal(cell: &UiCell) -> String {
@@ -205,5 +218,41 @@ pub(super) fn cell_to_json_value(cell: &UiCell) -> serde_json::Value {
         UiCell::Text(value) => serde_json::Value::String(value.clone()),
         UiCell::Json(value) => serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.clone())),
         UiCell::Bytes(value) => serde_json::Value::String(value.clone()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quote_sql_identifier_escapes_embedded_quotes() {
+        assert_eq!(quote_sql_identifier("customers"), "\"customers\"");
+        assert_eq!(quote_sql_identifier("we\"ird"), "\"we\"\"ird\"");
+    }
+
+    #[test]
+    fn qualified_sql_name_quotes_each_part() {
+        assert_eq!(
+            qualified_sql_name("main", "customers"),
+            "\"main\".\"customers\""
+        );
+        assert_eq!(qualified_sql_name("", "customers"), "\"customers\"");
+    }
+
+    #[test]
+    fn qualified_sql_name_preserves_literal_dot_in_table_name() {
+        assert_eq!(
+            qualified_sql_name("main", "HumanResources.Department"),
+            "\"main\".\"HumanResources.Department\""
+        );
+    }
+
+    #[test]
+    fn qualified_sql_name_escapes_quotes_in_both_parts() {
+        assert_eq!(
+            qualified_sql_name("sch\"ema", "ta\"ble"),
+            "\"sch\"\"ema\".\"ta\"\"ble\""
+        );
     }
 }

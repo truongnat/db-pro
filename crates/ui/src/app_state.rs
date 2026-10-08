@@ -1,7 +1,7 @@
 use super::*;
 
 /// Query seeded into the editor and the first query tab at startup.
-const DEFAULT_QUERY: &str = "select\n  id, name, status\nfrom customers\nlimit 100;";
+const DEFAULT_QUERY: &str = "select\n  id, first_name, last_name, email\nfrom customers\nlimit 100;";
 
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {

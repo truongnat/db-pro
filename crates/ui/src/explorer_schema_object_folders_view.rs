@@ -206,11 +206,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
             self.explorer.selected_schema_object.as_ref(),
             Some(SchemaObjectSelection::View(name)) if name == &view.name
         );
-        let from = if view.schema.is_empty() {
-            view.name.clone()
-        } else {
-            format!("{}.{}", view.schema, view.name)
-        };
+        let from = super::result_grid_export::qualified_sql_name(&view.schema, &view.name);
         let view_clone = view.clone();
         let schema = view.schema.clone();
         let name = view.name.clone();
@@ -297,7 +293,10 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 name: function.name.clone(),
                 kind: "function".to_owned(),
             },
-            Some(format!("SELECT * FROM {}.{}();", function.schema, function.name)),
+            Some(format!(
+                "SELECT * FROM {}();",
+                super::result_grid_export::qualified_sql_name(&function.schema, &function.name)
+            )),
         )
     }
 

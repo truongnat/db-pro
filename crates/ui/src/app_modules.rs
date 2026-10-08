@@ -389,7 +389,7 @@ mod result_grid_clipboard;
 #[path = "result_grid_edit.rs"]
 mod result_grid_edit;
 #[path = "result_grid_export.rs"]
-mod result_grid_export;
+pub(crate) mod result_grid_export;
 #[path = "result_grid_header.rs"]
 mod result_grid_header;
 #[path = "result_grid_header_content_view.rs"]

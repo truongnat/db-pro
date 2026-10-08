@@ -84,7 +84,8 @@ impl DbProApp {
                 SidebarDataAction::OpenQuery(table) => {
                     let schema = self.active_schema().to_owned();
                     self.new_query_document();
-                    self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
+                    let from = result_grid_export::qualified_sql_name(&schema, &table);
+                    self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
                     self.workspace.active_tab = WorkspaceTab::Query;
                     self.workspace.activity = Activity::Queries;
                     self.feedback.runtime_message = format!("Query ready for {table}");

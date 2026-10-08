@@ -107,7 +107,8 @@ impl DbProApp {
                 context,
             ),
             Action::NewQuery => {
-                self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;"));
+                let from = result_grid_export::qualified_sql_name(schema, table_name);
+                self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             Action::Refresh => {

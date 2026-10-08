@@ -297,11 +297,7 @@ pub(super) fn build_routine_invoke_sql(function: &UiFunctionSummary, values: &[S
             quote_sql_literal_or_raw(raw, &parameter.data_type)
         })
         .collect::<Vec<_>>();
-    let qualified = format!(
-        "\"{}\".\"{}\"",
-        function.schema.replace('"', "\"\""),
-        function.name.replace('"', "\"\"")
-    );
+    let qualified = result_grid_export::qualified_sql_name(&function.schema, &function.name);
     let arg_list = args.join(", ");
     if function.routine_type.eq_ignore_ascii_case("PROCEDURE") {
         format!("CALL {qualified}({arg_list});")

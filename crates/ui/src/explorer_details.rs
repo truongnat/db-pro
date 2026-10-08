@@ -12,7 +12,7 @@ fn build_insert_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
             table_info
                 .columns
                 .iter()
-                .map(|column| column.name.as_str())
+                .map(|column| result_grid_export::quote_sql_identifier(&column.name))
                 .collect::<Vec<_>>()
                 .join(", ")
         })
@@ -29,7 +29,8 @@ fn build_insert_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
         })
         .filter(|values| !values.is_empty())
         .unwrap_or_else(|| "'value1', 'value2'".to_owned());
-    format!("INSERT INTO {schema}.{table} ({columns})\nVALUES ({values});")
+    let target = result_grid_export::qualified_sql_name(schema, table);
+    format!("INSERT INTO {target} ({columns})\nVALUES ({values});")
 }
 
 fn build_update_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
@@ -39,7 +40,7 @@ fn build_update_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
                 .columns
                 .iter()
                 .filter(|column| !column.is_primary_key)
-                .map(|column| format!("    {} = DEFAULT", column.name))
+                .map(|column| format!("    {} = DEFAULT", result_grid_export::quote_sql_identifier(&column.name)))
                 .collect::<Vec<_>>()
                 .join(",\n")
         })
@@ -51,13 +52,14 @@ fn build_update_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
                 .columns
                 .iter()
                 .filter(|column| column.is_primary_key)
-                .map(|column| format!("{} = 1", column.name))
+                .map(|column| format!("{} = 1", result_grid_export::quote_sql_identifier(&column.name)))
                 .collect::<Vec<_>>()
                 .join(" AND ")
         })
         .filter(|clause| !clause.is_empty())
         .unwrap_or_else(|| "id = 1".to_owned());
-    format!("UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {where_clause};")
+    let target = result_grid_export::qualified_sql_name(schema, table);
+    format!("UPDATE {target}\nSET\n{set_clause}\nWHERE {where_clause};")
 }
 
 fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
@@ -67,13 +69,14 @@ fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
                 .columns
                 .iter()
                 .filter(|column| column.is_primary_key)
-                .map(|column| format!("{} = 1", column.name))
+                .map(|column| format!("{} = 1", result_grid_export::quote_sql_identifier(&column.name)))
                 .collect::<Vec<_>>()
                 .join(" AND ")
         })
         .filter(|clause| !clause.is_empty())
         .unwrap_or_else(|| "id = 1".to_owned());
-    format!("DELETE FROM {schema}.{table}\nWHERE {where_clause};")
+    let target = result_grid_export::qualified_sql_name(schema, table);
+    format!("DELETE FROM {target}\nWHERE {where_clause};")
 }
 
 impl DbProApp {
@@ -120,7 +123,8 @@ impl DbProApp {
             }
             TableRowAction::OpenDdl => self.open_table_view(TableView::Ddl),
             TableRowAction::OpenQuery => {
-                self.open_query_document(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"))
+                let from = result_grid_export::qualified_sql_name(schema, table);
+                self.open_query_document(format!("SELECT *\nFROM {from}\nLIMIT 100;"))
             }
             TableRowAction::GenerateInsert => {
                 let query = build_insert_query(schema, table, self.table.state.table_info.as_ref());
@@ -135,7 +139,7 @@ impl DbProApp {
                 self.open_query_document(query);
             }
             TableRowAction::CopyQualifiedName => {
-                let qualified_name = format!("{schema}.{table}");
+                let qualified_name = result_grid_export::qualified_sql_name(schema, table);
                 ui.output_mut(|output| output.copied_text = qualified_name.clone());
                 self.feedback.runtime_message = format!("Copied `{qualified_name}` to clipboard");
             }
