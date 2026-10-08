@@ -34,16 +34,20 @@ impl FilesSearchContext<'_> {
 
     fn draw_search_controls(&mut self, ui: &mut egui::Ui) -> Vec<FilesSearchAction> {
         let mut actions = Vec::new();
-        ui.add(
-            egui::TextEdit::singleline(&mut self.draft.search_query)
-                .hint_text("Find in files…")
-                .desired_width(ui.available_width()),
+        input(
+            ui,
+            &mut self.draft.search_query,
+            "Find in files…",
+            ui.available_width(),
+            self.theme,
         );
         ui.add_space(4.0);
-        ui.add(
-            egui::TextEdit::singleline(&mut self.draft.replace_query)
-                .hint_text("Replace with…")
-                .desired_width(ui.available_width()),
+        input(
+            ui,
+            &mut self.draft.replace_query,
+            "Replace with…",
+            ui.available_width(),
+            self.theme,
         );
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -82,15 +86,19 @@ impl FilesSearchContext<'_> {
         let mut actions = Vec::new();
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.draft.refactor_from)
-                    .hint_text("Rename from")
-                    .desired_width(90.0),
+            input(
+                ui,
+                &mut self.draft.refactor_from,
+                "Rename from",
+                90.0,
+                self.theme,
             );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.draft.refactor_to)
-                    .hint_text("to")
-                    .desired_width(90.0),
+            input(
+                ui,
+                &mut self.draft.refactor_to,
+                "to",
+                90.0,
+                self.theme,
             );
             if Button::new(self.theme)
                 .text("Refactor")

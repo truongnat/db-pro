@@ -24,42 +24,40 @@ pub(super) struct FilesTreeContext<'a> {
 
 impl FilesTreeContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<FilesTreeAction> {
-        let mut actions = self.draw_toolbar(ui);
+        let mut actions = Vec::new();
+        ui.horizontal(|ui| {
+            section_label(ui, format!("FILES · {}", self.file_count), self.theme);
+            // Header icon buttons match the Queries activity chrome instead of
+            // a dedicated button row.
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if compact_icon_button(ui, Icon::FolderPlus, self.theme)
+                    .on_hover_text("New folder")
+                    .clicked()
+                {
+                    actions.push(FilesTreeAction::NewFolder);
+                }
+                if compact_icon_button(ui, Icon::FilePlus2, self.theme)
+                    .on_hover_text("New SQL file")
+                    .clicked()
+                {
+                    actions.push(FilesTreeAction::NewSql);
+                }
+            });
+        });
         ui.add_space(6.0);
         if let Some(path) = self.active_file_path {
-            ui.label(RichText::new(path).small().monospace().color(self.theme.text_muted));
+            ui.label(
+                RichText::new(crate::components::truncate_ellipsis(path, 36))
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_muted),
+            )
+            .on_hover_text(path);
             ui.add_space(4.0);
         }
-        section_label(ui, format!("FILES · {}", self.file_count), self.theme);
-        ui.add_space(6.0);
         for node in self.tree {
             actions.extend(self.draw_node(ui, node, 0));
         }
-        actions
-    }
-
-    fn draw_toolbar(&self, ui: &mut egui::Ui) -> Vec<FilesTreeAction> {
-        let mut actions = Vec::new();
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("New SQL")
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                actions.push(FilesTreeAction::NewSql);
-            }
-            if Button::new(self.theme)
-                .text("New folder")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                actions.push(FilesTreeAction::NewFolder);
-            }
-        });
         actions
     }
 

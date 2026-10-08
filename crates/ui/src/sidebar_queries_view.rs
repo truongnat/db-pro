@@ -24,6 +24,13 @@ impl SidebarQueriesContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesAction> {
         let mut actions = self.draw_header(ui);
         ui.add_space(8.0);
+        if self.documents.is_empty() {
+            ui.label(
+                RichText::new("No open queries — press + to start one")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        }
         for (index, document) in self.documents.iter().enumerate() {
             actions.extend(self.draw_document(ui, index, document));
         }

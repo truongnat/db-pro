@@ -219,7 +219,7 @@ impl FilesSurfaceContext<'_> {
                 }
             });
 
-            // Multiple roots switcher
+            // Multiple roots switcher — badge chips, same language as environments above
             if self.workspace.roots.len() > 1 {
                 ui.add_space(SPACE_XXS);
                 ui.horizontal_wrapped(|ui| {
@@ -232,7 +232,21 @@ impl FilesSurfaceContext<'_> {
                             .map(|name| name.to_string_lossy().into_owned())
                             .unwrap_or_else(|| root.path.display().to_string());
                         let is_active = self.workspace.active_root == index;
-                        if ui.selectable_label(is_active, label).clicked() && !is_active {
+                        let resp = ui
+                            .scope(|ui| {
+                                crate::components::badge::Badge::new(&label, self.theme)
+                                    .variant(if is_active {
+                                        crate::components::badge::BadgeVariant::Default
+                                    } else {
+                                        crate::components::badge::BadgeVariant::Secondary
+                                    })
+                                    .compact(true)
+                                    .show(ui)
+                            })
+                            .response
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text(root.path.display().to_string());
+                        if resp.clicked() && !is_active {
                             actions.push(FilesSurfaceAction::SelectRoot(index));
                         }
                     }
@@ -254,78 +268,48 @@ impl FilesSurfaceContext<'_> {
         let tabs = [
             (FilesPanelTab::Tree, Icon::FolderTree, "Files"),
             (FilesPanelTab::Search, Icon::Search, "Search"),
-            (FilesPanelTab::Migrations, Icon::Database, "Migrate"),
+            (FilesPanelTab::Migrations, Icon::Database, "Migrations"),
             (FilesPanelTab::Tasks, Icon::ListCheck, "Tasks"),
             (FilesPanelTab::Graph, Icon::GitGraph, "Graph"),
             (FilesPanelTab::Git, Icon::GitBranch, "Git"),
         ];
 
-        let avail_w = ui.available_width();
-        let col_w = ((avail_w - SPACE_XS * 2.0) / 3.0).max(60.0);
-
-        egui::Grid::new("files_panel_subtabs_grid")
-            .spacing(vec2(SPACE_XS, SPACE_XS))
-            .show(ui, |ui| {
-                for (i, (tab, icon, label)) in tabs.iter().enumerate() {
-                    let is_active = self.selected_tab == *tab;
-                    let (rect, resp) = ui.allocate_exact_size(vec2(col_w, 28.0), egui::Sense::click());
-                    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
-                    let hovered = resp.hovered();
-
-                    let bg_fill = if is_active {
-                        self.theme.surface_active
-                    } else if hovered {
-                        self.theme.surface_hover
-                    } else {
-                        self.theme.surface_panel
-                    };
-
-                    ui.painter().rect_filled(rect, egui::Rounding::same(RADIUS_SM), bg_fill);
-                    ui.painter().rect_stroke(
-                        rect,
-                        egui::Rounding::same(RADIUS_SM),
-                        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        egui::Stroke::new(1.0, if is_active { self.theme.border_default } else { self.theme.border_subtle }),
-                    );
-
-                    let text_color = if is_active || hovered {
-                        self.theme.text_primary
-                    } else {
-                        self.theme.text_secondary
-                    };
-
-                    let icon_color = if is_active {
-                        self.theme.accent
-                    } else {
-                        self.theme.text_muted
-                    };
-
-                    ui.painter().text(
-                        egui::pos2(rect.left() + 6.0, rect.center().y),
-                        egui::Align2::LEFT_CENTER,
-                        char::from(*icon).to_string(),
-                        font_icon(ICON_XS),
-                        icon_color,
-                    );
-
-                    ui.painter().text(
-                        egui::pos2(rect.left() + 20.0, rect.center().y),
-                        egui::Align2::LEFT_CENTER,
-                        *label,
-                        font_caption(),
-                        text_color,
-                    );
-
-                    if resp.clicked() && !is_active {
-                        actions.push(FilesSurfaceAction::SelectTab(*tab));
-                    }
-
-                    if (i + 1) % 3 == 0 {
-                        ui.end_row();
-                    }
+        // Same icon-tab language as the output strip: icon-only, label in the
+        // tooltip — a 3×2 labelled grid overflowed the sidebar visually.
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, 0.0);
+            for (tab, icon, label) in tabs {
+                let is_active = self.selected_tab == tab;
+                let bg_color = if is_active {
+                    self.theme.surface_active
+                } else {
+                    egui::Color32::TRANSPARENT
+                };
+                let icon_color = if is_active {
+                    self.theme.accent
+                } else {
+                    self.theme.text_muted
+                };
+                let response = egui::Frame::none()
+                    .fill(bg_color)
+                    .rounding(egui::Rounding::same(RADIUS_SM))
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new(char::from(icon).to_string())
+                                .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                                .color(icon_color),
+                        );
+                    })
+                    .response
+                    .interact(egui::Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text(label);
+                if response.clicked() && !is_active {
+                    actions.push(FilesSurfaceAction::SelectTab(tab));
                 }
-            });
-
+            }
+        });
         ui.add_space(SPACE_XS);
     }
 }

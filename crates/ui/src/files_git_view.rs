@@ -118,10 +118,12 @@ impl FilesGitContext<'_> {
             .color(self.theme.text_secondary),
         );
         ui.add_space(6.0);
-        ui.add(
-            egui::TextEdit::singleline(self.commit_message)
-                .hint_text("commit message (explicit only — never auto)")
-                .desired_width(ui.available_width()),
+        input(
+            ui,
+            self.commit_message,
+            "commit message (explicit only — never auto)",
+            ui.available_width(),
+            self.theme,
         );
         if Button::new(self.theme)
             .text("Commit staged")

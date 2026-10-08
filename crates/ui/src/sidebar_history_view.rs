@@ -64,14 +64,24 @@ impl SidebarHistoryContext<'_> {
         ui.horizontal(|ui| {
             section_label(ui, "EXECUTIONS", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                egui::ComboBox::from_id_salt("history_outcome_filter")
-                    .selected_text(filter.label())
-                    .width(72.0)
-                    .show_ui(ui, |ui| {
-                        for candidate in HistoryOutcomeFilter::ALL {
-                            ui.selectable_value(&mut filter, candidate, candidate.label());
-                        }
-                    });
+                let labels: Vec<String> = HistoryOutcomeFilter::ALL
+                    .iter()
+                    .map(|candidate| candidate.label().to_owned())
+                    .collect();
+                let mut selected = HistoryOutcomeFilter::ALL
+                    .iter()
+                    .position(|candidate| *candidate == self.outcome_filter)
+                    .unwrap_or(0);
+                let previous = selected;
+                crate::components::Select::new("history_outcome_filter", &mut selected, &labels)
+                    .theme(self.theme)
+                    .width(88.0)
+                    .size(crate::components::SelectSize::Sm)
+                    .variant(crate::components::SelectVariant::Ghost)
+                    .show(ui);
+                if selected != previous {
+                    filter = HistoryOutcomeFilter::ALL[selected];
+                }
             });
         });
         if filter != self.outcome_filter {
