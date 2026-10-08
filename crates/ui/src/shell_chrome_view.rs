@@ -147,19 +147,39 @@ impl DbProApp {
     }
 
     pub(super) fn draw_output_panel(&mut self, ctx: &egui::Context) {
-        let active_result = self
+        if !self.workspace.bottom_panel_open {
+            return;
+        }
+        let result = self
             .query
             .session
             .active_result()
-            .or(self.table.data_query.result.as_ref());
-        shell_output_panel_view::ShellOutputPanelContext {
-            theme: self.theme,
-            workspace: &mut self.workspace,
-            output: &mut self.query.output,
-            session: &self.query.session,
-            editor: &self.query.editor,
-            active_result,
-        }
-        .draw(ctx);
+            .or(self.table.data_query.result.as_ref())
+            .cloned();
+        let height = self.workspace.bottom_panel_height;
+        let response = TopBottomPanel::bottom("output_panel")
+            .resizable(true)
+            .default_height(height)
+            .height_range(OUTPUT_MIN_HEIGHT..=OUTPUT_MAX_HEIGHT)
+            .frame(panel_frame(self.theme))
+            .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
+                // Same tab strip and panes as the query output dock — the shell
+                // panel used to render summary stubs that could not run
+                // Explain/History actions, which read as a broken surface.
+                let mut tabs_context = query_output_tabs_view::QueryOutputTabsContext {
+                    theme: self.theme,
+                    output: &mut self.query.output,
+                    session: &self.query.session,
+                    editor: &mut self.query.editor,
+                    bottom_panel_open: &mut self.workspace.shell.bottom_panel_open,
+                    dock_position: None,
+                    results_open: Some(&mut self.workspace.shell.results_open),
+                    active_tab: Some(&mut self.workspace.shell.active_tab),
+                };
+                query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
+                self.draw_output_pane(ui, result.as_ref());
+            });
+        self.workspace.set_bottom_panel_height(response.response.rect.height());
     }
 }

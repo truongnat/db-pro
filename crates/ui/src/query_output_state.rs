@@ -27,9 +27,11 @@ impl QueryOutputState {
     }
 
     pub(crate) fn active_tab_for_document(&self, document_id: Option<&str>) -> OutputTab {
+        // `None` must read back the field `set_active_for_optional_document`
+        // writes, otherwise clicking a tab with no open document is a no-op.
         document_id
             .map(|document_id| self.tab_for_document(document_id))
-            .unwrap_or(OutputTab::Results)
+            .unwrap_or(self.active_tab)
     }
 
     pub(super) fn set_active_for_document(&mut self, document_id: &str, tab: OutputTab) {
@@ -85,5 +87,14 @@ mod tests {
         state.set_for_document("query-2", OutputTab::Messages);
         assert_eq!(state.tab_for_document("query-2"), OutputTab::Messages);
         assert_eq!(state.active_tab, OutputTab::Explain);
+    }
+
+    #[test]
+    fn tab_selection_without_document_still_switches_the_visible_pane() {
+        let mut state = QueryOutputState::default();
+
+        state.set_active_for_optional_document(None, OutputTab::History);
+
+        assert_eq!(state.active_tab_for_document(None), OutputTab::History);
     }
 }

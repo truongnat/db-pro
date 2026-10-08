@@ -561,8 +561,6 @@ mod security_roles_view;
 mod shell_chrome_view;
 #[path = "shell_frame_view.rs"]
 mod shell_frame_view;
-#[path = "shell_output_panel_view.rs"]
-mod shell_output_panel_view;
 #[path = "shell_statusbar_view.rs"]
 mod shell_statusbar_view;
 #[path = "shell_topbar_view.rs"]

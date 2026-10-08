@@ -47,26 +47,30 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                 *context.bottom_panel_open = false;
                 context.editor.query_output_dock_maximized = false;
             }
-            let max_tip = if context.editor.query_output_dock_maximized {
-                "Restore output"
-            } else {
-                "Maximize output"
-            };
-            let max_icon = if context.editor.query_output_dock_maximized {
-                Icon::Minimize2
-            } else {
-                Icon::Maximize2
-            };
-            if Button::new(context.theme)
-                .icon(max_icon)
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::IconSm)
-                .access_label(max_tip)
-                .tooltip(max_tip)
-                .show(ui)
-                .clicked()
-            {
-                context.editor.query_output_dock_maximized = !context.editor.query_output_dock_maximized;
+            // Maximize only exists in the docked surfaces — the plain bottom
+            // panel resizes by drag and has nothing to maximize into.
+            if context.dock_position.is_some() {
+                let max_tip = if context.editor.query_output_dock_maximized {
+                    "Restore output"
+                } else {
+                    "Maximize output"
+                };
+                let max_icon = if context.editor.query_output_dock_maximized {
+                    Icon::Minimize2
+                } else {
+                    Icon::Maximize2
+                };
+                if Button::new(context.theme)
+                    .icon(max_icon)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .access_label(max_tip)
+                    .tooltip(max_tip)
+                    .show(ui)
+                    .clicked()
+                {
+                    context.editor.query_output_dock_maximized = !context.editor.query_output_dock_maximized;
+                }
             }
             if let Some(pos) = context.dock_position.as_deref_mut() {
                 let (toggle_tip, toggle_icon) = match *pos {
