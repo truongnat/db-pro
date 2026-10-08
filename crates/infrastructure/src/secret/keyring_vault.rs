@@ -230,6 +230,7 @@ impl SecretStore for KeyringVault {
         }
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     async fn retrieve_secret(&self, key: &str) -> Result<Option<String>, DbError> {
         // Check local encrypted vault first if enabled (avoids OS keychain prompt on every launch)
         if self.allow_fallback {

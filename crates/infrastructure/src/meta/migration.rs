@@ -57,6 +57,7 @@ pub async fn current_version(handle: &SqliteHandle) -> Result<u32, DbError> {
 /// Apply all pending migrations to bring the schema up to `LATEST_VERSION`.
 ///
 /// This is idempotent: already-applied versions are skipped.
+// cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
 pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
     let current = current_version(handle).await?;
     if current > LATEST_VERSION {
@@ -209,6 +210,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn test_migration_upgrade_from_old_schema() {
         use crate::sqlite::actor::SqliteActor;
 
@@ -235,6 +237,7 @@ mod tests {
         // Insert v1 as already applied
         handle
             .raw_query(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "INSERT INTO schema_version (version, applied_at, description) VALUES (1, '2024-01-01T00:00:00Z', 'initial')".into(),
                 vec![],
             )

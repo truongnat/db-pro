@@ -172,6 +172,7 @@ impl TableMetadataContext<'_> {
             "Filter dependencies…",
             |ui| {
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 ui.label(RichText::new(format!("{matching} of {total}")).font(font_ui_label()).color(self.theme.text_muted))
                     .on_hover_text(format!("{matching} of {total} dependencies match the current filters"));
                 ui.separator();

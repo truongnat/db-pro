@@ -67,6 +67,7 @@ impl SchemaObjectRowContext<'_> {
         response
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn draw_menu(&self, ui: &mut egui::Ui, response: &egui::Response) -> Vec<SchemaObjectRowAction> {
         let mut menu = SchemaObjectMenu {
             theme: self.theme,

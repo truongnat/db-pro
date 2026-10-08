@@ -54,6 +54,7 @@ impl SelectionRange {
         self.active = len;
     }
 
+    // cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
     pub fn select_word_at(&mut self, buffer: &TextBuffer, offset: usize) {
         let len = buffer.len_bytes();
         if len == 0 {

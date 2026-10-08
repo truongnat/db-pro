@@ -126,6 +126,7 @@ impl MigrationPlanBuilder {
                 unsupported_reason: None,
             });
             self.warnings.push(format!(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "{id}: CREATE TABLE for {qualified} uses a placeholder body; expand columns from source introspection before apply"
             ));
         }

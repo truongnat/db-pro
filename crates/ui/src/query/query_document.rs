@@ -272,6 +272,7 @@ impl QueryDocument {
         );
     }
 
+    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
     /// Resolves the executable SQL: selected text if non-empty, otherwise the current statement at cursor, otherwise full buffer.
     pub fn resolve_executable_sql(&self) -> (String, (usize, usize)) {
         if !self.selection.is_empty() {

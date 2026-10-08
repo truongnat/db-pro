@@ -794,6 +794,7 @@ impl TableDataApi {
             .map_err(Into::into)
     }
 
+    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
     // allow: convenience wrapper for single-text-cell edit — 7 parameters represent the full payload of a single UPDATE;
     // an options wrapper would add indirection without grouping reusable structures.
     #[allow(clippy::too_many_arguments)]

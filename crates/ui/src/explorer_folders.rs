@@ -22,6 +22,7 @@ impl DbProApp {
                 self.schema.workbench.select_sql = view.definition.clone();
                 self.schema.workbench.materialized = false;
                 self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 self.feedback.set_runtime_message(format!("Loaded view `{}.{}` into workbench", view.schema, view.name));
             }
             SchemaObjectFolderAction::DropObject { schema, name, kind } => {

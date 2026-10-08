@@ -150,6 +150,7 @@ impl MonitoringPort for PostgresMonitoringPort {
             .unwrap_or(false))
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn list_locks(&self, handle: &ConnectionHandle) -> Result<Vec<MonitorLock>, DbError> {
         let result = self
             .connector
@@ -218,6 +219,7 @@ impl MonitoringPort for PostgresMonitoringPort {
         Ok(locks)
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn relation_sizes(&self, handle: &ConnectionHandle, limit: usize) -> Result<Vec<RelationSizeStat>, DbError> {
         let limit = limit.clamp(1, 200) as i64;
         let result = self

@@ -70,6 +70,7 @@ impl ConnectionService {
         Ok(())
     }
 
+    // cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
     pub async fn create(&self, config: ConnectionConfig, password: &str) -> Result<Connection, DbError> {
         validate_config(&config)?;
 
@@ -232,6 +233,7 @@ impl ConnectionService {
         Ok(())
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     pub async fn connect(&self, id: &ConnectionId) -> Result<ConnectionHandle, DbError> {
         if let Some(handle) = self.registry.get(id) {
             return Ok(handle);

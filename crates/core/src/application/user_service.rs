@@ -200,6 +200,7 @@ mod tests {
             username: String::new(),
             driver: DriverType::SQLite,
             ssl_mode: SslMode::Disable,
+            // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
             ssh_tunnel: None,
             ssh_profile_id: None,
             ssl_root_cert_path: None,

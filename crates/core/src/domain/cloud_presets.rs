@@ -85,6 +85,7 @@ pub fn presets() -> Vec<CloudConnectionPreset> {
             driver: DriverType::Postgres,
             default_port: 5432,
             ssl_mode: SslMode::VerifyCa,
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             ca_guidance: "Use Cloud SQL server CA (and optional client cert/key) from the instance Connections → Security tab.",
             host_hint: "x.x.x.x or private IP / Cloud SQL Auth Proxy localhost",
             notes: "Public IP needs authorized networks. Prefer Auth Proxy or SSH tunnel for private IP.",
@@ -105,6 +106,7 @@ pub fn presets() -> Vec<CloudConnectionPreset> {
             driver: DriverType::Postgres,
             default_port: 5432,
             ssl_mode: SslMode::VerifyFull,
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             ca_guidance: "Azure Database requires TLS; DigiCert Global Root G2 / Microsoft RSA is commonly trusted by OS stores — set CA path if your OS trust is incomplete.",
             host_hint: "myserver.postgres.database.azure.com",
             notes: "Username is often user@server. Enforce SSL; use SSH profile for private access.",
@@ -195,6 +197,7 @@ pub struct ParsedConnectionSnippet {
     pub ssl_mode: Option<SslMode>,
 }
 
+// cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
 pub fn parse_connection_snippet(raw: &str) -> Result<ParsedConnectionSnippet, String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {

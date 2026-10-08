@@ -283,6 +283,7 @@ impl DbConnector for MySqlConnector {
                         }
                         Err(e) => {
                             if let Err(rollback_error) = tx.rollback().await {
+                                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                                 tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after row mapping error also failed");
                             }
                             return Err(db_pro_core::ports::TransactionFailure {
@@ -296,6 +297,7 @@ impl DbConnector for MySqlConnector {
                     },
                     Err(e) => {
                         if let Err(rollback_error) = tx.rollback().await {
+                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                             tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after failed query also failed — transaction may still be open on the connection");
                         }
                         return Err(db_pro_core::ports::TransactionFailure {
@@ -317,6 +319,7 @@ impl DbConnector for MySqlConnector {
                     }
                     Err(e) => {
                         if let Err(rollback_error) = tx.rollback().await {
+                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                             tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after failed statement also failed — transaction may still be open on the connection");
                         }
                         return Err(db_pro_core::ports::TransactionFailure {

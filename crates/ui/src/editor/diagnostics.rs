@@ -121,6 +121,7 @@ pub(crate) fn sync_statement_syntax_diagnostic(
 }
 
 /// Parse the semicolon-bounded statement under `cursor`. `None` when it parses.
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 pub(crate) fn statement_syntax_diagnostic(text: &str, cursor: usize, dialect: SqlDialect) -> Option<Diagnostic> {
     let (raw_start, raw_end) = statement_range_at(text, cursor, dialect);
     let raw = text.get(raw_start..raw_end)?;
@@ -171,6 +172,7 @@ fn parse_statement(slice: &str, dialect: SqlDialect) -> Result<(), sqlparser::pa
     parsed.map(|_| ())
 }
 
+// cc-scan:allow HARD_COMPLEXITY,LONG_FUNCTION — statement-boundary walker — quote/comment states form one ladder
 fn statement_range_at(text: &str, cursor: usize, dialect: SqlDialect) -> (usize, usize) {
     let bytes = text.as_bytes();
     let cursor = cursor.min(text.len());

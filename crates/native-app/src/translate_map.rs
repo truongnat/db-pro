@@ -133,6 +133,7 @@ pub(crate) fn map_cell(cell: db_pro_core::domain::query::CellValue) -> UiCell {
     }
 }
 
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 pub(crate) fn ui_cell_to_domain(cell: UiCell) -> Option<CellValue> {
     match cell {
         UiCell::Null => Some(CellValue::Null),
@@ -179,6 +180,7 @@ pub(crate) fn ui_cell_to_domain(cell: UiCell) -> Option<CellValue> {
     }
 }
 
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 pub(crate) fn ui_cell_to_domain_typed(cell: UiCell, data_type: &str) -> Option<CellValue> {
     let normalized = data_type.to_ascii_lowercase();
     match cell {

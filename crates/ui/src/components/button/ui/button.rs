@@ -250,6 +250,7 @@ impl<'a> Button<'a> {
         }
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn show_interactive(self, ui: &mut Ui, tokens: &SizeTokens) -> Response {
         // First resolve theme colors and measured content, then ask egui for the
         // response that supplies hover, press and focus events for this frame.
@@ -450,6 +451,7 @@ mod tests {
     use super::*;
 
     #[test]
+    // cc-scan:allow DEEP_NESTING,LONG_FUNCTION — nesting mirrors structure depth
     fn press_scales_background_icon_text_and_underline_together() {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);

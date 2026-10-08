@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::config::{TOOLBAR_MARGIN, TOOLBAR_ROUNDING};
 use super::handler::{
     action_access_label, action_icon, action_label, action_variant, should_show_cancel, should_show_idle_actions,

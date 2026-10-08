@@ -140,6 +140,7 @@ impl DiagnosticsSummary {
 /// Redact a string for safe inclusion in diagnostics.
 ///
 /// Replaces the value with `"***"` if it looks like a credential or secret-bearing URL.
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 pub fn redact_sensitive(value: &str) -> String {
     let lower = value.to_ascii_lowercase();
     if lower.contains("password")

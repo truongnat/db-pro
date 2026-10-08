@@ -89,6 +89,7 @@ impl AuditService {
                     path: Some(path.display().to_string()),
                     pgaudit_extension_present: pgaudit,
                     guidance: if pgaudit {
+                        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                         "Configured PostgreSQL CSV log is readable. pgaudit extension is present (records share this log stream)."
                             .into()
                     } else {

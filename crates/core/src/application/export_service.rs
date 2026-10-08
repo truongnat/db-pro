@@ -43,6 +43,7 @@ impl ExportService {
         }
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     async fn execute_for_export(&self, connection_id: &ConnectionId, sql: &str) -> Result<QueryResult, DbError> {
         reject_multi_statement(sql)?;
 
@@ -164,6 +165,7 @@ mod tests {
     fn build_service(connector: MockDbConnector, registry: Arc<ConnectionRegistry>) -> ExportService {
         let mut connections = MockConnectionRepository::new();
         connections.expect_get_config().returning(|_| {
+            // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
             Ok(Some(ConnectionConfig {
                 name: "test".into(),
                 host: "localhost".into(),

@@ -60,6 +60,7 @@ pub async fn get_object_dependencies(
         .collect())
 }
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub async fn list_partitions(pool: &PgPool) -> Result<Vec<PartitionInfo>, DbError> {
     let sql = r#"
         SELECT

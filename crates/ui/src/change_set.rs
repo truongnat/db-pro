@@ -111,6 +111,7 @@ impl ChangeSet {
     }
 
     /// Keep one final value per edited cell and drop a no-op edit.
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn stage_update(&mut self, change: StagedChange) {
         let StagedChange::Update {
             column_index,
@@ -338,6 +339,7 @@ mod tests {
 
         assert_eq!(changes.counts().updates, 1);
         assert!(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             matches!(changes.iter().next(), Some(StagedChange::Update { value: UiCell::Text(value), .. }) if value == "two")
         );
     }

@@ -106,6 +106,7 @@ impl MultiQueryExecution<'_> {
         self.finish(results, result_kinds, None)
     }
 
+    // cc-scan:allow DEEP_NESTING — nesting mirrors structure depth
     pub(super) async fn execute_sequential(&self) -> MultiQueryResult {
         let mut results = Vec::with_capacity(self.statements.len());
         let mut result_kinds = Vec::with_capacity(self.statements.len());

@@ -109,6 +109,7 @@ fn classify_merge_delete_as_destructive_but_update_as_write() {
     );
     assert_eq!(
         classify_statement_safety(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "MERGE INTO target USING (SELECT 'DELETE' AS action) source ON target.id = 1 WHEN MATCHED THEN UPDATE SET value = 1"
         ),
         Some(StatementSafety::Write)
@@ -321,6 +322,7 @@ fn cte_classifier_respects_lexical_boundaries_and_comment_separators() {
     );
     assert_eq!(
         classify_statement_safety(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "WITH deleted AS (DELETE FROM users USING (SELECT id FROM audit WHERE id > 0) a RETURNING *) SELECT * FROM deleted"
         ),
         Some(StatementSafety::Destructive)

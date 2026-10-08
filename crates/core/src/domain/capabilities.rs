@@ -302,6 +302,7 @@ mod tests {
         let sql_server = DatabaseCapabilities::sql_server();
         assert_eq!(
             sql_server.limitation(CapabilityFeature::Cancel),
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             Some("SQL Server cancellation requires a separate attention channel that the TDS adapter does not expose yet")
         );
         assert_eq!(

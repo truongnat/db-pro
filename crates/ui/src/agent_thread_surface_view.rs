@@ -21,6 +21,7 @@ pub(super) struct AgentThreadSurfaceContext<'a> {
 }
 
 impl AgentThreadSurfaceContext<'_> {
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<AgentThreadAction> {
         let mut actions = Vec::new();
         let messages_height = (ui.available_height() - 86.0).max(160.0);

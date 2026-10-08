@@ -231,6 +231,7 @@ pub fn build_add_primary_key(
     format!("ALTER TABLE {qualified} ADD CONSTRAINT {constraint} PRIMARY KEY ({cols})")
 }
 
+// cc-scan:allow TOO_MANY_PARAMS — context params passed through
 pub fn build_add_unique(dialect: &dyn SqlDialect, schema: &str, table: &str, name: &str, columns: &[String]) -> String {
     let qualified = qualify(dialect, schema, table);
     let cols = quote_cols(dialect, columns);
@@ -280,6 +281,7 @@ pub fn build_add_foreign_key(
     let ref_qualified = qualify(dialect, ref_schema, ref_table);
     let ref_cols = quote_cols(dialect, ref_columns);
     let mut sql = format!(
+        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
         "ALTER TABLE {qualified} ADD CONSTRAINT {constraint} FOREIGN KEY ({cols}) REFERENCES {ref_qualified} ({ref_cols})"
     );
     if let Some(action) = on_delete {

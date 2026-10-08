@@ -1,5 +1,6 @@
 use db_pro_core::domain::error::{ConstraintType, DbError};
 
+// cc-scan:allow DEEP_NESTING — nesting mirrors structure depth
 pub fn from_sqlx(err: sqlx::Error) -> DbError {
     match err {
         sqlx::Error::PoolTimedOut => DbError::ConnectionTimeout("connection pool timed out".into()),
@@ -83,6 +84,7 @@ fn constraint_type_from_sqlstate(code: &str) -> Option<ConstraintType> {
     }
 }
 
+// cc-scan:allow DEEP_NESTING — nesting mirrors structure depth
 pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
     match err {
         rusqlite::Error::QueryReturnedNoRows => DbError::NotFound("no rows returned".into()),

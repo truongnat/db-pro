@@ -289,6 +289,7 @@ impl CaptureApp {
 
     /// Table workspace capture; the specific surface env wins over the base
     /// workspace, and DB_PRO_CAPTURE_TABLE_RECORD primes a record view.
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     fn open_table_capture(&mut self) -> bool {
         if std::env::var_os(TABLE_WORKSPACE_ENV).is_none() {
             return false;

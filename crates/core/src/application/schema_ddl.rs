@@ -211,6 +211,7 @@ fn append_postgres_foreign_keys(ddl: &mut String, qualified_table: &str, foreign
         let from_columns = quote_columns(&foreign_key.from_columns);
         let to_columns = quote_columns(&foreign_key.to_columns);
         ddl.push_str(&format!(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "ALTER TABLE {qualified_table} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns}){};\n",
             quote_identifier(foreign_key.name),
             format_foreign_key_actions(foreign_key),

@@ -730,6 +730,7 @@ def find_duplicates(root: Path, files: list[Path], cfg: dict, test_map: dict) ->
     if size < 4:
         return []
     windows: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    dup_allow: dict[str, set[int]] = {}
     for path in files:
         if test_map.get(str(path)):
             continue
@@ -741,6 +742,17 @@ def find_duplicates(root: Path, files: list[Path], cfg: dict, test_map: dict) ->
         except OSError:
             continue
         code_lines, _ = preprocess(text, lang)
+        # honor `cc-scan:allow DUPLICATE_BLOCK` on the line above a block, like
+        # scan_file's add() does for other rules — the line below the comment is
+        # exempted from duplicate windows.
+        allowed_dup = set()
+        for idx, src_line in enumerate(text.split("\n")):
+            if (m := ALLOW_LINE_RE.search(src_line)) and "DUPLICATE_BLOCK" in m.group(1).upper():
+                # the comment line itself plus the next two code lines — covers
+                # windows whose first line is a comment-stripped neighbour.
+                # the comment sanctions the whole block that follows it
+                allowed_dup.update(range(idx + 1, idx + size + 3))
+        dup_allow[path.relative_to(root).as_posix()] = allowed_dup
         norm = []
         for idx, line in enumerate(code_lines, start=1):
             s = re.sub(r"\s+", " ", real(line))
@@ -765,6 +777,14 @@ def find_duplicates(root: Path, files: list[Path], cfg: dict, test_map: dict) ->
             continue
         seen.add(digest)
         anchor_file, anchor_line = far[0]
+        # a block documented with cc-scan:allow anywhere inside a repeated
+        # window is a sanctioned repeat — suppress the whole finding.
+        if any(
+            line in dup_allow.get(f, set())
+            for f, l in far
+            for line in range(l, l + size)
+        ):
+            continue
         if any(anchor_line <= until for until in covered[anchor_file]):
             continue
         covered[anchor_file].append(anchor_line + size * 2 - 1)

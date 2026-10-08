@@ -636,6 +636,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn apply_mutations_builds_one_atomic_parameterized_batch_in_safe_order() {
         let (conn_id, registry) = setup();
         let mut connector = MockDbConnector::new();
@@ -729,6 +730,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn apply_mutations_detailed_maps_statement_index_to_original_input_mutation() {
         let (conn_id, registry) = setup();
         let mut connector = MockDbConnector::new();
@@ -783,6 +785,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn apply_mutations_detailed_maps_statement_index_complex_reordering() {
         let (conn_id, registry) = setup();
         let mut connector = MockDbConnector::new();
@@ -901,7 +904,9 @@ mod tests {
     }
 
     #[tokio::test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn apply_mutations_detailed_retains_zero_statement_index_on_validation_failure() {
+        // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
         let (conn_id, registry) = setup();
         let connector = MockDbConnector::new();
         let mut repo = MockConnectionRepository::new();

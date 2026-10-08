@@ -134,6 +134,7 @@ impl CursorPosition {
         self.set_offset(buffer, buffer.len_bytes());
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     pub fn move_word_left(&mut self, buffer: &TextBuffer) {
         if self.offset == 0 {
             return;
@@ -179,6 +180,7 @@ impl CursorPosition {
         self.set_offset(buffer, idx);
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     pub fn move_word_right(&mut self, buffer: &TextBuffer) {
         let len = buffer.len_bytes();
         if self.offset >= len {

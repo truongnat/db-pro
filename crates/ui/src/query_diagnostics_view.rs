@@ -288,6 +288,7 @@ pub(super) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
     analyze_sql_diagnostics_with_lint(sql, driver, &SqlLintSettings::default()).0
 }
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub(super) fn refresh_diagnostics(query: &mut QueryFeatureState, driver: &str, lint: &SqlLintSettings) {
     let doc_index = query.session.active_document_index;
     let version = query

@@ -11,6 +11,7 @@ impl WorkspaceRepository for SQLiteMetaStore {
     async fn save(&self, workspace: &Workspace) -> Result<(), DbError> {
         self.actor
             .raw_query(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "INSERT OR REPLACE INTO workspaces (id, name, default_connection_id, created_at) VALUES (?1, ?2, ?3, ?4)".into(),
                 vec![
                     workspace.id.to_string(),

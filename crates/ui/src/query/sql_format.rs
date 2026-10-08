@@ -79,6 +79,7 @@ pub fn format_sql_for_dialect(sql: &str, _dialect: SqlDialect) -> String {
     formatted.trim().to_owned()
 }
 
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 fn protected_sql_end(sql: &str, offset: usize) -> Option<usize> {
     let rest = &sql[offset..];
     if rest.starts_with("--") {

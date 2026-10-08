@@ -52,6 +52,7 @@ impl TransferActivityContext<'_> {
             section_label(ui, "BACKUP / RESTORE", self.theme);
             ui.label(
                 RichText::new(
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                     "Provider-aware backup lives in Settings → Backup / Restore (pg_dump/pg_restore or SQLite snapshot).",
                 )
                 .small()
@@ -265,6 +266,7 @@ impl TransferActivityContext<'_> {
                 ui,
                 Icon::Upload,
                 "No transfers yet",
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "Run the synthetic harness to verify streaming progress, or import/export from Query once formats land.",
                 self.theme,
             );

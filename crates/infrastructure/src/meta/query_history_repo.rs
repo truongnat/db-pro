@@ -21,6 +21,7 @@ impl QueryHistoryRepository for SQLiteMetaStore {
         let executed_at = chrono::Utc::now().to_rfc3339();
         self.actor
             .raw_query(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "INSERT INTO query_history (id, connection_id, sql, executed_at, duration_ms, row_count, database, schema) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)".into(),
                 vec![
                     id,
@@ -41,6 +42,7 @@ impl QueryHistoryRepository for SQLiteMetaStore {
         let rows = self
             .actor
             .raw_query(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "SELECT id, connection_id, sql, executed_at, duration_ms, row_count, database, schema FROM query_history WHERE connection_id = ?1 ORDER BY executed_at DESC LIMIT ?2".into(),
                 vec![connection_id.to_string(), limit.to_string()],
             )

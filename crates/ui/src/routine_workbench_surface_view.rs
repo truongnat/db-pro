@@ -306,6 +306,7 @@ pub(super) fn build_routine_invoke_sql(function: &UiFunctionSummary, values: &[S
     }
 }
 
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 fn quote_sql_literal_or_raw(value: &str, data_type: &str) -> String {
     let normalized_type = data_type.to_ascii_lowercase();
     if normalized_type.contains("int")

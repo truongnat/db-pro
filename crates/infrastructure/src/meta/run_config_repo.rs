@@ -11,6 +11,7 @@ impl RunConfigRepository for SQLiteMetaStore {
     async fn save(&self, config: &RunConfig) -> Result<(), DbError> {
         self.actor
             .raw_query(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "INSERT OR REPLACE INTO run_configs (id, connection_id, name, sql, timeout_ms, max_rows, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)".into(),
                 vec![
                     config.id.to_string(),
@@ -30,6 +31,7 @@ impl RunConfigRepository for SQLiteMetaStore {
         let rows = self
             .actor
             .raw_query(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "SELECT id, connection_id, name, sql, timeout_ms, max_rows, created_at FROM run_configs WHERE connection_id = ?1 ORDER BY name".into(),
                 vec![connection_id.to_string()],
             )

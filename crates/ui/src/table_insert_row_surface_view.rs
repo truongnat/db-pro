@@ -193,6 +193,7 @@ impl InsertRowDialogContext<'_> {
         }
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     fn draw_column_actions(&mut self, ui: &mut egui::Ui, index: usize, column: &UiTableColumn) {
         if !ColumnWritePolicy::read(column).is_writable() {
             return;

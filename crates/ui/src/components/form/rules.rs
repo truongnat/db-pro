@@ -83,6 +83,7 @@ impl FieldRule {
         Self::Custom(desc.into(), Arc::new(validator))
     }
 
+    // cc-scan:allow HARD_COMPLEXITY,LONG_FUNCTION — field-rule validator — one match arm per rule kind
     pub fn validate(&self, value: &str) -> Result<(), String> {
         match self {
             FieldRule::Required(msg) => {

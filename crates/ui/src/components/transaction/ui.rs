@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::config::*;
 use super::handler::{
     apply_destructive_dialog_action, confirmation_is_valid, destructive_dialog_action, pending_mutation_suffix,

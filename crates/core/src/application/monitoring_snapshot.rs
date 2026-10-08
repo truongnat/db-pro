@@ -35,6 +35,7 @@ pub(super) async fn execute(
             let locks = match port.list_locks(&handle).await {
                 Ok(locks) => locks,
                 Err(error) => {
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                     tracing::warn!(connection_id = %connection_id, %error, "monitoring: list_locks failed — panel renders without lock data");
                     Vec::new()
                 }
@@ -42,6 +43,7 @@ pub(super) async fn execute(
             let relation_sizes = match port.relation_sizes(&handle, 40).await {
                 Ok(sizes) => sizes,
                 Err(error) => {
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                     tracing::warn!(connection_id = %connection_id, %error, "monitoring: relation_sizes failed — panel renders without size data");
                     Vec::new()
                 }

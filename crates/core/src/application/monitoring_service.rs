@@ -227,6 +227,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn snapshot_lists_postgres_sessions_via_port() {
         let id = ConnectionId::new();
         let handle = ConnectionHandle::new(1);

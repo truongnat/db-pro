@@ -45,6 +45,7 @@ fn is_with_keyword(sql: &str) -> bool {
         .is_some_and(|character| character.is_alphanumeric())
 }
 
+// cc-scan:allow COMPLEXITY,DEEP_NESTING — classifier/dispatch ladder — one case per branch
 fn scan_with_statement(sql: &str) -> Option<String> {
     let chars: Vec<char> = sql.chars().collect();
     let len = chars.len();

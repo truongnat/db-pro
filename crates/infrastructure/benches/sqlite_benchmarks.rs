@@ -121,6 +121,7 @@ fn seed_n_json_blob(connector: &SQLiteConnector, handle: &db_pro_core::domain::c
         for i in 0..n {
             let json = format!(r#"{{"id": {}, "tags": ["a", "b", "c"], "nested": {{"x": {}}}}}"#, i, i * 2);
             let sql = format!(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "INSERT INTO products (id, name, sku, price, category_id, tags, metadata) VALUES ('id-{i}', 'Product {i}', 'SKU-{i}', {i:.2}, 1, '{json}', '{json}')"
             );
             connector.execute(handle, &sql, &[]).await.unwrap();

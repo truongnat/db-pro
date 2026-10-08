@@ -8,6 +8,7 @@ impl DbProApp {
         self.draw_section_heading(
             ui,
             "AI Agent Workspace & Execution Components",
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "Context awareness, agent reasoning trace, plan checklist, tool approvals, transaction bar, and safe execution boundaries.",
         );
 
@@ -140,6 +141,7 @@ impl DbProApp {
         self.draw_gallery_label(ui, "Agent Reasoning & Thought Stream");
         let mut thinking_expanded = self.gallery_state.thinking_expanded;
         AgentThinking::new(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "1. Parsing user intent: 'Find slow queries in the past hour'.\n2. Querying pg_stat_statements for top total_exec_time.\n3. Found query #142 (avg_time = 420ms, calls = 14,200).\n4. Analyzing EXPLAIN plan: Sequential scan on table `users` filtering by `email`.\n5. Recommendation: Add B-tree index on `users(email)'.",
             &mut thinking_expanded,
             theme,
@@ -315,6 +317,7 @@ impl DbProApp {
         let confirmed = DestructiveOperationDialog::new(
             &mut is_open,
             "Drop Production Table",
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "This action will permanently remove public.audit_logs (14,209,102 rows) and cascade delete all associated foreign key records. This cannot be undone.",
             "public.audit_logs",
             "DROP",

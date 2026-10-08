@@ -130,6 +130,7 @@ impl DbProApp {
                 // query matched, and the message has to say which one it is.
                 self.feedback.runtime_message = if result.row_count > exported_rows as u64 {
                     format!(
+                        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                         "Exported {exported_rows} rows to {path_text} ({} rows matched; the result holds the first {exported_rows})",
                         result.row_count
                     )

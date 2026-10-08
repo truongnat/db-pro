@@ -168,6 +168,7 @@ impl StatusRole {
 
 impl SemanticTokens {
     /// Codex-aligned light roles.
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn light() -> Self {
         Self {
             background: Background {
@@ -224,6 +225,7 @@ impl SemanticTokens {
     }
 
     /// Codex-aligned dark roles tuned for dense database workspaces.
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn dark() -> Self {
         Self {
             background: Background {

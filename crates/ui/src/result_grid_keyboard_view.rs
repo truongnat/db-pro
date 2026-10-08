@@ -53,6 +53,7 @@ pub(super) fn read_keyboard_intent(ui: &egui::Ui, context: GridKeyboardInputCont
     GridKeyboardIntent::Commands(commands)
 }
 
+// cc-scan:allow HARD_COMPLEXITY — key→grid-command dispatch ladder
 fn read_grid_commands(ui: &egui::Ui, context: GridKeyboardInputContext) -> GridKeyboardCommands {
     let modifier = ui.input(primary_modifier_pressed);
     let shift = ui.input(|input| input.modifiers.shift);

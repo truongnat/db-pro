@@ -52,6 +52,7 @@ impl ExplorerToolbarContext<'_> {
 
     /// Object-filter workbench (spec 11): a popup next to the search box with
     /// the name-match mode and per-kind visibility toggles.
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn draw_filter_workbench(&mut self, ui: &mut egui::Ui) {
         let popup_id = ui.make_persistent_id("explorer_object_filter_workbench");
         let filter_active = !self.filter.is_default();

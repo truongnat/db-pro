@@ -127,6 +127,7 @@ mod tests {
     use super::*;
 
     #[test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn test_completion_state_navigation() {
         let mut state = CompletionState::new();
         let items = vec![

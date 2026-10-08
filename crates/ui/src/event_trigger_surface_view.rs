@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 //! PostgreSQL event-trigger presentation and typed user intents.
 use super::super::event_trigger_state::EventTriggerState;
 use super::super::*;
@@ -45,6 +48,7 @@ impl EventTriggerSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "PostgreSQL-only · database-level DDL hooks · not table/row triggers · create requires existing function",
             )
             .small()

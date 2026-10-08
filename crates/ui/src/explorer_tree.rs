@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 //! Shared rendering primitives for the Codex / DBeaver style navigator tree.
 //!
 //! Everything here is presentation-only: row geometry, the hover/selection wash,

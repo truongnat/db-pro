@@ -306,6 +306,7 @@ fn translate_query_completed(
     })
 }
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 fn map_multi_query_output(output: db_pro_core::application::MultiQueryResult) -> UiQueryExecutionOutput {
     let db_pro_core::application::MultiQueryResult {
         results,
@@ -567,6 +568,7 @@ mod tests {
     /// precision-sensitive values stay exact text, a null stays `Null`, bytes stay
     /// byte-safe hex and JSON stays structured text (Gate 5 A4).
     #[test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn map_cell_keeps_one_ui_class_per_domain_value_class() {
         let cases = vec![
             (CellValue::Null, UiCell::Null),

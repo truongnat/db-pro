@@ -355,6 +355,7 @@ fn parse_window_size(raw: &str) -> Option<[f32; 2]> {
     }
 }
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
     let pinned_size = capture_window_size();
     tracing::info!(?pinned_size, "capture: resolved window size override");

@@ -101,6 +101,7 @@ impl DbProApp {
         }
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn draw_query_context_chrome(&mut self, ui: &mut egui::Ui) {
         let doc_idx = self.query.session.active_document_index;
         let file_path = self

@@ -78,6 +78,7 @@ impl SchemaNodeContext<'_> {
         )
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn draw_menu(&self, ui: &mut egui::Ui, response: &egui::Response) -> Vec<SchemaNodeAction> {
         let mut actions = Vec::new();
         context_action_menu(ui, response, self.theme, |ui, close_menu| {

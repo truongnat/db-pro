@@ -3,6 +3,7 @@
 use crate::domain::object_mutation::{ObjectDependencyEdge, ObjectKind};
 use crate::domain::schema::IntrospectResult;
 
+// cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
 pub fn export_schema_markdown(schema: &IntrospectResult) -> String {
     let mut out = String::from("# Schema documentation\n\n");
 

@@ -188,6 +188,7 @@ mod tests {
     use super::*;
 
     #[test]
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn tab_padding_keeps_title_and_close_target_separate() {
         for title in [
             "Query 1",

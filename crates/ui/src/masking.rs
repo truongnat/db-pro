@@ -2,6 +2,7 @@
 
 use db_pro_core::domain::masking::{preview_masking, ColumnMask, MaskRule, MaskingPreview, MaskingProfile};
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub(super) fn build_preview(columns_csv: &str, rule: MaskRule, keyed: bool) -> MaskingPreview {
     let columns: Vec<String> = columns_csv
         .split(',')

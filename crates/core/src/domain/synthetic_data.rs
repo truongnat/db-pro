@@ -144,6 +144,7 @@ pub fn generate_rows(plan: &SyntheticPlan, count: usize) -> Result<Vec<Vec<Strin
     Ok(rows)
 }
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 fn generate_cell(col: &ColumnSpec, row_index: u64, null_rate: u8, rng: &mut Rng) -> Result<String, String> {
     if !col.fk_values.is_empty() {
         let idx = (row_index as usize) % col.fk_values.len();

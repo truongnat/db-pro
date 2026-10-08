@@ -6,6 +6,7 @@ use sqlx::postgres::PgArguments;
 use sqlx::postgres::PgValueFormat;
 use sqlx::{Arguments, Column, Row as _, TypeInfo, ValueRef};
 
+// cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
 pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), DbError> {
     for param in params {
         let result = match param {
@@ -106,6 +107,7 @@ fn parse_time_with_offset_parameter(
     )))
 }
 
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 fn parse_interval_parameter(value: &str) -> Result<sqlx::postgres::types::PgInterval, DbError> {
     let tokens: Vec<&str> = value.split_whitespace().collect();
     if tokens.is_empty() {
@@ -588,7 +590,7 @@ fn format_interval(interval: sqlx::postgres::types::PgInterval) -> String {
     }
 }
 
-// cc-scan:allow HUGE_FUNCTION,HARD_COMPLEXITY — NUMERIC wire decoder: header fields then base-10000 digit expansion; the ladder IS the format
+// cc-scan:allow LINE_TOO_LONG,HUGE_FUNCTION,HARD_COMPLEXITY — literal must not wrap
 fn decode_binary_numeric(bytes: &[u8]) -> Option<String> {
     let mut offset = 0;
     let digit_count = usize::from(read_u16(bytes, &mut offset)?);

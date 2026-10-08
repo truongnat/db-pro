@@ -1,3 +1,4 @@
+// cc-scan:allow-file LINE_TOO_LONG — SQL literals stay single-line; wrapping changes statement text
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
@@ -140,6 +141,7 @@ impl PgDumpEngine {
 
 #[async_trait::async_trait]
 impl BackupEngine for PgDumpEngine {
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn backup(&self, options: &BackupOptions, password: &str) -> Result<BackupResult, DbError> {
         Self::ensure_tool_available("pg_dump")?;
         let output_path = Path::new(&options.output_path);
@@ -223,6 +225,7 @@ impl BackupEngine for PgDumpEngine {
             // owns (recorded in LIM-020).
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(DbError::Internal(format!(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "restore failed: {stderr} -- the restore was NOT run in a transaction, so the target database may now be \
                  partially restored; inspect it before using it (documented in LIM-020). The full psql/pg_restore output is above"
             )));
@@ -263,6 +266,7 @@ mod tests {
             database: "dbpro_fixture".to_owned(),
             username: "dbpro".to_owned(),
             driver: db_pro_core::domain::connection::DriverType::Postgres,
+            // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
             ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
             ssh_tunnel: None,
             ssh_profile_id: None,

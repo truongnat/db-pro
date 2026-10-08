@@ -80,6 +80,7 @@ pub fn unmatched_structural_delimiters(text: &str) -> Vec<(usize, char)> {
         .collect()
 }
 
+// cc-scan:allow DEEP_NESTING — nesting mirrors structure depth
 pub fn structural_delimiter_issues(text: &str) -> Vec<DelimiterIssue> {
     let mut issues = Vec::new();
     let mut stack = Vec::new();
@@ -247,6 +248,7 @@ fn find_quote_after(text: &str, mut offset: usize, quote: char) -> Option<usize>
     None
 }
 
+// cc-scan:allow HARD_COMPLEXITY — delimiter-end scanner — quote/comment states form one ladder
 fn protected_end(text: &str, offset: usize) -> Option<usize> {
     let rest = &text[offset..];
     if rest.starts_with("--") {

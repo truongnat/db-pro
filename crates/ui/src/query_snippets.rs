@@ -22,6 +22,7 @@ pub(super) fn builtin_sql_snippets() -> &'static [(&'static str, &'static str, &
         (
             "CREATE INDEX",
             "idx*",
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_${1:table_name}_${2:column_name}\nON ${1:table_name} (${2:column_name});",
         ),
     ]

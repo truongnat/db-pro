@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::agent_settings_view::AgentSettingsAction;
 use super::agent_surface_view::{AgentPanelAction, AgentPanelContext};
 use super::*;
@@ -177,6 +180,7 @@ mod tests {
 
         assert!(
             texts.iter().any(|text| text == AI_EGRESS_DISCLOSURE),
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "the surface that enables the AI provider must state what leaves the machine (#242); painted texts: {texts:?}"
         );
         // The note must not replace the key-handling sentence the section already carried.

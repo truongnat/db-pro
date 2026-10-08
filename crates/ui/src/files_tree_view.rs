@@ -177,6 +177,7 @@ impl FilesTreeContext<'_> {
         actions
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn file_menu(&self, ui: &mut egui::Ui, response: &egui::Response) -> (bool, bool, bool, bool) {
         let mut open_file = false;
         let mut add_context = false;

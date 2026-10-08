@@ -61,6 +61,7 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String, String> {
 }
 
 /// Probe whether `root` is inside a Git work tree and collect porcelain status.
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub fn probe_git_status(root: &Path) -> GitWorkspaceStatus {
     match run_git(root, &["rev-parse", "--is-inside-work-tree"]) {
         Ok(out) if out.trim() == "true" => {}

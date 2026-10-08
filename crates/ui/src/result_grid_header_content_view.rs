@@ -117,6 +117,7 @@ fn draw_header_text(painter: &egui::Painter, context: &GridHeaderContentContext<
 
 /// Tiny filled triangle — the `↑`/`↓` glyphs are missing from the bundled
 /// fonts and render as `+`/tofu in headers.
+// cc-scan:allow TOO_MANY_PARAMS — context params passed through
 fn draw_sort_arrow(painter: &egui::Painter, x: f32, header_rect: Rect, desc: bool, color: Color32) -> f32 {
     let (w, h) = (7.0_f32, 4.5_f32);
     let cy = header_rect.center().y;

@@ -117,6 +117,7 @@ pub(super) enum ConstraintKindUi {
 }
 
 impl Default for SchemaWorkbenchState {
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn default() -> Self {
         Self {
             mode: SchemaWorkbenchMode::Table,

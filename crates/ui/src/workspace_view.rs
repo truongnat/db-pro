@@ -49,6 +49,7 @@ impl DbProApp {
         welcome_surface_view::draw(self.theme, ui);
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub(super) fn draw_workspace(&mut self, ui: &mut egui::Ui) {
         if self.workspace.activity == Activity::Settings {
             self.draw_settings(ui);

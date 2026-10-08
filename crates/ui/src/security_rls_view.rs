@@ -145,6 +145,7 @@ impl SecurityRlsContext<'_> {
         actions
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn draw_policy_form(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRlsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_SM);

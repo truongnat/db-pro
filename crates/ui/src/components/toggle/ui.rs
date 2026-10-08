@@ -54,6 +54,7 @@ impl<'a> Toggle<'a> {
         self
     }
 
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn show(self, ui: &mut Ui) -> Response {
         let size = self.size.tokens();
         let label_width = measure_label(ui, self.label, size.font_size);
@@ -171,6 +172,7 @@ impl<'a, T: Clone + PartialEq> ToggleGroup<'a, T> {
     }
 
     /// Renders single-select toggle group.
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn show_single(self, ui: &mut Ui, selected: &mut T) -> Option<T> {
         let count = self.items.len();
         if count == 0 {

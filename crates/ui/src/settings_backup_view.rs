@@ -42,10 +42,12 @@ impl SettingsBackupContext<'_> {
 
     fn tool_hint(&self) -> &'static str {
         if self.active_driver.eq_ignore_ascii_case("sqlite") {
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "SQLite uses VACUUM INTO for consistent snapshots (including WAL). Restore refuses while the connection is active — disconnect first."
         } else if self.active_driver.eq_ignore_ascii_case("mysql") {
             "MySQL backup/restore is not available yet."
         } else {
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "PostgreSQL backups require `pg_dump` on PATH; restores use `psql` (plain) or `pg_restore` (custom). Missing tools are detected before spawn."
         }
     }

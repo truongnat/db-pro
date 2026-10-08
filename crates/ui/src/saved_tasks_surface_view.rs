@@ -68,6 +68,7 @@ impl SavedTasksSurfaceContext<'_> {
         ui.add_space(6.0);
         ui.label(
             RichText::new(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "Scheduler runs only while this app is open — there is no background daemon. Secrets stay on the connection.",
             )
             .small()

@@ -221,6 +221,7 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -
         .inner_margin(egui::Margin::symmetric(SPACE_XS + 2.0, 2.0))
         .stroke(egui::Stroke::new(1.0, chip_stroke))
         .show(ui, |ui| {
+            // cc-scan:allow TOO_MANY_PARAMS — context params passed through
             draw_context_chip_contents(context, ui, is_production, chip_text, color)
         })
         .response

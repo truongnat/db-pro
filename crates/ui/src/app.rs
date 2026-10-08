@@ -352,6 +352,7 @@ impl DbProApp {
         }
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     fn runtime_work_pending(&self) -> bool {
         self.connection.lifecycle.connections_request_pending()
             || self.connection.lifecycle.pending_request().is_some()

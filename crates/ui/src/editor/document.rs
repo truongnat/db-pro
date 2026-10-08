@@ -26,6 +26,7 @@ impl SqlDocumentAnalysis {
     }
 
     /// Build statement ranges from already-computed highlight tokens (avoids a second tokenize).
+    // cc-scan:allow COMPLEXITY,DEEP_NESTING — classifier/dispatch ladder — one case per branch
     pub fn from_tokens(text: &str, tokens: &[SyntaxToken], version: u64) -> Self {
         let mut statements = Vec::new();
         let mut statement_start = None;

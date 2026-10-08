@@ -4,6 +4,7 @@ use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use lucide_icons::Icon;
 
+// cc-scan:allow LINE_TOO_LONG — literal must not wrap
 pub(crate) const AI_EGRESS_DISCLOSURE: &str = "With a key configured, the AI features send data to that provider: your prompts, the SQL they reference and the schema names and types around them. When the agent runs a query, up to 20 sample result rows (50 columns, 256 characters per cell) are sent too.\nYour database and SSH connections are the app's only other outbound connections.";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,6 +69,7 @@ impl AgentSettingsContext<'_> {
         let provider_label = self.provider_label;
         ui.add_space(4.0);
         ui.label(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             RichText::new("Enter a Groq or OpenAI API key to enable the AI provider.\nThe key is stored in DB Pro's secure secret store and never written to disk in plain text.")
                 .font(font_caption())
                 .color(theme.text_secondary),
@@ -111,6 +113,7 @@ impl AgentSettingsContext<'_> {
         response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter) && primary_modifier_pressed(input))
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     fn draw_key_actions(&mut self, ui: &mut egui::Ui, save_shortcut: bool) -> Vec<AgentSettingsAction> {
         let mut actions = Vec::new();
         let theme = self.theme;
@@ -162,6 +165,7 @@ impl AgentSettingsContext<'_> {
         ui.separator();
         ui.add_space(4.0);
         ui.label(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             RichText::new("Supported providers:\n• Groq  — gsk_… key, model openai/gpt-oss-120b\n• OpenAI — sk-… key, model gpt-5.6\n\nThe provider is detected automatically from the key prefix.")
                 .font(font_caption())
                 .color(self.theme.text_muted),

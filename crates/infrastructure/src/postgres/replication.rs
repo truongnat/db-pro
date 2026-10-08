@@ -72,6 +72,7 @@ ORDER BY p.pubname
             let tables = match self.publication_tables(handle, &name).await {
                 Ok(tables) => tables,
                 Err(error) => {
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                     tracing::warn!(publication = %name, %error, "failed to list tables of publication — showing it without tables");
                     Vec::new()
                 }
@@ -198,6 +199,7 @@ ORDER BY slot_name
             .collect())
     }
 
+    // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     async fn execute_repl_ddl(&self, handle: &ConnectionHandle, sql: &str) -> Result<(), DbError> {
         let trimmed = sql.trim();
         let upper = trimmed.to_ascii_uppercase();

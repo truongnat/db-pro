@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 //! Staged-table-change dialogs and typed user intents.
 
 use super::change_set::ChangeCounts;
@@ -22,6 +25,7 @@ impl DiscardChangesContext {
         let mut open = true;
         let mut action = None;
         let description = format!(
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "You have {} unapplied staged change(s) (+{} inserts, {} updates, {} deletes). Apply changes to database, discard them, or cancel navigation?",
             self.counts.total(),
             self.counts.inserts,

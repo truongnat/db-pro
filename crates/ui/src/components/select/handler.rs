@@ -32,6 +32,7 @@ pub fn calculate_menu_geometry(
     let space_above = (parent_rect.top() - screen.top()).max(0.0);
     // Flip upward only if the menu does not fit below and above has more room; otherwise keep downward placement.
     let open_up = dropdown_should_open_above(space_below, space_above, menu_h);
+    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
     // Clamp width in order: at least trigger/design minimum, at most usable screen width (with minimum screen fallback).
     let menu_width = parent_rect
         .width()

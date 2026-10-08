@@ -30,6 +30,7 @@ pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String
 }
 
 /// Apply a driver selection onto a draft, setting conventional default ports and TLS defaults.
+// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 pub fn select_driver(draft: &mut UiConnectionDraft, driver: UiDriver) {
     if driver != draft.driver {
         match driver {

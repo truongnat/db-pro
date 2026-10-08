@@ -108,6 +108,7 @@ pub fn preview_drop_user_mapping(server: &str, user: &str) -> Result<String, Str
     Ok(format!("DROP USER MAPPING IF EXISTS FOR {user} SERVER {server};"))
 }
 
+// cc-scan:allow TOO_MANY_PARAMS — context params passed through
 pub fn preview_create_server(name: &str, fdw: &str, host: &str, dbname: &str, port: &str) -> Result<String, String> {
     let name = quote_ident(name)?;
     let fdw = quote_ident(fdw)?;

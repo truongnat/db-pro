@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::*;
 use egui::{Response, RichText, Ui};
 
@@ -20,6 +23,7 @@ impl DbProApp {
         self.draw_section_heading(
             ui,
             "Form Handling & Validation",
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "Responsive connection form with explicit labels, keyboard navigation, validation summary, and inline recovery.",
         );
 
@@ -474,7 +478,9 @@ impl DbProApp {
             RadioGroup::new(theme)
                 .label("Transaction isolation")
                 .option(RadioGroupOption::new(0, "Read committed").description("Default for most workloads."))
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 .option(RadioGroupOption::new(1, "Repeatable read").description("Keeps a stable snapshot during the transaction."))
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 .option(RadioGroupOption::new(2, "Serializable").description("Strongest isolation; may require retrying."))
                 .show(ui, &mut self.gallery_state.radio_group_val);
         });

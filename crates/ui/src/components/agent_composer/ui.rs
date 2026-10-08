@@ -1,3 +1,6 @@
+// cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
+// cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
+// egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::tokens::{
     font_caption, FONT_SIZE_CAPTION, RADIUS_COMPOSER, RADIUS_XS, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN,

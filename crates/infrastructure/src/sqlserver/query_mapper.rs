@@ -67,6 +67,7 @@ fn parse_time(value: &str) -> Result<NaiveTime, DbError> {
 }
 
 /// Decode a TDS cell by its concrete variant, preserving exact numeric and binary values.
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub fn decode_cell(row: &Row, index: usize) -> Result<CellValue, DbError> {
     let (_, value) = row
         .cells()

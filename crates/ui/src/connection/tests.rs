@@ -49,6 +49,7 @@ fn ssh_section_discloses_its_unqualified_v0_1_status() {
 
     assert!(
         texts.iter().any(|text| text == SSH_QUALIFICATION_HINT),
+        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
         "the SSH section must carry the LIM-006 qualification caveat before the tunnel is enabled; painted texts: {texts:?}"
     );
 }

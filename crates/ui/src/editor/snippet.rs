@@ -26,6 +26,7 @@ pub enum SnippetMove {
 impl SnippetSession {
     /// Expand a template. Ranges are relative to the returned text.
     /// `None` when the template has no tab stops.
+    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn expand(template: &str) -> (String, Option<Self>) {
         let mut out = String::with_capacity(template.len());
         let mut stops = Vec::new();
@@ -160,6 +161,7 @@ impl SnippetSession {
         true
     }
 
+    // cc-scan:allow TOO_MANY_PARAMS — context params passed through
     fn shift_edit(&mut self, start: usize, old_end: usize, new_end: usize, edited_start: Option<usize>) {
         let delta = new_end as isize - old_end as isize;
         for stop in &mut self.stops {

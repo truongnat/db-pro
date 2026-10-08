@@ -32,6 +32,7 @@ impl DestructiveDialogContext<'_> {
     fn draw_destructive_body(&self, ui: &mut egui::Ui, action: &mut DestructiveDialogAction) {
         ui.label(
             RichText::new(if self.pending.all_statements() {
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "The script you are about to run contains a statement that can drop or truncate data. Nothing has been sent yet."
             } else {
                 "This statement can drop or truncate data. Nothing has been sent yet."

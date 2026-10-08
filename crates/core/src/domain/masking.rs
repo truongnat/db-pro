@@ -66,6 +66,7 @@ pub fn suggest_sensitive_columns(column_names: &[String]) -> Vec<String> {
         .collect()
 }
 
+// cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub fn mask_cell(value: &str, rule: &ColumnMask, keyed: bool, key_material: &str) -> String {
     if value.eq_ignore_ascii_case("null") {
         return "NULL".into();

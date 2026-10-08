@@ -109,6 +109,7 @@ impl<'a> UnderlineTabs<'a> {
             .rect_filled(baseline, Rounding::ZERO, self.theme.border_subtle);
     }
 
+    // cc-scan:allow TOO_MANY_PARAMS — context params passed through
     fn paint_active_underline(&self, ui: &Ui, track_id: egui::Id, track_origin_x: f32, target: Rect) {
         let underline = TabTrackerAnimation::animate_underline(
             ui.ctx(),

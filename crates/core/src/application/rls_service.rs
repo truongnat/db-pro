@@ -66,6 +66,7 @@ mod tests {
 
     #[tokio::test]
     async fn rls_rejects_sqlite_before_provider_call() {
+        // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
         let config = ConnectionConfig {
             name: "local".into(),
             host: String::new(),

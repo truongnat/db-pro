@@ -59,6 +59,7 @@ impl DbProApp {
             ConnectionRowAction::CreateTable => {
                 self.new_query_document();
                 self.set_active_query_text(format!(
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                     "-- Create table on database `{}`\nCREATE TABLE new_table (\n    id SERIAL PRIMARY KEY,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n",
                     connection.database
                 ));
