@@ -123,7 +123,7 @@ pub(super) fn draw_pagination(
             &limit_labels,
         )
             .theme(context.theme)
-            .width(90.0)
+            .width(104.0)
             .size(crate::components::SelectSize::Sm)
             .variant(crate::components::SelectVariant::Ghost)
             .show(ui);
