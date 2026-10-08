@@ -87,9 +87,9 @@ impl MySqlIntrospect {
         let column_rows = sqlx::query(
             "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, DATA_TYPE AS data_type, \
              IS_NULLABLE AS is_nullable, COLUMN_DEFAULT AS column_default, EXTRA AS extra, \
-             COLUMN_KEY AS column_key, ORDINAL_POSITION AS ordinal_position 
-             FROM information_schema.COLUMNS 
-             WHERE TABLE_SCHEMA = ? 
+             COLUMN_KEY AS column_key, ORDINAL_POSITION AS ordinal_position
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = ?
              ORDER BY TABLE_NAME, ORDINAL_POSITION",
         )
         .bind(database)
@@ -123,9 +123,9 @@ impl MySqlIntrospect {
     async fn fetch_primary_keys(pool: &MySqlPool, database: &str) -> Result<Vec<PrimaryKey>, DbError> {
         // Primary keys
         let pk_rows = sqlx::query(
-            "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, CONSTRAINT_NAME AS constraint_name 
-             FROM information_schema.KEY_COLUMN_USAGE 
-             WHERE TABLE_SCHEMA = ? AND CONSTRAINT_NAME = 'PRIMARY' 
+            "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, CONSTRAINT_NAME AS constraint_name
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = ? AND CONSTRAINT_NAME = 'PRIMARY'
              ORDER BY TABLE_NAME, ORDINAL_POSITION",
         )
         .bind(database)
@@ -156,9 +156,9 @@ impl MySqlIntrospect {
         // Indexes
         let index_rows = sqlx::query(
             "SELECT TABLE_NAME AS table_name, INDEX_NAME AS index_name, COLUMN_NAME AS column_name, \
-             NON_UNIQUE AS non_unique, INDEX_TYPE AS index_type 
-             FROM information_schema.STATISTICS 
-             WHERE TABLE_SCHEMA = ? 
+             NON_UNIQUE AS non_unique, INDEX_TYPE AS index_type
+             FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = ?
              ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
         )
         .bind(database)
@@ -208,8 +208,8 @@ impl MySqlIntrospect {
     async fn fetch_foreign_keys(pool: &MySqlPool, database: &str) -> Result<Vec<ForeignKey>, DbError> {
         // Foreign keys
         let fk_rows = sqlx::query(
-            "SELECT 
-                tc.TABLE_NAME AS table_name, 
+            "SELECT
+                tc.TABLE_NAME AS table_name,
                 kcu.COLUMN_NAME AS column_name,
                 kcu.REFERENCED_TABLE_NAME AS referenced_table_name,
                 kcu.REFERENCED_COLUMN_NAME AS referenced_column_name,
@@ -299,8 +299,8 @@ impl MySqlIntrospect {
         let trigger_rows = sqlx::query(
             "SELECT TRIGGER_NAME AS trigger_name, EVENT_MANIPULATION AS event_manipulation, \
              EVENT_OBJECT_TABLE AS event_object_table, ACTION_STATEMENT AS action_statement, \
-             ACTION_TIMING AS action_timing 
-             FROM information_schema.TRIGGERS 
+             ACTION_TIMING AS action_timing
+             FROM information_schema.TRIGGERS
              WHERE TRIGGER_SCHEMA = ?",
         )
         .bind(database)
@@ -329,8 +329,8 @@ impl MySqlIntrospect {
         // Functions
         let routine_rows = sqlx::query(
             "SELECT ROUTINE_NAME AS routine_name, ROUTINE_TYPE AS routine_type, DATA_TYPE AS data_type, \
-             ROUTINE_DEFINITION AS routine_definition 
-             FROM information_schema.ROUTINES 
+             ROUTINE_DEFINITION AS routine_definition
+             FROM information_schema.ROUTINES
              WHERE ROUTINE_SCHEMA = ?",
         )
         .bind(database)

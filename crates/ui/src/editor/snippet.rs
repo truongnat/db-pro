@@ -33,7 +33,9 @@ impl SnippetSession {
         let mut index = 0;
         while index < bytes.len() {
             if bytes[index] != b'$' {
-                let ch = template[index..].chars().next().unwrap();
+                let Some(ch) = template[index..].chars().next() else {
+                    break;
+                };
                 out.push(ch);
                 index += ch.len_utf8();
                 continue;

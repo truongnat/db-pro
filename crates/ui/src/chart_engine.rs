@@ -352,7 +352,7 @@ fn lttb_downsample(points: Vec<ChartPoint>, target: usize) -> Vec<ChartPoint> {
 /// Aggregate points by (series, label) using the specified function.
 fn aggregate_points(points: Vec<ChartPoint>, agg: ChartAggregation) -> Vec<ChartPoint> {
     let mut groups: BTreeMap<(String, String), (f64, usize, f64, f64)> = BTreeMap::new();
-    // key = (series, label); value = (sum, count, min, max)
+    // Groups into key (series, label) → value (sum, count, min, max).
 
     for p in &points {
         let entry =

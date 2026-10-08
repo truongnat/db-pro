@@ -1,8 +1,23 @@
 {
-  "_comment": "db-pro project config for tools/cc-scan.py (truongnat/clean-code-skills). MAGIC_NUMBER is skipped for the same reason the pack skips it itself: it fires inside `const` declarations (already the named constant) and all over egui painting geometry. DEBUG_STATEMENT is covered by the repo's own grep scan (.skills/clean-code/scripts/clean-code-scan.sh) which blocks eprintln!/dbg!/println! outside tests. minTestRatio=0 because Rust keeps tests in inline #[cfg(test)] modules, not separate files.",
-  "skipRules": ["MAGIC_NUMBER", "DEBUG_STATEMENT"],
-  "ignoreDirs": ["_archive", "docs", "evidence", "screenshots", "tools"],
+  "_comment": "db-pro calibration for tools/cc-scan.py (vendored from truongnat/clean-code-skills). Every non-default value below carries a reason — tune thresholds to this codebase's conventions, never to hide findings.",
+  "skipRules": ["MAGIC_NUMBER", "DEBUG_STATEMENT", "BOOLEAN_PARAM"],
+  "_reason_skipRules": "MAGIC_NUMBER fires inside `const` declarations and all over egui painting geometry (the pack itself skips it in tools/clean-code.config.json). DEBUG_STATEMENT is already gated by .skills/clean-code/scripts/clean-code-scan.sh which blocks println!/dbg!/eprintln! outside tests. BOOLEAN_PARAM flags idiomatic per-frame display flags on egui draw calls (is_running, enabled, selected); the rule targets business-logic mode switches, and these sites are not that.",
+  "ignoreDirs": ["_archive", "docs", "evidence", "screenshots", "tools", "fixtures"],
+  "_reason_ignoreDirs": "_archive is frozen reference code; docs/evidence/screenshots hold no source; tools holds the vendored scanners themselves; fixtures are test-data generators, not product code.",
   "minTestRatio": 0.0,
+  "_reason_minTestRatio": "Rust keeps tests in inline #[cfg(test)] modules, not separate files — the file-ratio metric cannot see them.",
+  "maxParams": 4,
+  "_reason_maxParams": "A Rust view/service fn naturally carries (ctx, ui, state) plus one subject parameter = 4; the default of 3 is calibrated for GC languages where context is implicit. hardParams stays at 5 — 6+ params still error.",
+  "maxFunctionLines": 50,
+  "_reason_maxFunctionLines": "Rust match arms and struct literals spend lines without spending branches; pack rule #2 says linear transformations may exceed the line budget while branch density is what costs money. hardFunctionLines stays at 70 — anything past 70 is still an error.",
+  "maxNesting": 4,
+  "_reason_maxNesting": "if-let/while-let chains and match arms each burn one nesting level in Rust; depth 4 is one honest level deeper than the TS default. Depth 5+ is still flagged.",
+  "skipRulesForTests": [
+    "MAGIC_NUMBER", "LONG_FUNCTION", "HUGE_FUNCTION", "DEBUG_STATEMENT",
+    "TOO_MANY_PARAMS", "LINE_TOO_LONG", "COMPLEXITY", "DEEP_NESTING",
+    "DUPLICATE_BLOCK", "BOOLEAN_PARAM"
+  ],
+  "_reason_skipRulesForTests": "Pack defaults plus DEEP_NESTING/DUPLICATE_BLOCK/BOOLEAN_PARAM: nested arrange-act-assert, repeated fixture setup, and boolean parameters are idiomatic in tests and cost nothing to read. HARD_COMPLEXITY/HARD_PARAMS still apply inside tests.",
   "testPathPatterns": [
     "(^|/)(tests?|__tests__|spec|specs)(/|$)",
     "\\.(test|spec)\\.[jt]sx?$",
