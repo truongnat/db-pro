@@ -1,9 +1,9 @@
-# Checklist: MySQL Transaction Read-Statement Execution and Validation
+# Checklist: MySQL Transaction Read-Statement Execution, Validation, and Batch Atomicity
 
-- [ ] `PLAN.md`, `CHECKLIST.md`, `FINDINGS.md`, `VERIFICATION.md` created
-- [ ] Mismatched `statements` and `read_statements` length validated in `MySqlConnector::execute_transaction`
-- [ ] `is_read == true` queries executed with `fetch_all` and mapped with `MySqlQueryMapper`
-- [ ] Unit tests for `Validation` phase length mismatch added
-- [ ] Unit tests for `Begin` phase invalid handle added
-- [ ] Quality gates run: `cargo fmt`, `cargo check`, `cargo clippy`, `cargo test -p db-pro-core`
-- [ ] Feature branch created and PR published
+- [x] `PLAN.md`, `CHECKLIST.md`, `FINDINGS.md`, `VERIFICATION.md` updated
+- [x] Refactor `MySqlConnector::execute_batch` to delegate to `execute_transaction` to enforce transaction atomicity and rollback
+- [x] Aggregate total affected rows from `TransactionStatementResult::Affected`
+- [x] Map `TransactionFailure` to `DbError` on failure
+- [x] Unit tests added in `crates/infrastructure/src/mysql/connector.rs` for `execute_batch` delegation and error handling
+- [x] Quality gates run: `cargo fmt`, `cargo check`, `cargo clippy`, `cargo test -p db-pro-core`
+- [x] Feature branch created and PR published

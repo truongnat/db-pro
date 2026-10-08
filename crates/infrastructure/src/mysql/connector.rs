@@ -221,20 +221,19 @@ impl DbConnector for MySqlConnector {
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
-        let pool = self
-            .get_pool(handle)
+        let read_statements = vec![false; statements.len()];
+        let results = self
+            .execute_transaction(handle, statements, &read_statements)
             .await
-            .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+            .map_err(|failure| failure.error)?;
 
-        let mut total = 0;
-        for stmt in statements {
-            let result = sqlx::query(stmt)
-                .execute(&pool)
-                .await
-                .map_err(|e| DbError::QueryFailed(format!("MySQL batch statement failed: {}", e)))?;
-            total += result.rows_affected();
+        let mut total_affected: u64 = 0;
+        for result in results {
+            if let db_pro_core::ports::TransactionStatementResult::Affected { row_count, .. } = result {
+                total_affected = total_affected.saturating_add(row_count);
+            }
         }
-        Ok(total)
+        Ok(total_affected)
     }
 
     async fn execute_transaction(
@@ -575,6 +574,20 @@ mod tests {
             "statement_index must be 0 for Validation phase failure"
         );
         assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn execute_batch_reports_error_on_unknown_handle() {
+        let connector = MySqlConnector::new();
+        let handle = ConnectionHandle::new(999);
+        let statements = vec!["INSERT INTO users VALUES (1)".to_string()];
+
+        let error = connector
+            .execute_batch(&handle, &statements)
+            .await
+            .expect_err("execute_batch on unknown handle must fail");
+
+        assert!(matches!(error, DbError::ConnectionFailed(_)));
     }
 
     #[tokio::test]
