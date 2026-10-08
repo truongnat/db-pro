@@ -311,6 +311,41 @@ impl DbProApp {
         self.theme = DbProTheme::light();
     }
 
+    /// Capture helper: open the Query workspace with the output dock populated
+    /// with a deterministic result grid so evidence shots document the results
+    /// toolbar, export entry points, and the docked layout.
+    ///
+    /// `DB_PRO_CAPTURE_EXPORT` additionally opens the export dialog, and
+    /// `DB_PRO_CAPTURE_RESULTS_TAB` promotes the result into the workspace tab.
+    /// `DB_PRO_CAPTURE_RESULTS_RIGHT` docks the output panel on the right.
+    pub fn open_results_dock_for_capture(&mut self, light: bool) {
+        if light {
+            self.open_query_workspace_for_capture_light();
+        } else {
+            self.open_query_workspace_for_capture();
+        }
+        if let Some(doc) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            doc.query_results = vec![capture_results_fixture()];
+            doc.active_result_index = 0;
+        }
+        self.workspace.bottom_panel_open = true;
+        self.workspace.bottom_panel_height = 280.0;
+        if std::env::var_os("DB_PRO_CAPTURE_RESULTS_RIGHT").is_some() {
+            self.workspace.shell.output_dock_position = OutputDockPosition::Right;
+        }
+        if std::env::var_os("DB_PRO_CAPTURE_EXPORT").is_some() {
+            self.overlay.export_open = true;
+        }
+        if std::env::var_os("DB_PRO_CAPTURE_RESULTS_TAB").is_some() {
+            self.open_results_tab();
+        }
+    }
+
     /// Capture helper: open the Table workspace with data grid populated.
     pub fn open_table_workspace_for_capture(&mut self) {
         self.preferences.dark_mode = true;
@@ -949,19 +984,19 @@ impl DbProApp {
         self.workspace.active_tab = WorkspaceTab::Diagram;
     }
 
+    /// Promote the query output to a full workspace tab so the result grid can be
+    /// reviewed without the dock's narrow split taking screen space.
+    pub(crate) fn open_results_tab(&mut self) {
+        self.workspace.results_open = true;
+        self.workspace.active_tab = WorkspaceTab::Results;
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
-                if !self.table.mutation.staged_changes.is_empty() {
-                    self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
-                    self.table.editing.discard_changes_confirmation = true;
-                    self.feedback.runtime_message =
-                        "Apply or discard staged changes before closing the table".to_owned();
+                if !self.request_close_table_tab(tab) {
                     return;
                 }
-                self.workspace.pending_navigation_action = None;
-                self.schema.explorer.selected_table = None;
-                self.table.reset_workspace();
             }
             WorkspaceTab::SchemaObject => {
                 self.schema.explorer.selected_schema_object = None;
@@ -969,6 +1004,9 @@ impl DbProApp {
                 self.table.data_query.result = None;
                 self.table.data_query.total_rows = None;
                 self.table.data_query.request = None;
+            }
+            WorkspaceTab::Results => {
+                self.workspace.results_open = false;
             }
             WorkspaceTab::Diagram => {
                 self.workspace.diagram_open = false;
@@ -990,6 +1028,22 @@ impl DbProApp {
             self.activate_welcome_tab();
         }
         self.feedback.runtime_message = "Workspace closed".to_owned();
+    }
+
+    /// Returns false when the close is blocked by staged table changes — the
+    /// discard confirmation must be resolved before the tab can go away.
+    fn request_close_table_tab(&mut self, tab: WorkspaceTab) -> bool {
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
+            self.table.editing.discard_changes_confirmation = true;
+            self.feedback.runtime_message =
+                "Apply or discard staged changes before closing the table".to_owned();
+            return false;
+        }
+        self.workspace.pending_navigation_action = None;
+        self.schema.explorer.selected_table = None;
+        self.table.reset_workspace();
+        true
     }
 
     pub(crate) fn reload_workspace_file_from_disk(&mut self, path: &str) {
@@ -1015,6 +1069,43 @@ impl DbProApp {
             self.workspace.files.dismiss_external_change();
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
+    }
+}
+
+/// Deterministic result fixture for `DB_PRO_CAPTURE_RESULTS` evidence runs —
+/// a small grid that exercises the results toolbar, export entry points, and
+/// the docked/right-docked layout without needing a live database.
+fn capture_results_fixture() -> crate::UiQueryResult {
+    crate::UiQueryResult {
+        columns: ["id", "first_name", "last_name", "email"]
+            .iter()
+            .map(|name| crate::UiColumn {
+                name: (*name).to_owned(),
+                data_type: if *name == "id" { "integer" } else { "text" }.to_owned(),
+                nullable: false,
+            })
+            .collect(),
+        rows: [
+            ("1", "Alice", "Johnson", "alice@example.com"),
+            ("2", "Bob", "Smith", "bob@example.com"),
+            ("3", "Charlie", "Brown", "charlie@example.com"),
+            ("4045", "Alex", "Morgan", "user_1278@example.com"),
+            ("7361", "Alex", "Morgan", "user_3816@example.com"),
+            ("8034", "Alex", "Morgan", "user_6548@example.com"),
+        ]
+        .iter()
+        .map(|row| {
+            [
+                crate::UiCell::Number(row.0.to_owned()),
+                crate::UiCell::Text(row.1.to_owned()),
+                crate::UiCell::Text(row.2.to_owned()),
+                crate::UiCell::Text(row.3.to_owned()),
+            ]
+            .to_vec()
+        })
+        .collect(),
+        row_count: 6,
+        duration_ms: 1,
     }
 }
 

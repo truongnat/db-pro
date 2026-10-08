@@ -145,6 +145,7 @@ fn tab_label(tab: WorkspaceTab) -> &'static str {
         WorkspaceTab::Query => "Query",
         WorkspaceTab::Table => "Table",
         WorkspaceTab::SchemaObject => "SchemaObject",
+        WorkspaceTab::Results => "Results",
         WorkspaceTab::Diagram => "Diagram",
         WorkspaceTab::SchemaWorkbench => "SchemaWorkbench",
         WorkspaceTab::SchemaCompare => "SchemaCompare",
@@ -157,6 +158,7 @@ fn parse_tab(label: &str) -> WorkspaceTab {
         "Welcome" => WorkspaceTab::Welcome,
         "Table" => WorkspaceTab::Table,
         "SchemaObject" => WorkspaceTab::SchemaObject,
+        "Results" => WorkspaceTab::Results,
         "Diagram" => WorkspaceTab::Diagram,
         "SchemaWorkbench" => WorkspaceTab::SchemaWorkbench,
         "SchemaCompare" => WorkspaceTab::SchemaCompare,
@@ -208,6 +210,9 @@ impl WorkspaceSessionContext<'_> {
         self.workspace.active_tab = parse_tab(&session.active_tab);
         if self.workspace.active_tab == WorkspaceTab::Diagram {
             self.workspace.diagram_open = true;
+        }
+        if self.workspace.active_tab == WorkspaceTab::Results {
+            self.workspace.results_open = true;
         }
         self.workspace.sidebar_open = session.sidebar_open;
         self.workspace.agent_open = session.agent_open;

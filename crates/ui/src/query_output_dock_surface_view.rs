@@ -33,6 +33,8 @@ impl QueryOutputDockContext<'_> {
         }
         let bottom_panel_open = &mut self.workspace.shell.bottom_panel_open;
         let dock_position = &mut self.workspace.shell.output_dock_position;
+        let results_open = &mut self.workspace.shell.results_open;
+        let active_tab = &mut self.workspace.shell.active_tab;
         ui.allocate_ui_with_layout(
             egui::vec2(ui.available_width(), DOCK_TAB_STRIP_HEIGHT),
             Layout::top_down(Align::Min),
@@ -44,6 +46,8 @@ impl QueryOutputDockContext<'_> {
                     editor: self.editor,
                     bottom_panel_open,
                     dock_position: Some(dock_position),
+                    results_open: Some(results_open),
+                    active_tab: Some(active_tab),
                 };
                 query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
             },

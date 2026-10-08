@@ -190,6 +190,7 @@ impl QueryDocumentContext<'_, '_> {
         }
         self.workspace.welcome_open = true;
         self.workspace.diagram_open = false;
+        self.workspace.results_open = false;
         self.query_session
             .replace_with_document(QueryDocument::new("query-1", "Query 1", String::new()));
         self.schema_explorer.selected_table = None;

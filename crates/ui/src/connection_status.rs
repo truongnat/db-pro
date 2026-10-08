@@ -199,6 +199,7 @@ pub(super) fn statusbar_context_label(workspace: &WorkspaceShellState, table_sta
             TableView::Ddl => "Table DDL",
         },
         WorkspaceTab::SchemaObject => "Schema Object",
+        WorkspaceTab::Results => "Query Results",
         WorkspaceTab::Diagram => "ER Diagram",
         WorkspaceTab::SchemaWorkbench => "Schema Workbench",
         WorkspaceTab::SchemaCompare => "Schema Compare",

@@ -84,6 +84,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             self.draw_query_tabs(ui, modifier, &mut close_all_requested);
                             self.draw_table_tab(ui);
                             self.draw_schema_object_tab(ui);
+                            self.draw_static_tab(ui, WorkspaceTab::Results, Icon::Table2, "Results");
                             self.draw_static_tab(ui, WorkspaceTab::Diagram, Icon::ArrowRightLeft, "ER Diagram");
                             self.draw_static_tab(ui, WorkspaceTab::SchemaWorkbench, Icon::Boxes, "Schema Workbench");
                             self.draw_static_tab(ui, WorkspaceTab::SchemaCompare, Icon::GitCompare, "Schema Compare");
@@ -443,7 +444,11 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     )
                     .clicked()
                     {
-                        ui.output_mut(|o| o.copied_text = format!("SELECT * FROM {table_name} LIMIT 100;"));
+                        let select_sql = format!(
+                            "SELECT * FROM {} LIMIT 100;",
+                            result_grid_export::quote_sql_identifier(&table_name)
+                        );
+                        ui.output_mut(|o| o.copied_text = select_sql);
                         *close_menu = true;
                     }
                 },
@@ -526,7 +531,11 @@ impl<'a> WorkspaceTabsViewContext<'a> {
     }
 
     fn draw_static_tab(&mut self, ui: &mut egui::Ui, tab: WorkspaceTab, icon: Icon, title: &str) {
-        let pinned = tab == WorkspaceTab::Diagram && self.workspace.diagram_open;
+        let pinned = match tab {
+            WorkspaceTab::Diagram => self.workspace.diagram_open,
+            WorkspaceTab::Results => self.workspace.results_open,
+            _ => false,
+        };
         if self.workspace.active_tab != tab && !pinned {
             return;
         }

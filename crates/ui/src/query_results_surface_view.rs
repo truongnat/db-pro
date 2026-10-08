@@ -19,6 +19,7 @@ pub(super) enum QueryResultsSurfaceAction {
     CloseResult(usize),
     CloseOtherResults(usize),
     OpenExport,
+    OpenInTab,
 }
 
 pub(super) fn draw_results<F>(
@@ -56,6 +57,12 @@ where
                 );
                 if compact_button(ui, "Export", context.theme).clicked() {
                     action = Some(QueryResultsSurfaceAction::OpenExport);
+                }
+                if compact_icon_button(ui, Icon::ExternalLink, context.theme)
+                    .on_hover_text("Open results in a workspace tab")
+                    .clicked()
+                {
+                    action = Some(QueryResultsSurfaceAction::OpenInTab);
                 }
             });
             draw_grid(ui, result);

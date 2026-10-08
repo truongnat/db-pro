@@ -61,6 +61,10 @@ impl DbProApp {
             WorkspaceTab::Query => self.draw_query(ui),
             WorkspaceTab::Table => self.draw_table_workspace(ui),
             WorkspaceTab::SchemaObject => self.draw_schema_object_workspace(ui),
+            WorkspaceTab::Results => {
+                let result = self.query.session.active_result().cloned();
+                self.draw_results_pane(ui, result.as_ref());
+            }
             WorkspaceTab::Diagram => {
                 let active_driver = self.active_driver().to_owned();
                 let connected = self.connection.lifecycle.is_connected();

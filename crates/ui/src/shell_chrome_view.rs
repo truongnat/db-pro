@@ -105,6 +105,7 @@ impl DbProApp {
         match location.tab {
             WorkspaceTab::Welcome => self.workspace.welcome_open = true,
             WorkspaceTab::Diagram => self.workspace.diagram_open = true,
+            WorkspaceTab::Results => self.workspace.results_open = true,
             WorkspaceTab::Query => self.switch_query_document(location.query_index),
             _ => {}
         }

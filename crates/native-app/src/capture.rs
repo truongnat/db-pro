@@ -119,6 +119,15 @@ fn capture_size_from_env() -> Option<egui::Vec2> {
 /// resize landing and the first layout pass settling.
 const SETTLE_FRAMES: u32 = 60;
 
+/// Re-send `ViewportCommand::Screenshot` when no `Event::Screenshot` has arrived
+/// after this many frames. The request can be dropped when it lands on the same
+/// pass as a viewport resize, so a single-shot send can hang the capture run.
+const SCREENSHOT_RETRY_FRAMES: u32 = 30;
+
+/// Hard stop after the settle budget: if the screenshot reply still has not
+/// arrived, exit instead of letting the capture process run forever.
+const CAPTURE_TIMEOUT_FRAMES: u32 = 600;
+
 /// The settle frame count, honouring [`SETTLE_ENV`]. A malformed or zero value
 /// falls back to the default, so a typo cannot produce a blank capture.
 fn settle_frames() -> u32 {
@@ -137,7 +146,7 @@ pub(super) struct CaptureApp {
     path: PathBuf,
     settle: u32,
     frames: u32,
-    requested: bool,
+    requested_at: Option<u32>,
     opened_dialog: bool,
     prepared_loading: bool,
     pinned: Option<egui::Vec2>,
@@ -155,7 +164,7 @@ impl CaptureApp {
                 path: PathBuf::from(raw),
                 settle: settle_frames(),
                 frames: 0,
-                requested: false,
+                requested_at: None,
                 opened_dialog: false,
                 prepared_loading: false,
                 pinned: capture_size_from_env(),
@@ -172,7 +181,7 @@ impl CaptureApp {
                 path: PathBuf::from(raw),
                 settle: settle_frames(),
                 frames: 0,
-                requested: false,
+                requested_at: None,
                 opened_dialog: false,
                 prepared_loading: false,
                 pinned: capture_size_from_env(),
@@ -210,7 +219,7 @@ impl CaptureApp {
 impl eframe::App for CaptureApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         #[cfg(target_os = "macos")]
-        self.menu.apply_pending_actions(&mut self.inner);
+        self.menu.apply_pending_actions(&mut self.inner, ctx);
         self.prepare_loading();
         self.inner.update(ctx, frame);
         self.open_requested_surface(ctx);
@@ -316,6 +325,10 @@ impl CaptureApp {
         } else if std::env::var_os(COMPARE_WORKSPACE_ENV).is_some() {
             self.inner.open_schema_compare_for_capture();
             self.opened_dialog = true;
+        } else if std::env::var_os("DB_PRO_CAPTURE_RESULTS").is_some() {
+            self.inner
+                .open_results_dock_for_capture(std::env::var_os("DB_PRO_CAPTURE_RESULTS_LIGHT").is_some());
+            self.opened_dialog = true;
         } else if std::env::var_os(QUICK_OPEN_ENV).is_some() {
             self.inner.open_quick_open_for_capture(
                 std::env::var_os(QUICK_OPEN_LIGHT_ENV).is_some(),
@@ -353,9 +366,21 @@ impl CaptureApp {
 
     fn advance_capture(&mut self, ctx: &egui::Context) {
         self.frames += 1;
-        if self.frames >= self.settle && !self.requested {
-            self.requested = true;
-            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
+        if self.frames >= self.settle {
+            let retry_due = self
+                .requested_at
+                .is_none_or(|at| self.frames - at >= SCREENSHOT_RETRY_FRAMES);
+            if retry_due {
+                self.requested_at = Some(self.frames);
+                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
+            }
+            if self.frames - self.settle > CAPTURE_TIMEOUT_FRAMES {
+                tracing::error!(
+                    frames = self.frames,
+                    "capture: screenshot reply never arrived; aborting"
+                );
+                std::process::exit(1);
+            }
         }
         // The app repaints on demand, so without this the settle count would stall
         // on an idle frame and the screenshot would never be requested.

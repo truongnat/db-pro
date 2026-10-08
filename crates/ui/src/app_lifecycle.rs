@@ -184,8 +184,9 @@ impl DbProApp {
         if !settings_mode || cfg!(target_os = "linux") {
             self.draw_topbar(ctx);
         }
-        // Query owns its rich output dock; the shell panel is for other tabs.
-        if !settings_mode && self.workspace.active_tab != WorkspaceTab::Query {
+        // Query owns its rich output dock and the Results workspace tab renders
+        // the grid itself; the shell panel is for the remaining tabs.
+        if !settings_mode && self.shows_shell_output_panel() {
             self.draw_output_panel(ctx);
         }
         if !settings_mode {
@@ -217,6 +218,16 @@ impl DbProApp {
             },
             |ui| self.draw_workspace(ui),
         );
+    }
+
+    /// The shell-level output panel only draws on tabs that do not own their
+    /// own output surface: Query has its rich dock and Results renders the
+    /// grid itself.
+    fn shows_shell_output_panel(&self) -> bool {
+        !matches!(
+            self.workspace.active_tab,
+            WorkspaceTab::Query | WorkspaceTab::Results
+        )
     }
 
     fn apply_activity_bar_action(&mut self, action: activity_bar_view::ActivityBarAction, ctx: &egui::Context) {

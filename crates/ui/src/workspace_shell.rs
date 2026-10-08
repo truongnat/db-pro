@@ -11,6 +11,8 @@ pub(crate) struct WorkspaceShellState {
     pub(crate) welcome_open: bool,
     /// Stays set after the ER Diagram tab is opened, until the user closes that tab.
     pub(crate) diagram_open: bool,
+    /// Stays set after the Results tab is opened, until the user closes that tab.
+    pub(crate) results_open: bool,
     pub(crate) active_tab: WorkspaceTab,
     pub(crate) sidebar_open: bool,
     pub(crate) sidebar_width: f32,
@@ -43,6 +45,7 @@ impl Default for WorkspaceShellState {
             activity: Activity::Explorer,
             welcome_open: true,
             diagram_open: false,
+            results_open: false,
             active_tab: WorkspaceTab::Welcome,
             sidebar_open: true,
             sidebar_width: 260.0,

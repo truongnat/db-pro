@@ -3,6 +3,10 @@ use super::*;
 use egui::RichText;
 use lucide_icons::Icon;
 
+/// Minimum strip width that still fits every labelled tab plus the chrome
+/// buttons; below this the tabs render icon-only.
+const TAB_STRIP_LABEL_MIN_WIDTH: f32 = 520.0;
+
 pub(super) struct QueryOutputTabsContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) output: &'a mut QueryOutputState,
@@ -10,6 +14,8 @@ pub(super) struct QueryOutputTabsContext<'a> {
     pub(super) editor: &'a mut QueryEditorState,
     pub(super) bottom_panel_open: &'a mut bool,
     pub(super) dock_position: Option<&'a mut OutputDockPosition>,
+    pub(super) results_open: Option<&'a mut bool>,
+    pub(super) active_tab: Option<&'a mut WorkspaceTab>,
 }
 
 /// Output tab strip. When `dock_chrome` is true, close/maximize and dock position toggle sit on the same row.
@@ -17,6 +23,18 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
     ui.add_space(SPACE_XS);
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
         if dock_chrome {
+            if let (Some(results_open), Some(active_tab)) = (
+                context.results_open.as_deref_mut(),
+                context.active_tab.as_deref_mut(),
+            ) {
+                if compact_icon_button(ui, Icon::ExternalLink, context.theme)
+                    .on_hover_text("Open results in a workspace tab")
+                    .clicked()
+                {
+                    *results_open = true;
+                    *active_tab = WorkspaceTab::Results;
+                }
+            }
             if Button::new(context.theme)
                 .icon(Icon::X)
                 .variant(ButtonVariant::Ghost)
@@ -82,6 +100,11 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
 
         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
             ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
+            // A docked-right panel is typically ~400px wide: full labels + the
+            // chrome buttons do not fit, and egui draws overflowing widgets on
+            // top of each other. Fall back to icon-only tabs with the label in
+            // the tooltip when the strip gets narrow.
+            let icon_only = ui.available_width() < TAB_STRIP_LABEL_MIN_WIDTH;
             for (tab, icon, label) in [
                 (OutputTab::Results, Icon::Table2, "Results"),
                 (OutputTab::Chart, Icon::BarChart3, "Chart"),
@@ -120,8 +143,12 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                                     .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
                                     .color(icon_color),
                             );
-                            ui.add_space(2.0);
-                            ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
+                            if !icon_only {
+                                ui.add_space(2.0);
+                                ui.label(
+                                    RichText::new(label).font(font_ui_label()).color(text_color),
+                                );
+                            }
                             if tab == OutputTab::Results {
                                 if let Some(result) = context.session.active_result() {
                                     badge(
@@ -142,7 +169,13 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                         });
                     });
 
-                if response.response.interact(egui::Sense::click()).clicked() {
+                let response = response.response.interact(egui::Sense::click());
+                let response = if icon_only {
+                    response.on_hover_text(label)
+                } else {
+                    response
+                };
+                if response.clicked() {
                     context.output.set_active_for_optional_document(
                         context.session.active_document().map(|document| document.id.as_str()),
                         tab,

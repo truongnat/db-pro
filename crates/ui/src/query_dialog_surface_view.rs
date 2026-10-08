@@ -93,42 +93,98 @@ pub(super) struct ExportDialogContext<'a> {
 }
 
 impl ExportDialogContext<'_> {
-    pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Option<ExportDialogAction> {
+    pub(super) fn draw(&mut self, ctx: &egui::Context) -> Option<ExportDialogAction> {
+        let mut open = true;
         let mut action = None;
-        card_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Export results");
-                ui.selectable_value(&mut self.overlay.export_format, "CSV".to_owned(), "CSV");
-                ui.selectable_value(&mut self.overlay.export_format, "TSV".to_owned(), "TSV");
-                ui.selectable_value(&mut self.overlay.export_format, "JSON".to_owned(), "JSON");
-                ui.selectable_value(&mut self.overlay.export_format, "MD".to_owned(), "Markdown");
-                ui.selectable_value(&mut self.overlay.export_format, "SQL".to_owned(), "INSERT");
-                ui.selectable_value(&mut self.overlay.export_format, "COPY".to_owned(), "COPY");
-                input(ui, &mut self.overlay.export_path, "output path", 260.0, self.theme);
+        Dialog::new(&mut open, "Export Results", self.theme)
+            .id_salt("export_results_dialog")
+            .width(520.0)
+            .description("Write the visible result rows to a file on disk.")
+            .show_ctx(ctx, |ui| self.draw_body(ui, &mut action));
+        if !open {
+            return Some(ExportDialogAction::Cancel);
+        }
+        action
+    }
+
+    fn draw_body(&mut self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {
+        ui.label(
+            RichText::new("Format")
+                .font(font_ui_label())
+                .color(self.theme.text_muted),
+        );
+        ui.add_space(SPACE_XS);
+        self.draw_format_picker(ui);
+        ui.add_space(SPACE_SM);
+        ui.label(
+            RichText::new("Output file")
+                .font(font_ui_label())
+                .color(self.theme.text_muted),
+        );
+        ui.add_space(SPACE_XS);
+        input_full_width(ui, &mut self.overlay.export_path, "/path/to/results.csv", self.theme);
+        ui.add_space(SPACE_XS);
+        ui.label(
+            RichText::new("Rows beyond the visible limit are not included in the export.")
+                .font(font_caption())
+                .color(self.theme.text_muted),
+        );
+        if self.overlay.export_overwrite_pending {
+            self.draw_overwrite_confirmation(ui, action);
+        }
+        ui.add_space(SPACE_MD);
+        self.draw_footer(ui, action);
+    }
+
+    fn draw_format_picker(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal_wrapped(|ui| {
+            for (value, label) in [
+                ("CSV", "CSV"),
+                ("TSV", "TSV"),
+                ("JSON", "JSON"),
+                ("MD", "Markdown"),
+                ("SQL", "INSERT"),
+                ("COPY", "COPY"),
+            ] {
+                let selected = self.overlay.export_format == value;
                 if Button::new(self.theme)
-                    .text("Export")
-                    .variant(ButtonVariant::Default)
+                    .text(label)
+                    .variant(if selected {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
                     .size(ButtonSize::Sm)
                     .show(ui)
                     .clicked()
                 {
-                    action = Some(ExportDialogAction::Export);
+                    self.overlay.export_format = value.to_owned();
                 }
-                if Button::new(self.theme)
-                    .text("Cancel")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    action = Some(ExportDialogAction::Cancel);
-                }
-            });
-            if self.overlay.export_overwrite_pending {
-                self.draw_overwrite_confirmation(ui, &mut action);
             }
         });
-        action
+    }
+
+    fn draw_footer(&self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if Button::new(self.theme)
+                .text("Export")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                *action = Some(ExportDialogAction::Export);
+            }
+            if Button::new(self.theme)
+                .text("Cancel")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                *action = Some(ExportDialogAction::Cancel);
+            }
+        });
     }
 
     fn draw_overwrite_confirmation(&self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {

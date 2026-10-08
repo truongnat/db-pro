@@ -27,7 +27,7 @@ impl DbProApp {
             theme: self.theme,
             overlay: &mut self.overlay,
         }
-        .draw(ui);
+        .draw(ui.ctx());
         match action {
             Some(query_dialog_surface_view::ExportDialogAction::Export) => {
                 if let Some(result) = result {

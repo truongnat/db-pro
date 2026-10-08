@@ -406,6 +406,7 @@ pub(crate) enum WorkspaceTab {
     Query,
     Table,
     SchemaObject,
+    Results,
     Diagram,
     SchemaWorkbench,
     SchemaCompare,

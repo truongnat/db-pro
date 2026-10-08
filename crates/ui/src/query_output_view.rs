@@ -82,6 +82,9 @@ impl DbProApp {
                 query_results_surface_view::QueryResultsSurfaceAction::OpenExport => {
                     self.overlay.export_open = true;
                 }
+                query_results_surface_view::QueryResultsSurfaceAction::OpenInTab => {
+                    self.open_results_tab();
+                }
             }
         }
         self.draw_export_dialog(ui, result);
