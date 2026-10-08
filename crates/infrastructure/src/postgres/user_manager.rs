@@ -96,6 +96,107 @@ impl PostgresUserManager {
     pub fn new(connector: Arc<dyn DbConnector>) -> Self {
         Self { connector }
     }
+    async fn table_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
+        let table = self
+            .connector
+            .query(
+                handle,
+                "SELECT table_schema, table_name, privilege_type \
+                 FROM information_schema.role_table_grants \
+                 WHERE grantee = $1 \
+                 ORDER BY table_schema, table_name, privilege_type",
+                &[QueryParam::Text(role_name.to_owned())],
+            )
+            .await?;
+        Ok(table
+            .rows
+            .into_iter()
+            .filter_map(|row| {
+                let cells = &row.0;
+                Some(Privilege {
+                    object_kind: PrivilegeObjectKind::Table,
+                    schema: cells.first().and_then(cell_text)?,
+                    object_name: cells.get(1).and_then(cell_text)?,
+                    privilege_type: cells.get(2).and_then(cell_text)?,
+                })
+            })
+            .collect())
+    }
+
+    async fn usage_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Vec<Privilege> {
+        let Ok(usage) = self
+            .connector
+            .query(
+                handle,
+                "SELECT object_schema, object_name, object_type, privilege_type \
+                 FROM information_schema.usage_privileges \
+                 WHERE grantee = $1 \
+                 ORDER BY object_type, object_schema, object_name, privilege_type",
+                &[QueryParam::Text(role_name.to_owned())],
+            )
+            .await
+        else {
+            return Vec::new();
+        };
+        usage
+            .rows
+            .into_iter()
+            .filter_map(|row| {
+                let cells = &row.0;
+                let object_type = cells.get(2).and_then(cell_text).unwrap_or_default();
+                let kind = match object_type.as_str() {
+                    "SCHEMA" => PrivilegeObjectKind::Schema,
+                    "SEQUENCE" => PrivilegeObjectKind::Sequence,
+                    _ => return None,
+                };
+                let schema = cells.first().and_then(cell_text).unwrap_or_default();
+                let object_name = if kind == PrivilegeObjectKind::Schema {
+                    schema.clone()
+                } else {
+                    cells.get(1).and_then(cell_text).unwrap_or_default()
+                };
+                let privilege_type = cells.get(3).and_then(cell_text).unwrap_or_default();
+                Some(Privilege {
+                    object_kind: kind,
+                    schema,
+                    object_name,
+                    privilege_type,
+                })
+            })
+            .collect()
+    }
+
+    async fn database_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Vec<Privilege> {
+        let Ok(database) = self
+            .connector
+            .query(
+                handle,
+                "SELECT d.datname, p.priv \
+                 FROM pg_database d \
+                 CROSS JOIN (VALUES ('CONNECT'), ('CREATE'), ('TEMPORARY')) AS p(priv) \
+                 WHERE NOT d.datistemplate \
+                   AND has_database_privilege($1, d.datname, p.priv) \
+                 ORDER BY d.datname, p.priv",
+                &[QueryParam::Text(role_name.to_owned())],
+            )
+            .await
+        else {
+            return Vec::new();
+        };
+        database
+            .rows
+            .into_iter()
+            .filter_map(|row| {
+                let cells = &row.0;
+                Some(Privilege {
+                    object_kind: PrivilegeObjectKind::Database,
+                    schema: String::new(),
+                    object_name: cells.first().and_then(cell_text)?,
+                    privilege_type: cells.get(1).and_then(cell_text)?,
+                })
+            })
+            .collect()
+    }
 }
 
 fn cell_text(cell: &CellValue) -> Option<String> {
@@ -235,89 +336,12 @@ impl UserManager for PostgresUserManager {
     }
 
     async fn list_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
-        let mut privileges = Vec::new();
-        let table = self
-            .connector
-            .query(
-                handle,
-                "SELECT table_schema, table_name, privilege_type \
-                 FROM information_schema.role_table_grants \
-                 WHERE grantee = $1 \
-                 ORDER BY table_schema, table_name, privilege_type",
-                &[QueryParam::Text(role_name.to_owned())],
-            )
-            .await?;
-        privileges.extend(table.rows.into_iter().filter_map(|row| {
-            let cells = &row.0;
-            Some(Privilege {
-                object_kind: PrivilegeObjectKind::Table,
-                schema: cells.first().and_then(cell_text)?,
-                object_name: cells.get(1).and_then(cell_text)?,
-                privilege_type: cells.get(2).and_then(cell_text)?,
-            })
-        }));
-
-        if let Ok(usage) = self
-            .connector
-            .query(
-                handle,
-                "SELECT object_schema, object_name, object_type, privilege_type \
-                 FROM information_schema.usage_privileges \
-                 WHERE grantee = $1 \
-                 ORDER BY object_type, object_schema, object_name, privilege_type",
-                &[QueryParam::Text(role_name.to_owned())],
-            )
-            .await
-        {
-            for row in usage.rows {
-                let cells = &row.0;
-                let object_type = cells.get(2).and_then(cell_text).unwrap_or_default();
-                let kind = match object_type.as_str() {
-                    "SCHEMA" => PrivilegeObjectKind::Schema,
-                    "SEQUENCE" => PrivilegeObjectKind::Sequence,
-                    _ => continue,
-                };
-                let schema = cells.first().and_then(cell_text).unwrap_or_default();
-                let object_name = if kind == PrivilegeObjectKind::Schema {
-                    schema.clone()
-                } else {
-                    cells.get(1).and_then(cell_text).unwrap_or_default()
-                };
-                let privilege_type = cells.get(3).and_then(cell_text).unwrap_or_default();
-                privileges.push(Privilege {
-                    object_kind: kind,
-                    schema,
-                    object_name,
-                    privilege_type,
-                });
-            }
-        }
-
-        if let Ok(database) = self
-            .connector
-            .query(
-                handle,
-                "SELECT d.datname, p.priv \
-                 FROM pg_database d \
-                 CROSS JOIN (VALUES ('CONNECT'), ('CREATE'), ('TEMPORARY')) AS p(priv) \
-                 WHERE NOT d.datistemplate \
-                   AND has_database_privilege($1, d.datname, p.priv) \
-                 ORDER BY d.datname, p.priv",
-                &[QueryParam::Text(role_name.to_owned())],
-            )
-            .await
-        {
-            privileges.extend(database.rows.into_iter().filter_map(|row| {
-                let cells = &row.0;
-                Some(Privilege {
-                    object_kind: PrivilegeObjectKind::Database,
-                    schema: String::new(),
-                    object_name: cells.first().and_then(cell_text)?,
-                    privilege_type: cells.get(1).and_then(cell_text)?,
-                })
-            }));
-        }
-
+        let mut privileges = self.table_privileges(handle, role_name).await?;
+        // usage_privileges/database_privileges are best-effort: some servers
+        // revoke information_schema or pg_database reads, and a partial list is
+        // still useful — a hard error there must not hide the table grants.
+        privileges.extend(self.usage_privileges(handle, role_name).await);
+        privileges.extend(self.database_privileges(handle, role_name).await);
         Ok(privileges)
     }
 

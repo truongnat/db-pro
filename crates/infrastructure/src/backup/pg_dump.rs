@@ -254,6 +254,7 @@ mod tests {
     /// **chosen** behaviour (option (b) of the issue): the restore is not wrapped in a transaction,
     /// so the app must say so on failure rather than silently implying an atomic restore.
     #[test]
+    // cc-scan:allow HUGE_FUNCTION — argv-assertion test builds the full config inline; splitting fragments the scenario
     fn restore_argv_has_no_transaction_boundary_and_is_documented_as_such() {
         let config = ConnectionConfig {
             name: "fixture".to_owned(),

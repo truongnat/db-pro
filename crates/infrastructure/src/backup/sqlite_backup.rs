@@ -96,44 +96,56 @@ fn validate_sqlite_file(path: &Path) -> Result<(), DbError> {
     Ok(())
 }
 
+/// Source must be an existing database file, destination must be a fresh path —
+/// refusing both mistakes keeps the backup a copy, never an overwrite.
+fn validate_backup_paths(src: &Path, dst: &Path) -> Result<(), DbError> {
+    if !src.is_file() {
+        return Err(DbError::NotFound(format!(
+            "SQLite database not found: {}",
+            src.display()
+        )));
+    }
+    if src == dst {
+        return Err(DbError::Validation(
+            "SQLite backup output must differ from the database path".into(),
+        ));
+    }
+    if dst.exists() {
+        return Err(DbError::Validation(format!(
+            "backup output already exists: {}",
+            dst.display()
+        )));
+    }
+    Ok(())
+}
+
+/// VACUUM INTO on a blocking rusqlite connection, off the async executor.
+async fn vacuum_into(source: &std::path::PathBuf, temporary: &std::path::PathBuf) -> Result<(), DbError> {
+    let source = source.clone();
+    let vacuum_target = temporary.clone();
+    tokio::task::spawn_blocking(move || {
+        let connection = rusqlite::Connection::open(&source).map_err(crate::error::from_rusqlite)?;
+        connection
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .map_err(crate::error::from_rusqlite)?;
+        connection
+            .execute("VACUUM INTO ?1", [&vacuum_target.to_string_lossy().to_string()])
+            .map_err(crate::error::from_rusqlite)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| DbError::Internal(format!("SQLite backup worker failed: {e}")))?
+}
+
 #[async_trait::async_trait]
 impl BackupEngine for SqliteBackupEngine {
     async fn backup(&self, options: &BackupOptions, _password: &str) -> Result<BackupResult, DbError> {
         let src = Path::new(&self.config.database);
         let dst = Path::new(&options.output_path);
-        if !src.is_file() {
-            return Err(DbError::NotFound(format!(
-                "SQLite database not found: {}",
-                src.display()
-            )));
-        }
-        if src == dst {
-            return Err(DbError::Validation(
-                "SQLite backup output must differ from the database path".into(),
-            ));
-        }
-        if dst.exists() {
-            return Err(DbError::Validation(format!(
-                "backup output already exists: {}",
-                dst.display()
-            )));
-        }
+        validate_backup_paths(src, dst)?;
 
         let temporary = temporary_path(dst);
-        let source = src.to_path_buf();
-        let vacuum_target = temporary.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            let connection = rusqlite::Connection::open(&source).map_err(crate::error::from_rusqlite)?;
-            connection
-                .busy_timeout(std::time::Duration::from_secs(5))
-                .map_err(crate::error::from_rusqlite)?;
-            connection
-                .execute("VACUUM INTO ?1", [&vacuum_target.to_string_lossy().to_string()])
-                .map_err(crate::error::from_rusqlite)
-        })
-        .await
-        .map_err(|e| DbError::Internal(format!("SQLite backup worker failed: {e}")))?;
-        if let Err(error) = result {
+        if let Err(error) = vacuum_into(&src.to_path_buf(), &temporary).await {
             let _ = tokio::fs::remove_file(&temporary).await;
             return Err(error);
         }

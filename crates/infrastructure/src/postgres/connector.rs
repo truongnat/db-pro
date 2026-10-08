@@ -322,12 +322,7 @@ impl DbConnector for PostgresConnector {
                 let timeout_error = DbError::QueryTimeout {
                     timeout_ms: timeout.as_millis() as u64,
                 };
-                return match tx.rollback().await.map_err(crate::error::from_sqlx) {
-                    Ok(()) => Err(timeout_error),
-                    Err(rollback_error) => Err(DbError::Internal(format!(
-                        "batch timed out: {timeout_error}; rollback failed: {rollback_error}"
-                    ))),
-                };
+                return Err(rollback_batch(tx, "batch timed out: ", timeout_error).await);
             }
 
             let result = match tokio::time::timeout(remaining, async {
@@ -346,25 +341,13 @@ impl DbConnector for PostgresConnector {
 
             let affected = match result {
                 Ok(result) => result.rows_affected(),
-                Err(error) => {
-                    return match tx.rollback().await.map_err(crate::error::from_sqlx) {
-                        Ok(()) => Err(error),
-                        Err(rollback_error) => Err(DbError::Internal(format!(
-                            "batch statement failed: {error}; rollback failed: {rollback_error}"
-                        ))),
-                    };
-                }
+                Err(error) => return Err(rollback_batch(tx, "batch statement failed: ", error).await),
             };
             total_affected = match total_affected.checked_add(affected) {
                 Some(total_affected) => total_affected,
                 None => {
                     let error = DbError::Internal("batch affected-row count overflow".into());
-                    return match tx.rollback().await.map_err(crate::error::from_sqlx) {
-                        Ok(()) => Err(error),
-                        Err(rollback_error) => {
-                            Err(DbError::Internal(format!("{error}; rollback failed: {rollback_error}")))
-                        }
-                    };
+                    return Err(rollback_batch(tx, "", error).await);
                 }
             };
         }
@@ -796,6 +779,17 @@ impl PostgresConnector {
             super::cross_connection::rename_schema_object(&pool, object_type, schema, old_name, new_name),
         )
         .await
+    }
+}
+
+/// Rolls back a failed batch; when the rollback itself fails the error reports
+/// both failures because the caller cannot assume either outcome happened.
+/// `prefix` is the failure context ("batch timed out: ", "batch statement
+/// failed: ") or empty.
+async fn rollback_batch(tx: sqlx::Transaction<'_, sqlx::Postgres>, prefix: &str, error: DbError) -> DbError {
+    match tx.rollback().await.map_err(crate::error::from_sqlx) {
+        Ok(()) => error,
+        Err(rollback_error) => DbError::Internal(format!("{prefix}{error}; rollback failed: {rollback_error}")),
     }
 }
 

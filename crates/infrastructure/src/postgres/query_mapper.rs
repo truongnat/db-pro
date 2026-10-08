@@ -213,6 +213,7 @@ fn parse_integer_component(value: &str, component: &str) -> Result<i32, DbError>
     })
 }
 
+// cc-scan:allow HARD_COMPLEXITY — NUMERIC text parser: sign/digits/exponent cases handled as a ladder
 fn parse_scaled_component(value: &str, multiplier: i64) -> Result<i64, DbError> {
     let (sign, unsigned) = match value.as_bytes().first() {
         Some(b'-') => (-1i64, &value[1..]),
@@ -326,6 +327,7 @@ pub fn map_row(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Result<Ro
     Ok(Row(cells))
 }
 
+// cc-scan:allow HUGE_FUNCTION — flat type-name → decoder dispatch; each arm reads one row cell
 fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result<CellValue, DbError> {
     let dt_upper = data_type.to_uppercase();
     match dt_upper.as_str() {
@@ -586,6 +588,7 @@ fn format_interval(interval: sqlx::postgres::types::PgInterval) -> String {
     }
 }
 
+// cc-scan:allow HUGE_FUNCTION,HARD_COMPLEXITY — NUMERIC wire decoder: header fields then base-10000 digit expansion; the ladder IS the format
 fn decode_binary_numeric(bytes: &[u8]) -> Option<String> {
     let mut offset = 0;
     let digit_count = usize::from(read_u16(bytes, &mut offset)?);

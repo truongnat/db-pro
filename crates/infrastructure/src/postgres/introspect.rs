@@ -75,7 +75,30 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
     let functions = functions?;
 
     // Build PK column set from already-fetched primary_keys (no extra query)
-    let pk_column_set: HashSet<(String, String, String)> = primary_keys
+    let (pk_column_set, unique_column_set) = column_flag_sets(&primary_keys, &indexes);
+    let columns = assemble_columns(raw_cols, &pk_column_set, &unique_column_set);
+
+    Ok(IntrospectResult {
+        schemas,
+        tables,
+        columns,
+        primary_keys,
+        indexes,
+        foreign_keys,
+        check_constraints,
+        views,
+        triggers,
+        functions,
+    })
+}
+
+/// (schema, table, column) sets marking primary-key and single-column-unique
+/// membership, derived from the already-fetched catalogs.
+fn column_flag_sets(
+    primary_keys: &[PrimaryKey],
+    indexes: &[Index],
+) -> (HashSet<(String, String, String)>, HashSet<(String, String, String)>) {
+    let pk_column_set = primary_keys
         .iter()
         .flat_map(|pk| {
             pk.columns
@@ -83,7 +106,7 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
                 .map(move |col| (pk.schema.clone(), pk.table_name.clone(), col.clone()))
         })
         .collect();
-    let unique_column_set: HashSet<(String, String, String)> = indexes
+    let unique_column_set = indexes
         .iter()
         .filter(|index| (index.unique || index.primary) && index.columns.len() == 1)
         .flat_map(|index| {
@@ -93,8 +116,15 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
                 .map(move |column| (index.schema.clone(), index.table_name.clone(), column.clone()))
         })
         .collect();
+    (pk_column_set, unique_column_set)
+}
 
-    let columns = raw_cols
+fn assemble_columns(
+    raw_cols: Vec<RawColumn>,
+    pk_column_set: &HashSet<(String, String, String)>,
+    unique_column_set: &HashSet<(String, String, String)>,
+) -> Vec<Column> {
+    raw_cols
         .into_iter()
         .map(
             |(
@@ -129,20 +159,7 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
                 }
             },
         )
-        .collect();
-
-    Ok(IntrospectResult {
-        schemas,
-        tables,
-        columns,
-        primary_keys,
-        indexes,
-        foreign_keys,
-        check_constraints,
-        views,
-        triggers,
-        functions,
-    })
+        .collect()
 }
 
 async fn introspect_schemas(pool: &sqlx::PgPool) -> Result<Vec<Schema>, DbError> {
@@ -348,6 +365,7 @@ async fn introspect_primary_keys(pool: &sqlx::PgPool) -> Result<Vec<PrimaryKey>,
         .collect())
 }
 
+// cc-scan:allow HUGE_FUNCTION — one catalog query plus its row mapping; the SQL literal dominates the length
 async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> {
     let rows = sqlx::query(
         r#"
@@ -628,6 +646,7 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     Ok(group_foreign_key_rows(rows))
 }
 
+// cc-scan:allow HUGE_FUNCTION — FK row grouping: one accumulate-then-emit pass over catalog rows
 fn group_foreign_key_rows(rows: Vec<sqlx::postgres::PgRow>) -> Vec<ForeignKey> {
     let mut map: std::collections::HashMap<ForeignKeyGroupKey, ForeignKeyGroupValue> = std::collections::HashMap::new();
     let mut order: Vec<ForeignKeyGroupKey> = Vec::new();

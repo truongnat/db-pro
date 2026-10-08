@@ -21,39 +21,13 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
     let tables = introspect_tables(conn, &table_names)?;
     let mut columns = introspect_columns(conn, &object_names)?;
     let indexes = introspect_indexes(conn, &table_names)?;
-    for index in indexes
-        .iter()
-        .filter(|index| (index.unique || index.primary) && index.columns.len() == 1)
-    {
-        for column_name in &index.columns {
-            if let Some(column) = columns
-                .iter_mut()
-                .find(|column| column.table_name == index.table_name && column.name == *column_name)
-            {
-                column.is_unique = true;
-            }
-        }
-    }
+    mark_unique_columns(&mut columns, &indexes);
     let foreign_keys = introspect_foreign_keys(conn, &table_names)?;
     let check_constraints = introspect_check_constraints(conn, &table_names)?;
     let triggers = introspect_triggers(conn)?;
 
     // Derive primary keys from already-fetched columns (no extra PRAGMA calls)
-    let mut pk_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
-    for col in &columns {
-        if col.is_primary_key {
-            pk_map.entry(col.table_name.clone()).or_default().push(col.name.clone());
-        }
-    }
-    let primary_keys = pk_map
-        .into_iter()
-        .map(|(table_name, columns)| PrimaryKey {
-            constraint_name: format!("{table_name}_pk"),
-            columns,
-            table_name,
-            schema: "main".into(),
-        })
-        .collect();
+    let primary_keys = derive_primary_keys(&columns);
 
     let schemas = vec![Schema { name: "main".into() }];
 
@@ -69,6 +43,41 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
         triggers,
         functions: Vec::new(),
     })
+}
+
+/// Single-column unique/primary indexes make their column `is_unique`.
+fn mark_unique_columns(columns: &mut Vec<Column>, indexes: &[Index]) {
+    for index in indexes
+        .iter()
+        .filter(|index| (index.unique || index.primary) && index.columns.len() == 1)
+    {
+        for column_name in &index.columns {
+            if let Some(column) = columns
+                .iter_mut()
+                .find(|column| column.table_name == index.table_name && column.name == *column_name)
+            {
+                column.is_unique = true;
+            }
+        }
+    }
+}
+
+fn derive_primary_keys(columns: &[Column]) -> Vec<PrimaryKey> {
+    let mut pk_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for col in columns {
+        if col.is_primary_key {
+            pk_map.entry(col.table_name.clone()).or_default().push(col.name.clone());
+        }
+    }
+    pk_map
+        .into_iter()
+        .map(|(table_name, columns)| PrimaryKey {
+            constraint_name: format!("{table_name}_pk"),
+            columns,
+            table_name,
+            schema: "main".into(),
+        })
+        .collect()
 }
 
 fn fetch_table_names(conn: &rusqlite::Connection) -> Result<Vec<String>, DbError> {
@@ -231,96 +240,108 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
     let mut referenced_pk_cache: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
 
     for table_name in table_names {
-        // PRAGMA does not support ? parameters for table names;
-        // use safe identifier escaping instead.
-        let safe_name = escape_identifier(table_name);
-        let mut stmt = conn
-            .prepare(&format!("PRAGMA foreign_key_list({safe_name})"))
-            .map_err(crate::error::from_rusqlite)?;
+        foreign_keys.extend(table_foreign_keys(conn, table_name, &mut referenced_pk_cache)?);
+    }
+    Ok(foreign_keys)
+}
 
-        // SQLite returns NULL for the referenced column when the schema uses
-        // shorthand syntax such as `REFERENCES parent`. Keep the FK sequence so
-        // we can resolve that omitted target against the parent primary key.
-        let rows: Vec<SqliteForeignKeyRow> = stmt
-            .query_map([], |row| {
-                let id: i32 = row.get(0)?;
-                let seq: i32 = row.get(1)?;
-                let to_table: String = row.get(2)?;
-                let from_column: String = row.get(3)?;
-                let to_column: Option<String> = row.get(4)?;
-                let on_update: String = row.get(5)?;
-                let on_delete: String = row.get(6)?;
-                let match_option: String = row.get(7)?;
-                Ok((
-                    id,
-                    seq,
-                    to_table,
-                    from_column,
-                    to_column,
-                    on_update,
-                    on_delete,
-                    match_option,
-                ))
-            })
-            .map_err(crate::error::from_rusqlite)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(crate::error::from_rusqlite)?;
+/// Foreign keys of one table — PRAGMA rows grouped by constraint id so
+/// composite keys keep their column order.
+fn table_foreign_keys(
+    conn: &rusqlite::Connection,
+    table_name: &str,
+    referenced_pk_cache: &mut std::collections::HashMap<String, Vec<String>>,
+) -> Result<Vec<ForeignKey>, DbError> {
+    // PRAGMA does not support ? parameters for table names;
+    // use safe identifier escaping instead.
+    let safe_name = escape_identifier(table_name);
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA foreign_key_list({safe_name})"))
+        .map_err(crate::error::from_rusqlite)?;
 
-        // Group columns by FK id to support composite foreign keys while keeping
-        // the PRAGMA encounter order deterministic.
-        let mut map: std::collections::HashMap<i32, SqliteForeignKeyGroup> = std::collections::HashMap::new();
-        let mut order: Vec<i32> = Vec::new();
-
-        for (id, seq, to_table, from_column, to_column, on_update, on_delete, match_option) in rows {
-            let resolved_to_column = match to_column {
-                Some(column) => column,
-                None => {
-                    let pk_columns = if let Some(columns) = referenced_pk_cache.get(&to_table) {
-                        columns
-                    } else {
-                        let columns = sqlite_primary_key_columns(conn, &to_table)?;
-                        referenced_pk_cache.entry(to_table.clone()).or_insert(columns)
-                    };
-                    pk_columns.get(seq as usize).cloned().ok_or_else(|| {
-                        DbError::IntrospectionFailed(format!(
-                            "foreign key {table_name}_fk_{id} references {to_table} without a resolvable primary-key column at position {seq}"
-                        ))
-                    })?
-                }
-            };
-
-            let (_, from_cols, to_cols, _, _, _) = match map.entry(id) {
-                Entry::Vacant(entry) => {
-                    order.push(id);
-                    entry.insert((to_table, Vec::new(), Vec::new(), on_update, on_delete, match_option))
-                }
-                Entry::Occupied(entry) => entry.into_mut(),
-            };
-            from_cols.push(from_column);
-            to_cols.push(resolved_to_column);
-        }
-
-        for id in order {
-            let Some((to_table, from_columns, to_columns, on_update, on_delete, match_option)) = map.remove(&id) else {
-                return Err(DbError::IntrospectionFailed(format!(
-                    "foreign-key grouping lost constraint {id} for table {table_name}"
-                )));
-            };
-            foreign_keys.push(ForeignKey {
-                name: format!("{table_name}_fk_{id}"),
-                from_table: table_name.clone(),
-                from_columns,
+    // SQLite returns NULL for the referenced column when the schema uses
+    // shorthand syntax such as `REFERENCES parent`. Keep the FK sequence so
+    // we can resolve that omitted target against the parent primary key.
+    let rows: Vec<SqliteForeignKeyRow> = stmt
+        .query_map([], |row| {
+            let id: i32 = row.get(0)?;
+            let seq: i32 = row.get(1)?;
+            let to_table: String = row.get(2)?;
+            let from_column: String = row.get(3)?;
+            let to_column: Option<String> = row.get(4)?;
+            let on_update: String = row.get(5)?;
+            let on_delete: String = row.get(6)?;
+            let match_option: String = row.get(7)?;
+            Ok((
+                id,
+                seq,
                 to_table,
-                to_columns,
-                schema: "main".into(),
-                to_schema: "main".into(),
+                from_column,
+                to_column,
                 on_update,
                 on_delete,
                 match_option,
-                deferrable: false,
-                initially_deferred: false,
-            });
-        }
+            ))
+        })
+        .map_err(crate::error::from_rusqlite)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
+
+    // Group columns by FK id to support composite foreign keys while keeping
+    // the PRAGMA encounter order deterministic.
+    let mut map: std::collections::HashMap<i32, SqliteForeignKeyGroup> = std::collections::HashMap::new();
+    let mut order: Vec<i32> = Vec::new();
+
+    for (id, seq, to_table, from_column, to_column, on_update, on_delete, match_option) in rows {
+        let resolved_to_column = match to_column {
+            Some(column) => column,
+            None => {
+                let pk_columns = if let Some(columns) = referenced_pk_cache.get(&to_table) {
+                    columns
+                } else {
+                    let columns = sqlite_primary_key_columns(conn, &to_table)?;
+                    referenced_pk_cache.entry(to_table.clone()).or_insert(columns)
+                };
+                pk_columns.get(seq as usize).cloned().ok_or_else(|| {
+                    DbError::IntrospectionFailed(format!(
+                        "foreign key {table_name}_fk_{id} references {to_table} without a resolvable primary-key column at position {seq}"
+                    ))
+                })?
+            }
+        };
+
+        let group = match map.entry(id) {
+            Entry::Vacant(entry) => {
+                order.push(id);
+                entry.insert((to_table, Vec::new(), Vec::new(), on_update, on_delete, match_option))
+            }
+            Entry::Occupied(entry) => entry.into_mut(),
+        };
+        group.1.push(from_column);
+        group.2.push(resolved_to_column);
+    }
+
+    let mut foreign_keys = Vec::new();
+    for id in order {
+        let Some((to_table, from_columns, to_columns, on_update, on_delete, match_option)) = map.remove(&id) else {
+            return Err(DbError::IntrospectionFailed(format!(
+                "foreign-key grouping lost constraint {id} for table {table_name}"
+            )));
+        };
+        foreign_keys.push(ForeignKey {
+            name: format!("{table_name}_fk_{id}"),
+            from_table: table_name.to_owned(),
+            from_columns,
+            to_table,
+            to_columns,
+            schema: "main".into(),
+            to_schema: "main".into(),
+            on_update,
+            on_delete,
+            match_option,
+            deferrable: false,
+            initially_deferred: false,
+        });
     }
     Ok(foreign_keys)
 }

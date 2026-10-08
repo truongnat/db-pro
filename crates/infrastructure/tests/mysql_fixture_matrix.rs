@@ -81,6 +81,7 @@ async fn setup() -> Option<(MySqlConnector, ConnectionHandle)> {
 /// against a live server, so a class that silently changes representation fails here
 /// rather than in a consumer.
 #[tokio::test]
+// cc-scan:allow HARD_COMPLEXITY — decoder matrix test: one assertion per value class, table-flat by design
 async fn mysql_fixture_decoder_matrix_covers_every_value_class() {
     let Some((connector, handle)) = setup().await else {
         eprintln!("skipping MySQL fixture test: DATABASE_URL is not a mysql:// URL");

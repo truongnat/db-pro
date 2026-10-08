@@ -829,6 +829,7 @@ async fn explain_select() {
 
 /// Split SQL text into individual statements, respecting BEGIN...END blocks
 /// and string literals. This is a simplified parser sufficient for fixture loading.
+// cc-scan:allow HARD_COMPLEXITY — SQL statement splitter for tests: quote/comment state ladder is one cohesive unit
 fn split_sql_statements(sql: &str) -> Vec<String> {
     let mut statements = Vec::new();
     let mut current = String::new();

@@ -984,6 +984,7 @@ async fn pg_enum_and_domain_values_decode_to_canonical_values() {
 /// is proven to survive a NULL.
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL
+          // cc-scan:allow HARD_COMPLEXITY — decoder matrix test: one assertion per value class, table-flat by design
 async fn pg_decoder_matrix_covers_every_value_class() {
     let (connector, handle) = setup().await;
     let result = connector
