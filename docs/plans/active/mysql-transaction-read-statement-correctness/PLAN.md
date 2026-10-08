@@ -1,25 +1,24 @@
-# Feature Plan: MySQL Transaction Read-Statement Execution, Validation, and Batch Atomicity
+# Feature Plan: MySQL Transaction Read-Statement Execution, Pre-execution Failure Indexing, and Batch Atomicity
 
-Canonical Lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED`
+Canonical Lifecycle: `PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED`
 
 ## Overview
-In `MySqlConnector` (`crates/infrastructure/src/mysql/connector.rs`), batch execution (`execute_batch`) and multi-statement transactions (`execute_transaction`) had P1 transaction and mutation defects on MySQL:
-1. `execute_batch` executed statements sequentially against a connection without an enclosing `START TRANSACTION` / `COMMIT` or `ROLLBACK`. On statement error or timeout, prior statements remained committed in MySQL, violating batch atomicity.
-2. `execute_transaction` previously ignored `read_statements` and executed read statements as DML.
+In `MySqlConnector` (`crates/infrastructure/src/mysql/connector.rs`), batch execution (`execute_batch`), multi-statement transactions (`execute_transaction`), and parameterized transactions (`execute_parameterized_transaction`) require accurate failure phase reporting and transaction atomicity:
+1. `execute_batch` delegates execution to `execute_transaction` inside an explicit transaction block (`START TRANSACTION` / `COMMIT` or `ROLLBACK`).
+2. `execute_transaction` and `execute_parameterized_transaction` report `TransactionFailure` with `statement_index = 0` during pre-execution phases (`Validation` and `Begin`) when 0 statements were executed, preventing downstream callers (like `TableMutationExecution`) from out-of-bounds array remapping.
 
 ## Problem & Severity
-- **Severity**: P1 (Database mutation correctness, transaction atomicity & rollback defect on MySQL).
-- **Evidence**: `crates/infrastructure/src/mysql/connector.rs` lines 223–238 executed `conn.query_drop(statement)` directly in `execute_batch` without transaction boundaries or rollback handling.
-- **Failure Scenario**: When running a batch execution with multiple statements on MySQL, if statement #2 fails or times out, statement #1 remains committed in MySQL (autocommit mode), causing partial state corruption and violating the `DbConnector::execute_batch` transaction contract.
+- **Severity**: P1 (Database mutation correctness, error attribution, transaction failure reporting).
+- **Evidence**: `MySqlConnector` lacked explicit unit testing for `execute_parameterized_transaction`'s `Validation` phase reporting `statement_index == 0`.
+- **Failure Scenario**: If `execute_parameterized_transaction` returns a non-zero or invalid `statement_index` on `Validation` failure (before any statement executes), downstream callers like `TableMutationExecution` attempt to index into caller mutation arrays, causing out-of-bounds indexing or wrong error attribution for table data mutations.
 
 ## Scope & Implementation Plan
 1. Refactor `MySqlConnector::execute_batch` to delegate execution to `self.execute_transaction(handle, statements, &vec![false; statements.len()]).await`.
-2. Sum `row_count` across returned `TransactionStatementResult::Affected` results.
-3. Map `TransactionFailure` back to `DbError` on failure (preserving error messages and rollback semantics).
-4. Add unit tests in `crates/infrastructure/src/mysql/connector.rs` verifying `execute_batch` delegation, error mapping, and affected row count summation.
+2. Ensure pre-execution failures (`Validation` and `Begin`) in `execute_transaction` and `execute_parameterized_transaction` return `statement_index = 0`.
+3. Add unit tests in `crates/infrastructure/src/mysql/connector.rs` verifying `execute_parameterized_transaction` reports `Validation` phase failure with `statement_index = 0` on an unknown handle.
 
 ## Provider Coverage
 - **MySQL**: Directly fixed and verified.
-- **PostgreSQL**: Implemented and verified in `PostgresConnector::execute_batch`.
-- **SQLite**: Implemented and verified in `SqliteConnector::execute_batch`.
-- **SQL Server**: Implemented and verified in `SqlServerConnector::execute_batch`.
+- **PostgreSQL**: Implemented and verified in `PostgresConnector`.
+- **SQLite**: Implemented and verified in `SqliteConnector`.
+- **SQL Server**: Implemented and verified in `SqlServerConnector`.
