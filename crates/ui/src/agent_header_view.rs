@@ -35,13 +35,23 @@ impl AgentHeaderContext<'_> {
         };
         ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
         ui.add_enabled_ui(!self.mode_disabled, |ui| {
-            egui::ComboBox::from_id_salt("agent-workflow-mode")
-                .selected_text(mode_label(*mode))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(mode, db_pro_core::domain::agent::AgentMode::Ask, "Ask");
-                    ui.selectable_value(mode, db_pro_core::domain::agent::AgentMode::Edit, "Edit");
-                    ui.selectable_value(mode, db_pro_core::domain::agent::AgentMode::Agent, "Agent");
-                });
+            const MODES: [db_pro_core::domain::agent::AgentMode; 3] = [
+                db_pro_core::domain::agent::AgentMode::Ask,
+                db_pro_core::domain::agent::AgentMode::Edit,
+                db_pro_core::domain::agent::AgentMode::Agent,
+            ];
+            let mode_labels: Vec<String> = MODES.iter().map(|m| mode_label(*m).to_owned()).collect();
+            let mut mode_selected = MODES.iter().position(|m| *m == *mode).unwrap_or(0);
+            let mode_previous = mode_selected;
+            crate::components::Select::new("agent-workflow-mode", &mut mode_selected, &mode_labels)
+                .theme(self.theme)
+                .width(88.0)
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if mode_selected != mode_previous {
+                *mode = MODES[mode_selected];
+            }
         });
         Vec::new()
     }

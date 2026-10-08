@@ -75,7 +75,13 @@ impl MonitoringWorkloadContext<'_> {
                 StatStatementSort::Calls,
                 StatStatementSort::Rows,
             ] {
-                if ui.selectable_label(self.sort == sort, sort.as_label()).clicked() {
+                if Button::new(self.theme)
+                    .text(sort.as_label())
+                    .variant(if self.sort == sort { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(MonitoringWorkloadAction::SortChanged(sort));
                 }
             }

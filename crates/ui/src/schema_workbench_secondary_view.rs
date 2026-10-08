@@ -105,12 +105,9 @@ pub(super) fn draw_docs_export(
         }
     });
     ui.add_space(6.0);
-    ui.add(
-        egui::TextEdit::multiline(&mut context.workbench.docs_markdown)
-            .desired_rows(18)
-            .desired_width(f32::INFINITY)
-            .code_editor(),
-    );
+    crate::components::Textarea::new(&mut context.workbench.docs_markdown, "Markdown notes...", context.theme)
+            .min_rows(4)
+            .show(ui);
     action
 }
 

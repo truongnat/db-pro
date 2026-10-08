@@ -59,8 +59,15 @@ impl SettingsEditorContext<'_> {
                 (PredictionMode::Subtle, "Subtle"),
                 (PredictionMode::Eager, "Eager"),
             ] {
-                if ui
-                    .selectable_label(self.preferences.prediction_mode == mode, label)
+                if Button::new(self.theme)
+                    .text(label)
+                    .variant(if self.preferences.prediction_mode == mode {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
+                    .size(ButtonSize::Sm)
+                    .show(ui)
                     .clicked()
                 {
                     self.preferences.prediction_mode = mode;

@@ -101,32 +101,43 @@ impl TransferActivityContext<'_> {
             .map(|table| (table.schema.clone(), table.name.clone()))
             .collect();
         ui.horizontal(|ui| {
-            egui::ComboBox::from_id_salt("synth_table")
-                .selected_text(if self.management.synthetic_data.synthetic_table.is_empty() {
-                    "Select table…"
-                } else {
-                    &self.management.synthetic_data.synthetic_table
-                })
-                .show_ui(ui, |ui| {
-                    for (schema, name) in &tables {
-                        let key = if schema.is_empty() {
-                            name.clone()
-                        } else {
-                            format!("{schema}.{name}")
-                        };
-                        ui.selectable_value(&mut self.management.synthetic_data.synthetic_table, key.clone(), key);
+            let mut synth_options = vec!["Select table…".to_owned()];
+            let synth_keys: Vec<String> = tables
+                .iter()
+                .map(|(schema, name)| {
+                    if schema.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{schema}.{name}")
                     }
-                });
+                })
+                .collect();
+            synth_options.extend(synth_keys.iter().cloned());
+            let mut synth_selected = synth_keys
+                .iter()
+                .position(|key| *key == self.management.synthetic_data.synthetic_table)
+                .map(|index| index + 1)
+                .unwrap_or(0);
+            let synth_previous = synth_selected;
+            crate::components::Select::new("synth_table", &mut synth_selected, &synth_options)
+                .theme(self.theme)
+                .width(150.0)
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if synth_selected != synth_previous {
+                self.management.synthetic_data.synthetic_table = if synth_selected == 0 {
+                    String::new()
+                } else {
+                    synth_keys[synth_selected - 1].clone()
+                };
+            }
             ui.label("rows");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.synthetic_data.synthetic_row_count).desired_width(48.0),
-            );
+            input(ui, &mut self.management.synthetic_data.synthetic_row_count, "count", 48.0, self.theme);
             ui.label("seed");
-            ui.add(egui::TextEdit::singleline(&mut self.management.synthetic_data.synthetic_seed).desired_width(64.0));
+            input(ui, &mut self.management.synthetic_data.synthetic_seed, "seed", 64.0, self.theme);
             ui.label("null%");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.synthetic_data.synthetic_null_pct).desired_width(36.0),
-            );
+            input(ui, &mut self.management.synthetic_data.synthetic_null_pct, "%", 36.0, self.theme);
         });
     }
 
@@ -178,23 +189,29 @@ impl TransferActivityContext<'_> {
 
     fn draw_masking_controls(&mut self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.masking.masking_columns_csv)
-                    .hint_text("cols: email,phone"),
-            );
-            egui::ComboBox::from_id_salt("mask_rule")
-                .selected_text(format!("{:?}", self.management.masking.masking_rule))
-                .show_ui(ui, |ui| {
-                    for (rule, label) in [
-                        (db_pro_core::domain::masking::MaskRule::Redact, "Redact"),
-                        (db_pro_core::domain::masking::MaskRule::Hash, "Hash"),
-                        (db_pro_core::domain::masking::MaskRule::PartialReveal, "Partial"),
-                        (db_pro_core::domain::masking::MaskRule::Fixed, "Fixed"),
-                        (db_pro_core::domain::masking::MaskRule::Synthetic, "Synthetic"),
-                    ] {
-                        ui.selectable_value(&mut self.management.masking.masking_rule, rule, label);
-                    }
-                });
+            input(ui, &mut self.management.masking.masking_columns_csv, "cols: email,phone", 140.0, self.theme);
+            const MASK_RULES: [(db_pro_core::domain::masking::MaskRule, &str); 5] = [
+                (db_pro_core::domain::masking::MaskRule::Redact, "Redact"),
+                (db_pro_core::domain::masking::MaskRule::Hash, "Hash"),
+                (db_pro_core::domain::masking::MaskRule::PartialReveal, "Partial"),
+                (db_pro_core::domain::masking::MaskRule::Fixed, "Fixed"),
+                (db_pro_core::domain::masking::MaskRule::Synthetic, "Synthetic"),
+            ];
+            let mask_labels: Vec<String> = MASK_RULES.iter().map(|(_, label)| (*label).to_owned()).collect();
+            let mut mask_selected = MASK_RULES
+                .iter()
+                .position(|(rule, _)| *rule == self.management.masking.masking_rule)
+                .unwrap_or(0);
+            let mask_previous = mask_selected;
+            crate::components::Select::new("mask_rule", &mut mask_selected, &mask_labels)
+                .theme(self.theme)
+                .width(100.0)
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if mask_selected != mask_previous {
+                self.management.masking.masking_rule = MASK_RULES[mask_selected].0;
+            }
             ui.checkbox(&mut self.management.masking.masking_keyed, "Keyed hash");
             if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                 let names: Vec<String> = self

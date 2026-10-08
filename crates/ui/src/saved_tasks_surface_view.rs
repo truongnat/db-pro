@@ -114,12 +114,9 @@ impl SavedTasksSurfaceContext<'_> {
         match payload {
             SavedTaskPayload::Sql { sql } => {
                 ui.label(RichText::new("SQL").small().color(theme.text_muted));
-                ui.add(
-                    egui::TextEdit::multiline(sql)
-                        .desired_width(ui.available_width())
-                        .desired_rows(4)
-                        .code_editor(),
-                );
+                crate::components::Textarea::new(sql, "SELECT ...", theme)
+                    .min_rows(4)
+                    .show(ui);
             }
             SavedTaskPayload::Backup {
                 output_path,

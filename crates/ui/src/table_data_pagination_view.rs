@@ -112,23 +112,24 @@ pub(super) fn draw_pagination(
         }
 
         let previous_limit = context.query.limit;
-        let limit_label = format!("{} / page", context.query.limit);
-        egui::ComboBox::from_id_salt(("table-data-limit-select", context.table_name))
-            .selected_text(
-                RichText::new(&limit_label)
-                    .size(11.0)
-                    .color(context.theme.text_secondary),
-            )
+        const PAGE_LIMITS: [u64; 5] = [50, 100, 250, 500, 1000];
+        let limit_labels: Vec<String> = PAGE_LIMITS.iter().map(|limit| format!("{limit} / page")).collect();
+        let mut limit_selected = PAGE_LIMITS.iter().position(|limit| *limit == context.query.limit).unwrap_or(1);
+        let limit_previous = limit_selected;
+        // per-table salt keeps popup ids unique like the old combo's tuple salt
+        crate::components::Select::new(
+            &format!("table-data-limit-select-{}", context.table_name),
+            &mut limit_selected,
+            &limit_labels,
+        )
+            .theme(context.theme)
             .width(90.0)
-            .show_ui(ui, |ui| {
-                ui.scope(|ui| {
-                    ui.style_mut().visuals.widgets.active.fg_stroke.color =
-                        context.theme.text_on_solid(context.theme.accent_hover);
-                    for limit in [50, 100, 250, 500, 1000] {
-                        ui.selectable_value(&mut context.query.limit, limit, format!("{limit} / page"));
-                    }
-                });
-            });
+            .size(crate::components::SelectSize::Sm)
+            .variant(crate::components::SelectVariant::Ghost)
+            .show(ui);
+        if limit_selected != limit_previous {
+            context.query.limit = PAGE_LIMITS[limit_selected];
+        }
         if context.query.limit != previous_limit {
             action = Some(TableDataPaginationAction::ResetPage);
         }

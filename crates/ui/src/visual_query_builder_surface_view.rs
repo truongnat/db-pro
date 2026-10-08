@@ -61,38 +61,44 @@ impl VisualQueryBuilderContext<'_> {
 
     fn draw_table_picker(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            egui::ComboBox::from_id_salt("vqb_add_table")
-                .selected_text(if self.state.add_table.is_empty() {
-                    "Select table…"
+            // keys carry the `view:` prefix for views; labels stay human-readable
+            let mut table_options = vec!["Select table…".to_owned()];
+            let mut keys: Vec<String> = Vec::new();
+            for table in self.table_details {
+                table_options.push(format!("{}.{}", table.schema, table.name));
+                keys.push(if table.schema.is_empty() {
+                    table.name.clone()
                 } else {
-                    &self.state.add_table
-                })
-                .show_ui(ui, |ui| {
-                    for table in self.table_details {
-                        let key = if table.schema.is_empty() {
-                            table.name.clone()
-                        } else {
-                            format!("{}.{}", table.schema, table.name)
-                        };
-                        ui.selectable_value(
-                            &mut self.state.add_table,
-                            key,
-                            format!("{}.{}", table.schema, table.name),
-                        );
-                    }
-                    for view in self.views {
-                        let key = if view.schema.is_empty() {
-                            format!("view:{}", view.name)
-                        } else {
-                            format!("view:{}.{}", view.schema, view.name)
-                        };
-                        ui.selectable_value(
-                            &mut self.state.add_table,
-                            key,
-                            format!("view {}.{}", view.schema, view.name),
-                        );
-                    }
+                    format!("{}.{}", table.schema, table.name)
                 });
+            }
+            for view in self.views {
+                table_options.push(format!("view {}.{}", view.schema, view.name));
+                keys.push(if view.schema.is_empty() {
+                    format!("view:{}", view.name)
+                } else {
+                    format!("view:{}.{}", view.schema, view.name)
+                });
+            }
+            let mut table_selected = keys
+                .iter()
+                .position(|key| *key == self.state.add_table)
+                .map(|index| index + 1)
+                .unwrap_or(0);
+            let table_previous = table_selected;
+            crate::components::Select::new("vqb_add_table", &mut table_selected, &table_options)
+                .theme(self.theme)
+                .width(160.0)
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if table_selected != table_previous {
+                self.state.add_table = if table_selected == 0 {
+                    String::new()
+                } else {
+                    keys[table_selected - 1].clone()
+                };
+            }
             if secondary_button(ui, "Add", self.theme).clicked() {
                 self.state.add_selected_table(self.dialect);
             }
@@ -126,9 +132,9 @@ impl VisualQueryBuilderContext<'_> {
         section_label(ui, "JOINS", self.theme);
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.join_table).hint_text("schema.table"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.join_left).hint_text("left_alias.col"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.join_right).hint_text("right_alias.col"));
+            input(ui, &mut self.state.join_table, "schema.table", 110.0, self.theme);
+            input(ui, &mut self.state.join_left, "left_alias.col", 110.0, self.theme);
+            input(ui, &mut self.state.join_right, "right_alias.col", 110.0, self.theme);
             if secondary_button(ui, "Add INNER JOIN", self.theme).clicked() {
                 self.state.add_join(self.dialect);
             }
@@ -164,9 +170,9 @@ impl VisualQueryBuilderContext<'_> {
         section_label(ui, "COLUMNS", self.theme);
         ui.checkbox(&mut self.state.model.select_star, "SELECT *");
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.col_ref).hint_text("alias.column"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.col_alias).hint_text("AS alias"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.col_agg).hint_text("AGG optional"));
+            input(ui, &mut self.state.col_ref, "alias.column", 110.0, self.theme);
+            input(ui, &mut self.state.col_alias, "AS alias", 90.0, self.theme);
+            input(ui, &mut self.state.col_agg, "AGG optional", 90.0, self.theme);
             if secondary_button(ui, "Add column", self.theme).clicked() {
                 self.state.add_column(self.dialect);
             }
@@ -193,9 +199,9 @@ impl VisualQueryBuilderContext<'_> {
         ui.add_space(SPACE_SM);
         section_label(ui, "WHERE / HAVING / ORDER / LIMIT", self.theme);
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.where_left).hint_text("alias.col"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.where_op).hint_text("="));
-            ui.add(egui::TextEdit::singleline(&mut self.state.where_value).hint_text("value"));
+            input(ui, &mut self.state.where_left, "alias.col", 110.0, self.theme);
+            input(ui, &mut self.state.where_op, "=", 48.0, self.theme);
+            input(ui, &mut self.state.where_value, "value", 110.0, self.theme);
             if secondary_button(ui, "Add WHERE", self.theme).clicked() {
                 self.state.add_where(self.dialect);
             }
@@ -216,15 +222,15 @@ impl VisualQueryBuilderContext<'_> {
             });
         }
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.order).hint_text("alias.col"));
+            input(ui, &mut self.state.order, "alias.col", 110.0, self.theme);
             ui.checkbox(&mut self.state.order_desc, "DESC");
             if secondary_button(ui, "Add ORDER", self.theme).clicked() {
                 self.state.add_order(self.dialect);
             }
             ui.label("LIMIT");
-            ui.add(egui::TextEdit::singleline(&mut self.state.limit).desired_width(60.0));
+            input(ui, &mut self.state.limit, "limit", 60.0, self.theme);
             ui.label("OFFSET");
-            ui.add(egui::TextEdit::singleline(&mut self.state.offset).desired_width(60.0));
+            input(ui, &mut self.state.offset, "offset", 60.0, self.theme);
             if ghost_button(ui, "Apply limit", self.theme).clicked() {
                 self.state.apply_limit_offset();
                 self.state.refresh_preview(self.dialect);

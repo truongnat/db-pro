@@ -86,11 +86,12 @@ impl SecurityRoleDetailsContext<'_> {
                 .small()
                 .color(self.theme.text_muted),
         );
-        ui.add(
-            egui::TextEdit::singleline(&mut self.state.security_password)
-                .password(true)
-                .hint_text("new password")
-                .desired_width(f32::INFINITY),
+        password_input(
+            ui,
+            &mut self.state.security_password,
+            "new password",
+            ui.available_width(),
+            self.theme,
         );
         if primary_button_with_icon(ui, Icon::Key, "Update password", self.theme).clicked()
             && !self.state.security_password.is_empty()
@@ -193,6 +194,7 @@ impl SecurityRoleDetailsContext<'_> {
         });
     }
 
+    // cc-scan:allow LONG_FUNCTION — declarative form painter
     fn draw_grant_form(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRoleDetailsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_SM);
@@ -205,8 +207,15 @@ impl SecurityRoleDetailsContext<'_> {
                 ("database", PrivilegeObjectKind::Database),
                 ("sequence", PrivilegeObjectKind::Sequence),
             ] {
-                if ui
-                    .selectable_label(self.state.security_grant_kind == kind, label)
+                if Button::new(self.theme)
+                    .text(label)
+                    .variant(if self.state.security_grant_kind == kind {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
+                    .size(ButtonSize::Sm)
+                    .show(ui)
                     .clicked()
                 {
                     self.state.security_grant_kind = kind;

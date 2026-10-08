@@ -34,11 +34,15 @@ impl SettingsGeneralContext<'_> {
         ui.horizontal(|ui| {
             ui.label(RichText::new("Language").color(self.theme.text_secondary));
             for language in crate::UiLanguage::ALL {
-                if ui
-                    .selectable_label(
-                        self.preferences.settings.general.language == *language,
-                        language.label(),
-                    )
+                if Button::new(self.theme)
+                    .text(language.label())
+                    .variant(if self.preferences.settings.general.language == *language {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
+                    .size(ButtonSize::Sm)
+                    .show(ui)
                     .clicked()
                 {
                     self.preferences.settings.general.language = *language;
@@ -97,7 +101,13 @@ impl SettingsGeneralContext<'_> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
             let selected = self.sessions.selected_id.as_deref() == Some(session.id.as_str());
-            if ui.selectable_label(selected, &session.name).clicked() {
+            if Button::new(self.theme)
+                .text(&session.name)
+                .variant(if selected { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.sessions.selected_id = Some(session.id.clone());
             }
             if Button::new(self.theme)

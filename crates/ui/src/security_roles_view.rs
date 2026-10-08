@@ -54,7 +54,13 @@ impl SecurityRolesContext<'_> {
     ) {
         let selected = self.state.security_selected_role.as_deref() == Some(user.name.as_str());
         ui.horizontal(|ui| {
-            if ui.selectable_label(selected, &user.name).clicked() {
+            if Button::new(self.theme)
+                .text(&user.name)
+                .variant(if selected { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRolesAction::Select(user.name.clone()));
             }
             if user.can_login {

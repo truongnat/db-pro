@@ -80,44 +80,55 @@ impl SidebarProblemsContext<'_> {
         Vec::new()
     }
 
+    // cc-scan:allow LONG_FUNCTION — declarative filter row painter
     fn draw_filters(&self, ui: &mut egui::Ui) -> Vec<SidebarProblemsAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
-            let mut severity = self.severity_filter;
-            egui::ComboBox::from_id_salt("problems_severity_filter")
-                .selected_text(severity_label(severity))
+            const SEVERITY_OPTIONS: [(ProblemsSeverityFilter, &str); 3] = [
+                (ProblemsSeverityFilter::All, "All"),
+                (ProblemsSeverityFilter::Errors, "Errors"),
+                (ProblemsSeverityFilter::Warnings, "Warnings"),
+            ];
+            let severity_labels: Vec<String> = SEVERITY_OPTIONS.iter().map(|(_, label)| (*label).to_owned()).collect();
+            let mut severity_selected = SEVERITY_OPTIONS
+                .iter()
+                .position(|(filter, _)| *filter == self.severity_filter)
+                .unwrap_or(0);
+            let severity_previous = severity_selected;
+            crate::components::Select::new("problems_severity_filter", &mut severity_selected, &severity_labels)
+                .theme(self.theme)
                 .width(96.0)
-                .show_ui(ui, |ui| {
-                    for (filter, label) in [
-                        (ProblemsSeverityFilter::All, "All"),
-                        (ProblemsSeverityFilter::Errors, "Errors"),
-                        (ProblemsSeverityFilter::Warnings, "Warnings"),
-                    ] {
-                        ui.selectable_value(&mut severity, filter, label);
-                    }
-                });
-            if severity != self.severity_filter {
-                actions.push(SidebarProblemsAction::SetSeverityFilter(severity));
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if severity_selected != severity_previous {
+                actions.push(SidebarProblemsAction::SetSeverityFilter(
+                    SEVERITY_OPTIONS[severity_selected].0,
+                ));
             }
 
-            let mut source = self.source_filter;
-            egui::ComboBox::from_id_salt("problems_source_filter")
-                .selected_text(source_label(source))
+            const SOURCE_OPTIONS: [(ProblemsSourceFilter, &str); 5] = [
+                (ProblemsSourceFilter::All, "All sources"),
+                (ProblemsSourceFilter::Parser, "Parser"),
+                (ProblemsSourceFilter::Lint, "Lint"),
+                (ProblemsSourceFilter::Delimiter, "Delimiter"),
+                (ProblemsSourceFilter::Database, "Database"),
+            ];
+            let source_labels: Vec<String> = SOURCE_OPTIONS.iter().map(|(_, label)| (*label).to_owned()).collect();
+            let mut source_selected = SOURCE_OPTIONS
+                .iter()
+                .position(|(filter, _)| *filter == self.source_filter)
+                .unwrap_or(0);
+            let source_previous = source_selected;
+            crate::components::Select::new("problems_source_filter", &mut source_selected, &source_labels)
+                .theme(self.theme)
                 .width(120.0)
-                .show_ui(ui, |ui| {
-                    for (filter, label) in [
-                        (ProblemsSourceFilter::All, "All sources"),
-                        (ProblemsSourceFilter::Parser, "Parser"),
-                        (ProblemsSourceFilter::Lint, "Lint"),
-                        (ProblemsSourceFilter::Delimiter, "Delimiter"),
-                        (ProblemsSourceFilter::Database, "Database"),
-                    ] {
-                        ui.selectable_value(&mut source, filter, label);
-                    }
-                });
-            if source != self.source_filter {
-                actions.push(SidebarProblemsAction::SetSourceFilter(source));
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if source_selected != source_previous {
+                actions.push(SidebarProblemsAction::SetSourceFilter(SOURCE_OPTIONS[source_selected].0));
             }
         });
         actions
@@ -191,14 +202,6 @@ fn matches_filters(
         ProblemsSourceFilter::Database => entry.source == crate::editor::DiagnosticSource::Database,
     };
     severity_ok && source_ok
-}
-
-fn severity_label(filter: ProblemsSeverityFilter) -> &'static str {
-    match filter {
-        ProblemsSeverityFilter::All => "All",
-        ProblemsSeverityFilter::Errors => "Errors",
-        ProblemsSeverityFilter::Warnings => "Warnings",
-    }
 }
 
 fn source_label(source: impl Into<ProblemSourceLabel>) -> &'static str {

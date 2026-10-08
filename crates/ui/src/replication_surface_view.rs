@@ -162,7 +162,7 @@ impl ReplicationSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create publication (FOR ALL TABLES)").small().strong());
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.replication_create_name).hint_text("publication name"));
+            input(ui, &mut self.state.replication_create_name, "publication name", 160.0, self.theme);
             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
                 actions.push(ReplicationSurfaceAction::PreviewCreatePublication(
                     self.state.replication_create_name.clone(),

@@ -51,17 +51,13 @@ impl AuditSurfaceContext<'_> {
     fn draw_filters(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Text").small().color(self.theme.text_muted));
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.audit_filter_text)
-                    .desired_width(120.0)
-                    .hint_text("message/query"),
-            );
+            input(ui, &mut self.state.audit_filter_text, "message/query", 120.0, self.theme);
             ui.label(RichText::new("DB").small().color(self.theme.text_muted));
-            ui.add(egui::TextEdit::singleline(&mut self.state.audit_filter_database).desired_width(80.0));
+            input(ui, &mut self.state.audit_filter_database, "database", 80.0, self.theme);
             ui.label(RichText::new("User").small().color(self.theme.text_muted));
-            ui.add(egui::TextEdit::singleline(&mut self.state.audit_filter_username).desired_width(80.0));
+            input(ui, &mut self.state.audit_filter_username, "user", 80.0, self.theme);
             ui.label(RichText::new("Severity").small().color(self.theme.text_muted));
-            ui.add(egui::TextEdit::singleline(&mut self.state.audit_filter_severity).desired_width(60.0));
+            input(ui, &mut self.state.audit_filter_severity, "level", 60.0, self.theme);
         });
     }
 

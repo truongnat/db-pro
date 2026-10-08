@@ -242,14 +242,18 @@ fn draw_trigger_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut 
             ui.set_width(140.0);
             ui.label(RichText::new("Timing").small().color(context.theme.text_secondary));
             let timings = ["BEFORE", "AFTER", "INSTEAD OF"];
-            egui::ComboBox::from_id_salt("trigger_timing_cb")
-                .selected_text(&context.workbench.timing)
+            let timing_labels: Vec<String> = timings.iter().map(|t| (*t).to_owned()).collect();
+            let mut timing_selected = timings.iter().position(|t| *t == context.workbench.timing).unwrap_or(0);
+            let timing_previous = timing_selected;
+            crate::components::Select::new("trigger_timing_cb", &mut timing_selected, &timing_labels)
+                .theme(context.theme)
                 .width(140.0)
-                .show_ui(ui, |ui| {
-                    for t in &timings {
-                        ui.selectable_value(&mut context.workbench.timing, (*t).to_string(), *t);
-                    }
-                });
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if timing_selected != timing_previous {
+                context.workbench.timing = timings[timing_selected].to_owned();
+            }
         });
         ui.add_space(SPACE_MD);
         ui.vertical(|ui| {
@@ -264,12 +268,13 @@ fn draw_trigger_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut 
     ui.vertical(|ui| {
         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
         ui.label(RichText::new("Trigger Body / Action (e.g. FOR EACH ROW EXECUTE FUNCTION ...):").small().color(context.theme.text_secondary));
-        ui.add(
-            egui::TextEdit::multiline(&mut context.workbench.body)
-                .font(egui::TextStyle::Monospace)
-                .desired_rows(4)
-                .desired_width(f32::INFINITY),
-        );
+        crate::components::Textarea::new(
+                &mut context.workbench.body,
+                "FOR EACH ROW EXECUTE FUNCTION ...",
+                context.theme,
+            )
+            .min_rows(4)
+            .show(ui);
     });
 }
 
@@ -400,12 +405,9 @@ fn draw_view_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egu
 
     ui.vertical(|ui| {
         ui.label(RichText::new("Query Definition (SELECT Statement):").small().color(context.theme.text_secondary));
-        ui.add(
-            egui::TextEdit::multiline(&mut context.workbench.select_sql)
-                .font(egui::TextStyle::Monospace)
-                .desired_rows(6)
-                .desired_width(f32::INFINITY),
-        );
+        crate::components::Textarea::new(&mut context.workbench.select_sql, "SELECT ...", context.theme)
+            .min_rows(5)
+            .show(ui);
     });
 }
 
@@ -434,14 +436,18 @@ fn draw_index_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
             ui.set_width(140.0);
             ui.label(RichText::new("Index Method").small().color(context.theme.text_secondary));
             let methods = ["BTREE", "HASH", "GIN", "GIST", "BRIN"];
-            egui::ComboBox::from_id_salt("index_method_cb")
-                .selected_text(&context.workbench.index_method)
+            let method_labels: Vec<String> = methods.iter().map(|m| (*m).to_owned()).collect();
+            let mut method_selected = methods.iter().position(|m| *m == context.workbench.index_method).unwrap_or(0);
+            let method_previous = method_selected;
+            crate::components::Select::new("index_method_cb", &mut method_selected, &method_labels)
+                .theme(context.theme)
                 .width(140.0)
-                .show_ui(ui, |ui| {
-                    for m in &methods {
-                        ui.selectable_value(&mut context.workbench.index_method, (*m).to_string(), *m);
-                    }
-                });
+                .size(crate::components::SelectSize::Sm)
+                .variant(crate::components::SelectVariant::Ghost)
+                .show(ui);
+            if method_selected != method_previous {
+                context.workbench.index_method = methods[method_selected].to_owned();
+            }
         });
         ui.add_space(SPACE_MD);
         ui.vertical(|ui| {
@@ -472,36 +478,27 @@ fn draw_constraint_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &m
                 .color(context.theme.text_primary),
         );
         ui.add_space(SPACE_MD);
-        egui::ComboBox::from_id_salt("constraint_kind_cb")
-            .selected_text(match context.workbench.constraint_kind {
-                ConstraintKindUi::PrimaryKey => "Primary key (PK)",
-                ConstraintKindUi::Unique => "Unique constraint (UQ)",
-                ConstraintKindUi::Check => "Check constraint (CK)",
-                ConstraintKindUi::ForeignKey => "Foreign key (FK)",
-            })
+        const CONSTRAINT_KINDS: [(ConstraintKindUi, &str); 4] = [
+            (ConstraintKindUi::PrimaryKey, "Primary key (PK)"),
+            (ConstraintKindUi::Unique, "Unique constraint (UQ)"),
+            (ConstraintKindUi::Check, "Check constraint (CK)"),
+            (ConstraintKindUi::ForeignKey, "Foreign key (FK)"),
+        ];
+        let kind_labels: Vec<String> = CONSTRAINT_KINDS.iter().map(|(_, label)| (*label).to_owned()).collect();
+        let mut kind_selected = CONSTRAINT_KINDS
+            .iter()
+            .position(|(kind, _)| *kind == context.workbench.constraint_kind)
+            .unwrap_or(0);
+        let kind_previous = kind_selected;
+        crate::components::Select::new("constraint_kind_cb", &mut kind_selected, &kind_labels)
+            .theme(context.theme)
             .width(180.0)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut context.workbench.constraint_kind,
-                    ConstraintKindUi::PrimaryKey,
-                    "Primary key (PK)",
-                );
-                ui.selectable_value(
-                    &mut context.workbench.constraint_kind,
-                    ConstraintKindUi::Unique,
-                    "Unique constraint (UQ)",
-                );
-                ui.selectable_value(
-                    &mut context.workbench.constraint_kind,
-                    ConstraintKindUi::Check,
-                    "Check constraint (CK)",
-                );
-                ui.selectable_value(
-                    &mut context.workbench.constraint_kind,
-                    ConstraintKindUi::ForeignKey,
-                    "Foreign key (FK)",
-                );
-            });
+            .size(crate::components::SelectSize::Sm)
+            .variant(crate::components::SelectVariant::Ghost)
+            .show(ui);
+        if kind_selected != kind_previous {
+            context.workbench.constraint_kind = CONSTRAINT_KINDS[kind_selected].0;
+        }
     });
     ui.add_space(SPACE_SM);
 
@@ -567,27 +564,35 @@ fn draw_constraint_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &m
             ui.vertical(|ui| {
                 ui.set_width(180.0);
                 ui.label(RichText::new("ON DELETE").small().color(context.theme.text_secondary));
-                egui::ComboBox::from_id_salt("fk_on_delete_cb")
-                    .selected_text(&context.workbench.on_delete)
+                let action_labels: Vec<String> = actions.iter().map(|a| (*a).to_owned()).collect();
+                let mut action_selected = actions.iter().position(|a| *a == context.workbench.on_delete).unwrap_or(0);
+                let action_previous = action_selected;
+                crate::components::Select::new("fk_on_delete_cb", &mut action_selected, &action_labels)
+                    .theme(context.theme)
                     .width(180.0)
-                    .show_ui(ui, |ui| {
-                        for a in &actions {
-                            ui.selectable_value(&mut context.workbench.on_delete, (*a).to_string(), *a);
-                        }
-                    });
+                    .size(crate::components::SelectSize::Sm)
+                    .variant(crate::components::SelectVariant::Ghost)
+                    .show(ui);
+                if action_selected != action_previous {
+                    context.workbench.on_delete = actions[action_selected].to_owned();
+                }
             });
             ui.add_space(SPACE_MD);
             ui.vertical(|ui| {
                 ui.set_width(180.0);
                 ui.label(RichText::new("ON UPDATE").small().color(context.theme.text_secondary));
-                egui::ComboBox::from_id_salt("fk_on_update_cb")
-                    .selected_text(&context.workbench.on_update)
+                let action_labels: Vec<String> = actions.iter().map(|a| (*a).to_owned()).collect();
+                let mut action_selected = actions.iter().position(|a| *a == context.workbench.on_update).unwrap_or(0);
+                let action_previous = action_selected;
+                crate::components::Select::new("fk_on_update_cb", &mut action_selected, &action_labels)
+                    .theme(context.theme)
                     .width(180.0)
-                    .show_ui(ui, |ui| {
-                        for a in &actions {
-                            ui.selectable_value(&mut context.workbench.on_update, (*a).to_string(), *a);
-                        }
-                    });
+                    .size(crate::components::SelectSize::Sm)
+                    .variant(crate::components::SelectVariant::Ghost)
+                    .show(ui);
+                if action_selected != action_previous {
+                    context.workbench.on_update = actions[action_selected].to_owned();
+                }
             });
         });
     }
@@ -715,21 +720,24 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                     let col = &mut context.workbench.table_columns[idx];
 
                     // Name
-                    ui.add(
-                        egui::TextEdit::singleline(&mut col.name)
-                            .hint_text("column_name")
-                            .desired_width(150.0),
-                    );
+                    crate::components::Input::new(&mut col.name, "column_name", context.theme)
+                        .width(150.0)
+                        .show(ui);
 
-                    // Type combobox
-                    egui::ComboBox::from_id_salt(format!("col_type_{idx}"))
-                        .selected_text(&col.data_type)
+                    // Type select — same widget as every other picker
+                    let type_salt = format!("col_type_{idx}");
+                    let type_labels: Vec<String> = types.iter().map(|t| (*t).to_owned()).collect();
+                    let mut type_selected = types.iter().position(|t| *t == col.data_type).unwrap_or(0);
+                    let type_previous = type_selected;
+                    crate::components::Select::new(&type_salt, &mut type_selected, &type_labels)
+                        .theme(context.theme)
                         .width(120.0)
-                        .show_ui(ui, |ui| {
-                            for t in &types {
-                                ui.selectable_value(&mut col.data_type, (*t).to_string(), *t);
-                            }
-                        });
+                        .size(crate::components::SelectSize::Sm)
+                        .variant(crate::components::SelectVariant::Ghost)
+                        .show(ui);
+                    if type_selected != type_previous {
+                        col.data_type = types[type_selected].to_owned();
+                    }
 
                     // PK
                     if ui.checkbox(&mut col.is_pk, "").changed() && col.is_pk {
@@ -744,20 +752,29 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                     ui.checkbox(&mut col.auto_increment, "");
 
                     // Default
-                    ui.add(
-                        egui::TextEdit::singleline(&mut col.default_expr)
-                            .hint_text("default / expr")
-                            .desired_width(130.0),
-                    );
+                    crate::components::Input::new(&mut col.default_expr, "default / expr", context.theme)
+                        .width(130.0)
+                        .show(ui);
 
-                    // Reorder & delete buttons
-                    if idx > 0 && ui.small_button("▲").clicked() {
+                    // Reorder & delete buttons — icon buttons, not glyph labels
+                    if idx > 0
+                        && compact_icon_button(ui, Icon::ChevronUp, context.theme)
+                            .on_hover_text("Move column up")
+                            .clicked()
+                    {
                         move_up_idx = Some(idx);
                     }
-                    if idx + 1 < col_count && ui.small_button("▼").clicked() {
+                    if idx + 1 < col_count
+                        && compact_icon_button(ui, Icon::ChevronDown, context.theme)
+                            .on_hover_text("Move column down")
+                            .clicked()
+                    {
                         move_down_idx = Some(idx);
                     }
-                    if ui.small_button("✕").clicked() {
+                    if compact_icon_button(ui, Icon::X, context.theme)
+                        .on_hover_text("Remove column")
+                        .clicked()
+                    {
                         remove_idx = Some(idx);
                     }
                 });

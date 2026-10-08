@@ -176,7 +176,17 @@ impl QueryActionsSurfaceContext<'_> {
                 (PredictionMode::Subtle, "Subtle"),
                 (PredictionMode::Eager, "Eager"),
             ] {
-                if ui.selectable_label(*self.prediction_mode == mode, label).clicked() {
+                if Button::new(self.theme)
+                    .text(label)
+                    .variant(if *self.prediction_mode == mode {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(QueryActionsSurfaceAction::SetPredictionMode(mode));
                 }
             }

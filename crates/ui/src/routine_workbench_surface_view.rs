@@ -57,12 +57,9 @@ fn draw_source_card(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui
 fn draw_source_editor(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui) {
     section_label(ui, format!("{} SOURCE", context.function.routine_type), context.theme);
     ui.add_space(SPACE_SM);
-    ui.add(
-        egui::TextEdit::multiline(context.source_draft)
-            .code_editor()
-            .desired_width(ui.available_width())
-            .desired_rows(12),
-    );
+    crate::components::Textarea::new(context.source_draft, "routine source...", context.theme)
+            .min_rows(8)
+            .show(ui);
     ui.add_space(SPACE_SM);
 }
 
@@ -254,14 +251,16 @@ fn draw_parameter_inputs(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egu
             }
             ui.add_enabled_ui(!is_null, |ui| {
                 if let Some(value) = context.parameter_values.get_mut(index) {
-                    ui.add(
-                        egui::TextEdit::singleline(value)
-                            .desired_width(ui.available_width())
-                            .hint_text(if parameter.has_default {
-                                parameter.default_expr.as_str()
-                            } else {
-                                "value"
-                            }),
+                    input(
+                        ui,
+                        value,
+                        if parameter.has_default {
+                            parameter.default_expr.as_str()
+                        } else {
+                            "value"
+                        },
+                        ui.available_width(),
+                        context.theme,
                     );
                 }
             });

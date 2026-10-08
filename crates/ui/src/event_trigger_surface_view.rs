@@ -127,16 +127,12 @@ impl EventTriggerSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create event trigger").small().strong());
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.event_trigger_create_name).hint_text("name"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.event_trigger_create_event).hint_text("event"));
+            input(ui, &mut self.state.event_trigger_create_name, "name", 130.0, self.theme);
+            input(ui, &mut self.state.event_trigger_create_event, "event", 110.0, self.theme);
         });
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.event_trigger_create_function).hint_text("schema.func()"),
-            );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.event_trigger_create_tags).hint_text("tags CSV optional"),
-            );
+            input(ui, &mut self.state.event_trigger_create_function, "schema.func()", 160.0, self.theme);
+            input(ui, &mut self.state.event_trigger_create_tags, "tags CSV optional", 140.0, self.theme);
         });
         ui.horizontal(|ui| {
             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {

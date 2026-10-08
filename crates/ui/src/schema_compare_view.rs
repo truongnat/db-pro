@@ -355,8 +355,15 @@ pub(super) fn draw_schema_compare(
             );
             ui.horizontal(|ui| {
                 for label in ["all", "added", "removed", "changed"] {
-                    if ui
-                        .selectable_label(context.compare.data_diff_filter == label, label)
+                    if Button::new(context.theme)
+                        .text(label)
+                        .variant(if context.compare.data_diff_filter == label {
+                            ButtonVariant::Secondary
+                        } else {
+                            ButtonVariant::Ghost
+                        })
+                        .size(ButtonSize::Sm)
+                        .show(ui)
                         .clicked()
                     {
                         context.compare.data_diff_filter = label.to_owned();

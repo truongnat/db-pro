@@ -32,8 +32,8 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             );
         }
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut ctx.diagram.new_schema).hint_text("schema"));
-            ui.add(egui::TextEdit::singleline(&mut ctx.diagram.new_table).hint_text("table"));
+            input(ui, &mut ctx.diagram.new_schema, "schema", 90.0, ctx.theme);
+            input(ui, &mut ctx.diagram.new_table, "table", 110.0, ctx.theme);
             if secondary_button(ui, "Add draft table", ctx.theme).clicked() {
                 ctx.diagram
                     .design
@@ -75,8 +75,8 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
                 );
             }
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut ctx.diagram.column_name).hint_text("col"));
-                ui.add(egui::TextEdit::singleline(&mut ctx.diagram.column_type).hint_text("type"));
+                input(ui, &mut ctx.diagram.column_name, "col", 110.0, ctx.theme);
+                input(ui, &mut ctx.diagram.column_type, "type", 90.0, ctx.theme);
                 if ghost_button(ui, "Add col", ctx.theme).clicked() {
                     ctx.diagram.design.add_column(
                         idx,
@@ -94,9 +94,9 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
         }
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut ctx.diagram.foreign_key_name).hint_text("fk name"));
-            ui.add(egui::TextEdit::singleline(&mut ctx.diagram.foreign_key_from).hint_text("from schema.table.col"));
-            ui.add(egui::TextEdit::singleline(&mut ctx.diagram.foreign_key_to).hint_text("to schema.table.col"));
+            input(ui, &mut ctx.diagram.foreign_key_name, "fk name", 110.0, ctx.theme);
+            input(ui, &mut ctx.diagram.foreign_key_from, "from schema.table.col", 160.0, ctx.theme);
+            input(ui, &mut ctx.diagram.foreign_key_to, "to schema.table.col", 160.0, ctx.theme);
             if secondary_button(ui, "Add FK", ctx.theme).clicked() {
                 er_design_add_fk(ctx);
             }

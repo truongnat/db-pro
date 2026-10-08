@@ -148,13 +148,13 @@ impl FdwSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create foreign server").small().strong());
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.fdw_create_name).hint_text("server name"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.fdw_create_wrapper).hint_text("fdw"));
+            input(ui, &mut self.state.fdw_create_name, "server name", 130.0, self.theme);
+            input(ui, &mut self.state.fdw_create_wrapper, "fdw", 90.0, self.theme);
         });
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.fdw_create_host).hint_text("host"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.fdw_create_dbname).hint_text("dbname"));
-            ui.add(egui::TextEdit::singleline(&mut self.state.fdw_create_port).hint_text("port"));
+            input(ui, &mut self.state.fdw_create_host, "host", 110.0, self.theme);
+            input(ui, &mut self.state.fdw_create_dbname, "dbname", 110.0, self.theme);
+            input(ui, &mut self.state.fdw_create_port, "port", 56.0, self.theme);
         });
         ui.horizontal(|ui| {
             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
