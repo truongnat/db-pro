@@ -18,7 +18,17 @@ impl ChartRenderer {
     const MARGIN_RIGHT: f64 = 20.0;
     const MARGIN_TOP: f64 = 30.0;
     const MARGIN_BOTTOM: f64 = 40.0;
-    const PALETTE: [Color32; 6] = [
+    /// Light surfaces need darker series colors — the dark-theme hues wash out
+    /// on white (yellow was ~1.9:1 contrast).
+    const PALETTE_LIGHT: [Color32; 6] = [
+        Color32::from_rgb(37, 99, 235),  // #2563eb
+        Color32::from_rgb(220, 38, 38),  // #dc2626
+        Color32::from_rgb(180, 83, 9),   // #b45309
+        Color32::from_rgb(21, 128, 61),  // #15803d
+        Color32::from_rgb(147, 51, 234), // #9333ea
+        Color32::from_rgb(14, 116, 144), // #0e7490
+    ];
+    const PALETTE_DARK: [Color32; 6] = [
         Color32::from_rgb(66, 133, 244), // Blue
         Color32::from_rgb(219, 68, 55),  // Red
         Color32::from_rgb(244, 180, 0),  // Yellow
@@ -26,6 +36,14 @@ impl ChartRenderer {
         Color32::from_rgb(171, 71, 188), // Purple
         Color32::from_rgb(0, 172, 193),  // Cyan
     ];
+
+    fn palette(theme: &crate::theme::DbProTheme) -> &'static [Color32; 6] {
+        if theme.dark_mode {
+            &Self::PALETTE_DARK
+        } else {
+            &Self::PALETTE_LIGHT
+        }
+    }
 
     /// Draw the chart onto the given UI area.
     pub fn draw(ui: &mut egui::Ui, points: &[ChartPoint], config: &ChartConfig, theme: &crate::theme::DbProTheme) {
@@ -117,10 +135,10 @@ impl ChartRenderer {
 
         // Draw chart based on type
         match config.chart_type {
-            ChartType::Bar => Self::draw_bars(painter, chart_rect, points, x_min, y_min, y_range),
-            ChartType::Line => Self::draw_line(painter, chart_rect, points, x_min, y_min, y_range, false),
-            ChartType::Area => Self::draw_line(painter, chart_rect, points, x_min, y_min, y_range, true),
-            ChartType::Scatter => Self::draw_scatter(painter, chart_rect, points, x_min, y_min, y_range),
+            ChartType::Bar => Self::draw_bars(painter, chart_rect, points, x_min, y_min, y_range, theme),
+            ChartType::Line => Self::draw_line(painter, chart_rect, points, x_min, y_min, y_range, false, theme),
+            ChartType::Area => Self::draw_line(painter, chart_rect, points, x_min, y_min, y_range, true, theme),
+            ChartType::Scatter => Self::draw_scatter(painter, chart_rect, points, x_min, y_min, y_range, theme),
             ChartType::Pie => Self::draw_pie(painter, chart_rect, points, theme),
         }
 
@@ -170,12 +188,12 @@ impl ChartRenderer {
         rect.bottom() - ((y - y_min) / y_range) as f32 * rect.height()
     }
 
-    fn series_color(series_name: &str, series_order: &[String]) -> Color32 {
+    fn series_color(series_name: &str, series_order: &[String], theme: &crate::theme::DbProTheme) -> Color32 {
         if series_name.is_empty() {
-            return Self::PALETTE[0];
+            return Self::palette(theme)[0];
         }
         let idx = series_order.iter().position(|name| name == series_name).unwrap_or(0);
-        Self::PALETTE[idx % Self::PALETTE.len()]
+        Self::palette(theme)[idx % Self::palette(theme).len()]
     }
 
     fn series_order(points: &[ChartPoint]) -> Vec<String> {
@@ -188,12 +206,20 @@ impl ChartRenderer {
         order
     }
 
-    fn draw_bars(painter: &egui::Painter, rect: Rect, points: &[ChartPoint], _x_min: f64, y_min: f64, y_range: f64) {
+    fn draw_bars(
+        painter: &egui::Painter,
+        rect: Rect,
+        points: &[ChartPoint],
+        _x_min: f64,
+        y_min: f64,
+        y_range: f64,
+        theme: &crate::theme::DbProTheme,
+    ) {
         let bar_width = (rect.width() / points.len().max(1) as f32 * 0.7).max(2.0);
         let series_order = Self::series_order(points);
 
         for (i, point) in points.iter().enumerate() {
-            let color = Self::series_color(&point.series, &series_order);
+            let color = Self::series_color(&point.series, &series_order, theme);
             let px = rect.left() + (i as f32 / points.len().max(1) as f32) * rect.width();
             let py = Self::map_y(point.y, y_min, y_range, rect);
             let base_y = Self::map_y(y_min.max(0.0), y_min, y_range, rect);
@@ -207,6 +233,7 @@ impl ChartRenderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_line(
         painter: &egui::Painter,
         rect: Rect,
@@ -215,6 +242,7 @@ impl ChartRenderer {
         y_min: f64,
         y_range: f64,
         fill_area: bool,
+        theme: &crate::theme::DbProTheme,
     ) {
         if points.len() < 2 {
             painter.text(
@@ -222,7 +250,7 @@ impl ChartRenderer {
                 Align2::CENTER_CENTER,
                 "Need at least 2 points",
                 egui::FontId::proportional(12.0),
-                Color32::GRAY,
+                theme.text_muted,
             );
             return;
         }
@@ -246,7 +274,7 @@ impl ChartRenderer {
             if series_points.len() < 2 {
                 continue;
             }
-            let color = Self::series_color(series_name, &series_order);
+            let color = Self::series_color(series_name, &series_order, theme);
             let points_pos: Vec<Pos2> = series_points
                 .iter()
                 .map(|p| {
@@ -277,14 +305,22 @@ impl ChartRenderer {
         }
     }
 
-    fn draw_scatter(painter: &egui::Painter, rect: Rect, points: &[ChartPoint], x_min: f64, y_min: f64, y_range: f64) {
+    fn draw_scatter(
+        painter: &egui::Painter,
+        rect: Rect,
+        points: &[ChartPoint],
+        x_min: f64,
+        y_min: f64,
+        y_range: f64,
+        theme: &crate::theme::DbProTheme,
+    ) {
         let x_range = (points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max) - x_min)
             .abs()
             .max(1.0);
         let series_order = Self::series_order(points);
 
         for point in points {
-            let color = Self::series_color(&point.series, &series_order);
+            let color = Self::series_color(&point.series, &series_order, theme);
             let px = Self::map_x(point.x, x_min, x_range, rect);
             let py = Self::map_y(point.y, y_min, y_range, rect);
             painter.circle_filled(Pos2::new(px, py), 4.0, color.gamma_multiply(0.7));
@@ -312,7 +348,7 @@ impl ChartRenderer {
             let frac = point.y / total;
             let end_angle = start_angle + frac * std::f64::consts::TAU;
 
-            let color = Self::PALETTE[i % Self::PALETTE.len()];
+            let color = Self::palette(theme)[i % Self::palette(theme).len()];
 
             // Draw slice as a polygon approximation
             let num_segments = 24;
@@ -354,7 +390,7 @@ impl ChartRenderer {
         // Legend
         let legend_x = rect.right() + 10.0;
         for (i, point) in points.iter().enumerate() {
-            let color = Self::PALETTE[i % Self::PALETTE.len()];
+            let color = Self::palette(theme)[i % Self::palette(theme).len()];
             let ly = rect.min.y + i as f32 * 18.0;
             painter.rect_filled(
                 Rect::from_min_size(Pos2::new(legend_x, ly), Vec2::new(12.0, 12.0)),

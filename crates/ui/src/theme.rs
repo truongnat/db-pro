@@ -245,7 +245,7 @@ impl DbProTheme {
         } else if self.dark_mode {
             Color32::from_rgb(120, 120, 120)
         } else {
-            Color32::from_rgb(170, 170, 170)
+            Color32::from_rgb(128, 128, 128)
         }
     }
 

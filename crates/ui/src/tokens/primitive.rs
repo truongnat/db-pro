@@ -169,9 +169,9 @@ pub mod light {
     pub const NEUTRAL_125: Color32 = Color32::from_rgb(238, 238, 238); // #eeeeee
     pub const NEUTRAL_150: Color32 = Color32::from_rgb(229, 229, 229); // #e5e5e5
     pub const NEUTRAL_175: Color32 = Color32::from_rgb(212, 212, 212); // #d4d4d4
-    pub const NEUTRAL_450: Color32 = Color32::from_rgb(148, 148, 148); // #949494
+    pub const NEUTRAL_450: Color32 = Color32::from_rgb(138, 138, 138); // #8a8a8a
     pub const NEUTRAL_500: Color32 = Color32::from_rgb(112, 112, 112); // #707070
-    pub const NEUTRAL_550: Color32 = Color32::from_rgb(120, 120, 120); // #787878
+    pub const NEUTRAL_550: Color32 = Color32::from_rgb(110, 110, 110); // #6e6e6e
     pub const NEUTRAL_575: Color32 = Color32::from_rgb(100, 100, 110); // #64646e
     pub const NEUTRAL_600: Color32 = Color32::from_rgb(95, 95, 95); // #5f5f5f
     pub const NEUTRAL_900: Color32 = Color32::from_rgb(26, 28, 31); // #1a1c1f
@@ -184,9 +184,9 @@ pub mod light {
     pub const BLUE_700: Color32 = Color32::from_rgb(37, 99, 235); // #2563eb
 
     // Shipped status colors.
-    pub const GREEN_600: Color32 = Color32::from_rgb(22, 163, 74); // #16a34a
-    pub const AMBER_600: Color32 = Color32::from_rgb(217, 119, 6); // #d97706
-    pub const RED_600: Color32 = Color32::from_rgb(220, 38, 38); // #dc2626
+    pub const GREEN_600: Color32 = Color32::from_rgb(21, 128, 61); // #15803d
+    pub const AMBER_600: Color32 = Color32::from_rgb(180, 83, 9); // #b45309
+    pub const RED_600: Color32 = Color32::from_rgb(185, 28, 28); // #b91c1c
 
     // SQL syntax hues (restrained Zed-like light palette; not UI accent clones).
     pub const INDIGO_700: Color32 = Color32::from_rgb(55, 65, 180); // #3741b4
@@ -208,9 +208,9 @@ pub mod dark {
     pub const NEUTRAL_25: Color32 = Color32::from_rgb(223, 223, 223); // #dfdfdf
     pub const NEUTRAL_50: Color32 = Color32::from_rgb(223, 223, 223); // #dfdfdf
     pub const NEUTRAL_300: Color32 = Color32::from_rgb(189, 189, 189); // #bdbdbd
-    pub const NEUTRAL_450: Color32 = Color32::from_rgb(138, 138, 138); // #8a8a8a
+    pub const NEUTRAL_450: Color32 = Color32::from_rgb(154, 154, 154); // #9a9a9a
     pub const NEUTRAL_475: Color32 = Color32::from_rgb(150, 150, 150); // #969696
-    pub const NEUTRAL_500: Color32 = Color32::from_rgb(102, 102, 102); // #666666
+    pub const NEUTRAL_500: Color32 = Color32::from_rgb(122, 122, 122); // #7a7a7a
     pub const NEUTRAL_650: Color32 = Color32::from_rgb(75, 75, 75); // #4b4b4b
     pub const NEUTRAL_700: Color32 = Color32::from_rgb(63, 63, 63); // #3f3f3f
     pub const NEUTRAL_725: Color32 = Color32::from_rgb(48, 48, 48); // #303030
@@ -240,7 +240,7 @@ pub mod dark {
     pub const PURPLE_400: Color32 = Color32::from_rgb(199, 146, 234); // #c792ea (synKeyword)
     pub const GREEN_400: Color32 = Color32::from_rgb(195, 232, 141); // #c3e88d (synString)
     pub const ORANGE_400: Color32 = Color32::from_rgb(247, 140, 108); // #f78c6c (synConst)
-    pub const SLATE_500: Color32 = Color32::from_rgb(103, 110, 149); // #676e95 (synComment)
+    pub const SLATE_500: Color32 = Color32::from_rgb(138, 143, 199); // #8a8fc7 (synComment)
     pub const AMBER_300: Color32 = Color32::from_rgb(255, 203, 107); // #ffcb6b (synType)
     pub const CYAN_300: Color32 = Color32::from_rgb(137, 221, 255); // #89ddff (synPunct)
 

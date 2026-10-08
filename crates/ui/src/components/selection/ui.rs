@@ -238,7 +238,14 @@ impl<'a> Switch<'a> {
         let knob_x_right = switch_rect.right() - 2.0 - knob_radius;
         let knob_x = egui::lerp(knob_x_left..=knob_x_right, anim_t);
         let knob_center = Pos2::new(knob_x, switch_rect.center().y);
-        ui.painter().circle_filled(knob_center, knob_radius, Color32::WHITE);
+        // accent_foreground reads on the accent track in both themes (white on
+        // dark blue in light mode, dark ink on bright blue in dark mode).
+        let knob_color = if *self.on {
+            self.theme.accent_foreground
+        } else {
+            self.theme.text_primary
+        };
+        ui.painter().circle_filled(knob_center, knob_radius, knob_color);
 
         let text_pos = Pos2::new(row_rect.left() + width + spacing, row_rect.top());
         if let Some(label_galley) = label_galley {
@@ -489,7 +496,7 @@ impl<'a> Slider<'a> {
             let thumb_color = if response.hovered() || response.dragged() {
                 self.theme.accent
             } else {
-                Color32::WHITE
+                self.theme.surface_elevated
             };
             ui.painter()
                 .circle_filled(thumb_center, config::SLIDER_THUMB_RADIUS, thumb_color);

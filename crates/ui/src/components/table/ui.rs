@@ -90,7 +90,7 @@ impl<'a> Table<'a> {
                         Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
                         fill,
                     );
-                    draw_crisp_checkmark(ui.painter(), center, Color32::WHITE);
+                    draw_crisp_checkmark(ui.painter(), center, self.theme.accent_foreground);
                 } else if matches!(
                     select_all_state(self.all_selected, self.indeterminate),
                     SelectAllState::Indeterminate
@@ -105,7 +105,7 @@ impl<'a> Table<'a> {
                         Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
                         fill,
                     );
-                    draw_crisp_minus(ui.painter(), center, Color32::WHITE);
+                    draw_crisp_minus(ui.painter(), center, self.theme.accent_foreground);
                 } else {
                     let border_color = if resp.hovered() {
                         self.theme.accent
@@ -349,7 +349,7 @@ impl<'a> Table<'a> {
                                 Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
                                 fill,
                             );
-                            draw_crisp_checkmark(ui.painter(), center, Color32::WHITE);
+                            draw_crisp_checkmark(ui.painter(), center, self.theme.accent_foreground);
                         } else {
                             let border_color = if cb_resp.hovered() {
                                 self.theme.accent
