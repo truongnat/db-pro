@@ -108,6 +108,7 @@ impl DbProApp {
                                 editable,
                                 row_offset,
                                 selection_lookup: &selection_lookup,
+                                theme: self.theme,
                             },
                         );
                     },
@@ -134,6 +135,7 @@ impl DbProApp {
                     editable,
                     row_offset,
                     selection_lookup: &selection_lookup,
+                    theme: self.theme,
                 },
             );
         }

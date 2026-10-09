@@ -11,6 +11,7 @@ pub(super) struct ResultGridBodyContext<'a> {
     pub(super) editable: bool,
     pub(super) row_offset: u64,
     pub(super) selection_lookup: &'a GridSelectionLookup,
+    pub(super) theme: DbProTheme,
 }
 
 pub(super) struct ResultGridRowInput<'a> {
@@ -30,6 +31,38 @@ pub(super) trait ResultGridBodyRenderer {
     );
 
     fn draw_row(&mut self, ui: &mut egui::Ui, input: ResultGridRowInput<'_>);
+}
+
+/// Paint the leftover viewport below the last row so the grid surface reaches
+/// the pane bottom: editor fill, the pinned-width gutter strip, and row-height
+/// separator lines continuing the grid cadence.
+fn draw_empty_fill(
+    ui: &mut egui::Ui,
+    rows_top: f32,
+    viewport_height: f32,
+    row_count: usize,
+    row_height: f32,
+    theme: DbProTheme,
+) {
+    let filler_top = ui.cursor().top();
+    let filler_bottom = rows_top + viewport_height;
+    if filler_bottom - filler_top < 0.5 {
+        return;
+    }
+    let left = ui.max_rect().left();
+    let right = ui.max_rect().right();
+    let rect = egui::Rect::from_min_max(egui::pos2(left, filler_top), egui::pos2(right, filler_bottom));
+    let painter = ui.painter();
+    let border = egui::Stroke::new(1.0, theme.border_subtle);
+    painter.rect_filled(rect, egui::Rounding::ZERO, theme.surface_editor);
+    let gutter = egui::Rect::from_min_max(rect.min, egui::pos2(left + GRID_ROW_NUMBER_WIDTH, rect.bottom()));
+    painter.rect_filled(gutter, egui::Rounding::ZERO, theme.surface_panel);
+    painter.vline(gutter.right(), gutter.y_range(), border);
+    let mut y = rows_top + (row_count as f32 + 1.0) * row_height;
+    while y <= filler_bottom {
+        painter.hline(left..=right, y, border);
+        y += row_height;
+    }
 }
 
 pub(super) fn draw_body(
@@ -63,8 +96,10 @@ pub(super) fn draw_body(
                     selection_lookup: context.selection_lookup,
                 };
                 let row_height = 28.0;
+                let viewport_height = (grid_height - 28.0).max(140.0);
+                let rows_top = ui.cursor().top();
                 egui::ScrollArea::vertical()
-                    .max_height((grid_height - 28.0).max(140.0))
+                    .max_height(viewport_height)
                     .show_rows(ui, row_height, context.indexes.len(), |ui, range| {
                         ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for position in range {
@@ -78,6 +113,7 @@ pub(super) fn draw_body(
                             );
                         }
                     });
+                draw_empty_fill(ui, rows_top, viewport_height, context.indexes.len(), row_height, context.theme);
             });
         },
     );
