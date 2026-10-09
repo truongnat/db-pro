@@ -44,50 +44,38 @@ impl<'a> FilesAgentContextView<'a> {
                 ui.label(icon_text(Icon::Bot, "", self.theme.accent));
                 ui.label(RichText::new("AGENT CONTEXT").font(font_caption()).strong().color(self.theme.text_secondary));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if Button::new(self.theme)
-                        .icon(Icon::Trash2)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .access_label("Clear context")
-                        .tooltip("Clear context")
-                        .show(ui)
-                        .clicked()
-                    {
-                        actions.push(FilesAgentContextAction::Clear);
+                    let popup_id = ui.make_persistent_id("files_agent_context_actions");
+                    let more = compact_icon_button(ui, Icon::Ellipsis, self.theme)
+                        .on_hover_text("Context actions");
+                    if more.clicked() {
+                        ui.memory_mut(|memory| memory.toggle_popup(popup_id));
                     }
-                    if Button::new(self.theme)
-                        .icon(Icon::GitCompare)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .access_label("Check schema drift")
-                        .tooltip("Check schema drift")
-                        .show(ui)
-                        .clicked()
-                    {
-                        actions.push(FilesAgentContextAction::RefreshSchemaDrift);
-                    }
-                    if Button::new(self.theme)
-                        .icon(Icon::Camera)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .access_label("Export schema snapshot")
-                        .tooltip("Export schema snapshot")
-                        .show(ui)
-                        .clicked()
-                    {
-                        actions.push(FilesAgentContextAction::ExportSchemaSnapshot);
-                    }
-                    if Button::new(self.theme)
-                        .icon(Icon::Columns2)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .access_label("Toggle split editor")
-                        .tooltip("Toggle split editor")
-                        .show(ui)
-                        .clicked()
-                    {
-                        actions.push(FilesAgentContextAction::ToggleSplitEditor);
-                    }
+                    egui::popup::popup_below_widget(
+                        ui,
+                        popup_id,
+                        &more,
+                        egui::PopupCloseBehavior::CloseOnClick,
+                        |ui| {
+                            ui.set_min_width(180.0);
+                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+                            if menu_button_with_icon(ui, Icon::GitCompare, "Check schema drift", self.theme).clicked() {
+                                actions.push(FilesAgentContextAction::RefreshSchemaDrift);
+                            }
+                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+                            if menu_button_with_icon(ui, Icon::Camera, "Export schema snapshot", self.theme).clicked() {
+                                actions.push(FilesAgentContextAction::ExportSchemaSnapshot);
+                            }
+                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+                            if menu_button_with_icon(ui, Icon::Columns2, "Toggle split editor", self.theme).clicked() {
+                                actions.push(FilesAgentContextAction::ToggleSplitEditor);
+                            }
+                            ui.separator();
+                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+                            if menu_button_with_icon(ui, Icon::Trash2, "Clear context", self.theme).clicked() {
+                                actions.push(FilesAgentContextAction::Clear);
+                            }
+                        },
+                    );
                 });
             });
 
@@ -147,7 +135,8 @@ impl<'a> FilesAgentContextView<'a> {
 
             if self.context_items.is_empty() {
                 ui.label(
-                    RichText::new("No context chips attached yet.")
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+                    RichText::new("Attach a file, selection, or table to give the agent context.")
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );

@@ -5,6 +5,7 @@
 use super::super::ide_workspace::IdeWorkspaceState;
 use super::super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::{Select, SelectSize, SelectVariant};
 use egui::{vec2, Align, Layout, RichText};
 use lucide_icons::Icon;
 use std::path::PathBuf;
@@ -44,25 +45,15 @@ impl FilesSurfaceContext<'_> {
         ui.horizontal(|ui| {
             section_label(ui, "WORKSPACE", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if Button::new(self.theme)
-                    .icon(Icon::FolderOpen)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Add / open folder")
-                    .access_label("Add / open folder")
-                    .show(ui)
+                if compact_icon_button(ui, Icon::FolderOpen, self.theme)
+                    .on_hover_text("Add / open folder")
                     .clicked()
                 {
                     actions.push(FilesSurfaceAction::OpenFolder);
                 }
                 if !self.workspace.roots.is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::RefreshCw)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Refresh tree")
-                        .access_label("Refresh tree")
-                        .show(ui)
+                    && compact_icon_button(ui, Icon::RefreshCw, self.theme)
+                        .on_hover_text("Refresh tree")
                         .clicked()
                 {
                     actions.push(FilesSurfaceAction::Refresh);
@@ -135,27 +126,17 @@ impl FilesSurfaceContext<'_> {
             ui.horizontal(|ui| {
                 ui.label(icon_text(Icon::FolderTree, "", self.theme.accent));
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                ui.label(RichText::new(&active_root_name).font(font_ui_label()).strong().color(self.theme.text_primary));
+                ui.label(RichText::new(crate::components::truncate_ellipsis(&active_root_name, 28)).font(font_ui_label()).strong().color(self.theme.text_primary));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if Button::new(self.theme)
-                        .icon(Icon::X)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Close workspace")
-                        .access_label("Close workspace")
-                        .show(ui)
+                    if compact_icon_button(ui, Icon::X, self.theme)
+                        .on_hover_text("Close workspace")
                         .clicked()
                     {
                         actions.push(FilesSurfaceAction::Close);
                     }
                     if self.workspace.roots.len() > 1
-                        && Button::new(self.theme)
-                            .icon(Icon::Trash2)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::IconSm)
-                            .tooltip("Remove active root")
-                            .access_label("Remove active root")
-                            .show(ui)
+                        && compact_icon_button(ui, Icon::Trash2, self.theme)
+                            .on_hover_text("Remove active root")
                             .clicked()
                     {
                         actions.push(FilesSurfaceAction::RemoveRoot);
@@ -179,45 +160,54 @@ impl FilesSurfaceContext<'_> {
 
             ui.add_space(SPACE_XS);
 
-            // Badges row: Trust status toggle + Environment
-            ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XXS);
-                let trusted = self.workspace.is_trusted();
-                let trust_label = if trusted { "Trusted" } else { "Untrusted" };
-                let trust_variant = if trusted {
-                    crate::components::badge::BadgeVariant::Success
-                } else {
-                    crate::components::badge::BadgeVariant::Warning
-                };
-                let resp = ui.scope(|ui| {
-                    crate::components::badge::Badge::new(trust_label, self.theme)
-                        .variant(trust_variant)
-                        .compact(true)
-                        .show(ui)
-                }).response;
-                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                if resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("Click to toggle workspace trust").clicked() {
-                    actions.push(FilesSurfaceAction::SetTrusted(!trusted));
-                }
-
-                for (index, environment) in self.workspace.environments.iter().enumerate() {
-                    let is_active = self.workspace.active_environment == index;
-                    let env_variant = if is_active {
-                        crate::components::badge::BadgeVariant::Default
+            // Trust status: read-only state on the left, explicit toggle on the
+            // right — a badge that was secretly a button confused the env row.
+            let trusted = self.workspace.is_trusted();
+            let (trust_icon, trust_color, trust_label) = if trusted {
+                (Icon::ShieldCheck, self.theme.success, "Trusted")
+            } else {
+                (Icon::ShieldAlert, self.theme.warning, "Untrusted")
+            };
+            ui.horizontal(|ui| {
+                ui.label(icon_text(trust_icon, "", trust_color));
+                ui.label(RichText::new(trust_label).font(font_caption()).color(trust_color));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    let (toggle_label, toggle_hint) = if trusted {
+                        ("Revoke", "Mark workspace as untrusted")
                     } else {
-                        crate::components::badge::BadgeVariant::Secondary
+                        ("Trust", "Trust this workspace to enable writes and tasks")
                     };
-                    let resp = ui.scope(|ui| {
-                        crate::components::badge::Badge::new(&environment.name, self.theme)
-                            .variant(env_variant)
-                            .compact(true)
-                            .show(ui)
-                    }).response;
-                    if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() && !is_active {
-                        actions.push(FilesSurfaceAction::SelectEnvironment(index));
+                    if compact_button(ui, toggle_label, self.theme)
+                        .on_hover_text(toggle_hint)
+                        .clicked()
+                    {
+                        actions.push(FilesSurfaceAction::SetTrusted(!trusted));
                     }
-                }
+                });
             });
+
+            if !self.workspace.environments.is_empty() {
+                ui.add_space(SPACE_XS);
+                let env_names: Vec<String> = self
+                    .workspace
+                    .environments
+                    .iter()
+                    .map(|environment| environment.name.clone())
+                    .collect();
+                let mut selected = self
+                    .workspace
+                    .active_environment
+                    .min(env_names.len().saturating_sub(1));
+                Select::new("workspace_environment", &mut selected, &env_names)
+                    .theme(self.theme)
+                    .size(SelectSize::Sm)
+                    .variant(SelectVariant::Outline)
+                    .label("Environment")
+                    .show(ui);
+                if selected != self.workspace.active_environment {
+                    actions.push(FilesSurfaceAction::SelectEnvironment(selected));
+                }
+            }
 
             // Multiple roots switcher — badge chips, same language as environments above
             if self.workspace.roots.len() > 1 {
