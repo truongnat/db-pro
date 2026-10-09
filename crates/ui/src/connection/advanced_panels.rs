@@ -101,8 +101,8 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                         {
                             let snippet = self.dialog.draft.cloud_snippet.clone();
                             match apply_connection_snippet(&mut self.dialog.draft, &snippet) {
-                                Ok(()) => self.dialog.error.clear(),
-                                Err(err) => self.dialog.error = err,
+                                Ok(()) => self.dialog.clear_error(),
+                                Err(err) => self.dialog.set_error(err),
                             }
                         }
                     });

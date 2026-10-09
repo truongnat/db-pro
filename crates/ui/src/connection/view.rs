@@ -194,7 +194,6 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
 
     pub(crate) fn dispatch_connection_command(&mut self, save: bool) {
         if let Err(err) = super::logic::validate_connection_draft(&self.dialog.draft) {
-            self.feedback.show_error_toast(err.clone());
             self.dialog.set_error(err);
             return;
         }
@@ -331,13 +330,11 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         }
     }
 
-    fn draw_connection_feedback(&self, ui: &mut egui::Ui) {
-        if !self.dialog.error.is_empty() {
-            ui.add_space(SPACE_XS);
-            Alert::new(t!("alerts.config_error"), &self.dialog.error, self.theme)
-                .variant(AlertVariant::Destructive)
-                .show(ui);
-        } else if self.dialog.test_valid {
+    fn draw_connection_feedback(&mut self, ui: &mut egui::Ui) {
+        if let Some(error) = self.dialog.take_error_toast() {
+            self.feedback.show_error_toast(error);
+        }
+        if self.dialog.test_valid {
             ui.add_space(SPACE_XS);
             Alert::new(t!("alerts.verified"), t!("alerts.verified_desc"), self.theme)
                 .variant(AlertVariant::Success)

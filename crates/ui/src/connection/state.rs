@@ -13,6 +13,7 @@ pub(crate) struct ConnectionDialogState {
     pub(super) draft: UiConnectionDraft,
     pub(super) show_password: bool,
     pub(super) error: String,
+    pub(super) error_toast_pending: bool,
     pub(super) test_valid: bool,
     pub(super) test_draft: Option<UiConnectionDraft>,
     pub(super) diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
@@ -59,6 +60,7 @@ impl ConnectionDialogState {
 
     pub(crate) fn set_error(&mut self, error: impl Into<String>) {
         self.error = error.into();
+        self.error_toast_pending = true;
     }
 
     #[cfg(test)]
@@ -68,6 +70,18 @@ impl ConnectionDialogState {
 
     pub(crate) fn clear_error(&mut self) {
         self.error.clear();
+        self.error_toast_pending = false;
+    }
+
+    /// Consume a freshly-set error once so the dialog can surface it as a
+    /// toast instead of an inline alert.
+    pub(crate) fn take_error_toast(&mut self) -> Option<String> {
+        if self.error_toast_pending && !self.error.is_empty() {
+            self.error_toast_pending = false;
+            Some(self.error.clone())
+        } else {
+            None
+        }
     }
 
     pub(crate) fn set_test_valid(&mut self, valid: bool) {
@@ -138,7 +152,7 @@ impl ConnectionDialogState {
             ConnectionDialogAction::TestStarted { draft } => {
                 self.test_valid = false;
                 self.test_draft = Some(draft);
-                self.error.clear();
+                self.clear_error();
             }
             ConnectionDialogAction::Close => {
                 self.open = false;
@@ -150,7 +164,7 @@ impl ConnectionDialogState {
     fn invalidate_test(&mut self) {
         self.test_valid = false;
         self.test_draft = None;
-        self.error.clear();
+        self.clear_error();
     }
 }
 
