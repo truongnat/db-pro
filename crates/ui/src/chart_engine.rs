@@ -158,10 +158,25 @@ impl ChartEngine {
             || lower.contains("real")
     }
 
+    /// Default Y column: first numeric column, preferring one that differs from
+    /// X so a bare `SELECT a, b` lands on something chartable instead of blindly
+    /// taking index 1 (which is often a text/timestamp column → all rows skip).
+    fn default_y_index(columns: &[crate::UiColumn], x_idx: usize) -> usize {
+        let is_numeric = |index: usize| {
+            columns
+                .get(index)
+                .is_some_and(|column| Self::is_numeric_column(&column.data_type))
+        };
+        (0..columns.len())
+            .find(|index| *index != x_idx && is_numeric(*index))
+            .or_else(|| (0..columns.len()).find(|index| is_numeric(*index)))
+            .unwrap_or_else(|| 1usize.min(columns.len().saturating_sub(1)))
+    }
+
     /// Project result rows into chart points with optional aggregation then downsampling.
     pub fn project(columns: &[crate::UiColumn], rows: &[Vec<crate::UiCell>], config: &ChartConfig) -> ChartProjection {
         let x_idx = config.x_column.unwrap_or(0);
-        let y_idx = config.y_column.unwrap_or(1usize.min(columns.len().saturating_sub(1)));
+        let y_idx = config.y_column.unwrap_or_else(|| Self::default_y_index(columns, x_idx));
         let series_idx = config.series_column.unwrap_or(columns.len()); // out of bounds = no series
 
         if x_idx >= columns.len() || y_idx >= columns.len() {
@@ -229,7 +244,7 @@ impl ChartEngine {
         config: &ChartConfig,
     ) -> ChartProjection {
         let x_idx = config.x_column.unwrap_or(0);
-        let y_idx = config.y_column.unwrap_or(1usize.min(columns.len().saturating_sub(1)));
+        let y_idx = config.y_column.unwrap_or_else(|| Self::default_y_index(columns, x_idx));
 
         if x_idx >= columns.len() || y_idx >= columns.len() {
             return ChartProjection::default();
@@ -407,6 +422,38 @@ mod tests {
         assert!(ChartEngine::is_numeric_column("numeric(20,4)"));
         assert!(!ChartEngine::is_numeric_column("text"));
         assert!(!ChartEngine::is_numeric_column("jsonb"));
+    }
+
+    #[test]
+    fn project_defaults_y_to_first_numeric_column_not_index_one() {
+        // Regression: y_column=None meant index 1 regardless of type — when that
+        // column was text every row was skipped and the chart stayed empty while
+        // the picker displayed a numeric column.
+        let columns = vec![
+            UiColumn {
+                name: "id".into(),
+                data_type: "bigint".into(),
+                nullable: false,
+            },
+            UiColumn {
+                name: "label".into(),
+                data_type: "text".into(),
+                nullable: true,
+            },
+            UiColumn {
+                name: "hits".into(),
+                data_type: "integer".into(),
+                nullable: false,
+            },
+        ];
+        let rows = vec![vec![
+            UiCell::Number("1".into()),
+            UiCell::Text("a".into()),
+            UiCell::Number("5".into()),
+        ]];
+        let projection = ChartEngine::project(&columns, &rows, &ChartConfig::new());
+        assert_eq!(projection.points.len(), 1);
+        assert_eq!(projection.points[0].y, 5.0);
     }
 
     #[test]

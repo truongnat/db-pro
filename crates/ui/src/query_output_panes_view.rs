@@ -113,12 +113,14 @@ pub(super) fn draw_chart_pane(
                 }
 
                 ui.label(RichText::new("X").small().color(context.theme.text_secondary));
-                let mut x_selected = config.x_column.unwrap_or(0);
-                let x_previous = x_selected;
+                let mut x_selected = config
+                    .x_column
+                    .unwrap_or(0)
+                    .min(column_names.len().saturating_sub(1));
                 select(ui, "chart_x", &mut x_selected, &column_names, 120.0);
-                if x_selected != x_previous {
-                    config.x_column = Some(x_selected);
-                }
+                // Unconditional write-back: a None or stale index must snap to the
+                // column the picker actually displays.
+                config.x_column = Some(x_selected);
 
                 ui.label(RichText::new("Y").small().color(context.theme.text_secondary));
                 let numeric_names: Vec<String> = numeric_indexes.iter().map(|i| column_names[*i].clone()).collect();
@@ -129,11 +131,11 @@ pub(super) fn draw_chart_pane(
                         .y_column
                         .and_then(|index| numeric_indexes.iter().position(|i| *i == index))
                         .unwrap_or(0);
-                    let y_previous = y_selected;
                     select(ui, "chart_y", &mut y_selected, &numeric_names, 120.0);
-                    if y_selected != y_previous {
-                        config.y_column = Some(numeric_indexes[y_selected]);
-                    }
+                    // Same: keep config aligned with the displayed pick — `y_column`
+                    // used to stay None/stale while the dropdown showed a numeric
+                    // column, so projection silently charted the wrong column.
+                    config.y_column = Some(numeric_indexes[y_selected]);
                 }
 
                 ui.label(RichText::new("Agg").small().color(context.theme.text_secondary));
@@ -156,12 +158,13 @@ pub(super) fn draw_chart_pane(
                 ui.label(RichText::new("Series").small().color(context.theme.text_secondary));
                 let mut series_options = vec!["—".to_owned()];
                 series_options.extend(column_names.iter().cloned());
-                let mut series_selected = config.series_column.map(|index| index + 1).unwrap_or(0);
-                let series_previous = series_selected;
+                let mut series_selected = config
+                    .series_column
+                    .map(|index| index + 1)
+                    .unwrap_or(0)
+                    .min(series_options.len().saturating_sub(1));
                 select(ui, "chart_series", &mut series_selected, &series_options, 120.0);
-                if series_selected != series_previous {
-                    config.series_column = (series_selected > 0).then_some(series_selected - 1);
-                }
+                config.series_column = (series_selected > 0).then_some(series_selected - 1);
             });
         }
 
