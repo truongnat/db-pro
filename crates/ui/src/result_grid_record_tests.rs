@@ -30,14 +30,27 @@ fn record_frame(
     result: &UiQueryResult,
     events: Vec<egui::Event>,
 ) -> egui::FullOutput {
-    ctx.begin_pass(egui::RawInput {
+    crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
         events,
         ..Default::default()
-    });
-    egui::CentralPanel::default().show(ctx, |ui| app.draw_result_grid(ui, result));
-    ctx.end_pass()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| app.draw_result_grid(ui, result));
+    })
 }
+/// Extracts the text egui asked the OS to copy this frame.
+fn copied_text(output: &egui::FullOutput) -> String {
+    output
+        .platform_output
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            egui::OutputCommand::CopyText(text) => Some(text.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
 
 fn text_position(output: &egui::FullOutput, text: &str) -> egui::Pos2 {
     output
@@ -95,15 +108,11 @@ fn record_click_copies_label_and_full_staged_value() {
     let ctx = egui::Context::default();
     DbProTheme::install_fonts(&ctx);
     assert_eq!(
-        click_record_text(&mut app, &ctx, &result, "email")
-            .platform_output
-            .copied_text,
+        copied_text(&click_record_text(&mut app, &ctx, &result, "email")),
         "email"
     );
     assert_eq!(
-        click_record_text(&mut app, &ctx, &result, &value)
-            .platform_output
-            .copied_text,
+        copied_text(&click_record_text(&mut app, &ctx, &result, &value)),
         value
     );
     app.set_table_data_presentation(table_data_surface_view::TableDataPresentation::Grid, &result);
@@ -123,16 +132,12 @@ fn record_click_copies_null_and_reports_empty_value() {
     let ctx = egui::Context::default();
     DbProTheme::install_fonts(&ctx);
     assert_eq!(
-        click_record_text(&mut app, &ctx, &result, "(empty)")
-            .platform_output
-            .copied_text,
+        copied_text(&click_record_text(&mut app, &ctx, &result, "(empty)")),
         ""
     );
     assert_eq!(app.feedback.copy_status, "Empty value: nothing to copy");
     assert_eq!(
-        click_record_text(&mut app, &ctx, &result, "NULL")
-            .platform_output
-            .copied_text,
+        copied_text(&click_record_text(&mut app, &ctx, &result, "NULL")),
         "NULL"
     );
 }
@@ -197,12 +202,12 @@ fn record_surface_renders_all_fields_inside_full_height_content_area() {
     DbProTheme::install_fonts(&ctx);
     let mut output = None;
     for _ in 0..2 {
-        ctx.begin_pass(egui::RawInput {
+        output = Some(crate::test_frame::frame(&ctx, egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
             ..Default::default()
-        });
-        egui::CentralPanel::default().show(&ctx, |ui| app.draw_table_data(ui, "customers"));
-        output = Some(ctx.end_pass());
+        }, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| app.draw_table_data(ui, "customers"));
+        }));
     }
     let output = output.unwrap();
     for field in ["id", "email", "active", "created_at"] {

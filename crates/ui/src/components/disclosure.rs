@@ -9,10 +9,10 @@ use lucide_icons::Icon;
 
 pub(crate) const HEADER_HEIGHT: f32 = 32.0;
 pub(crate) const CONTENT_MARGIN: egui::Margin = egui::Margin {
-    left: 32.0,
-    right: 12.0,
-    top: 8.0,
-    bottom: 12.0,
+    left: 32.0 as i8,
+    right: 12.0 as i8,
+    top: 8.0 as i8,
+    bottom: 12.0 as i8,
 };
 
 pub(crate) fn disclosure_progress(is_open: bool, reduce_motion: bool, animate: impl FnOnce() -> f32) -> f32 {
@@ -39,7 +39,7 @@ pub(crate) fn show_body<R>(
         state.store(ui.ctx());
         return open.then(|| {
             ui.scope(|ui| {
-                egui::Frame::none()
+                egui::Frame::NONE
                     .inner_margin(CONTENT_MARGIN)
                     .show(ui, |ui| {
                         ui.set_opacity(1.0);
@@ -54,7 +54,7 @@ pub(crate) fn show_body<R>(
     let openness = state.openness(ui.ctx());
     state
         .show_body_unindented(ui, |ui| {
-            egui::Frame::none()
+            egui::Frame::NONE
                 .inner_margin(CONTENT_MARGIN)
                 .show(ui, |ui| {
                     ui.set_opacity(openness);
@@ -88,7 +88,7 @@ pub(crate) fn paint_header_surface(
         let fill = lerp_color(hover_fill, theme.surface_active, open_t);
         if fill != Color32::TRANSPARENT {
             ui.painter()
-                .rect_filled(response.rect, egui::Rounding::same(RADIUS_SM), fill);
+                .rect_filled(response.rect, egui::CornerRadius::same(RADIUS_SM as u8), fill);
         }
     }
     if response.has_focus() && !disabled {

@@ -452,9 +452,9 @@ impl eframe::App for NativeMenuApp {
         self.inner.save(storage);
     }
 
-    fn update(&mut self, context: &egui::Context, frame: &mut eframe::Frame) {
-        self.menu.apply_pending_actions(&mut self.inner, context);
-        self.inner.update(context, frame);
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        self.menu.apply_pending_actions(&mut self.inner, ui.ctx());
+        eframe::App::ui(&mut self.inner, ui, frame);
     }
 }
 

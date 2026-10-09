@@ -3,7 +3,7 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::tokens::{RADIUS_SM, STROKE_THIN};
 use crate::DbProTheme;
 use egui::{
-    Align2, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo,
+    Align2, CornerRadius, FontFamily, FontId, Frame, Margin, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo,
     WidgetType,
 };
 use lucide_icons::Icon;
@@ -82,11 +82,15 @@ impl<'a> Avatar<'a> {
             .or(self.initials)
             .unwrap_or("Avatar");
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, true, accessible_label));
-        let rounding = Rounding::same(avatar_rounding_radius(self.size, self.shape));
+        let rounding = CornerRadius::same(avatar_rounding_radius(self.size, self.shape) as u8);
 
         ui.painter().rect_filled(rect, rounding, self.theme.surface_hover);
-        ui.painter()
-            .rect_stroke(rect, rounding, Stroke::new(STROKE_THIN, self.theme.border_subtle));
+        ui.painter().rect_stroke(
+            rect,
+            rounding,
+            Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            egui::StrokeKind::Inside,
+        );
 
         // Initials stay primary when both forms are configured so avatars remain text-identifiable.
         if let Some(initials) = self.initials {
@@ -124,7 +128,7 @@ impl<'a> Avatar<'a> {
 pub struct Skeleton {
     width: f32,
     height: f32,
-    rounding: f32,
+    corner_radius: f32,
     shimmer: bool,
     theme: DbProTheme,
 }
@@ -134,7 +138,7 @@ impl Skeleton {
         Self {
             width: SKELETON_DEFAULT_WIDTH,
             height: SKELETON_DEFAULT_HEIGHT,
-            rounding: RADIUS_SM,
+            corner_radius: RADIUS_SM,
             shimmer: true,
             theme,
         }
@@ -146,8 +150,8 @@ impl Skeleton {
         self
     }
 
-    pub fn rounding(mut self, rounding: f32) -> Self {
-        self.rounding = rounding;
+    pub fn corner_radius(mut self, corner_radius: f32) -> Self {
+        self.corner_radius = corner_radius;
         self
     }
 
@@ -167,7 +171,7 @@ impl Skeleton {
             (alpha.min + alpha.max) * 0.5
         };
         let fill = self.theme.surface_hover.linear_multiply(pulse);
-        let rounding = Rounding::same(resolve_skeleton_rounding(self.rounding));
+        let rounding = CornerRadius::same(resolve_skeleton_rounding(self.corner_radius) as u8);
 
         ui.painter().rect_filled(rect, rounding, fill);
 
@@ -257,8 +261,8 @@ impl Toolbar {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            inner_margin: Margin::symmetric(TOOLBAR_MARGIN_X, TOOLBAR_MARGIN_Y),
-            rounding: Rounding::same(RADIUS_SM),
+            inner_margin: Margin::symmetric(TOOLBAR_MARGIN_X as i8, TOOLBAR_MARGIN_Y as i8),
+            corner_radius: CornerRadius::same(RADIUS_SM as u8),
             ..Default::default()
         }
         .show(ui, |ui| {

@@ -11,7 +11,7 @@ fn segmented_tabs_select_on_click() {
     DbProTheme::install_fonts(&ctx);
     let mut selected = 0;
 
-    let _ = ctx.run(Default::default(), |ctx| {
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             SegmentedTabs::new(&mut selected, &["A", "B", "C"], theme).show(ui);
         });
@@ -27,7 +27,7 @@ fn segmented_tabs_select_on_pointer_click() {
     let mut selected = 0;
     let click_position = egui::pos2(120.0, 20.0);
 
-    let _ = ctx.run(Default::default(), |ctx| {
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             SegmentedTabs::new(
                 &mut selected,
@@ -37,7 +37,8 @@ fn segmented_tabs_select_on_pointer_click() {
             .show(ui);
         });
     });
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             events: vec![
                 egui::Event::PointerMoved(click_position),
@@ -61,7 +62,8 @@ fn segmented_tabs_select_on_pointer_click() {
             });
         },
     );
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             events: vec![egui::Event::PointerButton {
                 pos: click_position,
@@ -85,7 +87,8 @@ fn segmented_tabs_select_on_pointer_click() {
 
     assert_eq!(selected, 1);
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             events: vec![egui::Event::Key {
                 key: egui::Key::ArrowRight,
@@ -118,14 +121,14 @@ fn underline_tabs_render_without_panic() {
     DbProTheme::install_fonts(&ctx);
     let mut selected = 0;
 
-    let _ = ctx.run(Default::default(), |ctx| {
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             UnderlineTabs::new(&mut selected, &["Overview", "Schema", "Data"], theme).show(ui);
         });
     });
 
     selected = 2;
-    let _ = ctx.run(Default::default(), |ctx| {
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             UnderlineTabs::new(&mut selected, &["Overview", "Schema", "Data"], theme).show(ui);
         });

@@ -6,13 +6,13 @@ use super::super::*;
 use crate::components::table::{Table, TableColumn};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
-use egui::{Rect, Rounding, Vec2};
+use egui::{Rect, CornerRadius, Vec2};
 
 pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult>, ui: &mut egui::Ui) {
     egui::Frame {
         fill: theme.surface_panel,
-        inner_margin: egui::Margin::same(SPACE_2XL),
-        rounding: egui::Rounding::same(RADIUS_MD),
+        inner_margin: egui::Margin::same(SPACE_2XL as i8),
+        corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
         stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
         ..Default::default()
     }
@@ -292,10 +292,10 @@ fn draw_profile_grid(theme: DbProTheme, ui: &mut egui::Ui, profiles: &[ColumnPro
                                 let fill_pct = (1.0 - profile.null_rate).clamp(0.0, 1.0) as f32;
 
                                 ui.painter()
-                                    .rect_filled(rect, Rounding::same(2.0), theme.surface_active);
+                                    .rect_filled(rect, CornerRadius::same(2.0 as u8), theme.surface_active);
                                 if fill_pct > 0.0 {
                                     let fill_rect = Rect::from_min_size(rect.min, Vec2::new(bar_w * fill_pct, bar_h));
-                                    ui.painter().rect_filled(fill_rect, Rounding::same(2.0), theme.accent);
+                                    ui.painter().rect_filled(fill_rect, CornerRadius::same(2.0 as u8), theme.accent);
                                 }
 
                                 ui.add(
@@ -447,15 +447,12 @@ mod tests {
         };
         let profiles = profile_result_columns(&result);
         let expected = format!("{:.2} / {:.1}", profiles[0].avg.unwrap(), profiles[0].sum.unwrap());
-        let output = ctx.run(
-            egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(2000.0, 500.0))),
-                ..Default::default()
-            },
-            |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| draw_profile_grid(DbProTheme::light(), ui, &profiles, 3));
-            },
-        );
+        let output = crate::test_frame::frame(&ctx, egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(2000.0, 500.0))),
+            ..Default::default()
+        }, |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| draw_profile_grid(DbProTheme::light(), ui, &profiles, 3));
+        });
         let summary = output
             .shapes
             .iter()

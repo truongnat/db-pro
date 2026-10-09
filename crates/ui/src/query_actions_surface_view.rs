@@ -39,12 +39,12 @@ impl QueryActionsSurfaceContext<'_> {
         let menu = egui::Area::new(egui::Id::new("query_actions_menu"))
             .order(egui::Order::Foreground)
             .fixed_pos(menu_position)
-            .constrain_to(ctx.screen_rect().shrink(4.0))
+            .constrain_to(ctx.content_rect().shrink(4.0))
             .show(ctx, |ui| {
                 egui::Frame {
                     fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(8.0),
-                    rounding: egui::Rounding::same(8.0),
+                    inner_margin: egui::Margin::same(8.0 as i8),
+                    corner_radius: egui::CornerRadius::same(8.0 as u8),
                     stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
                     ..Default::default()
                 }

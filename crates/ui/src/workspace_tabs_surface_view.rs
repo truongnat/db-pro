@@ -58,13 +58,13 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         egui::Frame {
             fill: self.theme.surface_panel,
             inner_margin: egui::Margin {
-                left: SPACE_SM,
-                right: SPACE_SM,
-                top: SPACE_XS,
-                bottom: SPACE_XS,
+                left: (SPACE_SM) as i8,
+                right: (SPACE_SM) as i8,
+                top: (SPACE_XS) as i8,
+                bottom: (SPACE_XS) as i8,
             },
             stroke: egui::Stroke::NONE,
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             outer_margin: egui::Margin::ZERO,
             ..Default::default()
         }
@@ -306,7 +306,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     )
                     .clicked()
                     {
-                        ui.output_mut(|o| o.copied_text = content.clone());
+                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(content.clone())));
                         *close_menu = true;
                     }
                     if ctx_menu_item(
@@ -319,7 +319,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     )
                     .clicked()
                     {
-                        ui.output_mut(|o| o.copied_text = title.to_string());
+                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(title.to_string())));
                         *close_menu = true;
                     }
                     ui.separator();
@@ -434,7 +434,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     )
                     .clicked()
                     {
-                        ui.output_mut(|o| o.copied_text = table_name.clone());
+                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(table_name.clone())));
                         *close_menu = true;
                     }
                     if ctx_menu_item(
@@ -451,7 +451,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             "SELECT * FROM {} LIMIT 100;",
                             result_grid_export::quote_sql_identifier(&table_name)
                         );
-                        ui.output_mut(|o| o.copied_text = select_sql);
+                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(select_sql)));
                         *close_menu = true;
                     }
                 },
@@ -519,7 +519,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     )
                     .clicked()
                     {
-                        ui.output_mut(|o| o.copied_text = name.clone());
+                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(name.clone())));
                         *close_menu = true;
                     }
                 },

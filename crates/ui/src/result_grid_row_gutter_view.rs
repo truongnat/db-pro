@@ -1,5 +1,5 @@
 use super::*;
-use egui::{Align2, Rounding, Stroke};
+use egui::{Align2, CornerRadius, Stroke};
 
 pub(super) struct GridRowGutterContext {
     pub(super) theme: DbProTheme,
@@ -9,6 +9,14 @@ pub(super) struct GridRowGutterContext {
 
 pub(super) fn draw_row_gutter(ui: &mut egui::Ui, context: GridRowGutterContext) -> egui::Response {
     let (gutter_rect, response) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::click());
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::WidgetType::SelectableLabel,
+            ui.is_enabled(),
+            context.selected,
+            format!("Row {}", context.row_number),
+        )
+    });
     let gutter_fill = if context.selected {
         // selected-row gutter matches the quiet row wash; the number carries
         // the accent cue per the spec
@@ -18,7 +26,7 @@ pub(super) fn draw_row_gutter(ui: &mut egui::Ui, context: GridRowGutterContext) 
     } else {
         context.theme.surface_panel
     };
-    ui.painter().rect_filled(gutter_rect, Rounding::ZERO, gutter_fill);
+    ui.painter().rect_filled(gutter_rect, CornerRadius::ZERO, gutter_fill);
     let border = Stroke::new(1.0, context.theme.border_subtle);
     ui.painter().hline(gutter_rect.x_range(), gutter_rect.bottom(), border);
     ui.painter().vline(gutter_rect.right(), gutter_rect.y_range(), border);

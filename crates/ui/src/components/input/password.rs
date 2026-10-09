@@ -1,7 +1,7 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{CornerRadius, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Stroke, TextEdit, Ui};
 
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use lucide_icons::Icon;
@@ -75,7 +75,7 @@ impl<'a> PasswordInput<'a> {
         self
     }
 
-    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+    pub fn id_salt(mut self, id_salt: impl std::hash::Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(id_salt));
         self
     }
@@ -99,8 +99,8 @@ impl<'a> PasswordInput<'a> {
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::NONE,
-                inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),
-                rounding: Rounding::same(RADIUS_XS),
+                inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+                corner_radius: CornerRadius::same(RADIUS_XS as u8),
                 ..Default::default()
             }
             .show(ui, |ui| {
@@ -129,7 +129,7 @@ impl<'a> PasswordInput<'a> {
                             .hint_text(RichText::new(self.placeholder.as_ref()).color(self.theme.text_muted))
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)
-                            .frame(false)
+                            .frame(egui::Frame::NONE)
                             .text_color(self.theme.text_primary),
                     );
 

@@ -435,7 +435,7 @@ fn hop_button(ui: &mut egui::Ui, toggle: ErToggleButton<'_>, theme: DbProTheme) 
         egui::Button::new(egui::RichText::new(toggle.label).size(12.0).color(color))
             .fill(fill)
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(egui::Rounding::same(7.0))
+            .corner_radius(egui::CornerRadius::same(7.0 as u8))
             .stroke(egui::Stroke::NONE),
     )
 }
@@ -456,7 +456,7 @@ fn compact_icon_button_active(ui: &mut egui::Ui, toggle: ErIconToggle, theme: Db
             .color(if toggle.active { theme.accent } else { theme.text_muted }),
     )
     .min_size(egui::vec2(24.0, 24.0))
-    .rounding(egui::Rounding::same(7.0))
+    .corner_radius(egui::CornerRadius::same(7.0 as u8))
     .stroke(egui::Stroke::NONE);
     if toggle.active {
         ui.add(button.fill(theme.surface_active))
@@ -639,12 +639,11 @@ pub(super) fn paint_scene_edges(
                 (from.y + to.y) / 2.0,
             );
             let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(10.0, 6.0));
-            painter.rect_filled(label_rect, egui::Rounding::same(4.0), theme.surface_panel);
+            painter.rect_filled(label_rect, egui::CornerRadius::same(4.0 as u8), theme.surface_panel);
             painter.rect_stroke(
                 label_rect,
-                egui::Rounding::same(4.0),
-                egui::Stroke::new(1.0, theme.border_subtle),
-            );
+                egui::CornerRadius::same(4.0 as u8),
+                egui::Stroke::new(1.0, theme.border_subtle), egui::StrokeKind::Inside);
             painter.text(
                 label_position,
                 egui::Align2::CENTER_CENTER,
@@ -751,12 +750,11 @@ pub(super) fn paint_er_node_lod(
         ErLod::Compact if !selected => {
             // One fill, then one stroke. A second fill used to cover the border.
             let radius = (6.0 * zoom).clamp(4.0, 8.0);
-            painter.rect_filled(screen_rect, egui::Rounding::same(radius), theme.surface_hover);
+            painter.rect_filled(screen_rect, egui::CornerRadius::same(radius as u8), theme.surface_hover);
             painter.rect_stroke(
                 screen_rect,
-                egui::Rounding::same(radius),
-                egui::Stroke::new(if hovered { 1.4 } else { 1.0 }, theme.border_default),
-            );
+                egui::CornerRadius::same(radius as u8),
+                egui::Stroke::new(if hovered { 1.4 } else { 1.0 }, theme.border_default), egui::StrokeKind::Inside);
             let title = truncate_to_width(
                 &painter,
                 &node.table.name,
@@ -788,7 +786,7 @@ pub(super) fn paint_er_node_lod(
             // single stroke. Filling the header with a full radius and then
             // squaring its bottom left mixed corners and a second edge.
             let radius = (8.0 * zoom).clamp(4.0, 10.0);
-            painter.rect_filled(screen_rect, egui::Rounding::same(radius), theme.surface_panel);
+            painter.rect_filled(screen_rect, egui::CornerRadius::same(radius as u8), theme.surface_panel);
             let header_height = ER_HEADER_HEIGHT * zoom;
             let header_rect = egui::Rect::from_min_max(
                 screen_rect.min,
@@ -797,11 +795,11 @@ pub(super) fn paint_er_node_lod(
             let header_fill = if selected { theme.accent_soft } else { theme.surface_hover };
             painter.rect_filled(
                 header_rect,
-                egui::Rounding {
-                    nw: radius,
-                    ne: radius,
-                    sw: 0.0,
-                    se: 0.0,
+                egui::CornerRadius {
+                    nw: (radius) as u8,
+                    ne: (radius) as u8,
+                    sw: 0.0 as u8,
+                    se: 0.0 as u8,
                 },
                 header_fill,
             );
@@ -890,7 +888,7 @@ pub(super) fn paint_er_node_lod(
                         egui::pos2(row_rect.max.x, row_rect.max.y.min(screen_rect.max.y - radius)),
                     );
                     if stripe.height() > 1.0 {
-                        painter.rect_filled(stripe, egui::Rounding::ZERO, theme.surface_app);
+                        painter.rect_filled(stripe, egui::CornerRadius::ZERO, theme.surface_app);
                     }
                 }
                 let foreign_key = node
@@ -994,7 +992,7 @@ pub(super) fn paint_er_node_lod(
                     theme.text_muted,
                 );
             }
-            painter.rect_stroke(screen_rect, egui::Rounding::same(radius), border_stroke);
+            painter.rect_stroke(screen_rect, egui::CornerRadius::same(radius as u8), border_stroke, egui::StrokeKind::Inside);
         }
     }
 }
@@ -1015,8 +1013,8 @@ pub(super) fn draw_diagram_zoom_controls(
         let ui = &mut controls_ui;
         egui::Frame {
             fill: theme.surface_floating,
-            inner_margin: egui::Margin::symmetric(5.0, 4.0),
-            rounding: egui::Rounding::same(6.0),
+            inner_margin: egui::Margin::symmetric(5.0 as i8, 4.0 as i8),
+            corner_radius: egui::CornerRadius::same(6.0 as u8),
             stroke: egui::Stroke::new(1.0, theme.border_subtle),
             ..Default::default()
         }

@@ -27,18 +27,18 @@ fn draw_hover_column_row(ui: &mut egui::Ui, col: &HoverColumn, theme: &DbProThem
         ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
         // PK badge
         if col.is_primary_key {
-            egui::Frame::none()
+            egui::Frame::NONE
                 .fill(theme.soft_tint(theme.warning))
-                .rounding(egui::Rounding::same(3.0))
-                .inner_margin(egui::Margin::symmetric(3.0, 1.0))
+                .corner_radius(egui::CornerRadius::same(3.0 as u8))
+                .inner_margin(egui::Margin::symmetric(3.0 as i8, 1.0 as i8))
                 .show(ui, |ui| {
                     ui.label(RichText::new("PK").font(FontId::monospace(8.5)).color(theme.warning));
                 });
         } else if col.is_foreign_key {
-            egui::Frame::none()
+            egui::Frame::NONE
                 .fill(theme.soft_tint(theme.info))
-                .rounding(egui::Rounding::same(3.0))
-                .inner_margin(egui::Margin::symmetric(3.0, 1.0))
+                .corner_radius(egui::CornerRadius::same(3.0 as u8))
+                .inner_margin(egui::Margin::symmetric(3.0 as i8, 1.0 as i8))
                 .show(ui, |ui| {
                     ui.label(RichText::new("FK").font(FontId::monospace(8.5)).color(theme.info));
                 });
@@ -100,7 +100,7 @@ pub(super) fn draw_rich_hover_popup(
     let position = crate::components::clamp_popup_to_screen(
         anchor.left_bottom() + egui::vec2(0.0, 6.0),
         egui::vec2(popup_width, HOVER_POPUP_MAX_HEIGHT),
-        ctx.screen_rect(),
+        ctx.content_rect(),
         10.0,
     );
 
@@ -109,12 +109,12 @@ pub(super) fn draw_rich_hover_popup(
         .fixed_pos(position)
         .interactable(true) // Allow text selection / copy
         .show(ctx, |ui| {
-            egui::Frame::none()
+            egui::Frame::NONE
                 .fill(theme.surface_panel)
                 .stroke(egui::Stroke::new(1.0, theme.border_default))
-                .rounding(egui::Rounding::same(8.0))
+                .corner_radius(egui::CornerRadius::same(8.0 as u8))
                 .shadow(theme.floating_shadow())
-                .inner_margin(egui::Margin::same(10.0))
+                .inner_margin(egui::Margin::same(10.0 as i8))
                 .show(ui, |ui| {
                     ui.set_max_width(popup_width);
                     draw_rich_hover_content(ui, help, theme);
@@ -140,10 +140,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 } else {
                     ("TABLE", theme.accent)
                 };
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.soft_tint(badge_color))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                     .show(ui, |ui| {
                         ui.label(
                             RichText::new(badge_text)
@@ -229,10 +229,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
             // Type badge + name
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.soft_tint(theme.code_type))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                     .show(ui, |ui| {
                         ui.label(RichText::new("COL").font(FontId::monospace(9.0)).color(theme.code_type));
                     });
@@ -248,10 +248,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
                 // Type chip
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.soft_tint(theme.code_type))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                     .show(ui, |ui| {
                         ui.label(
                             RichText::new(data_type)
@@ -262,19 +262,19 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 // Null chip
                 let null_color = if *nullable { theme.text_muted } else { theme.warning };
                 let null_text = if *nullable { "nullable" } else { "not null" };
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.soft_tint(null_color))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                     .show(ui, |ui| {
                         ui.label(RichText::new(null_text).font(FontId::monospace(10.0)).color(null_color));
                     });
                 // PK chip
                 if *is_primary_key {
-                    egui::Frame::none()
+                    egui::Frame::NONE
                         .fill(theme.soft_tint(theme.warning))
-                        .rounding(egui::Rounding::same(4.0))
-                        .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                        .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                        .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                         .show(ui, |ui| {
                             ui.label(
                                 RichText::new("primary key")
@@ -310,10 +310,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
         } => {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.soft_tint(theme.code_function))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                     .show(ui, |ui| {
                         ui.label(
                             RichText::new("FN")
@@ -366,10 +366,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
             // Header row
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.soft_tint(theme.code_keyword))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
                     .show(ui, |ui| {
                         ui.label(
                             RichText::new("SQL")
@@ -395,10 +395,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 ui.add_space(6.0);
                 ui.label(RichText::new("Example").small().strong().color(theme.text_muted));
                 ui.add_space(2.0);
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(theme.editor_gutter_fill())
-                    .rounding(egui::Rounding::same(5.0))
-                    .inner_margin(egui::Margin::same(6.0))
+                    .corner_radius(egui::CornerRadius::same(5.0 as u8))
+                    .inner_margin(egui::Margin::same(6.0 as i8))
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.add(
@@ -430,7 +430,7 @@ pub(super) fn draw_signature_help(
     let position = crate::components::clamp_popup_to_screen(
         anchor + egui::vec2(8.0, 22.0),
         egui::vec2(POPUP_WIDTH, POPUP_HEIGHT),
-        ctx.screen_rect(),
+        ctx.content_rect(),
         10.0,
     );
     egui::Area::new(egui::Id::new("sql_signature_help"))
@@ -438,12 +438,12 @@ pub(super) fn draw_signature_help(
         .fixed_pos(position)
         .interactable(false)
         .show(ctx, |ui| {
-            egui::Frame::none()
+            egui::Frame::NONE
                 .fill(theme.surface_panel)
                 .stroke(egui::Stroke::new(1.0, theme.border_default))
-                .rounding(egui::Rounding::same(7.0))
+                .corner_radius(egui::CornerRadius::same(7.0 as u8))
                 .shadow(theme.floating_shadow())
-                .inner_margin(egui::Margin::same(8.0))
+                .inner_margin(egui::Margin::same(8.0 as i8))
                 .show(ui, |ui| {
                     ui.set_width(POPUP_WIDTH);
                     ui.label(
@@ -639,16 +639,13 @@ mod tests {
     }
 
     fn run_hover_pass(ctx: &egui::Context, help: &RichHoverHelp) -> egui::FullOutput {
-        ctx.run(
-            egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0))),
-                ..Default::default()
-            },
-            |ctx| {
-                let anchor = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(60.0, 18.0));
-                draw_rich_hover_popup(ctx, anchor, (0, 9), help, &DbProTheme::default());
-            },
-        )
+        crate::test_frame::frame(&ctx, egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0))),
+            ..Default::default()
+        }, |ctx| {
+            let anchor = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(60.0, 18.0));
+            draw_rich_hover_popup(ctx, anchor, (0, 9), help, &DbProTheme::default());
+        })
     }
 
     fn painted_texts(output: &egui::FullOutput) -> Vec<String> {

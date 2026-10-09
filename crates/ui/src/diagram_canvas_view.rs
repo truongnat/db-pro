@@ -211,7 +211,7 @@ pub(super) fn draw_diagram_canvas(
                     if ctx_menu_item(ui, Some(Icon::Copy), "Copy Table Name", None, theme.text_primary, theme)
                         .clicked()
                     {
-                        ui.ctx().output_mut(|output| output.copied_text = name.clone());
+                        ui.ctx().output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(name.clone())));
                         *close_menu = true;
                     }
                     ui.separator();
@@ -527,8 +527,8 @@ fn draw_minimap(
         let ui = &mut minimap_ui;
         egui::Frame {
             fill: theme.surface_floating,
-            inner_margin: egui::Margin::same(5.0),
-            rounding: egui::Rounding::same(6.0),
+            inner_margin: egui::Margin::same(5.0 as i8),
+            corner_radius: egui::CornerRadius::same(6.0 as u8),
             stroke: egui::Stroke::new(1.0, theme.border_subtle),
             ..Default::default()
         }
@@ -554,7 +554,7 @@ fn draw_minimap(
                         .is_some_and(|name| name == node.table.name);
                 painter.rect_filled(
                     mini,
-                    egui::Rounding::same(1.0),
+                    egui::CornerRadius::same(1.0 as u8),
                     if highlighted {
                         theme.accent
                     } else {
@@ -567,9 +567,8 @@ fn draw_minimap(
             let view_rect = egui::Rect::from_min_max(to_map(visible_world.min), to_map(visible_world.max));
             painter.rect_stroke(
                 view_rect.intersect(map_rect),
-                egui::Rounding::same(2.0),
-                egui::Stroke::new(1.0, theme.accent),
-            );
+                egui::CornerRadius::same(2.0 as u8),
+                egui::Stroke::new(1.0, theme.accent), egui::StrokeKind::Inside);
 
             if (response.dragged() || response.clicked()) && !response.drag_stopped() {
                 if let Some(pointer) = response.interact_pointer_pos() {
@@ -624,21 +623,18 @@ mod tests {
             connection_id: None,
         };
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 600.0));
-        let _ = context.run(
-            egui::RawInput {
-                screen_rect: Some(screen),
-                events,
-                ..Default::default()
-            },
-            |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    let (response, _) =
-                        ui.allocate_painter(egui::vec2(880.0, 560.0), egui::Sense::click_and_drag());
-                    let viewport = ErViewport::new(view.diagram.pan, view.diagram.zoom, response.rect.min);
-                    handle_drag_input(&mut view, &response, viewport, &[]);
-                });
-            },
-        );
+        let _ = crate::test_frame::frame(&context, egui::RawInput {
+            screen_rect: Some(screen),
+            events,
+            ..Default::default()
+        }, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
+                let (response, _) =
+                    ui.allocate_painter(egui::vec2(880.0, 560.0), egui::Sense::click_and_drag());
+                let viewport = ErViewport::new(view.diagram.pan, view.diagram.zoom, response.rect.min);
+                handle_drag_input(&mut view, &response, viewport, &[]);
+            });
+        });
     }
 
     fn moved_to(pos: egui::Pos2) -> egui::Event {

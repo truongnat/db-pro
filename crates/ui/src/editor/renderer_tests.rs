@@ -9,7 +9,8 @@ fn render_editor_event(initial_text: &str, event: egui::Event, id_salt: &str) ->
     let theme = DbProTheme::dark();
     let mut editor_response = SqlEditorResponse::default();
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             events: vec![event],
@@ -106,7 +107,8 @@ fn editor_auto_focus_is_one_shot_and_focus_survives_next_frame() {
     let theme = DbProTheme::light();
     let editor_size = egui::vec2(400.0, 200.0);
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             ..Default::default()
@@ -130,7 +132,8 @@ fn editor_auto_focus_is_one_shot_and_focus_survives_next_frame() {
     );
 
     let mut focused = false;
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             ..Default::default()
@@ -165,7 +168,8 @@ fn editor_keeps_focus_after_click_across_frames() {
     let editor_size = egui::vec2(400.0, 200.0);
 
     // Frame 1: show the editor and request focus on its interactive id.
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             ..Default::default()
@@ -193,7 +197,8 @@ fn editor_keeps_focus_after_click_across_frames() {
     // Frame 2: editor must still report focused — the old bug cleared focus here
     // because focus was requested on an id that never registered as a widget.
     let mut focused = false;
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             ..Default::default()
@@ -229,7 +234,8 @@ fn command_s_requests_save_without_inserting_text() {
     let theme = DbProTheme::dark();
     let editor_size = egui::vec2(400.0, 200.0);
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             events: vec![egui::Event::Key {
@@ -321,7 +327,7 @@ fn test_ime_commit_event_in_editor_widget() {
         ..Default::default()
     };
 
-    let _ = ctx.run(raw_input, |ctx| {
+    let _ = crate::test_frame::frame(&ctx, raw_input, |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Focus is acquired via the editor's interactive widget id inside `show`.
             let editor = SqlEditor::new(
@@ -363,7 +369,8 @@ fn long_buffer_scrolls_to_keep_end_caret_visible() {
 
     assert!(cursor.line > 40, "fixture caret should sit far below the fold");
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         egui::RawInput {
             focused: true,
             ..Default::default()

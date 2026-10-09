@@ -1,7 +1,7 @@
 use super::workspace_shell::WorkspaceLocation;
 use super::*;
 impl DbProApp {
-    pub(super) fn draw_topbar(&mut self, ctx: &egui::Context) {
+    pub(super) fn draw_topbar(&mut self, ui: &mut egui::Ui) {
         let connection_name = self.active_connection_name().to_owned();
         let driver = self.active_driver().to_owned();
         let has_connection = self.connection.lifecycle.active_connection_id().is_some();
@@ -23,8 +23,8 @@ impl DbProApp {
             agent_open: self.workspace.agent_open,
             dark_mode: self.preferences.dark_mode,
         }
-        .draw(ctx);
-        self.apply_topbar_actions(ctx, actions);
+        .draw(ui);
+        self.apply_topbar_actions(ui.ctx(), actions);
     }
 
     fn apply_topbar_actions(&mut self, ctx: &egui::Context, actions: Vec<shell_topbar_view::ShellTopbarAction>) {
@@ -112,7 +112,7 @@ impl DbProApp {
         self.workspace.active_tab = location.tab;
     }
 
-    pub(super) fn draw_statusbar(&mut self, ctx: &egui::Context) {
+    pub(super) fn draw_statusbar(&mut self, ui: &mut egui::Ui) {
         let (icon, color, label) = self.statusbar_state();
         let runtime_status = self.runtime_status();
         let database = self.active_connection().map(|connection| connection.database.clone());
@@ -140,13 +140,13 @@ impl DbProApp {
             cursor_column: self.query.editor.query_cursor_column,
             context_label: self.statusbar_context_label(),
         }
-        .draw(ctx);
+        .draw(ui);
         if matches!(action, Some(shell_statusbar_view::ShellStatusbarAction::ToggleOutput)) {
             self.workspace.bottom_panel_open = !self.workspace.bottom_panel_open;
         }
     }
 
-    pub(super) fn draw_output_panel(&mut self, ctx: &egui::Context) {
+    pub(super) fn draw_output_panel(&mut self, ui: &mut egui::Ui) {
         if !self.workspace.bottom_panel_open {
             return;
         }
@@ -157,12 +157,12 @@ impl DbProApp {
             .or(self.table.data_query.result.as_ref())
             .cloned();
         let height = self.workspace.bottom_panel_height;
-        let response = TopBottomPanel::bottom("output_panel")
+        let response = egui::Panel::bottom("output_panel")
             .resizable(true)
-            .default_height(height)
-            .height_range(OUTPUT_MIN_HEIGHT..=OUTPUT_MAX_HEIGHT)
+            .default_size(height)
+            .size_range(OUTPUT_MIN_HEIGHT..=OUTPUT_MAX_HEIGHT)
             .frame(panel_frame(self.theme))
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 // Same tab strip and panes as the query output dock — the shell
                 // panel used to render summary stubs that could not run

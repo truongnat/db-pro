@@ -3,7 +3,7 @@ use super::handler::*;
 use crate::components::animation;
 use crate::tokens::{RADIUS_XS, STROKE_THICK, STROKE_THIN};
 use crate::DbProTheme;
-use egui::{Color32, Frame, Margin, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
+use egui::{Color32, CornerRadius, Frame, Margin, Pos2, Rect, RichText, Stroke, Ui, Vec2};
 
 pub struct Progress {
     pub(crate) fraction: f32, // 0.0 to 1.0
@@ -70,7 +70,7 @@ impl Progress {
                 ui.is_enabled(),
             )
         });
-        let rounding = Rounding::same(self.height * 0.5);
+        let rounding = CornerRadius::same((self.height * 0.5) as u8);
 
         ui.painter().rect_filled(rect, rounding, self.theme.surface_hover);
 
@@ -173,12 +173,12 @@ pub fn kbd_badge(ui: &mut Ui, shortcut: &str, theme: DbProTheme) {
     Frame {
         fill: theme.surface_elevated,
         stroke: Stroke::new(STROKE_THIN, theme.border_default),
-        inner_margin: Margin::symmetric(KBD_PAD_X, KBD_PAD_Y),
-        rounding: Rounding::same(RADIUS_XS),
+        inner_margin: Margin::symmetric(KBD_PAD_X as i8, KBD_PAD_Y as i8),
+        corner_radius: CornerRadius::same(RADIUS_XS as u8),
         shadow: egui::epaint::Shadow {
-            offset: egui::vec2(0.0, 1.0),
-            blur: 0.0,
-            spread: 0.0,
+            offset: [0, 1],
+            blur: 0,
+            spread: 0,
             color: theme.border_strong,
         },
         ..Default::default()

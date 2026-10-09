@@ -27,13 +27,13 @@ pub(super) struct GridKeyboardInputContext {
 }
 
 pub(super) fn read_keyboard_intent(ui: &egui::Ui, context: GridKeyboardInputContext) -> GridKeyboardIntent {
-    if !ui.ctx().wants_keyboard_input()
+    if !ui.ctx().egui_wants_keyboard_input()
         && ui.input(|input| input.key_pressed(egui::Key::A) && primary_modifier_pressed(input))
     {
         return GridKeyboardIntent::SelectAll;
     }
 
-    if !ui.ctx().wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if !ui.ctx().egui_wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
         return GridKeyboardIntent::ClearSelection;
     }
 
@@ -49,7 +49,7 @@ pub(super) fn read_keyboard_intent(ui: &egui::Ui, context: GridKeyboardInputCont
         commands.commit_edit_and_navigate = true;
         return GridKeyboardIntent::Commands(commands);
     }
-    commands.navigate = !ui.ctx().wants_keyboard_input();
+    commands.navigate = !ui.ctx().egui_wants_keyboard_input();
     GridKeyboardIntent::Commands(commands)
 }
 
@@ -58,25 +58,25 @@ fn read_grid_commands(ui: &egui::Ui, context: GridKeyboardInputContext) -> GridK
     let modifier = ui.input(primary_modifier_pressed);
     let shift = ui.input(|input| input.modifiers.shift);
     GridKeyboardCommands {
-        copy_selected_rows: !ui.ctx().wants_keyboard_input()
+        copy_selected_rows: !ui.ctx().egui_wants_keyboard_input()
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::C))
             && modifier
             && shift,
-        copy_selected_cell: !ui.ctx().wants_keyboard_input()
+        copy_selected_cell: !ui.ctx().egui_wants_keyboard_input()
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::C))
             && modifier
             && !shift,
-        apply_staged_changes: !ui.ctx().wants_keyboard_input()
+        apply_staged_changes: !ui.ctx().egui_wants_keyboard_input()
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::S) && primary_modifier_pressed(input)),
-        discard_staged_changes: !ui.ctx().wants_keyboard_input()
+        discard_staged_changes: !ui.ctx().egui_wants_keyboard_input()
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::Z) && primary_modifier_pressed(input)),
         delete_selected_rows: context.editable
             && !context.editing_cell
-            && !ui.ctx().wants_keyboard_input()
+            && !ui.ctx().egui_wants_keyboard_input()
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace)),
         ..Default::default()

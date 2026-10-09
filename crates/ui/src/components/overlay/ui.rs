@@ -5,19 +5,19 @@ use crate::components::animation::{fade_alpha, overlay_t, small_translate};
 use crate::components::feedback::kbd_badge;
 use crate::DbProTheme;
 use egui::{
-    Align2, Area, Color32, FontFamily, FontId, Frame, Margin, Order, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui,
-    Vec2,
+    Align2, Area, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Order, Pos2, Rect, Response, Sense, Stroke,
+    Ui, Vec2,
 };
 use lucide_icons::Icon;
 
 use super::{config, handler};
 
-pub fn floating_surface(theme: DbProTheme, rounding: f32, margin: Margin) -> Frame {
+pub fn floating_surface(theme: DbProTheme, corner_radius: f32, margin: Margin) -> Frame {
     Frame {
         fill: theme.surface_floating,
         stroke: Stroke::new(1.0, theme.border_subtle),
         inner_margin: margin,
-        rounding: Rounding::same(rounding),
+        corner_radius: CornerRadius::same(corner_radius as u8),
         shadow: theme.floating_shadow(),
         ..Default::default()
     }
@@ -52,7 +52,7 @@ impl<'a> Popover<'a> {
             .constrain_to(screen_rect(ui).shrink(config::CONTEXT_MENU_SCREEN_INSET))
             .show(ui.ctx(), |ui| {
                 ui.set_opacity(fade_alpha(progress));
-                floating_surface(self.theme, config::POPOVER_RADIUS, Margin::same(10.0))
+                floating_surface(self.theme, config::POPOVER_RADIUS, Margin::same(10.0 as i8))
                     .show(ui, add_contents)
                     .inner
             });
@@ -141,16 +141,20 @@ impl<'a> DropdownMenu<'a> {
             .show(ui.ctx(), |ui| {
                 ui.set_opacity(fade_alpha(progress));
                 ui.set_min_width(trigger.rect.width().max(180.0));
-                floating_surface(self.theme, config::DROPDOWN_RADIUS, Margin::symmetric(4.0, 6.0))
-                    .show(ui, |ui| {
-                        for (index, item) in self.items.iter().enumerate() {
-                            let response = draw_dropdown_item(ui, item, self.theme);
-                            if item.enabled && response.clicked() {
-                                chosen = Some(index);
-                            }
+                floating_surface(
+                    self.theme,
+                    config::DROPDOWN_RADIUS,
+                    Margin::symmetric(4.0 as i8, 6.0 as i8),
+                )
+                .show(ui, |ui| {
+                    for (index, item) in self.items.iter().enumerate() {
+                        let response = draw_dropdown_item(ui, item, self.theme);
+                        if item.enabled && response.clicked() {
+                            chosen = Some(index);
                         }
-                    })
-                    .inner
+                    }
+                })
+                .inner
             });
 
         if let Some(index) = chosen {
@@ -168,18 +172,25 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
     let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), config::DROPDOWN_ITEM_HEIGHT), sense);
     let hovered = response.hovered() && item.enabled;
     if hovered {
-        ui.painter()
-            .rect_filled(rect, Rounding::same(config::DROPDOWN_ITEM_RADIUS), theme.surface_hover);
+        ui.painter().rect_filled(
+            rect,
+            CornerRadius::same(config::DROPDOWN_ITEM_RADIUS as u8),
+            theme.surface_hover,
+        );
     } else if item.selected {
-        ui.painter()
-            .rect_filled(rect, Rounding::same(config::DROPDOWN_ITEM_RADIUS), theme.surface_active);
+        ui.painter().rect_filled(
+            rect,
+            CornerRadius::same(config::DROPDOWN_ITEM_RADIUS as u8),
+            theme.surface_active,
+        );
     }
 
     if response.has_focus() {
         ui.painter().rect_stroke(
             rect.expand(1.0),
-            Rounding::same(config::DROPDOWN_ITEM_RADIUS),
+            CornerRadius::same(config::DROPDOWN_ITEM_RADIUS as u8),
             Stroke::new(1.5, theme.accent),
+            egui::StrokeKind::Inside,
         );
     }
 
@@ -247,7 +258,7 @@ fn close_if_clicked_outside(ui: &Ui, open: bool, popup: Rect, trigger: Rect, ope
 }
 
 pub(crate) fn screen_rect(ui: &Ui) -> Rect {
-    let screen = ui.ctx().screen_rect();
+    let screen = ui.ctx().content_rect();
     if screen.width() > 1.0 && screen.height() > 1.0 {
         screen
     } else {
@@ -356,8 +367,8 @@ pub fn context_action_menu(
                 theme,
                 config::CONTEXT_MENU_RADIUS,
                 Margin::symmetric(
-                    config::CONTEXT_MENU_HORIZONTAL_PADDING,
-                    config::CONTEXT_MENU_VERTICAL_PADDING,
+                    config::CONTEXT_MENU_HORIZONTAL_PADDING as i8,
+                    config::CONTEXT_MENU_VERTICAL_PADDING as i8,
                 ),
             )
             .show(ui, |ui| {
@@ -400,7 +411,7 @@ pub fn ctx_menu_item(
     if hovered {
         ui.painter().rect_filled(
             rect,
-            Rounding::same(config::CONTEXT_MENU_ITEM_RADIUS),
+            CornerRadius::same(config::CONTEXT_MENU_ITEM_RADIUS as u8),
             theme.surface_hover,
         );
     }

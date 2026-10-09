@@ -4,7 +4,7 @@
 use crate::components::animation::{hover_t, lerp_color};
 use crate::components::interact::{checkbox_info, paint_focus_ring, radio_info};
 use crate::DbProTheme;
-use egui::{Color32, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Color32, CornerRadius, FontId, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2};
 
 use super::{config, handler};
 
@@ -77,10 +77,10 @@ impl<'a> Checkbox<'a> {
             let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
             let row_width = ui.available_width().max(size + spacing + 60.0);
 
-            let sense = Sense {
-                click: true,
-                drag: false,
-                focusable: self.focusable,
+            let sense = if self.focusable {
+                Sense::CLICK | Sense::FOCUSABLE
+            } else {
+                Sense::CLICK
             };
             let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), sense);
             response.widget_info(|| checkbox_info(self.enabled, *self.checked, self.label));
@@ -96,7 +96,7 @@ impl<'a> Checkbox<'a> {
                 rect.center().y - (size * 0.5)
             };
             let box_rect = Rect::from_min_size(Pos2::new(rect.left(), box_y), Vec2::splat(size));
-            let rounding = Rounding::same(4.0);
+            let rounding = CornerRadius::same(4.0 as u8);
 
             let hover = hover_t(
                 ui.ctx(),
@@ -117,7 +117,8 @@ impl<'a> Checkbox<'a> {
                     lerp_color(self.theme.border_default, self.theme.border_strong, hover),
                 );
                 ui.painter().rect_filled(box_rect, rounding, fill);
-                ui.painter().rect_stroke(box_rect, rounding, stroke);
+                ui.painter()
+                    .rect_stroke(box_rect, rounding, stroke, egui::StrokeKind::Inside);
             }
 
             if response.has_focus() {
@@ -217,7 +218,7 @@ impl<'a> Switch<'a> {
 
         let switch_y = row_rect.top() + 1.0;
         let switch_rect = Rect::from_min_size(Pos2::new(row_rect.left(), switch_y), Vec2::new(width, height));
-        let rounding = Rounding::same(height * 0.5);
+        let rounding = CornerRadius::same((height * 0.5) as u8);
 
         let anim_t = crate::components::animation::hover_t(ui.ctx(), response.id.with("switch_glide"), *self.on);
         let hover = hover_t(
@@ -480,7 +481,7 @@ impl<'a> Slider<'a> {
                 Pos2::new(rect.right(), rect.center().y + 2.5),
             );
             ui.painter()
-                .rect_filled(track_rect, Rounding::same(2.5), self.theme.border_default);
+                .rect_filled(track_rect, CornerRadius::same(2.5 as u8), self.theme.border_default);
 
             // Active track
             let active_rect = Rect::from_min_max(
@@ -488,7 +489,7 @@ impl<'a> Slider<'a> {
                 Pos2::new(rect.left() + normalized * rect.width(), rect.center().y + 2.5),
             );
             ui.painter()
-                .rect_filled(active_rect, Rounding::same(2.5), self.theme.accent);
+                .rect_filled(active_rect, CornerRadius::same(2.5 as u8), self.theme.accent);
 
             // Thumb
             let thumb_x = rect.left() + normalized * rect.width();
@@ -531,8 +532,8 @@ mod cursor_tests {
         let screen_rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(400.0, 200.0));
         let mut checked = false;
         let control_rect = Cell::new(Rect::NOTHING);
-        let mut show = |ctx: &Context| {
-            CentralPanel::default().show(ctx, |ui| {
+        let mut show = |ui: &mut egui::Ui| {
+            CentralPanel::default().show(ui, |ui| {
                 control_rect.set(if radio {
                     Radio::new(false, "Option", DbProTheme::dark())
                         .enabled(enabled)
@@ -546,20 +547,22 @@ mod cursor_tests {
                 });
             });
         };
-        let _ = ctx.run(
+        let _ = crate::test_frame::frame(
+            &ctx,
             RawInput {
                 screen_rect: Some(screen_rect),
                 ..Default::default()
             },
-            |ctx| show(ctx),
+            |ui| show(ui),
         );
-        ctx.run(
+        crate::test_frame::frame(
+            &ctx,
             RawInput {
                 screen_rect: Some(screen_rect),
                 events: vec![Event::PointerMoved(control_rect.get().center())],
                 ..Default::default()
             },
-            |ctx| show(ctx),
+            |ui| show(ui),
         )
         .platform_output
         .cursor_icon

@@ -191,7 +191,7 @@ mod tests {
         let theme = DbProTheme::light();
         for (is_active, expected_open) in [(false, false), (true, true)] {
             let mut seen_open = None;
-            let _ = ctx.run(Default::default(), |ctx| {
+            let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     let render = SchemaNodeContext {
                         theme,

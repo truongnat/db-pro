@@ -54,9 +54,9 @@ fn draw_empty_fill(
     let rect = egui::Rect::from_min_max(egui::pos2(left, filler_top), egui::pos2(right, filler_bottom));
     let painter = ui.painter();
     let border = egui::Stroke::new(1.0, theme.border_subtle);
-    painter.rect_filled(rect, egui::Rounding::ZERO, theme.surface_editor);
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, theme.surface_editor);
     let gutter = egui::Rect::from_min_max(rect.min, egui::pos2(left + GRID_ROW_NUMBER_WIDTH, rect.bottom()));
-    painter.rect_filled(gutter, egui::Rounding::ZERO, theme.surface_panel);
+    painter.rect_filled(gutter, egui::CornerRadius::ZERO, theme.surface_panel);
     painter.vline(gutter.right(), gutter.y_range(), border);
     let mut y = rows_top + (row_count as f32 + 1.0) * row_height;
     while y <= filler_bottom {

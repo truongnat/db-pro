@@ -49,7 +49,7 @@ pub(super) fn draw_explain_pane(
             ui.checkbox(&mut context.execution.explain_show_raw_json, "Raw JSON");
             if let Some(plan) = context.session.active_explain_plan() {
                 if compact_button(ui, "Copy plan", context.theme).clicked() {
-                    ui.output_mut(|output| output.copied_text = plan.to_owned());
+                    ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(plan.to_owned())));
                     context.feedback.runtime_message = "Query plan copied".to_owned();
                 }
             }
@@ -190,11 +190,11 @@ pub(super) fn draw_history_pane(
         } else {
             egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
                 for entry in filtered_entries {
-                    egui::Frame::none()
+                    egui::Frame::NONE
                         .fill(context.theme.surface_panel)
                         .stroke(egui::Stroke::new(1.0, context.theme.border_subtle))
-                        .rounding(egui::Rounding::same(4.0))
-                        .inner_margin(egui::Margin::same(8.0))
+                        .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                        .inner_margin(egui::Margin::same(8.0 as i8))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 let status_color = if entry.status == UiQueryHistoryStatus::Failed {

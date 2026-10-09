@@ -35,8 +35,8 @@ impl<'a> FilesAgentContextView<'a> {
         egui::Frame {
             fill: self.theme.surface_elevated,
             stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_SM),
-            rounding: egui::Rounding::same(RADIUS_MD),
+            inner_margin: egui::Margin::same(SPACE_SM as i8),
+            corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -48,14 +48,12 @@ impl<'a> FilesAgentContextView<'a> {
                     let more = compact_icon_button(ui, Icon::Ellipsis, self.theme)
                         .on_hover_text("Context actions");
                     if more.clicked() {
-                        ui.memory_mut(|memory| memory.toggle_popup(popup_id));
+                        egui::Popup::toggle_id(ui.ctx(), popup_id);
                     }
-                    egui::popup::popup_below_widget(
-                        ui,
-                        popup_id,
-                        &more,
-                        egui::PopupCloseBehavior::CloseOnClick,
-                        |ui| {
+                    egui::Popup::new(popup_id, ui.ctx().clone(), &more, ui.layer_id())
+                        .close_behavior(egui::PopupCloseBehavior::CloseOnClick)
+                        .open_memory(None)
+                        .show(|ui| {
                             ui.set_min_width(180.0);
                             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                             if menu_button_with_icon(ui, Icon::GitCompare, "Check schema drift", self.theme).clicked() {

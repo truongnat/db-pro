@@ -1,4 +1,4 @@
-use egui::{Area, FontId, Frame, Id, Margin, Order, Pos2, Response, RichText, Rounding, Stroke, Ui};
+use egui::{Area, CornerRadius, FontId, Frame, Id, Margin, Order, Pos2, Response, RichText, Stroke, Ui};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 use std::hash::Hash;
@@ -52,7 +52,7 @@ impl<'a> Dialog<'a> {
         self
     }
 
-    pub fn id_salt(mut self, salt: impl Hash) -> Self {
+    pub fn id_salt(mut self, salt: impl Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(salt));
         self
     }
@@ -227,8 +227,11 @@ fn paint_dialog_card<R>(
     Frame {
         fill: theme.surface_floating,
         stroke: Stroke::new(1.0, theme.border_subtle),
-        inner_margin: Margin::symmetric(DIALOG_CONTENT_HORIZONTAL_PADDING, DIALOG_CONTENT_VERTICAL_PADDING),
-        rounding: Rounding::same(DIALOG_RADIUS),
+        inner_margin: Margin::symmetric(
+            DIALOG_CONTENT_HORIZONTAL_PADDING as i8,
+            DIALOG_CONTENT_VERTICAL_PADDING as i8,
+        ),
+        corner_radius: CornerRadius::same(DIALOG_RADIUS as u8),
         shadow: theme.floating_shadow(),
         ..Default::default()
     }

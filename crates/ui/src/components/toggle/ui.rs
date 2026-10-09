@@ -83,8 +83,12 @@ impl<'a> Toggle<'a> {
 
         ui.painter().rect_filled(rect, config::TOGGLE_ROUNDING, appearance.fill);
         if appearance.stroke != Stroke::NONE {
-            ui.painter()
-                .rect_stroke(rect, config::TOGGLE_ROUNDING, appearance.stroke);
+            ui.painter().rect_stroke(
+                rect,
+                config::TOGGLE_ROUNDING,
+                appearance.stroke,
+                egui::StrokeKind::Inside,
+            );
         }
 
         // egui supplies the measured label width; the handler has already calculated the
@@ -211,6 +215,7 @@ impl<'a, T: Clone + PartialEq> ToggleGroup<'a, T> {
                     rect,
                     rounding,
                     Stroke::new(config::OUTLINE_STROKE_WIDTH, self.theme.border_default),
+                    egui::StrokeKind::Inside,
                 );
                 paint_contents(
                     ui,

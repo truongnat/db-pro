@@ -5,7 +5,7 @@ use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::UiTableColumn;
-use egui::{Frame, Margin, Rounding, Stroke};
+use egui::{Frame, Margin, CornerRadius, Stroke};
 use lucide_icons::Icon;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,8 +138,8 @@ impl InsertRowDialogContext<'_> {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(8.0),
-            inner_margin: Margin::symmetric(12.0, 8.0),
+            corner_radius: CornerRadius::same(8.0 as u8),
+            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -276,7 +276,7 @@ impl InsertRowDialogContext<'_> {
                 self.theme.text_primary
             })
             .font(font_ui_label())
-            .margin(Margin::symmetric(8.0, 6.0))
+            .margin(Margin::symmetric(8.0 as i8, 6.0 as i8))
             .desired_width(ui.available_width());
         Frame {
             fill: self.theme.surface_elevated,
@@ -288,7 +288,7 @@ impl InsertRowDialogContext<'_> {
                     self.theme.border_subtle
                 },
             ),
-            rounding: Rounding::same(6.0),
+            corner_radius: CornerRadius::same(6.0 as u8),
             ..Default::default()
         }
         .show(ui, |ui| {

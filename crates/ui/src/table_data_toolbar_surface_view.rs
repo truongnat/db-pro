@@ -183,15 +183,17 @@ impl TableDataToolbarContext<'_> {
         let focused = ui.memory(|memory| memory.has_focus(editor_id));
         let (editor_rect, editor_response) =
             ui.allocate_exact_size(egui::vec2(editor_width, control_height), egui::Sense::click());
+        editor_response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), "Edit WHERE condition")
+        });
         ui.painter().rect(
             editor_rect,
-            egui::Rounding::same(4.0),
+            egui::CornerRadius::same(4.0 as u8),
             self.theme.surface_editor,
             egui::Stroke::new(
                 1.0,
                 if focused { self.theme.border_focus } else { self.theme.border_default },
-            ),
-        );
+            ), egui::StrokeKind::Inside);
         // `new_child` (not `allocate_new_ui`): `editor_rect` is already
         // reserved by `allocate_exact_size`, and nothing inside the editor
         // may push its min_rect back into the toolbar's placer.
@@ -201,10 +203,10 @@ impl TableDataToolbarContext<'_> {
         let output = editor_ui
             .horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = SPACE_XS;
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(self.theme.surface_2)
-                    .rounding(egui::Rounding::same(2.0))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XXS))
+                    .corner_radius(egui::CornerRadius::same(2.0 as u8))
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XXS as i8))
                     .show(ui, |ui| {
                         ui.add(
                             egui::Label::new(crate::components::icon_text(
@@ -215,7 +217,7 @@ impl TableDataToolbarContext<'_> {
                             .sense(egui::Sense::hover()),
                         );
                     });
-                egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)
+                let cond_edit = egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)
                     .hint_text(
                         RichText::new(
                             self.column_suggestions
@@ -227,10 +229,14 @@ impl TableDataToolbarContext<'_> {
                     .font(egui::FontId::monospace(12.0))
                     .text_color(self.theme.text_primary)
                     .margin(egui::Margin::ZERO)
-                    .frame(false)
+                    .frame(egui::Frame::NONE)
                     .id(editor_id)
                     .desired_width(ui.available_width())
-                    .show(ui)
+                    .show(ui);
+                cond_edit.response.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), "WHERE condition")
+                });
+                cond_edit
             })
             .inner;
         if editor_response.clicked() {
@@ -242,7 +248,7 @@ impl TableDataToolbarContext<'_> {
         } else {
             output
                 .cursor_range
-                .map(|range| range.primary.ccursor.index)
+                .map(|range| range.primary.index.0)
                 .unwrap_or_else(|| self.data_query.sql_condition_draft.chars().count())
         };
         let candidates =
@@ -354,7 +360,7 @@ impl TableDataToolbarContext<'_> {
 fn condition_cursor_char(ctx: &egui::Context, editor_id: egui::Id, text: &str) -> usize {
     egui::text_edit::TextEditState::load(ctx, editor_id)
         .and_then(|state| state.cursor.char_range())
-        .map(|range| range.primary.index)
+        .map(|range| range.primary.index.0)
         .unwrap_or_else(|| text.chars().count())
 }
 
@@ -489,7 +495,7 @@ fn draw_column_suggestion_popup(
     let position = crate::components::clamp_popup_to_screen(
         editor_rect.left_bottom() + egui::vec2(0.0, 4.0),
         egui::vec2(popup_width, popup_height),
-        ctx.screen_rect(),
+        ctx.content_rect(),
         8.0,
     );
     let mut clicked = None;
@@ -499,10 +505,10 @@ fn draw_column_suggestion_popup(
         .show(ctx, |ui| {
             egui::Frame {
                 fill: theme.surface_panel,
-                rounding: egui::Rounding::same(6.0),
+                corner_radius: egui::CornerRadius::same(6.0 as u8),
                 stroke: egui::Stroke::new(1.0, theme.border_default),
                 shadow: theme.floating_shadow(),
-                inner_margin: egui::Margin::same(4.0),
+                inner_margin: egui::Margin::same(4.0 as i8),
                 ..Default::default()
             }
             .show(ui, |ui| {
@@ -517,10 +523,10 @@ fn draw_column_suggestion_popup(
                             } else {
                                 egui::Color32::TRANSPARENT
                             };
-                            let row = egui::Frame::none()
+                            let row = egui::Frame::NONE
                                 .fill(background)
-                                .rounding(egui::Rounding::same(4.0))
-                                .inner_margin(egui::Margin::symmetric(8.0, 3.0))
+                                .corner_radius(egui::CornerRadius::same(4.0 as u8))
+                                .inner_margin(egui::Margin::symmetric(8.0 as i8, 3.0 as i8))
                                 .show(ui, |ui| {
                                     ui.set_width(popup_width - 24.0);
                                     ui.horizontal(|ui| {

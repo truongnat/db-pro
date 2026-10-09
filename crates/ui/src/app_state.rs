@@ -93,6 +93,8 @@ impl Default for DbProApp {
             saved_tasks: SavedTaskState::default(),
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),
+            #[cfg(debug_assertions)]
+            dev_tools: crate::dev_tools::DevToolsState::default(),
         }
     }
 }
@@ -114,6 +116,10 @@ mod tests {
 
         fn set_string(&mut self, key: &str, value: String) {
             self.values.insert(key.to_owned(), value);
+        }
+
+        fn remove_string(&mut self, key: &str) {
+            self.values.remove(key);
         }
 
         fn flush(&mut self) {}

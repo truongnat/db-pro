@@ -39,7 +39,8 @@ mod tests {
             ] {
                 let ctx = egui::Context::default();
                 crate::DbProTheme::install_fonts(&ctx);
-                let _ = ctx.run(
+                let _ = crate::test_frame::frame(
+                    &ctx,
                     egui::RawInput {
                         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 600.0))),
                         ..Default::default()

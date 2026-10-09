@@ -10,7 +10,7 @@ use super::super::style::{TabItemStyle, TabKind};
 use super::super::track::TabTrackerAnimation;
 use crate::components::interact::radio_info;
 use crate::DbProTheme;
-use egui::{Align2, CursorIcon, Frame, Margin, Rect, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Align2, CornerRadius, CursorIcon, Frame, Margin, Rect, Sense, Stroke, Ui, Vec2};
 
 pub struct SegmentedTabs<'a> {
     selected: &'a mut usize,
@@ -39,8 +39,8 @@ impl<'a> SegmentedTabs<'a> {
         Frame {
             fill: self.theme.surface_hover,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: Margin::same(SEGMENTED_TRACK_PAD),
-            rounding: Rounding::same(SEGMENTED_TRACK_RADIUS),
+            inner_margin: Margin::same(SEGMENTED_TRACK_PAD as i8),
+            corner_radius: CornerRadius::same(SEGMENTED_TRACK_RADIUS as u8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -75,7 +75,7 @@ impl<'a> SegmentedTabs<'a> {
 
     fn paint_item(&self, ui: &mut Ui, tab_name: &str, is_active: bool) -> TabHit {
         let measure = TabItemStyle::new(TabKind::Segmented, is_active, false, &self.theme);
-        let text_width = ui.fonts(|fonts| {
+        let text_width = ui.fonts_mut(|fonts| {
             fonts
                 .layout_no_wrap(tab_name.to_owned(), measure.font_id.clone(), measure.text_color)
                 .size()
@@ -83,10 +83,10 @@ impl<'a> SegmentedTabs<'a> {
         });
 
         let item_width = (text_width + SEGMENTED_LABEL_PAD_X).max(SEGMENTED_ITEM_MIN_WIDTH);
-        let sense = Sense {
-            click: true,
-            drag: false,
-            focusable: self.focusable,
+        let sense = if self.focusable {
+            Sense::CLICK | Sense::FOCUSABLE
+        } else {
+            Sense::CLICK
         };
         let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, SEGMENTED_ITEM_HEIGHT), sense);
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
@@ -116,11 +116,16 @@ impl<'a> SegmentedTabs<'a> {
 
     fn paint_active_pill(&self, ui: &Ui, pill: Rect, shape_idx: egui::layers::ShapeIdx) {
         let pill_shapes = vec![
-            egui::Shape::rect_filled(pill, Rounding::same(SEGMENTED_PILL_RADIUS), self.theme.surface_elevated),
+            egui::Shape::rect_filled(
+                pill,
+                CornerRadius::same(SEGMENTED_PILL_RADIUS as u8),
+                self.theme.surface_elevated,
+            ),
             egui::Shape::rect_stroke(
                 pill,
-                Rounding::same(SEGMENTED_PILL_RADIUS),
+                CornerRadius::same(SEGMENTED_PILL_RADIUS as u8),
                 Stroke::new(1.0, self.theme.border_subtle),
+                egui::StrokeKind::Inside,
             ),
         ];
         ui.painter().set(shape_idx, egui::Shape::Vec(pill_shapes));

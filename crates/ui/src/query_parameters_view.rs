@@ -71,7 +71,14 @@ fn draw_parameter_row(
         } else {
             egui::TextEdit::singleline(&mut value)
         };
-        ui.add(edit.desired_width(180.0));
+        let response = ui.add(edit.desired_width(180.0));
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(
+                egui::WidgetType::TextEdit,
+                ui.is_enabled(),
+                format!("Value for {}", parameter.name),
+            )
+        });
         ui.checkbox(&mut is_secret, "secret");
     });
     if let Some(document) = session.documents.get_mut(document_index) {

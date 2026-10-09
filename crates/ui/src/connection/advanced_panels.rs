@@ -11,7 +11,7 @@ use crate::components::tabs::SegmentedTabs;
 use crate::tokens::*;
 use crate::{DbProTheme, UiCommand, UiSslMode};
 use egui::{
-    Align2, FontFamily, FontId, Frame, Margin, RichText, Rounding, Sense, Stroke, Vec2, WidgetInfo, WidgetType,
+    Align2, FontFamily, FontId, Frame, Margin, RichText, CornerRadius, Sense, Stroke, Vec2, WidgetInfo, WidgetType,
 };
 use lucide_icons::Icon;
 
@@ -21,8 +21,8 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::symmetric(12.0, 8.0),
+            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
+            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -130,8 +130,8 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::symmetric(12.0, 8.0),
+            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
+            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -185,8 +185,8 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::symmetric(12.0, 8.0),
+            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
+            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -334,8 +334,8 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::symmetric(12.0, 8.0),
+            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
+            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -368,11 +368,7 @@ fn show_click_only_collapsing_section(
     let header_height = ui.spacing().interact_size.y;
     let (rect, response) = ui.allocate_exact_size(
         Vec2::new(ui.available_width(), header_height),
-        Sense {
-            click: true,
-            drag: false,
-            focusable: false,
-        },
+        Sense::CLICK,
     );
     if response.clicked() {
         state.toggle(ui);

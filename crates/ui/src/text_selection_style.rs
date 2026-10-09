@@ -22,11 +22,14 @@ pub(crate) fn install(ctx: &Context) {
         "db-pro-text-selection-style",
         Arc::new(|ctx| {
             if ctx.memory(|memory| memory.focused().is_none())
-                && !egui::text_selection::LabelSelectionState::load(ctx).has_selection()
+                && !ctx
+                    .plugin::<egui::text_selection::LabelSelectionState>()
+                    .lock()
+                    .has_selection()
             {
                 return;
             }
-            let selection = ctx.style().visuals.selection;
+            let selection = ctx.global_style().visuals.selection;
             let layers = ctx.memory(|memory| memory.layer_ids().collect::<Vec<_>>());
             ctx.graphics_mut(|graphics| {
                 for layer in layers {
@@ -88,6 +91,7 @@ fn style_text(text: &mut TextShape, background: Color32, foreground: Color32) {
     let galley = Arc::make_mut(&mut text.galley);
     if let Some(color) = text.override_text_color.take() {
         for row in &mut galley.rows {
+            let row = Arc::make_mut(&mut row.row);
             for vertex in &mut row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()] {
                 vertex.color = color;
             }
@@ -97,6 +101,7 @@ fn style_text(text: &mut TextShape, background: Color32, foreground: Color32) {
         let Some(bounds) = selection_bounds(row, background) else {
             continue;
         };
+        let row = Arc::make_mut(&mut row.row);
         let mut vertices = row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()].chunks_exact_mut(4);
         for glyph in &row.glyphs {
             if glyph.uv_rect.is_nothing() {
@@ -124,7 +129,7 @@ mod tests {
         let theme = crate::DbProTheme::light();
         theme.apply(&ctx);
         let mut rect = egui::Rect::NOTHING;
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 rect = ui
                     .add(
@@ -158,7 +163,8 @@ mod tests {
                 modifiers: egui::Modifiers::NONE,
             }],
         ] {
-            output = Some(ctx.run(
+            output = Some(crate::test_frame::frame(
+                &ctx,
                 egui::RawInput {
                     events,
                     ..Default::default()
@@ -186,7 +192,7 @@ mod tests {
             })
             .unwrap();
         let row = &text.galley.rows[0];
-        assert!(selection_bounds(row, ctx.style().visuals.selection.bg_fill).is_some());
+        assert!(selection_bounds(row, ctx.global_style().visuals.selection.bg_fill).is_some());
         let vertices = &row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()];
         assert!(vertices.iter().any(|vertex| vertex.color == Color32::WHITE));
         assert!(vertices.iter().any(|vertex| vertex.color == theme.text_secondary));
@@ -208,7 +214,7 @@ mod tests {
             state.store(&ctx, id);
             ctx.memory_mut(|memory| memory.request_focus(id));
             let mut value = "abcdef".to_owned();
-            let output = ctx.run(Default::default(), |ctx| {
+            let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.add(
                         egui::TextEdit::singleline(&mut value)
@@ -226,7 +232,7 @@ mod tests {
                 })
                 .expect("native TextEdit paint output");
             let row = &text.galley.rows[0];
-            assert!(selection_bounds(row, ctx.style().visuals.selection.bg_fill).is_some());
+            assert!(selection_bounds(row, ctx.global_style().visuals.selection.bg_fill).is_some());
             for (index, quad) in row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()]
                 .chunks_exact(4)
                 .enumerate()

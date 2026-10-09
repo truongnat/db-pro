@@ -10,7 +10,7 @@ use super::super::style::{TabItemStyle, TabKind};
 use super::super::track::TabTrackerAnimation;
 use crate::components::interact::radio_info;
 use crate::DbProTheme;
-use egui::{Align2, CursorIcon, Pos2, Rect, Rounding, Sense, Ui, Vec2};
+use egui::{Align2, CornerRadius, CursorIcon, Pos2, Rect, Sense, Ui, Vec2};
 
 pub struct UnderlineTabs<'a> {
     selected: &'a mut usize,
@@ -58,7 +58,7 @@ impl<'a> UnderlineTabs<'a> {
 
     fn paint_item(&self, ui: &mut Ui, tab_name: &str, is_active: bool) -> TabHit {
         let measure = TabItemStyle::new(TabKind::Underline, is_active, false, &self.theme);
-        let text_width = ui.fonts(|fonts| {
+        let text_width = ui.fonts_mut(|fonts| {
             fonts
                 .layout_no_wrap(tab_name.to_owned(), measure.font_id.clone(), measure.text_color)
                 .size()
@@ -79,7 +79,7 @@ impl<'a> UnderlineTabs<'a> {
         if resp.hovered() && !is_active {
             ui.painter().rect_filled(
                 rect.shrink2(Vec2::new(0.0, UNDERLINE_HOVER_INSET_Y)),
-                Rounding::same(UNDERLINE_HOVER_RADIUS),
+                CornerRadius::same(UNDERLINE_HOVER_RADIUS as u8),
                 self.theme.surface_hover,
             );
         }
@@ -106,7 +106,7 @@ impl<'a> UnderlineTabs<'a> {
             Vec2::new(row_rect.width(), UNDERLINE_BASELINE_HEIGHT),
         );
         ui.painter()
-            .rect_filled(baseline, Rounding::ZERO, self.theme.border_subtle);
+            .rect_filled(baseline, CornerRadius::ZERO, self.theme.border_subtle);
     }
 
     // cc-scan:allow TOO_MANY_PARAMS — context params passed through
@@ -119,6 +119,6 @@ impl<'a> UnderlineTabs<'a> {
             self.theme.reduce_motion,
         );
         ui.painter()
-            .rect_filled(underline, Rounding::same(1.0), self.theme.accent);
+            .rect_filled(underline, CornerRadius::same(1.0 as u8), self.theme.accent);
     }
 }

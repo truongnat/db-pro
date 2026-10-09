@@ -1,5 +1,5 @@
 use super::*;
-use egui::{Align2, Pos2, Rect, Rounding, Stroke, Vec2};
+use egui::{Align2, Pos2, Rect, CornerRadius, Stroke, Vec2};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum GridHeaderAction {
@@ -69,7 +69,7 @@ impl<'a> GridHeaderViewContext<'a> {
             );
             let (gutter_rect, _) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::hover());
             ui.painter()
-                .rect_filled(gutter_rect, Rounding::ZERO, self.theme.surface_elevated);
+                .rect_filled(gutter_rect, CornerRadius::ZERO, self.theme.surface_elevated);
             ui.painter().hline(
                 gutter_rect.x_range(),
                 gutter_rect.bottom(),
@@ -97,6 +97,9 @@ impl<'a> GridHeaderViewContext<'a> {
                 };
                 let width = widths.get(col_idx).copied().unwrap_or(180.0);
                 let (col_rect, col_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
+                col_resp.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, ui.is_enabled(), &column.name)
+                });
 
                 // Check PK / FK indicators
                 let is_pk = self
@@ -119,6 +122,13 @@ impl<'a> GridHeaderViewContext<'a> {
                 );
                 let divider_id = ui.id().with(("grid_col_resize", col_idx));
                 let divider = ui.interact(divider_rect, divider_id, Sense::drag());
+                divider.widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::ResizeHandle,
+                        ui.is_enabled(),
+                        format!("Resize column {}", column.name),
+                    )
+                });
                 let is_resizing = divider.hovered() || divider.dragged();
                 if is_resizing {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
@@ -130,7 +140,7 @@ impl<'a> GridHeaderViewContext<'a> {
                 } else {
                     self.theme.surface_elevated
                 };
-                ui.painter().rect_filled(col_rect, Rounding::ZERO, bg_fill);
+                ui.painter().rect_filled(col_rect, CornerRadius::ZERO, bg_fill);
 
                 // Bottom and right border lines
                 ui.painter().hline(
@@ -263,7 +273,7 @@ impl<'a> GridHeaderViewContext<'a> {
             if window.trailing > 0.0 {
                 let (skipped, _) = ui.allocate_exact_size(egui::vec2(window.trailing, 28.0), Sense::hover());
                 ui.painter()
-                    .rect_filled(skipped, Rounding::ZERO, self.theme.surface_elevated);
+                    .rect_filled(skipped, CornerRadius::ZERO, self.theme.surface_elevated);
                 ui.painter().hline(
                     skipped.x_range(),
                     skipped.bottom(),
@@ -277,7 +287,7 @@ impl<'a> GridHeaderViewContext<'a> {
             if rest > 0.5 {
                 let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), Sense::hover());
                 ui.painter()
-                    .rect_filled(fill_rect, Rounding::ZERO, self.theme.surface_elevated);
+                    .rect_filled(fill_rect, CornerRadius::ZERO, self.theme.surface_elevated);
                 ui.painter().hline(
                     fill_rect.x_range(),
                     fill_rect.bottom(),

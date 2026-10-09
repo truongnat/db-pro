@@ -17,7 +17,7 @@ mod egress_tests {
 
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let output = ctx.run(Default::default(), |ctx| {
+        let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let _ = app.draw_query_editor_actions(ui);
             });

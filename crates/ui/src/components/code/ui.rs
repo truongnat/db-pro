@@ -5,7 +5,7 @@ use crate::components::interact::paint_focus_ring;
 use crate::tokens::{RADIUS_CODE_BLOCK, RADIUS_XS, STROKE_THIN};
 use crate::DbProTheme;
 use egui::{
-    Align2, Color32, FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
+    Align2, Color32, CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
 };
 use std::time::Duration;
 
@@ -41,11 +41,12 @@ impl<'a> InlineCode<'a> {
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, self.text));
 
         ui.painter()
-            .rect_filled(rect, Rounding::same(RADIUS_XS), self.theme.surface_hover);
+            .rect_filled(rect, CornerRadius::same(RADIUS_XS as u8), self.theme.surface_hover);
         ui.painter().rect_stroke(
             rect,
-            Rounding::same(RADIUS_XS),
+            CornerRadius::same(RADIUS_XS as u8),
             Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            egui::StrokeKind::Inside,
         );
 
         let text_pos = inline_code_text_pos(rect.min);
@@ -93,11 +94,11 @@ impl<'a> CodeBlock<'a> {
             ui.ctx().request_repaint_after(Duration::from_secs_f64(remaining));
         }
 
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_editor)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .rounding(Rounding::same(CODE_BLOCK_CORNER_RADIUS))
-            .inner_margin(egui::Margin::same(0.0));
+            .corner_radius(CornerRadius::same(CODE_BLOCK_CORNER_RADIUS as u8))
+            .inner_margin(egui::Margin::same(0.0 as i8));
 
         let resp = frame
             .show(ui, |ui| {
@@ -109,11 +110,11 @@ impl<'a> CodeBlock<'a> {
                     .1;
                 ui.painter().rect_filled(
                     header_rect,
-                    Rounding {
-                        nw: CODE_BLOCK_CORNER_RADIUS,
-                        ne: CODE_BLOCK_CORNER_RADIUS,
-                        sw: 0.0,
-                        se: 0.0,
+                    CornerRadius {
+                        nw: (CODE_BLOCK_CORNER_RADIUS) as u8,
+                        ne: (CODE_BLOCK_CORNER_RADIUS) as u8,
+                        sw: 0.0 as u8,
+                        se: 0.0 as u8,
                     },
                     self.theme.surface_panel,
                 );
@@ -148,7 +149,7 @@ impl<'a> CodeBlock<'a> {
                 if copy_resp.hovered() || copy_resp.has_focus() {
                     ui.painter().rect_filled(
                         copy_btn_rect,
-                        Rounding::same(RADIUS_CODE_BLOCK),
+                        CornerRadius::same(RADIUS_CODE_BLOCK as u8),
                         self.theme.surface_hover,
                     );
                 }
@@ -177,7 +178,7 @@ impl<'a> CodeBlock<'a> {
                 );
 
                 if copy_resp.clicked() {
-                    ui.output_mut(|o| o.copied_text = self.code.to_owned());
+                    ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(self.code.to_owned())));
                     ui.data_mut(|d| d.insert_temp(copied_key, ui.input(|i| i.time)));
                     ui.ctx()
                         .request_repaint_after(Duration::from_secs_f64(CODE_BLOCK_COPIED_FEEDBACK_SECS));
@@ -251,7 +252,7 @@ mod tests {
         let theme = DbProTheme::light();
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let resp = InlineCode::new("SELECT 1;", theme).show(ui);
                 assert!(resp.rect.width() > 0.0);
@@ -265,7 +266,7 @@ mod tests {
         let theme = DbProTheme::dark();
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let resp1 = CodeBlock::new("SELECT * FROM users;\nWHERE id = 1;", theme)
                     .language("sql")

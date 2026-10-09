@@ -192,7 +192,7 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             sidebar_history_view::SidebarHistoryAction::CopySql(sql) => {
-                ui.output_mut(|output| output.copied_text = sql);
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(sql)));
                 self.feedback.runtime_message = "Copied SQL from history".to_owned();
             }
         }
@@ -218,7 +218,7 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             SidebarQueryLibraryAction::CopySql { name, sql } => {
-                ui.output_mut(|output| output.copied_text = sql);
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(sql)));
                 self.feedback.runtime_message = format!("Copied SQL for `{name}`");
             }
             SidebarQueryLibraryAction::Rename(query) => self.rename_saved_query(&query),

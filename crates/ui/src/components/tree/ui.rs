@@ -3,7 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::components::animation::{hover_t, lerp_color, overlay_t, OVERLAY_DURATION_SECS};
 use crate::DbProTheme;
-use egui::{Align2, Color32, FontFamily, FontId, Id, Response, Rounding, Sense, Ui, Vec2};
+use egui::{Align2, Color32, CornerRadius, FontFamily, FontId, Id, Response, Sense, Ui, Vec2};
 
 use super::config::{
     CHEVRON_ANIMATION_ID_SALT, CHEVRON_ICON_FONT_SIZE, CHILDREN_HEIGHT_ID_SALT, DETAIL_FONT_SIZE,
@@ -82,7 +82,7 @@ impl<'a> DatabaseTreeNode<'a> {
             RowBackground::Hovered(t) => {
                 ui.painter().rect_filled(
                     rect,
-                    Rounding::same(ROW_ROUNDING),
+                    CornerRadius::same(ROW_ROUNDING as u8),
                     lerp_color(Color32::TRANSPARENT, self.theme.surface_hover, t),
                 );
             }
@@ -91,8 +91,9 @@ impl<'a> DatabaseTreeNode<'a> {
         if response.has_focus() {
             ui.painter().rect_stroke(
                 rect,
-                Rounding::same(ROW_ROUNDING),
+                CornerRadius::same(ROW_ROUNDING as u8),
                 egui::Stroke::new(1.0, self.theme.border_focus),
+                egui::StrokeKind::Inside,
             );
         }
 
@@ -171,10 +172,10 @@ pub fn reveal_children(ui: &mut Ui, id: Id, open: bool, add_contents: impl FnOnc
 
 fn paint_selected_background(ui: &mut Ui, rect: egui::Rect, theme: DbProTheme) {
     ui.painter()
-        .rect_filled(rect, Rounding::same(ROW_ROUNDING), theme.surface_active);
+        .rect_filled(rect, CornerRadius::same(ROW_ROUNDING as u8), theme.surface_active);
     ui.painter().rect_filled(
         egui::Rect::from_min_size(rect.left_top(), Vec2::new(SELECTED_ACCENT_WIDTH, ROW_HEIGHT)),
-        Rounding::same(SELECTED_ACCENT_ROUNDING),
+        CornerRadius::same(SELECTED_ACCENT_ROUNDING as u8),
         theme.accent,
     );
 }
@@ -201,7 +202,7 @@ mod tests {
     fn tree_icons_layout() {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             let font = FontId::new(NODE_ICON_FONT_SIZE, FontFamily::Name("lucide".into()));
             for kind in [
                 TreeNodeKind::Server,
@@ -214,7 +215,7 @@ mod tests {
                 TreeNodeKind::ForeignKey,
                 TreeNodeKind::Index,
             ] {
-                let galley = ctx.fonts(|fonts| {
+                let galley = ctx.fonts_mut(|fonts| {
                     fonts.layout_no_wrap(char::from(kind.icon()).to_string(), font.clone(), Color32::WHITE)
                 });
                 assert!(!galley.rows.is_empty());

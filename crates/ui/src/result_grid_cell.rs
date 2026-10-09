@@ -46,6 +46,23 @@ impl DbProApp {
                 .is_some_and(|failure| failure.code == "CONFLICT");
 
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
+        cell_resp.widget_info(|| {
+            let column_name = result
+                .columns
+                .get(column_index)
+                .map(|c| c.name.as_str())
+                .unwrap_or("column");
+            egui::WidgetInfo::selected(
+                egui::WidgetType::SelectableLabel,
+                ui.is_enabled(),
+                cell_selected,
+                format!(
+                    "{column_name} row {}: {}",
+                    row_index + 1,
+                    crate::result_grid::cell_text_as_str(display_cell)
+                ),
+            )
+        });
 
         let surface_context = result_grid_cell_surface_view::GridCellSurfaceContext {
             theme: self.theme,

@@ -41,7 +41,7 @@ impl DbProApp {
                 self.feedback.set_runtime_message(format!("Planned drop for {kind} `{schema}.{name}`"));
             }
             SchemaObjectFolderAction::CopyName(name) => {
-                ui.output_mut(|output| output.copied_text = name.clone());
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(name.clone())));
                 self.feedback.runtime_message = format!("Copied `{name}` to clipboard");
             }
             SchemaObjectFolderAction::RefreshSchema => {

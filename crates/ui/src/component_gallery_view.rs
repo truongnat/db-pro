@@ -230,7 +230,7 @@ impl DbProApp {
     pub(super) fn draw_component_gallery(&mut self, ui: &mut Ui) {
         let available_height = ui.available_height();
         // The shell is flush; Gallery content uses the theme's normal widget spacing.
-        let content_spacing = ui.ctx().style().spacing.item_spacing;
+        let content_spacing = ui.ctx().global_style().spacing.item_spacing;
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
             self.draw_gallery_category_navigation(ui, available_height);
@@ -270,9 +270,9 @@ impl DbProApp {
 
     fn draw_gallery_header(&mut self, ui: &mut Ui) {
         let theme = self.theme;
-        egui::Frame::none()
+        egui::Frame::NONE
             .fill(theme.surface_app)
-            .inner_margin(egui::Margin::symmetric(SPACE_LG, SPACE_SM))
+            .inner_margin(egui::Margin::symmetric(SPACE_LG as i8, SPACE_SM as i8))
             .show(ui, |ui| {
                 ui.set_min_height(TOOLBAR_HEIGHT);
                 ui.horizontal(|ui| {
@@ -339,9 +339,9 @@ impl DbProApp {
 
     fn draw_gallery_category_navigation(&mut self, ui: &mut Ui, available_height: f32) {
         let theme = self.theme;
-        egui::Frame::none()
+        egui::Frame::NONE
             .fill(theme.surface_panel)
-            .inner_margin(egui::Margin::same(SPACE_SM))
+            .inner_margin(egui::Margin::same(SPACE_SM as i8))
             .show(ui, |ui| {
                 ui.vertical(|ui| {
                 ui.set_min_size(egui::vec2(196.0, available_height));

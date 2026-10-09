@@ -27,7 +27,7 @@ impl DbProApp {
             self.feedback.copy_status = "Empty value: nothing to copy".to_owned();
             return;
         }
-        ui.output_mut(|output| output.copied_text = text);
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(text)));
         self.feedback.copy_status = "Cell copied".to_owned();
     }
 
@@ -54,7 +54,7 @@ impl DbProApp {
             return;
         };
         let row_text = self.copied_row_text(result, row_index, row);
-        ui.output_mut(|output| output.copied_text = row_text);
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(row_text)));
         self.feedback.copy_status = "Row copied".to_owned();
     }
 
@@ -70,7 +70,7 @@ impl DbProApp {
             .filter_map(|&row_index| result.rows.get(row_index).map(|row| (row_index, row)))
             .map(|(row_index, row)| self.copied_row_text(result, row_index, row))
             .collect::<Vec<_>>();
-        ui.output_mut(|output| output.copied_text = rows.join("\n"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(rows.join("\n"))));
         self.feedback.copy_status = format!("{} rows copied", rows.len());
     }
 
@@ -94,7 +94,7 @@ impl DbProApp {
         let mut lines = Vec::with_capacity(rows.len() + 1);
         lines.push(header);
         lines.extend(rows);
-        ui.output_mut(|output| output.copied_text = lines.join("\n"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(lines.join("\n"))));
         self.feedback.copy_status = format!("{} rows copied with headers", row_indexes.len());
     }
 
@@ -151,7 +151,7 @@ impl DbProApp {
                 format!("INSERT INTO {target} ({columns}) VALUES ({values});")
             })
             .collect::<Vec<_>>();
-        ui.output_mut(|output| output.copied_text = statements.join("\n"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(statements.join("\n"))));
         self.feedback.copy_status = format!("{} INSERT statements copied", statements.len());
     }
 
@@ -192,13 +192,13 @@ impl DbProApp {
                 lines.push(row_str);
             }
         }
-        ui.output_mut(|output| output.copied_text = lines.join("\n"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(lines.join("\n"))));
         self.feedback.copy_status = format!("{} rows copied as Markdown", indexes.len());
     }
 
     pub(crate) fn copy_column_name(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, column_index: usize) {
         if let Some(col) = result.columns.get(column_index) {
-            ui.output_mut(|output| output.copied_text = col.name.clone());
+            ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(col.name.clone())));
             self.feedback.copy_status = format!("Column name '{}' copied", col.name);
         }
     }
@@ -218,7 +218,7 @@ impl DbProApp {
                 crate::result_grid::cell_text_as_str(cell)
             })
             .collect::<Vec<_>>();
-        ui.output_mut(|output| output.copied_text = values.join("\n"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(values.join("\n"))));
         self.feedback.copy_status = format!("{} column values copied", values.len());
     }
 
@@ -234,7 +234,7 @@ impl DbProApp {
             map.insert(col.name.clone(), result_grid_export::cell_to_json_value(&cell));
         }
         let json_text = serde_json::to_string_pretty(&serde_json::Value::Object(map)).unwrap_or_default();
-        ui.output_mut(|output| output.copied_text = json_text);
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(json_text)));
         self.feedback.copy_status = "Row copied as JSON".to_owned();
     }
 
@@ -257,7 +257,7 @@ impl DbProApp {
             })
             .collect::<Vec<_>>()
             .join(",");
-        ui.output_mut(|output| output.copied_text = format!("{header}\n{row_values}"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(format!("{header}\n{row_values}"))));
         self.feedback.copy_status = "Row copied as CSV".to_owned();
     }
 
@@ -283,7 +283,7 @@ impl DbProApp {
                 lines.push(row_values);
             }
         }
-        ui.output_mut(|output| output.copied_text = lines.join("\n"));
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(lines.join("\n"))));
         self.feedback.copy_status = format!("{} rows copied as CSV", indexes.len());
     }
 
@@ -302,7 +302,7 @@ impl DbProApp {
             }
         }
         let json_text = serde_json::to_string_pretty(&serde_json::Value::Array(rows)).unwrap_or_default();
-        ui.output_mut(|output| output.copied_text = json_text);
+        ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(json_text)));
         self.feedback.copy_status = format!("{} rows copied as JSON", indexes.len());
     }
 

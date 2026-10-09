@@ -12,7 +12,7 @@ mod sidebar_surface_view;
 /// Sidebar content is clipped to the shell surface.
 /// The surface preserves the original clipping and resize behavior.
 impl DbProApp {
-    pub(super) fn draw_sidebar(&mut self, ctx: &egui::Context) {
+    pub(super) fn draw_sidebar(&mut self, ui: &mut egui::Ui) {
         let active_name = if self.connection.lifecycle.active_connection_id().is_some() {
             self.active_connection_name().to_owned()
         } else {
@@ -29,7 +29,7 @@ impl DbProApp {
             new_connection_shortcut: &new_connection_shortcut,
             new_query_shortcuts: &new_query_shortcuts,
         };
-        for action in sidebar_surface_view::draw(&context, ctx, |ui| self.draw_sidebar_activity_content(ui)) {
+        for action in sidebar_surface_view::draw(&context, ui, |ui| self.draw_sidebar_activity_content(ui)) {
             match action {
                 sidebar_surface_view::SidebarSurfaceAction::Chrome(action) => match action {
                     sidebar_chrome_view::SidebarChromeAction::OpenCommandPalette => {

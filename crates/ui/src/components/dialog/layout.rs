@@ -1,5 +1,5 @@
 use crate::components::animation::faded_overlay;
-use egui::{Id, Pos2, Rect, Rounding, Ui};
+use egui::{CornerRadius, Id, Pos2, Rect, Ui};
 
 pub struct OverlayPaint {
     pub screen: Rect,
@@ -10,7 +10,7 @@ pub struct OverlayPaint {
 pub fn paint_dim(ui: &mut Ui, paint: OverlayPaint) {
     ui.painter().rect_filled(
         paint.screen,
-        Rounding::ZERO,
+        CornerRadius::ZERO,
         faded_overlay(paint.overlay, paint.progress),
     );
 }
@@ -25,7 +25,7 @@ pub fn overlay_widget_id(ui: &mut Ui, salt: Option<Id>, kind: &'static str) -> I
 }
 
 pub fn screen_rect_fallback(ctx: &egui::Context) -> Rect {
-    let s = ctx.screen_rect();
+    let s = ctx.content_rect();
     if s.width() > 1.0 && s.height() > 1.0 {
         s
     } else {

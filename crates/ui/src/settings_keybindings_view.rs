@@ -97,6 +97,13 @@ impl SettingsKeybindingsContext<'_> {
                 .desired_width(120.0)
                 .hint_text("mod+k"),
         );
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(
+                egui::WidgetType::TextEdit,
+                ui.is_enabled(),
+                format!("Shortcut for {}", command.title),
+            )
+        });
         if (response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)))
             || compact_button(ui, "Save", self.theme).clicked()
         {

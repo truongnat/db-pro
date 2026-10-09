@@ -110,8 +110,8 @@ impl FilesSurfaceContext<'_> {
         egui::Frame {
             fill: self.theme.surface_elevated,
             stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_SM),
-            rounding: egui::Rounding::same(RADIUS_MD),
+            inner_margin: egui::Margin::same(SPACE_SM as i8),
+            corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -280,10 +280,10 @@ impl FilesSurfaceContext<'_> {
                 } else {
                     self.theme.text_muted
                 };
-                let response = egui::Frame::none()
+                let response = egui::Frame::NONE
                     .fill(bg_color)
-                    .rounding(egui::Rounding::same(RADIUS_SM))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                    .corner_radius(egui::CornerRadius::same(RADIUS_SM as u8))
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
                     .show(ui, |ui| {
                         ui.label(
                             RichText::new(char::from(icon).to_string())

@@ -5,7 +5,7 @@ use super::config::*;
 use super::handler::*;
 use crate::tokens::*;
 use crate::DbProTheme;
-use egui::{Id, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{CornerRadius, Id, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 
 struct PlanRenderBudget {
     nodes_rendered: usize,
@@ -54,11 +54,11 @@ impl<'a> ExplainPlanTree<'a> {
                 .iter()
                 .any(|finding| finding == db_pro_core::domain::explain_plan::PLAN_TRUNCATION_MESSAGE),
         };
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .rounding(Rounding::same(RADIUS_CARD))
-            .inner_margin(egui::Margin::same(SPACE_MD));
+            .corner_radius(CornerRadius::same(RADIUS_CARD as u8))
+            .inner_margin(egui::Margin::same(SPACE_MD as i8));
 
         frame
             .show(ui, |ui| {
@@ -83,8 +83,11 @@ impl<'a> ExplainPlanTree<'a> {
                             Pos2::new(ui.cursor().min.x, ui.cursor().min.y + EXPLAIN_BADGE_PAD_Y),
                             Vec2::new(badge_galley.size().x + EXPLAIN_BADGE_PAD_X, EXPLAIN_BADGE_HEIGHT),
                         );
-                        ui.painter()
-                            .rect_filled(badge_rect, Rounding::same(RADIUS_XS), self.theme.warning_soft());
+                        ui.painter().rect_filled(
+                            badge_rect,
+                            CornerRadius::same(RADIUS_XS as u8),
+                            self.theme.warning_soft(),
+                        );
                         ui.painter().galley(
                             Pos2::new(
                                 badge_rect.left() + EXPLAIN_BADGE_TEXT_PAD_X,
@@ -208,7 +211,7 @@ impl<'a> ExplainPlanTree<'a> {
             bar_response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, true, &accessible_bar_label));
             ui.painter().rect_filled(
                 bar_rect,
-                Rounding::same(EXPLAIN_BAR_ROUNDING),
+                CornerRadius::same(EXPLAIN_BAR_ROUNDING as u8),
                 self.theme.surface_active,
             );
             if should_render_flame_bar(metrics.percentage) {
@@ -217,7 +220,7 @@ impl<'a> ExplainPlanTree<'a> {
                     Vec2::new(EXPLAIN_BAR_WIDTH * metrics.percentage, EXPLAIN_BAR_HEIGHT),
                 );
                 ui.painter()
-                    .rect_filled(fill_rect, Rounding::same(EXPLAIN_BAR_ROUNDING), metrics.color);
+                    .rect_filled(fill_rect, CornerRadius::same(EXPLAIN_BAR_ROUNDING as u8), metrics.color);
             }
 
             // Bottleneck badge
@@ -231,7 +234,8 @@ impl<'a> ExplainPlanTree<'a> {
                     Vec2::new(badge_galley.size().x + EXPLAIN_BADGE_PAD_X, EXPLAIN_BADGE_HEIGHT),
                 );
                 let fill = self.theme.danger_soft();
-                ui.painter().rect_filled(badge_rect, Rounding::same(RADIUS_XS), fill);
+                ui.painter()
+                    .rect_filled(badge_rect, CornerRadius::same(RADIUS_XS as u8), fill);
                 ui.painter().galley(
                     Pos2::new(
                         badge_rect.left() + EXPLAIN_BADGE_TEXT_PAD_X,
@@ -253,8 +257,11 @@ impl<'a> ExplainPlanTree<'a> {
                     Pos2::new(ui.cursor().min.x, ui.cursor().min.y + EXPLAIN_BADGE_PAD_Y),
                     Vec2::new(badge_galley.size().x + EXPLAIN_SKEW_BADGE_PAD_X, EXPLAIN_BADGE_HEIGHT),
                 );
-                ui.painter()
-                    .rect_filled(badge_rect, Rounding::same(RADIUS_XS), self.theme.warning_soft());
+                ui.painter().rect_filled(
+                    badge_rect,
+                    CornerRadius::same(RADIUS_XS as u8),
+                    self.theme.warning_soft(),
+                );
                 ui.painter().galley(
                     Pos2::new(
                         badge_rect.left() + EXPLAIN_SKEW_BADGE_TEXT_PAD_X,
@@ -360,7 +367,7 @@ mod tests {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
 
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ExplainPlanTree::new(&root, 1.0, DbProTheme::light()).show(ui);
             });
@@ -379,7 +386,7 @@ mod tests {
             .with_child(child.clone())
             .with_child(child);
 
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let response = ExplainPlanTree::new(&root, 2.0, theme).has_runtime_stats(true).show(ui);
                 assert!(response.rect.width() > 0.0);

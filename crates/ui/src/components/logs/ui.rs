@@ -3,7 +3,7 @@ use crate::tokens::{
     FONT_SIZE_CAPTION, FONT_SIZE_MONO_SM, ICON_XS, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS, STROKE_THIN,
 };
 use crate::DbProTheme;
-use egui::{Response, RichText, Rounding, Stroke, Ui};
+use egui::{CornerRadius, Response, RichText, Stroke, Ui};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogLevel {
@@ -44,11 +44,11 @@ impl<'a> LogViewer<'a> {
         Self { entries, theme }
     }
     pub fn show(self, ui: &mut Ui) -> Response {
-        egui::Frame::none()
+        egui::Frame::NONE
             .fill(self.theme.surface_editor)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_subtle))
-            .rounding(Rounding::same(RADIUS_CARD))
-            .inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM))
+            .corner_radius(CornerRadius::same(RADIUS_CARD as u8))
+            .inner_margin(egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 if self.entries.is_empty() {

@@ -16,7 +16,7 @@ pub const METRIC_VALUE_SIZE: f32 = 24.0;
 pub const METRIC_TITLE_SIZE: f32 = 12.5;
 /// Square size of the optional metric icon container.
 pub const METRIC_ICON_BOX_SIZE: f32 = 28.0;
-/// Rounding used for the optional metric icon container.
+/// CornerRadius used for the optional metric icon container.
 pub const METRIC_ICON_BOX_RADIUS: f32 = 8.0;
 /// Lucide font size for metric icons and trend icons.
 pub const METRIC_ICON_FONT_SIZE: f32 = 14.0;

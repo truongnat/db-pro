@@ -167,17 +167,17 @@ mod tests {
         let theme = DbProTheme::light();
         run_ui(|ui| {
             let enabled = Button::new(theme).text("Save").show(ui);
-            assert!(enabled.sense.click);
-            assert!(enabled.sense.focusable);
+            assert!(enabled.sense.senses_click());
+            assert!(enabled.sense.is_focusable());
             let disabled = Button::new(theme).text("Locked").enabled(false).show(ui);
-            assert!(!disabled.sense.click);
-            assert!(!disabled.sense.focusable);
+            assert!(!disabled.sense.senses_click());
+            assert!(!disabled.sense.is_focusable());
             let icon = Button::new(theme)
                 .icon(lucide_icons::Icon::Copy)
                 .access_label("Copy")
                 .size(ButtonSize::Icon)
                 .show(ui);
-            assert!(icon.sense.focusable);
+            assert!(icon.sense.is_focusable());
         });
     }
 
@@ -186,7 +186,7 @@ mod tests {
         let theme = DbProTheme::light();
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 Button::new(theme).text("First").show(ui);
                 Button::new(theme).text("Second").show(ui);
@@ -199,7 +199,7 @@ mod tests {
         };
         let mut first_focused = false;
         let mut second_focused = false;
-        let _ = ctx.run(input, |ctx| {
+        let _ = crate::test_frame::frame(&ctx, input, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 first_focused = Button::new(theme).text("First").show(ui).has_focus();
                 second_focused = Button::new(theme).text("Second").show(ui).has_focus();
@@ -214,7 +214,7 @@ mod tests {
         let theme = DbProTheme::light();
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 Button::new(theme).text("Run").show(ui);
             });
@@ -223,7 +223,7 @@ mod tests {
             events: vec![tab_press_event()],
             ..Default::default()
         };
-        let _ = ctx.run(tab, |ctx| {
+        let _ = crate::test_frame::frame(&ctx, tab, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 Button::new(theme).text("Run").show(ui);
             });
@@ -240,7 +240,7 @@ mod tests {
         };
         let mut clicked = false;
         let mut focused = false;
-        let _ = ctx.run(space, |ctx| {
+        let _ = crate::test_frame::frame(&ctx, space, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let response = Button::new(theme).text("Run").show(ui);
                 focused = response.has_focus();
@@ -321,7 +321,7 @@ mod tests {
     fn run_ui(mut on_ui: impl FnMut(&mut egui::Ui)) {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| on_ui(ui));
         });
     }
@@ -496,7 +496,7 @@ mod tests {
                 time: Some(f64::from(frame as u32) / 60.0),
                 ..Default::default()
             };
-            let _ = ctx.run(input, |ctx| {
+            let _ = crate::test_frame::frame(&ctx, input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| on_ui(ui));
             });
         }

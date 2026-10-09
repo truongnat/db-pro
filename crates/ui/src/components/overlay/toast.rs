@@ -2,7 +2,7 @@
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::DbProTheme;
-use egui::{Area, FontFamily, FontId, Margin, Order, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
+use egui::{Area, CornerRadius, FontFamily, FontId, Margin, Order, Pos2, Rect, RichText, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 use super::{config, floating_surface, screen_rect};
@@ -135,7 +135,7 @@ impl<'a> Toast<'a> {
         self
     }
 
-    pub fn show_floating(self, ui: &Ui, salt: impl std::hash::Hash) -> ToastResponse {
+    pub fn show_floating(self, ui: &Ui, salt: impl std::hash::Hash + std::fmt::Debug) -> ToastResponse {
         let screen = screen_rect(ui);
         let (pos, pivot) = self.position.alignment_and_pos(screen);
         let mut response = ToastResponse::default();
@@ -160,7 +160,10 @@ impl<'a> Toast<'a> {
         let frame_resp = floating_surface(
             self.theme,
             config::TOAST_RADIUS,
-            Margin::symmetric(config::TOAST_HORIZONTAL_PADDING, config::TOAST_VERTICAL_PADDING),
+            Margin::symmetric(
+                config::TOAST_HORIZONTAL_PADDING as i8,
+                config::TOAST_VERTICAL_PADDING as i8,
+            ),
         )
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -186,7 +189,7 @@ impl<'a> Toast<'a> {
                     )
                     .fill(self.theme.surface_hover)
                     .stroke(Stroke::new(1.0, self.theme.border_subtle))
-                    .rounding(Rounding::same(5.0));
+                    .corner_radius(CornerRadius::same(5.0 as u8));
 
                     if ui.add(action_btn).clicked() {
                         toast_resp.action_clicked = true;
@@ -222,11 +225,11 @@ impl<'a> Toast<'a> {
         );
         ui.painter().rect_filled(
             accent_rect,
-            Rounding {
-                nw: config::TOAST_RADIUS,
-                ne: 0.0,
-                sw: config::TOAST_RADIUS,
-                se: 0.0,
+            CornerRadius {
+                nw: (config::TOAST_RADIUS) as u8,
+                ne: 0.0 as u8,
+                sw: (config::TOAST_RADIUS) as u8,
+                se: 0.0 as u8,
             },
             accent_color,
         );
@@ -336,7 +339,7 @@ impl ToastManager {
             return Vec::new();
         }
 
-        let screen = ctx.screen_rect();
+        let screen = ctx.content_rect();
         let mut results = Vec::new();
         let mut to_dismiss = Vec::new();
 

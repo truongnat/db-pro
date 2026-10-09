@@ -11,7 +11,7 @@ use crate::components::input::Input;
 use crate::components::interact::radio_info;
 use crate::tokens::*;
 use crate::{DbProTheme, UiCommand, UiDriver, UiSslMode};
-use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, Rounding, Stroke};
+use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, CornerRadius, Stroke};
 use lucide_icons::Icon;
 
 use super::super::FeedbackState;
@@ -67,7 +67,7 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
         Stroke::new(1.0, theme.border_subtle)
     };
 
-    painter.rect(rect, Rounding::same(RADIUS_CARD), bg_fill, border_stroke);
+    painter.rect(rect, CornerRadius::same(RADIUS_CARD as u8), bg_fill, border_stroke, egui::StrokeKind::Inside);
 
     // Left Icon (18px)
     let icon_color = if props.is_selected {
@@ -140,7 +140,7 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
         } else {
             theme.text_muted
         };
-        painter.rect_filled(badge_rect, Rounding::same(3.0), badge_bg);
+        painter.rect_filled(badge_rect, CornerRadius::same(3.0 as u8), badge_bg);
         painter.text(
             badge_rect.center(),
             Align2::CENTER_CENTER,
@@ -490,8 +490,8 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::same(10.0),
+            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
+            inner_margin: Margin::same(10.0 as i8),
             ..Default::default()
         }
         .show(ui, |ui| {

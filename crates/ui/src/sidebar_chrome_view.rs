@@ -1,6 +1,6 @@
 //! Native sidebar chrome: connection launcher and primary query action.
 use super::*;
-use egui::{vec2, Align2, Pos2, Rect, Rounding, Sense, Stroke};
+use egui::{vec2, Align2, Pos2, Rect, CornerRadius, Sense, Stroke};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,9 +38,16 @@ impl SidebarChromeContext<'_> {
             let selector_w = (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
             let (selector_rect, selector_response) =
                 ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
+            selector_response.widget_info(|| {
+                egui::WidgetInfo::labeled(
+                    egui::WidgetType::Button,
+                    ui.is_enabled(),
+                    format!("{} — Command Palette ({})", self.active_name, self.command_palette_shortcut),
+                )
+            });
             if selector_response.hovered() {
                 ui.painter()
-                    .rect_filled(selector_rect, Rounding::same(RADIUS_SM), self.theme.surface_hover);
+                    .rect_filled(selector_rect, CornerRadius::same(RADIUS_SM as u8), self.theme.surface_hover);
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
 
@@ -115,6 +122,9 @@ impl SidebarChromeContext<'_> {
         let mut actions = Vec::new();
         let button_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), NEW_QUERY_HEIGHT));
         let response = ui.allocate_rect(button_rect, Sense::click());
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), "New Query")
+        });
         self.paint_new_query_button(ui, button_rect, response.hovered());
         if response.clicked() {
             actions.push(SidebarChromeAction::NewQuery);
@@ -126,7 +136,7 @@ impl SidebarChromeContext<'_> {
     fn paint_new_query_button(&self, ui: &mut egui::Ui, button_rect: Rect, hovered: bool) {
         ui.painter().rect_filled(
             button_rect,
-            Rounding::same(RADIUS_SM),
+            CornerRadius::same(RADIUS_SM as u8),
             if hovered {
                 self.theme.surface_hover
             } else {
@@ -135,7 +145,7 @@ impl SidebarChromeContext<'_> {
         );
         ui.painter().rect_stroke(
             button_rect,
-            Rounding::same(RADIUS_SM),
+            CornerRadius::same(RADIUS_SM as u8),
             Stroke::new(
                 STROKE_THIN,
                 if hovered {
@@ -143,8 +153,7 @@ impl SidebarChromeContext<'_> {
                 } else {
                     self.theme.border_subtle
                 },
-            ),
-        );
+            ), egui::StrokeKind::Inside);
         let left_center = Pos2::new(button_rect.left() + SPACE_MD, button_rect.center().y);
         ui.painter().text(
             left_center,
@@ -200,8 +209,8 @@ impl SidebarChromeContext<'_> {
             let chip_w = galley.size().x + chip_pad_x * 2.0;
             let chip_h = galley.size().y + chip_pad_y * 2.0;
             let chip = Rect::from_min_size(Pos2::new(x, center_y - chip_h * 0.5), vec2(chip_w, chip_h));
-            painter.rect_filled(chip, Rounding::same(4.0), theme.surface_elevated);
-            painter.rect_stroke(chip, Rounding::same(4.0), Stroke::new(1.0, theme.border_subtle));
+            painter.rect_filled(chip, CornerRadius::same(4.0 as u8), theme.surface_elevated);
+            painter.rect_stroke(chip, CornerRadius::same(4.0 as u8), Stroke::new(1.0, theme.border_subtle), egui::StrokeKind::Inside);
             painter.galley(
                 Pos2::new(chip.left() + chip_pad_x, center_y - galley.size().y * 0.5),
                 std::sync::Arc::clone(galley),

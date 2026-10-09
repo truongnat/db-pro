@@ -3,7 +3,7 @@ use crate::tokens::{CARD_INNER_PAD, SPACE_XS};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Align, Button, Color32, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Rounding, Sense, Stroke,
+    Align, Button, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Sense, Stroke,
     TextEdit, Ui,
 };
 use lucide_icons::Icon;
@@ -49,7 +49,7 @@ pub fn icon_text(icon: Icon, label: &str, color: Color32) -> LayoutJob {
 pub fn panel_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(12.0, 7.0),
+        inner_margin: Margin::symmetric(12.0 as i8, 7.0 as i8),
         stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
@@ -59,7 +59,7 @@ pub fn panel_frame(theme: DbProTheme) -> Frame {
 pub fn sidebar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(10.0, 7.0),
+        inner_margin: Margin::symmetric(10.0 as i8, 7.0 as i8),
         outer_margin: Margin::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
@@ -71,7 +71,7 @@ pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
     // instead of a white activity rail beside a gray navigator.
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(5.0, 8.0),
+        inner_margin: Margin::symmetric(5.0 as i8, 8.0 as i8),
         outer_margin: Margin::ZERO,
         stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
@@ -84,13 +84,13 @@ pub fn toolbar_frame(theme: DbProTheme) -> Frame {
         // Horizontal inset is owned by CentralPanel (`SHELL_SPLIT_INSET`) so the
         // toolbar lines up with the sidebar content across the splitter.
         inner_margin: Margin {
-            left: 0.0,
-            right: 0.0,
-            top: SPACE_XS,
-            bottom: SPACE_XS,
+            left: 0.0 as i8,
+            right: 0.0 as i8,
+            top: (SPACE_XS) as i8,
+            bottom: (SPACE_XS) as i8,
         },
         stroke: Stroke::new(1.0, theme.border_subtle),
-        rounding: Rounding::ZERO,
+        corner_radius: CornerRadius::ZERO,
         ..Default::default()
     }
 }
@@ -102,12 +102,12 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
         } else {
             Color32::TRANSPARENT
         },
-        inner_margin: Margin::symmetric(10.0, 5.0),
-        rounding: Rounding {
-            nw: 6.0,
-            ne: 6.0,
-            sw: 0.0,
-            se: 0.0,
+        inner_margin: Margin::symmetric(10.0 as i8, 5.0 as i8),
+        corner_radius: CornerRadius {
+            nw: 6.0 as u8,
+            ne: 6.0 as u8,
+            sw: 0.0 as u8,
+            se: 0.0 as u8,
         },
         stroke: if active {
             Stroke::new(1.0, theme.border_subtle)
@@ -140,8 +140,11 @@ pub fn tab_button(ui: &mut Ui, theme: DbProTheme, icon: Option<Icon>, label: &st
         }
     }
     let pad = egui::vec2(11.0, 7.0);
-    let probe = ui.fonts(|f| f.layout_job(job(icon, label, theme.text_secondary)));
+    let probe = ui.fonts_mut(|f| f.layout_job(job(icon, label, theme.text_secondary)));
     let (rect, resp) = ui.allocate_exact_size(probe.size() + pad * 2.0, Sense::click());
+    resp.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, ui.is_enabled(), selected, label)
+    });
     let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
 
     let color = if selected || resp.hovered() {
@@ -152,7 +155,7 @@ pub fn tab_button(ui: &mut Ui, theme: DbProTheme, icon: Option<Icon>, label: &st
     if selected || resp.hovered() {
         ui.painter().rect_filled(rect.shrink(1.0), 6.0, theme.surface_hover);
     }
-    let galley = ui.fonts(|f| f.layout_job(job(icon, label, color)));
+    let galley = ui.fonts_mut(|f| f.layout_job(job(icon, label, color)));
     ui.painter().galley(rect.min + pad, galley, color);
     resp
 }
@@ -162,9 +165,9 @@ const LEGACY_CARD_FRAME_RADIUS: f32 = 8.0;
 pub fn card_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_elevated,
-        inner_margin: Margin::same(CARD_INNER_PAD),
+        inner_margin: Margin::same(CARD_INNER_PAD as i8),
         outer_margin: Margin::ZERO,
-        rounding: Rounding::same(LEGACY_CARD_FRAME_RADIUS),
+        corner_radius: CornerRadius::same(LEGACY_CARD_FRAME_RADIUS as u8),
         stroke: Stroke::new(CARD_FRAME_STROKE_WIDTH, theme.border_subtle),
         ..Default::default()
     }
@@ -177,11 +180,11 @@ pub fn agent_message_frame(theme: DbProTheme, user_message: bool) -> Frame {
         } else {
             Color32::TRANSPARENT
         },
-        inner_margin: Margin::symmetric(10.0, 8.0),
-        rounding: if user_message {
-            Rounding::same(10.0)
+        inner_margin: Margin::symmetric(10.0 as i8, 8.0 as i8),
+        corner_radius: if user_message {
+            CornerRadius::same(10.0 as u8)
         } else {
-            Rounding::ZERO
+            CornerRadius::ZERO
         },
         stroke: Stroke::NONE,
         ..Default::default()
@@ -193,12 +196,12 @@ pub fn editor_frame(theme: DbProTheme) -> Frame {
         fill: theme.surface_editor,
         // Horizontal inset owned by the shell; keep a tight vertical breath only.
         inner_margin: Margin {
-            left: 0.0,
-            right: 0.0,
-            top: SPACE_XS,
-            bottom: SPACE_XS,
+            left: 0.0 as i8,
+            right: 0.0 as i8,
+            top: (SPACE_XS) as i8,
+            bottom: (SPACE_XS) as i8,
         },
-        rounding: Rounding::ZERO,
+        corner_radius: CornerRadius::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
     }
@@ -208,12 +211,12 @@ pub fn grid_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_editor,
         inner_margin: Margin {
-            left: 0.0,
-            right: 0.0,
-            top: SPACE_XS,
-            bottom: SPACE_XS,
+            left: 0.0 as i8,
+            right: 0.0 as i8,
+            top: (SPACE_XS) as i8,
+            bottom: (SPACE_XS) as i8,
         },
-        rounding: Rounding::ZERO,
+        corner_radius: CornerRadius::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
     }
@@ -244,15 +247,17 @@ pub fn empty_state(ui: &mut Ui, icon: Icon, title: &str, description: &str, them
 /// drifting into a different field style.
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
 pub fn input(ui: &mut Ui, value: &mut String, hint: &str, width: f32, theme: DbProTheme) -> Response {
-    ui.add(
+    let response = ui.add(
         TextEdit::singleline(value)
             .hint_text(RichText::new(hint).color(theme.text_muted))
             .desired_width(width)
             .min_size(egui::vec2(width, 32.0))
-            .margin(Margin::symmetric(8.0, 5.0))
+            .margin(Margin::symmetric(8.0 as i8, 5.0 as i8))
             .vertical_align(Align::Center)
             .text_color(theme.text_primary),
-    )
+    );
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), hint));
+    response
 }
 
 pub fn input_full_width(ui: &mut Ui, value: &mut String, hint: &str, theme: DbProTheme) -> Response {
@@ -263,16 +268,18 @@ pub fn input_full_width(ui: &mut Ui, value: &mut String, hint: &str, theme: DbPr
 
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
 pub fn password_input(ui: &mut Ui, value: &mut String, hint: &str, width: f32, theme: DbProTheme) -> Response {
-    ui.add(
+    let response = ui.add(
         TextEdit::singleline(value)
             .password(true)
             .hint_text(RichText::new(hint).color(theme.text_muted))
             .desired_width(width)
             .min_size(egui::vec2(width, 32.0))
-            .margin(Margin::symmetric(8.0, 5.0))
+            .margin(Margin::symmetric(8.0 as i8, 5.0 as i8))
             .vertical_align(Align::Center)
             .text_color(theme.text_primary),
-    )
+    );
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), hint));
+    response
 }
 
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
@@ -285,7 +292,7 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
     };
     let button = Button::new(icon_layout(icon, label, text_color))
         .min_size(egui::vec2(width, 26.0))
-        .rounding(Rounding::same(6.0))
+        .corner_radius(CornerRadius::same(6.0 as u8))
         .stroke(Stroke::NONE);
     let response = if active {
         ui.add(button.fill(theme.surface_active))
@@ -297,7 +304,8 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
             egui::pos2(response.rect.left() + 1.0, response.rect.top() + 4.0),
             egui::pos2(response.rect.left() + 3.0, response.rect.bottom() - 4.0),
         );
-        ui.painter().rect_filled(pill_rect, Rounding::same(1.0), theme.accent);
+        ui.painter()
+            .rect_filled(pill_rect, CornerRadius::same(1.0 as u8), theme.accent);
     }
     response
 }
@@ -317,7 +325,7 @@ pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
     )
 }
 
@@ -327,7 +335,7 @@ pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
     )
 }
 
@@ -337,7 +345,7 @@ pub fn secondary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProThe
             .fill(theme.surface_hover)
             .stroke(Stroke::NONE)
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
     )
 }
 
@@ -347,7 +355,7 @@ pub fn secondary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: D
             .fill(theme.surface_hover)
             .stroke(Stroke::NONE)
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
     )
 }
 
@@ -355,7 +363,7 @@ pub fn ghost_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) 
     ui.add(
         Button::new(label.into().color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 26.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -364,7 +372,7 @@ pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbPro
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 26.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -374,7 +382,7 @@ pub fn menu_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProT
     ui.add_sized(
         [ui.available_width(), 28.0],
         Button::new(icon_layout(icon, label, theme.text_primary))
-            .rounding(Rounding::same(crate::tokens::RADIUS_SM))
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_SM as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -383,7 +391,7 @@ pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
     ui.add(
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -393,7 +401,7 @@ pub fn compact_button_enabled(ui: &mut Ui, label: impl Into<RichText>, enabled: 
         enabled,
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -402,7 +410,7 @@ pub fn compact_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
+            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -417,7 +425,7 @@ pub fn compact_button_with_icon_enabled(
         enabled,
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(7.0))
+            .corner_radius(CornerRadius::same(7.0 as u8))
             .stroke(Stroke::NONE),
     )
 }
@@ -428,7 +436,7 @@ pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme)
             .fill(theme.danger)
             .stroke(Stroke::new(1.0, theme.danger))
             .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(8.0)),
+            .corner_radius(CornerRadius::same(8.0 as u8)),
     )
 }
 
@@ -438,7 +446,7 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, active: bool, theme: DbProTheme) -> 
         .color(if active { theme.accent } else { theme.text_muted });
     let button = Button::new(text)
         .min_size(egui::vec2(32.0, 30.0))
-        .rounding(Rounding::same(8.0))
+        .corner_radius(CornerRadius::same(8.0 as u8))
         .stroke(Stroke::NONE);
     if active {
         ui.add(button.fill(theme.surface_active))
@@ -455,7 +463,7 @@ pub fn compact_icon_button(ui: &mut Ui, icon: Icon, theme: DbProTheme) -> Respon
                 .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
                 .color(theme.text_muted),
         )
-        .rounding(Rounding::same(7.0))
+        .corner_radius(CornerRadius::same(7.0 as u8))
         .stroke(Stroke::NONE),
     )
 }
@@ -469,7 +477,7 @@ pub fn compact_icon_button_enabled(ui: &mut Ui, icon: Icon, enabled: bool, theme
                 .color(theme.text_muted),
         )
         .min_size(egui::vec2(24.0, 24.0))
-        .rounding(Rounding::same(7.0))
+        .corner_radius(CornerRadius::same(7.0 as u8))
         .stroke(Stroke::NONE),
     )
 }
@@ -480,7 +488,7 @@ pub fn badge(ui: &mut Ui, text: &str, fill: Color32, foreground: Color32) {
         .layout_no_wrap(text.to_owned(), egui::FontId::proportional(10.0), foreground);
     let size = galley.size() + egui::vec2(12.0, 4.0);
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-    ui.painter().rect_filled(rect, Rounding::same(7.0), fill);
+    ui.painter().rect_filled(rect, CornerRadius::same(7.0 as u8), fill);
     ui.painter().galley(rect.min + egui::vec2(6.0, 2.0), galley, foreground);
 }
 
@@ -568,7 +576,7 @@ pub fn progress_bar(ui: &mut Ui, progress: f32, theme: DbProTheme) -> egui::Resp
     let height = 6.0;
     let width = ui.available_width().max(80.0);
     let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
-    let rounding = Rounding::same(height / 2.0);
+    let rounding = CornerRadius::same((height / 2.0) as u8);
 
     ui.painter().rect_filled(rect, rounding, theme.surface_hover);
     let fill_width = rect.width() * progress;
@@ -581,11 +589,11 @@ pub fn progress_bar(ui: &mut Ui, progress: f32, theme: DbProTheme) -> egui::Resp
         let clipped = fill_rect.intersect(rect);
         ui.painter().rect_filled(
             egui::Rect::from_min_size(clipped.min, egui::vec2(clipped.width(), clipped.height() * 0.5)),
-            Rounding {
+            CornerRadius {
                 nw: rounding.nw,
                 ne: rounding.ne,
-                sw: 0.0,
-                se: 0.0,
+                sw: 0,
+                se: 0,
             },
             top_color.linear_multiply(0.65),
         );
@@ -602,7 +610,7 @@ pub fn skeleton(ui: &mut Ui, width: f32, height: f32, reduce_motion: bool, theme
     let width = width.max(8.0);
     let height = height.max(8.0);
     let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
-    let rounding = Rounding::same(4.0);
+    let rounding = CornerRadius::same(4.0 as u8);
     ui.painter().rect_filled(rect, rounding, theme.surface_hover);
 
     if !reduce_motion {
@@ -656,9 +664,13 @@ pub fn switch(ui: &mut Ui, value: &mut bool, label: &str, reduce_motion: bool, t
     let track_color = if *value { theme.accent } else { theme.surface_active };
     let track_stroke = Stroke::new(1.0, if *value { theme.accent } else { theme.border_default });
     ui.painter()
-        .rect_filled(track_rect, Rounding::same(track_height / 2.0), track_color);
-    ui.painter()
-        .rect_stroke(track_rect, Rounding::same(track_height / 2.0), track_stroke);
+        .rect_filled(track_rect, CornerRadius::same((track_height / 2.0) as u8), track_color);
+    ui.painter().rect_stroke(
+        track_rect,
+        CornerRadius::same((track_height / 2.0) as u8),
+        track_stroke,
+        egui::StrokeKind::Inside,
+    );
 
     let thumb_left = track_rect.left() + 2.0 + animated * (track_width - thumb_size - 4.0);
     let thumb_rect = egui::Rect::from_min_size(
@@ -704,9 +716,13 @@ pub fn segmented_control(
 
     let (bar_rect, _) = ui.allocate_exact_size(egui::vec2(total_width, height), egui::Sense::hover());
     ui.painter()
-        .rect_filled(bar_rect, Rounding::same(7.0), theme.surface_panel);
-    ui.painter()
-        .rect_stroke(bar_rect, Rounding::same(7.0), Stroke::new(1.0, theme.border_subtle));
+        .rect_filled(bar_rect, CornerRadius::same(7.0 as u8), theme.surface_panel);
+    ui.painter().rect_stroke(
+        bar_rect,
+        CornerRadius::same(7.0 as u8),
+        Stroke::new(1.0, theme.border_subtle),
+        egui::StrokeKind::Inside,
+    );
 
     let mut clicked = None;
     for (index, option) in options.iter().enumerate() {
@@ -722,9 +738,13 @@ pub fn segmented_control(
             // reduce_motion is set.
             let _ = reduce_motion;
             ui.painter()
-                .rect_filled(inner, Rounding::same(5.0), theme.surface_active);
-            ui.painter()
-                .rect_stroke(inner, Rounding::same(5.0), Stroke::new(1.0, theme.border_default));
+                .rect_filled(inner, CornerRadius::same(5.0 as u8), theme.surface_active);
+            ui.painter().rect_stroke(
+                inner,
+                CornerRadius::same(5.0 as u8),
+                Stroke::new(1.0, theme.border_default),
+                egui::StrokeKind::Inside,
+            );
         }
         let text_color = if is_selected {
             theme.text_primary
@@ -761,10 +781,14 @@ pub fn kbd_chip(ui: &mut Ui, label: &str, theme: DbProTheme) -> egui::Response {
         .layout_no_wrap(label.to_owned(), egui::FontId::monospace(11.0), theme.text_secondary);
     let size = galley.size() + egui::vec2(8.0, 3.0);
     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
-    let rounding = Rounding::same(4.0);
+    let rounding = CornerRadius::same(4.0 as u8);
     ui.painter().rect_filled(rect, rounding, theme.surface_elevated);
-    ui.painter()
-        .rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_default));
+    ui.painter().rect_stroke(
+        rect,
+        rounding,
+        Stroke::new(1.0, theme.border_default),
+        egui::StrokeKind::Inside,
+    );
     ui.painter()
         .galley(rect.min + egui::vec2(4.0, 1.5), galley, theme.text_secondary);
     response
@@ -787,10 +811,14 @@ pub fn tag_chip(ui: &mut Ui, label: &str, removable: bool, theme: DbProTheme) ->
         galley.size().y + padding.y * 2.0,
     );
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-    let rounding = Rounding::same(11.0);
+    let rounding = CornerRadius::same(11.0 as u8);
     ui.painter().rect_filled(rect, rounding, theme.surface_elevated);
-    ui.painter()
-        .rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_subtle));
+    ui.painter().rect_stroke(
+        rect,
+        rounding,
+        Stroke::new(1.0, theme.border_subtle),
+        egui::StrokeKind::Inside,
+    );
     let text_pos = egui::pos2(rect.left() + padding.x, rect.center().y - galley.size().y / 2.0);
     ui.painter().galley(text_pos, galley, theme.text_secondary);
 
@@ -884,10 +912,14 @@ pub fn toast(ui: &mut Ui, level: UiLevel, message: &str, theme: DbProTheme) -> e
     let size = egui::vec2(max_width, galley.size().y + 18.0);
     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
 
-    let rounding = Rounding::same(8.0);
+    let rounding = CornerRadius::same(8.0 as u8);
     ui.painter().rect_filled(rect, rounding, theme.surface_floating);
-    ui.painter()
-        .rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_subtle));
+    ui.painter().rect_stroke(
+        rect,
+        rounding,
+        Stroke::new(1.0, theme.border_subtle),
+        egui::StrokeKind::Inside,
+    );
     // Subtle elevation shadow.
     ui.painter().rect_filled(
         rect.translate(egui::vec2(0.0, 2.0)),
@@ -899,11 +931,11 @@ pub fn toast(ui: &mut Ui, level: UiLevel, message: &str, theme: DbProTheme) -> e
     let strip_rect = egui::Rect::from_min_size(rect.min, egui::vec2(strip_width, rect.height()));
     ui.painter().rect_filled(
         strip_rect,
-        Rounding {
+        CornerRadius {
             nw: rounding.nw,
             sw: rounding.sw,
-            ne: 0.0,
-            se: 0.0,
+            ne: 0,
+            se: 0,
         },
         accent,
     );

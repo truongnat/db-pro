@@ -43,10 +43,13 @@ impl<'a> PaletteSurfaceContext<'a> {
                     TextEdit::singleline(&mut self.palette.query)
                         .hint_text(RichText::new("Type a command or search…").color(self.theme.text_muted))
                         .desired_width(ui.available_width())
-                        .margin(egui::Margin::symmetric(12.0, 8.0))
+                        .margin(egui::Margin::symmetric(12.0 as i8, 8.0 as i8))
                         .font(egui::FontId::proportional(13.5))
                         .text_color(self.theme.text_primary),
                 );
+                response.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), title)
+                });
                 if self.palette.focus_requested {
                     response.request_focus();
                     self.palette.focus_requested = false;
@@ -97,6 +100,14 @@ impl<'a> PaletteSurfaceContext<'a> {
                         };
                         let (rect, item_resp) =
                             ui.allocate_exact_size(egui::vec2(ui.available_width(), 44.0), egui::Sense::click());
+                        item_resp.widget_info(|| {
+                            egui::WidgetInfo::selected(
+                                egui::WidgetType::SelectableLabel,
+                                ui.is_enabled(),
+                                selected,
+                                &item.title,
+                            )
+                        });
                         if item_resp.hovered() {
                             self.palette.selected = index;
                         }
@@ -106,7 +117,7 @@ impl<'a> PaletteSurfaceContext<'a> {
                         }
 
                         if selected || item_resp.hovered() {
-                            ui.painter().rect_filled(rect, egui::Rounding::same(6.0), item_fill);
+                            ui.painter().rect_filled(rect, egui::CornerRadius::same(6.0 as u8), item_fill);
                         }
 
                         // Icon
@@ -191,13 +202,13 @@ mod tests {
         for theme in [DbProTheme::light(), DbProTheme::dark()] {
             let ctx = egui::Context::default();
             theme.apply(&ctx);
-            let output = ctx.run(Default::default(), |ctx| {
+            let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     let _ = scope_filter_label(ui, theme, true, "Schema");
                 });
             });
 
-            let selected_foreground = ctx.style().visuals.selection.stroke.color;
+            let selected_foreground = ctx.global_style().visuals.selection.stroke.color;
             let actual_foreground = output.shapes.iter().find_map(|clipped| match &clipped.shape {
                 egui::Shape::Text(text) if text.galley.job.text == "Schema" => {
                     text.galley.job.sections.first().map(|section| section.format.color)

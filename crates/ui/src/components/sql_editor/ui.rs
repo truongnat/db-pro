@@ -47,10 +47,10 @@ impl<'a> SqlEditorToolbar<'a> {
     pub fn show(self, ui: &mut Ui) -> Option<SqlEditorAction> {
         let mut triggered = None;
 
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_subtle))
-            .rounding(TOOLBAR_ROUNDING)
+            .corner_radius(TOOLBAR_ROUNDING)
             .inner_margin(TOOLBAR_MARGIN);
 
         frame.show(ui, |ui| {

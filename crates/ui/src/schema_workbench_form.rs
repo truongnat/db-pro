@@ -673,10 +673,10 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
     let mut move_up_idx = None;
     let mut move_down_idx = None;
 
-    egui::Frame::none()
+    egui::Frame::NONE
         .fill(context.theme.surface_panel)
-        .rounding(egui::Rounding::same(6.0))
-        .inner_margin(egui::Margin::same(8.0))
+        .corner_radius(egui::CornerRadius::same(6.0 as u8))
+        .inner_margin(egui::Margin::same(8.0 as i8))
         .show(ui, |ui| {
             // Header
             ui.horizontal(|ui| {
@@ -843,10 +843,10 @@ pub(super) fn draw_workbench_preview(
     }
 
     ui.add_space(SPACE_SM);
-    egui::Frame::none()
+    egui::Frame::NONE
         .fill(context.theme.surface_panel)
-        .rounding(egui::Rounding::same(6.0))
-        .inner_margin(egui::Margin::same(10.0))
+        .corner_radius(egui::CornerRadius::same(6.0 as u8))
+        .inner_margin(egui::Margin::same(10.0 as i8))
         .show(ui, |ui| {
             if sql.trim().is_empty() {
                 ui.label(

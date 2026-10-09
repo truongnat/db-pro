@@ -2,7 +2,7 @@
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::*;
-use egui::{Color32, FontFamily, FontId, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
+use egui::{Color32, FontFamily, FontId, Pos2, Rect, RichText, CornerRadius, Stroke, Ui, Vec2};
 
 impl DbProApp {
     pub(super) fn draw_gallery_rendering_section(&mut self, ui: &mut Ui) {
@@ -119,7 +119,7 @@ impl DbProApp {
                 );
                 let (rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 38.0), egui::Sense::hover());
                 let shape_rect = Rect::from_center_size(rect.center(), Vec2::splat(28.0));
-                ui.painter().rect_stroke(shape_rect, Rounding::same(6.0), Stroke::new(width, self.theme.accent));
+                ui.painter().rect_stroke(shape_rect, CornerRadius::same(6.0 as u8), Stroke::new(width, self.theme.accent), egui::StrokeKind::Inside);
                 let (rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 38.0), egui::Sense::hover());
                 ui.painter()
                     .circle_stroke(rect.center(), 13.0, Stroke::new(width, self.theme.accent));
@@ -197,8 +197,8 @@ impl DbProApp {
         ui.horizontal(|ui| {
             let theme = self.theme;
             let (rect, response) = ui.allocate_exact_size(Vec2::new(180.0, 72.0), egui::Sense::hover());
-            ui.painter().rect_filled(rect, Rounding::same(6.0), theme.surface_panel);
-            ui.painter().rect_stroke(rect, Rounding::same(6.0), Stroke::new(1.0, theme.border_subtle));
+            ui.painter().rect_filled(rect, CornerRadius::same(6.0 as u8), theme.surface_panel);
+            ui.painter().rect_stroke(rect, CornerRadius::same(6.0 as u8), Stroke::new(1.0, theme.border_subtle), egui::StrokeKind::Inside);
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
@@ -209,8 +209,8 @@ impl DbProApp {
             response.on_hover_text("Tooltip sample: high contrast text over a floating surface.");
 
             let (rect, _) = ui.allocate_exact_size(Vec2::new(180.0, 72.0), egui::Sense::hover());
-            ui.painter().rect_filled(rect, Rounding::same(6.0), theme.surface_elevated);
-            ui.painter().rect_stroke(rect, Rounding::same(6.0), Stroke::new(1.0, theme.border_focus));
+            ui.painter().rect_filled(rect, CornerRadius::same(6.0 as u8), theme.surface_elevated);
+            ui.painter().rect_stroke(rect, CornerRadius::same(6.0 as u8), Stroke::new(1.0, theme.border_focus), egui::StrokeKind::Inside);
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
@@ -220,8 +220,8 @@ impl DbProApp {
             );
 
             let (rect, _) = ui.allocate_exact_size(Vec2::new(180.0, 72.0), egui::Sense::hover());
-            ui.painter().rect_filled(rect, Rounding::same(6.0), theme.surface_hover);
-            ui.painter().rect_stroke(rect, Rounding::same(6.0), Stroke::new(1.0, theme.border_default));
+            ui.painter().rect_filled(rect, CornerRadius::same(6.0 as u8), theme.surface_hover);
+            ui.painter().rect_stroke(rect, CornerRadius::same(6.0 as u8), Stroke::new(1.0, theme.border_default), egui::StrokeKind::Inside);
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
@@ -235,17 +235,17 @@ impl DbProApp {
 
     fn draw_rendering_modal_overlay(&self, ui: &mut Ui) {
         let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width().min(620.0), 120.0), egui::Sense::hover());
-        ui.painter().rect_filled(rect, Rounding::same(8.0), self.theme.surface_app);
+        ui.painter().rect_filled(rect, CornerRadius::same(8.0 as u8), self.theme.surface_app);
         ui.painter().rect_filled(
             rect.shrink(1.0),
-            Rounding::same(8.0),
+            CornerRadius::same(8.0 as u8),
             Color32::from_black_alpha(104),
         );
         let modal = Rect::from_center_size(rect.center(), Vec2::new(260.0, 80.0));
         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-        ui.painter().rect_filled(modal.translate(Vec2::new(0.0, 3.0)), Rounding::same(8.0), Color32::from_black_alpha(90));
-        ui.painter().rect_filled(modal, Rounding::same(8.0), self.theme.surface_panel);
-        ui.painter().rect_stroke(modal, Rounding::same(8.0), Stroke::new(1.0, self.theme.border_default));
+        ui.painter().rect_filled(modal.translate(Vec2::new(0.0, 3.0)), CornerRadius::same(8.0 as u8), Color32::from_black_alpha(90));
+        ui.painter().rect_filled(modal, CornerRadius::same(8.0 as u8), self.theme.surface_panel);
+        ui.painter().rect_stroke(modal, CornerRadius::same(8.0 as u8), Stroke::new(1.0, self.theme.border_default), egui::StrokeKind::Inside);
         ui.painter().text(
             modal.center(),
             egui::Align2::CENTER_CENTER,
@@ -270,22 +270,22 @@ fn draw_blend_row(
             if linear_reference {
                 ui.painter().rect_filled(
                     rect,
-                    Rounding::ZERO,
+                    CornerRadius::ZERO,
                     linear_blend_reference(background, *foreground, *alpha),
                 );
             } else {
                 ui.painter().rect_filled(
                     rect,
-                    Rounding::ZERO,
+                    CornerRadius::ZERO,
                     Color32::from_rgb(background[0], background[1], background[2]),
                 );
                 ui.painter().rect_filled(
                     rect,
-                    Rounding::ZERO,
+                    CornerRadius::ZERO,
                     Color32::from_rgba_unmultiplied(foreground[0], foreground[1], foreground[2], *alpha),
                 );
             }
-            ui.painter().rect_stroke(rect, Rounding::ZERO, Stroke::new(1.0, Color32::from_gray(96)));
+            ui.painter().rect_stroke(rect, CornerRadius::ZERO, Stroke::new(1.0, Color32::from_gray(96)), egui::StrokeKind::Inside);
         }
     });
 }

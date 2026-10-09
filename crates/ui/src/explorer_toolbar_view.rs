@@ -35,7 +35,7 @@ impl ExplorerToolbarContext<'_> {
                     .clicked()
                     {
                         refresh_schema = true;
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
                 if refresh_button.clicked() || refresh_schema {
@@ -66,15 +66,13 @@ impl ExplorerToolbarContext<'_> {
             );
         }
         if button.clicked() {
-            ui.memory_mut(|memory| memory.toggle_popup(popup_id));
+            egui::Popup::toggle_id(ui.ctx(), popup_id);
         }
         let filter = &mut *self.filter;
-        egui::popup::popup_below_widget(
-            ui,
-            popup_id,
-            &button,
-            egui::popup::PopupCloseBehavior::CloseOnClickOutside,
-            |ui| {
+        egui::Popup::new(popup_id, ui.ctx().clone(), &button, ui.layer_id())
+            .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+            .open_memory(None)
+            .show(|ui| {
                 ui.set_min_width(180.0);
                 ui.set_max_width(220.0);
                 ui.label(

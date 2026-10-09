@@ -3,7 +3,9 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::tokens::font_icon;
 use crate::DbProTheme;
-use egui::{Align2, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{
+    Align2, CornerRadius, FontId, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
+};
 use lucide_icons::Icon;
 
 use super::{config, handler, AgentPlan, AgentSqlActionKind, AgentTaskItem};
@@ -47,13 +49,13 @@ impl<'a> AgentThinking<'a> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let is_expanded = *self.expanded;
         let header = handler::thinking_header(self.is_active, self.duration, self.step_count);
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-            .rounding(Rounding::same(config::THINKING_RADIUS))
+            .corner_radius(CornerRadius::same(config::THINKING_RADIUS as u8))
             .inner_margin(egui::Margin::symmetric(
-                config::THINKING_HORIZONTAL_PADDING,
-                config::THINKING_VERTICAL_PADDING,
+                config::THINKING_HORIZONTAL_PADDING as i8,
+                config::THINKING_VERTICAL_PADDING as i8,
             ));
 
         let frame_resp = frame.show(ui, |ui| {
@@ -77,14 +79,15 @@ impl<'a> AgentThinking<'a> {
             if header_resp.has_focus() {
                 ui.painter().rect_stroke(
                     header_rect,
-                    Rounding::same(config::THINKING_HEADER_RADIUS),
+                    CornerRadius::same(config::THINKING_HEADER_RADIUS as u8),
                     Stroke::new(1.5, self.theme.border_strong),
+                    egui::StrokeKind::Inside,
                 );
             }
             if header_resp.hovered() {
                 ui.painter().rect_filled(
                     header_rect,
-                    Rounding::same(config::THINKING_HEADER_RADIUS),
+                    CornerRadius::same(config::THINKING_HEADER_RADIUS as u8),
                     self.theme.surface_hover,
                 );
             }
@@ -128,11 +131,11 @@ impl<'a> AgentThinking<'a> {
             handler::toggle_expanded(self.expanded, should_toggle);
             if is_expanded {
                 ui.add_space(config::THINKING_BODY_GAP);
-                let body_frame = egui::Frame::none()
+                let body_frame = egui::Frame::NONE
                     .fill(self.theme.surface_editor)
                     .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-                    .rounding(Rounding::same(config::THINKING_BODY_RADIUS))
-                    .inner_margin(egui::Margin::same(config::THINKING_BODY_PADDING));
+                    .corner_radius(CornerRadius::same(config::THINKING_BODY_RADIUS as u8))
+                    .inner_margin(egui::Margin::same(config::THINKING_BODY_PADDING as i8));
                 body_frame.show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.label(
@@ -156,11 +159,11 @@ impl<'a> AgentPlan<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let (completed, total, progress) = handler::plan_progress(self.tasks);
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_default))
-            .rounding(Rounding::same(config::PLAN_RADIUS))
-            .inner_margin(egui::Margin::same(config::PLAN_PADDING));
+            .corner_radius(CornerRadius::same(config::PLAN_RADIUS as u8))
+            .inner_margin(egui::Margin::same(config::PLAN_PADDING as i8));
 
         let frame_resp = frame.show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -187,7 +190,7 @@ impl<'a> AgentPlan<'a> {
             );
             ui.painter().rect_filled(
                 bar_rect,
-                Rounding::same(config::PLAN_PROGRESS_RADIUS),
+                CornerRadius::same(config::PLAN_PROGRESS_RADIUS as u8),
                 self.theme.surface_hover,
             );
             if progress > 0.0 {
@@ -195,7 +198,7 @@ impl<'a> AgentPlan<'a> {
                     Rect::from_min_size(bar_rect.min, Vec2::new(bar_rect.width() * progress, bar_rect.height()));
                 ui.painter().rect_filled(
                     filled_rect,
-                    Rounding::same(config::PLAN_PROGRESS_RADIUS),
+                    CornerRadius::same(config::PLAN_PROGRESS_RADIUS as u8),
                     self.theme.accent,
                 );
             }

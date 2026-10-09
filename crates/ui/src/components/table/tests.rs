@@ -37,7 +37,7 @@ fn table_builder_keeps_the_default_row_height_and_options() {
 fn cell_clip_preserves_a_badges_outer_border() {
     let ctx = egui::Context::default();
     DbProTheme::install_fonts(&ctx);
-    let _ = ctx.run(Default::default(), |ctx| {
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             let columns = [TableColumn::fixed("Key", 90.0)];
             Table::new(&columns, DbProTheme::light()).row_height(34.0).show(

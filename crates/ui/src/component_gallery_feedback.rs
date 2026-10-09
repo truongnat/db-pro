@@ -445,7 +445,7 @@ impl DbProApp {
                     ui.add_space(8.0);
                     Skeleton::new(theme).size(120.0, 12.0).show(ui);
                     ui.add_space(8.0);
-                    Skeleton::new(theme).size(180.0, 28.0).rounding(8.0).show(ui);
+                    Skeleton::new(theme).size(180.0, 28.0).corner_radius(8.0).show(ui);
                 }
                 1 => {
                     EmptyState::new(

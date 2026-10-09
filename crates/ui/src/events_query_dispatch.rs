@@ -12,7 +12,7 @@ impl DbProApp {
         if self.handle_document_shortcuts(ctx) {
             return;
         }
-        let text_input_has_focus = ctx.wants_keyboard_input();
+        let text_input_has_focus = ctx.egui_wants_keyboard_input();
         if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
             return;
         }
@@ -51,6 +51,13 @@ impl DbProApp {
     }
 
     fn handle_unfocused_shortcuts(&mut self, ctx: &egui::Context, text_input_has_focus: bool) -> bool {
+        // Debug-build developer tools toggle; must work even while a text field
+        // holds focus so the inspector can be closed from anywhere.
+        #[cfg(debug_assertions)]
+        if ctx.input(|i| settings_model::match_shortcut_token(i, "mod+shift+i")) {
+            self.dev_tools.open = !self.dev_tools.open;
+            return true;
+        }
         if text_input_has_focus {
             return false;
         }

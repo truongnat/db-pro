@@ -4,7 +4,8 @@
 use crate::tokens::{font_icon, RADIUS_MD, RADIUS_SM};
 use crate::DbProTheme;
 use egui::{
-    Align2, Color32, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
+    Align2, Color32, CornerRadius, FontId, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo,
+    WidgetType,
 };
 use lucide_icons::Icon;
 
@@ -60,9 +61,13 @@ impl<'a> ContextChip<'a> {
         };
 
         ui.painter()
-            .rect_filled(rect, Rounding::same(config::CHIP_RADIUS), fill);
-        ui.painter()
-            .rect_stroke(rect, Rounding::same(config::CHIP_RADIUS), stroke);
+            .rect_filled(rect, CornerRadius::same(config::CHIP_RADIUS as u8), fill);
+        ui.painter().rect_stroke(
+            rect,
+            CornerRadius::same(config::CHIP_RADIUS as u8),
+            stroke,
+            egui::StrokeKind::Inside,
+        );
         ui.painter().galley(
             handler::context_chip_icon_pos(rect, icon_size),
             icon_galley,
@@ -124,12 +129,16 @@ impl<'a> StatusBadge<'a> {
         let size = handler::status_badge_size(text_galley.size());
         let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
 
-        ui.painter()
-            .rect_filled(rect, Rounding::same(rect.height() * 0.5), palette.background);
+        ui.painter().rect_filled(
+            rect,
+            CornerRadius::same((rect.height() * 0.5) as u8),
+            palette.background,
+        );
         ui.painter().rect_stroke(
             rect,
-            Rounding::same(rect.height() * 0.5),
+            CornerRadius::same((rect.height() * 0.5) as u8),
             Stroke::new(1.0, palette.dot.linear_multiply(0.35)),
+            egui::StrokeKind::Inside,
         );
         ui.painter().circle_filled(
             handler::status_badge_dot_pos(rect),
@@ -188,11 +197,11 @@ impl<'a> ToolCall<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let is_expanded = *self.expanded;
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_default))
-            .rounding(Rounding::same(RADIUS_MD))
-            .inner_margin(egui::Margin::same(0.0));
+            .corner_radius(CornerRadius::same(RADIUS_MD as u8))
+            .inner_margin(egui::Margin::same(0.0 as i8));
 
         frame
             .show(ui, |ui| {
@@ -219,13 +228,17 @@ impl<'a> ToolCall<'a> {
                 if header_resp.has_focus() {
                     ui.painter().rect_stroke(
                         header_rect,
-                        Rounding::same(RADIUS_MD),
+                        CornerRadius::same(RADIUS_MD as u8),
                         Stroke::new(1.5, self.theme.border_strong),
+                        egui::StrokeKind::Inside,
                     );
                 }
                 if header_resp.hovered() {
-                    ui.painter()
-                        .rect_filled(header_rect, Rounding::same(RADIUS_MD), self.theme.surface_hover);
+                    ui.painter().rect_filled(
+                        header_rect,
+                        CornerRadius::same(RADIUS_MD as u8),
+                        self.theme.surface_hover,
+                    );
                 }
 
                 let chevron_icon = if is_expanded {
@@ -262,7 +275,7 @@ impl<'a> ToolCall<'a> {
                 let status_rect = handler::tool_badge_rect(header_rect, handler::tool_badge_size(status_galley.size()));
                 ui.painter().rect_filled(
                     status_rect,
-                    Rounding::same(config::TOOL_BADGE_RADIUS),
+                    CornerRadius::same(config::TOOL_BADGE_RADIUS as u8),
                     handler::tool_status_fill(self.theme, self.status),
                 );
                 ui.painter().galley(
@@ -317,11 +330,11 @@ impl<'a> ToolCall<'a> {
                                     .color(self.theme.text_tertiary),
                             );
                             ui.add_space(config::TOOL_SECTION_LABEL_GAP);
-                            let code_frame = egui::Frame::none()
+                            let code_frame = egui::Frame::NONE
                                 .fill(self.theme.surface_editor)
-                                .rounding(Rounding::same(RADIUS_SM))
+                                .corner_radius(CornerRadius::same(RADIUS_SM as u8))
                                 .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-                                .inner_margin(egui::Margin::same(config::TOOL_CODE_PADDING));
+                                .inner_margin(egui::Margin::same(config::TOOL_CODE_PADDING as i8));
                             code_frame.show(ui, |ui| {
                                 ui.set_width(ui.available_width() - config::TOOL_CODE_HORIZONTAL_INSET);
                                 ui.label(
@@ -341,11 +354,11 @@ impl<'a> ToolCall<'a> {
                                         .color(self.theme.text_tertiary),
                                 );
                                 ui.add_space(config::TOOL_SECTION_LABEL_GAP);
-                                let output_frame = egui::Frame::none()
+                                let output_frame = egui::Frame::NONE
                                     .fill(self.theme.surface_editor)
-                                    .rounding(Rounding::same(RADIUS_SM))
+                                    .corner_radius(CornerRadius::same(RADIUS_SM as u8))
                                     .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-                                    .inner_margin(egui::Margin::same(config::TOOL_CODE_PADDING));
+                                    .inner_margin(egui::Margin::same(config::TOOL_CODE_PADDING as i8));
                                 output_frame.show(ui, |ui| {
                                     ui.set_width(ui.available_width() - config::TOOL_CODE_HORIZONTAL_INSET);
                                     ui.label(

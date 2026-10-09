@@ -143,7 +143,7 @@ mod tests {
 
     fn run_ui(mut on_ui: impl FnMut(&mut Ui)) {
         let ctx = egui::Context::default();
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| on_ui(ui));
         });
     }
@@ -206,7 +206,7 @@ mod tests {
         }
 
         let ctx = egui::Context::default();
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             let hover = hover_t(ctx, Id::new("hover"), true);
             let overlay = overlay_t(ctx, Id::new("overlay"), true);
             assert!((0.0..=1.0).contains(&hover));

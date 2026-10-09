@@ -115,15 +115,15 @@ fn draw_result_selector(
             btn.context_menu(|ui| {
                 if ui.button(if is_pinned { "Unpin Tab" } else { "Pin Tab" }).clicked() {
                     *action = Some(QueryResultsSurfaceAction::TogglePin(index));
-                    ui.close_menu();
+                    ui.close();
                 }
                 if ui.button("Close Tab").clicked() {
                     *action = Some(QueryResultsSurfaceAction::CloseResult(index));
-                    ui.close_menu();
+                    ui.close();
                 }
                 if context.result_count > 1 && ui.button("Close Other Tabs").clicked() {
                     *action = Some(QueryResultsSurfaceAction::CloseOtherResults(index));
-                    ui.close_menu();
+                    ui.close();
                 }
             });
         }

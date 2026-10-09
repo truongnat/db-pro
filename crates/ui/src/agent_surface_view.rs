@@ -21,16 +21,16 @@ pub(super) struct AgentPanelSurfaceContext {
 }
 
 impl AgentPanelSurfaceContext {
-    pub(super) fn show<F>(self, ctx: &egui::Context, content: F) -> f32
+    pub(super) fn show<F>(self, ui: &mut egui::Ui, content: F) -> f32
     where
         F: FnOnce(&mut egui::Ui),
     {
-        let response = egui::SidePanel::right("agent_panel")
+        let response = egui::Panel::right("agent_panel")
             .resizable(true)
-            .default_width(self.default_width)
-            .width_range(AGENT_MIN_WIDTH..=AGENT_MAX_WIDTH)
+            .default_size(self.default_width)
+            .size_range(AGENT_MIN_WIDTH..=AGENT_MAX_WIDTH)
             .frame(sidebar_frame(self.theme))
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 content(ui);
             });
@@ -74,7 +74,7 @@ struct AgentPanelContent<'a> {
 }
 
 impl AgentPanelContext<'_> {
-    pub(super) fn draw(self, ctx: &egui::Context) -> (f32, Vec<AgentPanelAction>) {
+    pub(super) fn draw(self, ui: &mut egui::Ui) -> (f32, Vec<AgentPanelAction>) {
         let AgentPanelContext {
             theme,
             default_width,
@@ -109,7 +109,7 @@ impl AgentPanelContext<'_> {
             composer_mode,
             is_generating,
         };
-        let panel_width = AgentPanelSurfaceContext { theme, default_width }.show(ctx, |ui| {
+        let panel_width = AgentPanelSurfaceContext { theme, default_width }.show(ui, |ui| {
             content.draw(ui, &mut actions);
         });
         (panel_width, actions)

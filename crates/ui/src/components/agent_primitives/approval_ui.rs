@@ -3,7 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::components::{Button, ButtonSize, ButtonVariant};
 use crate::DbProTheme;
-use egui::{RichText, Rounding, Stroke, Ui};
+use egui::{CornerRadius, RichText, Stroke, Ui};
 
 use super::{config, handler, ExecutionApprovalAction, StatusBadge};
 
@@ -33,11 +33,11 @@ impl<'a> ExecutionApproval<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<ExecutionApprovalAction> {
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_default))
-            .rounding(Rounding::same(config::APPROVAL_RADIUS))
-            .inner_margin(egui::Margin::same(config::APPROVAL_PADDING));
+            .corner_radius(CornerRadius::same(config::APPROVAL_RADIUS as u8))
+            .inner_margin(egui::Margin::same(config::APPROVAL_PADDING as i8));
         let mut button_actions = [false; 3];
 
         frame.show(ui, |ui| {
@@ -74,11 +74,11 @@ impl<'a> ExecutionApproval<'a> {
             });
             ui.add_space(config::APPROVAL_CODE_GAP);
 
-            let code_frame = egui::Frame::none()
+            let code_frame = egui::Frame::NONE
                 .fill(self.theme.surface_editor)
                 .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-                .rounding(Rounding::same(config::APPROVAL_CODE_RADIUS))
-                .inner_margin(egui::Margin::same(config::APPROVAL_CODE_PADDING));
+                .corner_radius(CornerRadius::same(config::APPROVAL_CODE_RADIUS as u8))
+                .inner_margin(egui::Margin::same(config::APPROVAL_CODE_PADDING as i8));
             code_frame.show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.label(

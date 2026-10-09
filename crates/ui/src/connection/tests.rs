@@ -20,7 +20,7 @@ fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
     let ctx = egui::Context::default();
     DbProTheme::install_fonts(&ctx);
     let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
-    let output = ctx.run(Default::default(), |ctx| {
+    let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             ConnectionDialogView {
                 dialog: &mut app.connection.dialog,

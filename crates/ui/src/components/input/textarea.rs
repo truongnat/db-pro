@@ -1,7 +1,7 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{Align, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{Align, CornerRadius, Frame, Margin, Response, RichText, Stroke, TextEdit, Ui};
 
 use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_LABEL_FONT_SIZE, TEXTAREA_INNER_MARGIN_Y};
 use crate::components::input::layout::{paint_field_chrome, FieldChromeState};
@@ -71,8 +71,8 @@ impl<'a> Textarea<'a> {
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::NONE,
-                inner_margin: Margin::symmetric(SPACE_SM, TEXTAREA_INNER_MARGIN_Y),
-                rounding: Rounding::same(RADIUS_XS),
+                inner_margin: Margin::symmetric(SPACE_SM as i8, TEXTAREA_INNER_MARGIN_Y as i8),
+                corner_radius: CornerRadius::same(RADIUS_XS as u8),
                 ..Default::default()
             }
             .show(ui, |ui| {
@@ -81,7 +81,7 @@ impl<'a> Textarea<'a> {
                         .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
                         .desired_rows(self.min_rows)
                         .desired_width(ui.available_width())
-                        .frame(false)
+                        .frame(egui::Frame::NONE)
                         .margin(Margin::ZERO)
                         .text_color(self.theme.text_primary),
                 )

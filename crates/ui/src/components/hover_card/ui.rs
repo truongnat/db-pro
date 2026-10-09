@@ -6,7 +6,7 @@ use super::handler::{
     calculate_card_position, clamp_card_width, compute_open_state, escape_dismissed, sanitize_delay, timer_duration,
 };
 use crate::DbProTheme;
-use egui::{Area, Color32, Frame, Margin, Order, Response, Rounding, ScrollArea, Stroke, Ui};
+use egui::{Area, Color32, CornerRadius, Frame, Margin, Order, Response, ScrollArea, Stroke, Ui};
 
 pub struct HoverCard<'a> {
     id: &'a str,
@@ -118,7 +118,7 @@ impl<'a> HoverCard<'a> {
         let mut content_result = None;
 
         if is_open {
-            let screen_rect = ui.ctx().screen_rect();
+            let screen_rect = ui.ctx().content_rect();
             let effective_width = clamp_card_width(self.width, screen_rect.width());
             let max_card_height = (screen_rect.height() - 2.0 * super::config::SCREEN_EDGE_INSET).max(0.0);
             let measured_height = ui
@@ -138,12 +138,12 @@ impl<'a> HoverCard<'a> {
                     let frame = Frame {
                         fill: self.theme.surface_floating,
                         stroke: Stroke::new(1.0, self.theme.border_subtle),
-                        inner_margin: Margin::same(FRAME_INNER_MARGIN),
-                        rounding: Rounding::same(FRAME_ROUNDING),
+                        inner_margin: Margin::same(FRAME_INNER_MARGIN as i8),
+                        corner_radius: CornerRadius::same(FRAME_ROUNDING as u8),
                         shadow: egui::epaint::Shadow {
-                            offset: egui::vec2(0.0, SHADOW_OFFSET_Y),
-                            blur: SHADOW_BLUR,
-                            spread: 0.0,
+                            offset: [0, SHADOW_OFFSET_Y as i8],
+                            blur: SHADOW_BLUR as u8,
+                            spread: 0,
                             color: Color32::from_black_alpha(SHADOW_ALPHA),
                         },
                         ..Default::default()
@@ -200,7 +200,8 @@ mod tests {
 
     fn run_frame(ctx: &Context, time: f64, events: Vec<Event>, content_height: f32) -> bool {
         let mut content_was_rendered = false;
-        let _ = ctx.run(
+        let _ = crate::test_frame::frame(
+            &ctx,
             RawInput {
                 screen_rect: Some(Rect::from_min_size(Pos2::ZERO, SCREEN_SIZE)),
                 time: Some(time),
@@ -264,7 +265,8 @@ mod tests {
 
         let run_sized_frame = |ctx: &Context, time: f64, content_height: f32, area_id: &mut Option<egui::Id>| {
             let mut card_area_rect = None;
-            let _ = ctx.run(
+            let _ = crate::test_frame::frame(
+                &ctx,
                 RawInput {
                     screen_rect: Some(Rect::from_min_size(Pos2::ZERO, SCREEN_SIZE)),
                     time: Some(time),

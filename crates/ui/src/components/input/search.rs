@@ -1,7 +1,7 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{Align, Button, Frame, Layout, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{Align, Button, CornerRadius, Frame, Layout, Margin, Response, RichText, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
 use crate::components::input::config::{INPUT_ICON_SIZE, SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION};
@@ -50,8 +50,8 @@ impl<'a> SearchInput<'a> {
             fill: self.theme.surface_editor,
             // Border is owned by `paint_field_chrome` (rest / hover / focus).
             stroke: Stroke::NONE,
-            inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),
-            rounding: Rounding::same(RADIUS_XS),
+            inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            corner_radius: CornerRadius::same(RADIUS_XS as u8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -90,9 +90,12 @@ impl<'a> SearchInput<'a> {
                         .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
                         .desired_width((inner_w - reserved).max(0.0))
                         .margin(Margin::ZERO)
-                        .frame(false)
+                        .frame(egui::Frame::NONE)
                         .text_color(self.theme.text_primary),
                 );
+                edit.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), self.placeholder)
+                });
 
                 if edit.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                     self.value.clear();
@@ -117,8 +120,8 @@ impl<'a> SearchInput<'a> {
                     Frame {
                         fill: self.theme.surface_panel,
                         stroke: Stroke::new(1.0, self.theme.border_subtle),
-                        inner_margin: Margin::symmetric(4.0, 1.0),
-                        rounding: Rounding::same(4.0),
+                        inner_margin: Margin::symmetric(4.0 as i8, 1.0 as i8),
+                        corner_radius: CornerRadius::same(4.0 as u8),
                         ..Default::default()
                     }
                     .show(ui, |ui| {

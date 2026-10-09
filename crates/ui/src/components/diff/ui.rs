@@ -3,7 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::tokens::STROKE_THIN;
 use crate::DbProTheme;
-use egui::{Color32, FontId, Pos2, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{Color32, CornerRadius, FontId, Pos2, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 
 use super::config::{
     DIFF_BOTTOM_PADDING_Y, DIFF_CONTENT_FONT_SIZE, DIFF_CORNER_RADIUS, DIFF_HEADER_HEIGHT,
@@ -28,11 +28,11 @@ impl<'a> DiffViewer<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_editor)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .rounding(Rounding::same(DIFF_CORNER_RADIUS))
-            .inner_margin(egui::Margin::same(0.0));
+            .corner_radius(CornerRadius::same(DIFF_CORNER_RADIUS as u8))
+            .inner_margin(egui::Margin::same(0.0 as i8));
 
         let (added_count, removed_count) = count_diff_changes(self.lines);
         let geometry = diff_geometry(self.lines);
@@ -45,11 +45,11 @@ impl<'a> DiffViewer<'a> {
                 let header_rect = ui.allocate_space(Vec2::new(ui.available_width(), DIFF_HEADER_HEIGHT)).1;
                 ui.painter().rect_filled(
                     header_rect,
-                    Rounding {
-                        nw: DIFF_CORNER_RADIUS,
-                        ne: DIFF_CORNER_RADIUS,
-                        sw: 0.0,
-                        se: 0.0,
+                    CornerRadius {
+                        nw: (DIFF_CORNER_RADIUS) as u8,
+                        ne: (DIFF_CORNER_RADIUS) as u8,
+                        sw: 0.0 as u8,
+                        se: 0.0 as u8,
                     },
                     self.theme.surface_panel,
                 );
@@ -142,7 +142,7 @@ impl<'a> DiffViewer<'a> {
                             row_resp.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, &line.content));
 
                             if visual.bg_color != Color32::TRANSPARENT {
-                                ui.painter().rect_filled(row_rect, Rounding::ZERO, visual.bg_color);
+                                ui.painter().rect_filled(row_rect, CornerRadius::ZERO, visual.bg_color);
                             }
 
                             // Old line number column
@@ -224,7 +224,7 @@ mod tests {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
 
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let response = DiffViewer::new("migration.sql", &[], theme).show(ui);
                 assert!(response.rect.width() > 0.0);
@@ -245,7 +245,7 @@ mod tests {
             DiffLine::added(2, "+ WHERE active = true"),
         ];
 
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let resp = DiffViewer::new("migration.sql", &lines, theme).show(ui);
                 assert!(resp.rect.width() > 0.0);

@@ -95,8 +95,8 @@ fn draw_text_input(ui: &mut egui::Ui, theme: DbProTheme, value: &mut String, siz
         egui::TextEdit::singleline(value)
             // no frame: the editor should read as the cell's own text, not a
             // bordered widget floating on top of the grid
-            .frame(false)
-            .margin(egui::Margin::symmetric(6.0, 2.0))
+            .frame(egui::Frame::NONE)
+            .margin(egui::Margin::symmetric(6.0 as i8, 2.0 as i8))
             .text_color(theme.text_primary),
     )
 }
@@ -167,23 +167,23 @@ fn draw_temporal(
         );
         let popup_id = ui.id().with("date_picker_popup");
         if button.clicked() {
-            ui.memory_mut(|memory| memory.toggle_popup(popup_id));
+            egui::Popup::toggle_id(ui.ctx(), popup_id);
         }
         // DB_PRO_CAPTURE_PICKER keeps the calendar open so captures can
         // document the date editor. Read once; zero cost when unset.
         if picker_open_override() {
-            ui.memory_mut(|memory| memory.open_popup(popup_id));
+            egui::Popup::open_id(ui.ctx(), popup_id);
         }
         // Autofocus the text field, but never steal focus while the calendar
         // is open — that would fight the button and the day cells.
-        if !input.has_focus() && !ui.memory(|memory| memory.is_popup_open(popup_id)) {
+        if !input.has_focus() && !egui::Popup::is_id_open(ui.ctx(), popup_id) {
             input.request_focus();
         }
         let mut picked = false;
         let mut close_popup = false;
         let mut escape_pressed = false;
-        if ui.memory(|memory| memory.is_popup_open(popup_id)) {
-            let popup_pos = Calendar::popup_position(cell_rect, ui.ctx().screen_rect(), true);
+        if egui::Popup::is_id_open(ui.ctx(), popup_id) {
+            let popup_pos = Calendar::popup_position(cell_rect, ui.ctx().content_rect(), true);
             let popup = egui::Area::new(popup_id.with("area"))
                 .order(egui::Order::Foreground)
                 .fixed_pos(popup_pos)
@@ -201,7 +201,7 @@ fn draw_temporal(
             close_popup = picked || pointer_clicked_outside || escape_pressed;
         }
         if close_popup {
-            ui.memory_mut(|memory| memory.close_popup());
+            egui::Popup::close_all(ui.ctx());
         }
         if picked || escape_pressed {
             input.request_focus();
@@ -242,32 +242,29 @@ mod tests {
         let mut value = "2026-09-30 14:22:11".to_owned();
         let mut error = None;
         let mut height = 0.0;
-        let _ = ctx.run(
-            RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, Vec2::new(600.0, 300.0))),
-                ..Default::default()
-            },
-            |ctx| {
-                height = egui::CentralPanel::default()
-                    .show(ctx, |ui| {
-                        let row = ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
-                            ui.allocate_exact_size(Vec2::new(40.0, 28.0), Sense::hover());
-                            let (cell_rect, _) = ui.allocate_exact_size(Vec2::new(220.0, 28.0), Sense::hover());
-                            let mut context = CellEditorContext {
-                                theme: DbProTheme::dark(),
-                                kind: kind.clone(),
-                                value: &mut value,
-                                error: &mut error,
-                            };
-                            draw(&mut context, ui, cell_rect);
-                            ui.allocate_exact_size(Vec2::new(120.0, 28.0), Sense::hover());
-                        });
-                        row.response.rect.height()
-                    })
-                    .inner;
-            },
-        );
+        let _ = crate::test_frame::frame(&ctx, RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, Vec2::new(600.0, 300.0))),
+            ..Default::default()
+        }, |ui| {
+            height = egui::CentralPanel::default()
+                .show(ui, |ui| {
+                    let row = ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+                        ui.allocate_exact_size(Vec2::new(40.0, 28.0), Sense::hover());
+                        let (cell_rect, _) = ui.allocate_exact_size(Vec2::new(220.0, 28.0), Sense::hover());
+                        let mut context = CellEditorContext {
+                            theme: DbProTheme::dark(),
+                            kind: kind.clone(),
+                            value: &mut value,
+                            error: &mut error,
+                        };
+                        draw(&mut context, ui, cell_rect);
+                        ui.allocate_exact_size(Vec2::new(120.0, 28.0), Sense::hover());
+                    });
+                    row.response.rect.height()
+                })
+                .inner;
+        });
         height
     }
 
@@ -317,27 +314,24 @@ mod tests {
                     },
                 ],
             };
-            let _ = ctx.run(
-                RawInput {
-                    screen_rect: Some(screen),
-                    events,
-                    ..Default::default()
-                },
-                |ctx| {
-                    egui::CentralPanel::default().show(ctx, |ui| {
-                        let mut context = CellEditorContext {
-                            theme: DbProTheme::dark(),
-                            kind: CellEditorKind::Temporal { date_only: false },
-                            value: &mut value,
-                            error: &mut error,
-                        };
-                        draw(&mut context, ui, cell);
-                    });
-                },
-            );
+            let _ = crate::test_frame::frame(&ctx, RawInput {
+                screen_rect: Some(screen),
+                events,
+                ..Default::default()
+            }, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    let mut context = CellEditorContext {
+                        theme: DbProTheme::dark(),
+                        kind: CellEditorKind::Temporal { date_only: false },
+                        value: &mut value,
+                        error: &mut error,
+                    };
+                    draw(&mut context, ui, cell);
+                });
+            });
         }
         assert!(
-            ctx.memory(|memory| memory.any_popup_open()),
+            egui::Popup::is_any_open(&ctx),
             "clicking the calendar button did not open the picker"
         );
     }

@@ -95,14 +95,7 @@ impl<'a> Separator<'a> {
                 // 3. Allocate exact size in egui with hover sense.
                 let avail_w = ui.available_width();
                 let size = horizontal_size(avail_w, self.thickness, self.margin);
-                let (rect, resp) = ui.allocate_exact_size(
-                    size,
-                    Sense {
-                        click: false,
-                        drag: false,
-                        focusable: false,
-                    },
-                );
+                let (rect, resp) = ui.allocate_exact_size(size, Sense::HOVER);
                 let center_y = rect.center().y;
 
                 if let Some(lbl) = self.label.filter(|label| !label.is_empty()) {
@@ -137,14 +130,7 @@ impl<'a> Separator<'a> {
                 // 3. Allocate exact size in egui with hover sense.
                 let avail_h = ui.available_height();
                 let size = vertical_size(avail_h, self.thickness, self.margin);
-                let (rect, resp) = ui.allocate_exact_size(
-                    size,
-                    Sense {
-                        click: false,
-                        drag: false,
-                        focusable: false,
-                    },
-                );
+                let (rect, resp) = ui.allocate_exact_size(size, Sense::HOVER);
                 let center_x = rect.center().x;
 
                 // 4. Compute vertical line coordinates with top/bottom insets and paint line.

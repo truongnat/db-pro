@@ -9,7 +9,7 @@
 //! (see the `allocate_exact_size` + `interact` note in `components.rs`).
 
 use super::*;
-use egui::{pos2, vec2, Align2, Color32, FontFamily, FontId, Rect, Rounding};
+use egui::{pos2, vec2, Align2, Color32, FontFamily, FontId, Rect, CornerRadius};
 use lucide_icons::Icon;
 
 /// Row height in pixels. Also the height of the chevron hit-box.
@@ -96,6 +96,9 @@ pub(crate) fn draw_codex_tree_row(
     // size after ScrollArea auto-measures the previous frame.
     let width = ui.max_rect().width().max(ui.available_width());
     let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, ui.is_enabled(), row.is_selected, row.label)
+    });
     let is_hovered = response.hovered();
 
     let painter = ui.painter().with_clip_rect(rect);
@@ -142,15 +145,15 @@ pub(crate) fn draw_codex_tree_row(
 /// or a subtle hover wash, or nothing.
 fn paint_row_background(painter: &egui::Painter, rect: Rect, theme: &DbProTheme, is_selected: bool, is_hovered: bool) {
     if is_selected {
-        painter.rect_filled(rect, Rounding::same(4.0), theme.surface_active);
+        painter.rect_filled(rect, CornerRadius::same(4.0 as u8), theme.surface_active);
         // Signature Codex active pill indicator on left edge
         let pill_rect = Rect::from_min_max(
             pos2(rect.min.x + 1.0, rect.min.y + 4.0),
             pos2(rect.min.x + 3.5, rect.max.y - 4.0),
         );
-        painter.rect_filled(pill_rect, Rounding::same(1.2), theme.accent);
+        painter.rect_filled(pill_rect, CornerRadius::same(1.2 as u8), theme.accent);
     } else if is_hovered {
-        painter.rect_filled(rect, Rounding::same(4.0), theme.surface_hover);
+        painter.rect_filled(rect, CornerRadius::same(4.0 as u8), theme.surface_hover);
     }
 }
 
@@ -238,7 +241,7 @@ fn paint_badge(
         pos2(right_x - badge_w, center_y - CODEX_BADGE_HEIGHT * 0.5),
         vec2(badge_w, CODEX_BADGE_HEIGHT),
     );
-    painter.rect_filled(badge_rect, Rounding::same(CODEX_BADGE_ROUNDING), badge_bg);
+    painter.rect_filled(badge_rect, CornerRadius::same(CODEX_BADGE_ROUNDING as u8), badge_bg);
     painter.galley(
         pos2(
             badge_rect.center().x - label.size().x * 0.5,

@@ -5,7 +5,7 @@ use crate::components::animation::hover_t;
 use crate::components::feedback::kbd_badge;
 use crate::DbProTheme;
 use egui::{
-    Align2, Color32, FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, UiBuilder, Vec2, WidgetInfo,
+    Align2, Color32, CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, UiBuilder, Vec2, WidgetInfo,
     WidgetType,
 };
 use lucide_icons::Icon;
@@ -65,8 +65,9 @@ impl<'a> CommandInput<'a> {
             .hint_text(self.placeholder)
             .font(DbProTheme::ui_medium_font(INPUT_FONT_SIZE))
             .text_color(self.theme.text_primary)
-            .frame(false)
+            .frame(egui::Frame::NONE)
             .show(&mut child_ui)
+            .response
             .response;
 
         let separator_y = rect.bottom() - INPUT_SEPARATOR_INSET;
@@ -161,7 +162,8 @@ impl<'a> CommandItem<'a> {
             } else {
                 theme.surface_hover.linear_multiply(hover_amount)
             };
-            ui.painter().rect_filled(rect, Rounding::same(ITEM_ROUNDING), fill);
+            ui.painter()
+                .rect_filled(rect, CornerRadius::same(ITEM_ROUNDING as u8), fill);
         }
 
         let mut left_x = rect.left() + ITEM_LEFT_INSET;

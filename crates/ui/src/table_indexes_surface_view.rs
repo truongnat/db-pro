@@ -195,38 +195,32 @@ mod tests {
         let theme = DbProTheme::dark();
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 120.0));
         let mut label_rect = None;
-        let _ = ctx.run(
-            RawInput {
-                screen_rect: Some(screen),
-                ..Default::default()
-            },
-            |ctx| {
-                CentralPanel::default().show(ctx, |ui| {
-                    label_rect = Some(index_name_label(ui, &index, theme).rect);
-                });
-            },
-        );
+        let _ = crate::test_frame::frame(&ctx, RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        }, |ctx| {
+            CentralPanel::default().show(ctx, |ui| {
+                label_rect = Some(index_name_label(ui, &index, theme).rect);
+            });
+        });
         let click_pos = label_rect.expect("index label is laid out").center();
 
         let mut clicked = false;
         for pressed in [true, false] {
-            let _ = ctx.run(
-                RawInput {
-                    screen_rect: Some(screen),
-                    events: vec![Event::PointerButton {
-                        pos: click_pos,
-                        button: PointerButton::Primary,
-                        pressed,
-                        modifiers: Modifiers::default(),
-                    }],
-                    ..Default::default()
-                },
-                |ctx| {
-                    CentralPanel::default().show(ctx, |ui| {
-                        clicked = index_name_label(ui, &index, theme).clicked();
-                    });
-                },
-            );
+            let _ = crate::test_frame::frame(&ctx, RawInput {
+                screen_rect: Some(screen),
+                events: vec![Event::PointerButton {
+                    pos: click_pos,
+                    button: PointerButton::Primary,
+                    pressed,
+                    modifiers: Modifiers::default(),
+                }],
+                ..Default::default()
+            }, |ctx| {
+                CentralPanel::default().show(ctx, |ui| {
+                    clicked = index_name_label(ui, &index, theme).clicked();
+                });
+            });
         }
         assert!(!clicked, "the index name is metadata, not a modal action");
     }

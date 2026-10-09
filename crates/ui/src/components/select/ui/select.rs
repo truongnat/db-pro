@@ -114,10 +114,17 @@ impl<'a> Select<'a> {
                 compact.min_height,
                 compact.font_size,
                 compact.icon_size,
-                egui::Margin::symmetric(compact.padding.x, compact.padding.y),
+                egui::Margin::symmetric(compact.padding.x as i8, compact.padding.y as i8),
             ),
         };
-        let content_height = height - margin.top - margin.bottom;
+        // egui 0.36 counts `2 * stroke.width` in the Frame's total size; subtract it so the
+        // trigger keeps its token-driven outer height. Borderless (ghost) variants need no offset.
+        let stroke_extra = if self.variant == SelectVariant::Ghost {
+            0.0
+        } else {
+            2.0 * crate::tokens::STROKE_THIN
+        };
+        let content_height = height - stroke_extra - margin.topf() - margin.bottomf();
 
         ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
             ui.spacing_mut().item_spacing.y = 0.0;
@@ -139,12 +146,12 @@ impl<'a> Select<'a> {
 
             // Comment: Stable identity preserves egui popup state across frames.
             let popup_id = Id::new(self.id_salt);
-            let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
+            let is_open = egui::Popup::is_id_open(ui.ctx(), popup_id);
 
             let ghost = self.variant == SelectVariant::Ghost;
             let rounding = match self.size {
-                SelectSize::Default => ui.style().visuals.widgets.inactive.rounding,
-                SelectSize::Sm => egui::Rounding::same(crate::tokens::RADIUS_BUTTON),
+                SelectSize::Default => ui.style().visuals.widgets.inactive.corner_radius,
+                SelectSize::Sm => egui::CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8),
             };
             let background = ghost.then(|| ui.painter().add(egui::Shape::Noop));
             let trigger_btn = Frame {
@@ -159,11 +166,12 @@ impl<'a> Select<'a> {
                     Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_default)
                 },
                 inner_margin: margin,
-                rounding,
+                corner_radius: rounding,
                 ..Default::default()
             }
             .show(ui, |ui| {
-                let content_width = trigger_content_width(width - margin.left - margin.right, ui.available_width());
+                let content_width =
+                    trigger_content_width(width - margin.leftf() - margin.rightf(), ui.available_width());
                 ui.set_width(content_width);
                 ui.spacing_mut().interact_size.y = content_height;
                 ui.horizontal(|ui| {
@@ -205,7 +213,7 @@ impl<'a> Select<'a> {
             let keyboard_toggle =
                 ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
             if should_toggle_popup(response.clicked(), response.has_focus(), keyboard_toggle) {
-                ui.memory_mut(|mem| mem.toggle_popup(popup_id));
+                egui::Popup::toggle_id(ui.ctx(), popup_id);
             }
 
             let hover = hover_t(
@@ -230,13 +238,17 @@ impl<'a> Select<'a> {
                     ),
                 );
             }
-            ui.painter()
-                .rect_stroke(response.rect, rounding, Stroke::new(crate::tokens::STROKE_THIN, border));
+            ui.painter().rect_stroke(
+                response.rect,
+                rounding,
+                Stroke::new(crate::tokens::STROKE_THIN, border),
+                egui::StrokeKind::Inside,
+            );
             if response.has_focus() {
-                paint_focus_ring(ui, response.rect, rounding.nw, self.theme);
+                paint_focus_ring(ui, response.rect, f32::from(rounding.nw), self.theme);
             }
 
-            if ui.memory(|mem| mem.is_popup_open(popup_id)) {
+            if egui::Popup::is_id_open(ui.ctx(), popup_id) {
                 self.show_menu(ui, popup_id, response.rect);
             }
 
@@ -268,7 +280,7 @@ impl<'a> Select<'a> {
             },
         );
         if should_close_for_key(key_actions.0, key_actions.1) {
-            ui.memory_mut(|mem| mem.close_popup());
+            egui::Popup::close_all(ui.ctx());
         }
 
         let screen = screen_rect(ui);
@@ -282,8 +294,8 @@ impl<'a> Select<'a> {
             .show(ui.ctx(), |ui| {
                 floating_surface(
                     self.theme,
-                    ui.style().visuals.window_rounding.nw,
-                    menu_surface_margin(ui.spacing().menu_margin.left),
+                    f32::from(ui.style().visuals.window_corner_radius.nw),
+                    menu_surface_margin(ui.spacing().menu_margin.leftf()),
                 )
                 .show(ui, |ui| {
                     ui.set_min_width(menu_min_content_width(geo.menu_width));
@@ -305,7 +317,7 @@ impl<'a> Select<'a> {
                                 .clicked();
                                 if let Some(selected) = selection_from_click(clicked, idx) {
                                     *self.selected = selected;
-                                    ui.memory_mut(|mem| mem.close_popup());
+                                    egui::Popup::close_all(ui.ctx());
                                 }
                             }
                             // Comment: This action row leaves selection and popup state unchanged.
@@ -338,7 +350,7 @@ impl<'a> Select<'a> {
                     menu: area_resp.response.rect,
                 },
             ) {
-                ui.memory_mut(|mem| mem.close_popup());
+                egui::Popup::close_all(ui.ctx());
             }
         }
     }

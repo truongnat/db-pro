@@ -6,7 +6,7 @@ use super::agent_surface_view::{AgentPanelAction, AgentPanelContext};
 use super::*;
 
 impl DbProApp {
-    pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
+    pub(super) fn draw_agent_panel(&mut self, ui: &mut egui::Ui) {
         let document_id = self
             .query
             .session
@@ -50,9 +50,9 @@ impl DbProApp {
             composer_mode,
             is_generating,
         };
-        let (panel_width, actions) = panel.draw(ctx);
+        let (panel_width, actions) = panel.draw(ui);
         self.workspace.set_agent_width(panel_width);
-        self.apply_agent_panel_actions(actions, ctx, document_id.as_deref());
+        self.apply_agent_panel_actions(actions, ui.ctx(), document_id.as_deref());
     }
 
     fn apply_agent_panel_actions(
@@ -150,7 +150,7 @@ mod tests {
 
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let output = ctx.run(Default::default(), |ctx| {
+        let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let mut settings = AgentSettingsContext {
                     theme: app.theme,

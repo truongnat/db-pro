@@ -6,7 +6,7 @@ use super::config::{
 use super::handler::{footer_separator_segment, metric_trend_visual, trend_label_text};
 use crate::tokens::{CARD_INNER_PAD, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS};
 use crate::DbProTheme;
-use egui::{FontFamily, FontId, Frame, Margin, RichText, Rounding, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{CornerRadius, FontFamily, FontId, Frame, Margin, RichText, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
@@ -23,8 +23,8 @@ impl Card {
         Frame {
             fill: self.theme.surface_elevated,
             stroke: Stroke::new(CARD_FRAME_STROKE_WIDTH, self.theme.border_subtle),
-            inner_margin: Margin::same(CARD_INNER_PAD),
-            rounding: Rounding::same(RADIUS_CARD),
+            inner_margin: Margin::same(CARD_INNER_PAD as i8),
+            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
             shadow: Default::default(),
             ..Default::default()
         }
@@ -203,8 +203,11 @@ impl<'a> MetricCard<'a> {
                         egui::vec2(METRIC_ICON_BOX_SIZE, METRIC_ICON_BOX_SIZE),
                         egui::Sense::hover(),
                     );
-                    ui.painter()
-                        .rect_filled(rect, Rounding::same(METRIC_ICON_BOX_RADIUS), self.theme.surface_2);
+                    ui.painter().rect_filled(
+                        rect,
+                        CornerRadius::same(METRIC_ICON_BOX_RADIUS as u8),
+                        self.theme.surface_2,
+                    );
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,

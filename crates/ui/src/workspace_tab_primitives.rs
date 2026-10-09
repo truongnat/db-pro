@@ -87,6 +87,14 @@ pub(super) fn draw_workspace_tab_item(
     let title_galley = ui.painter().layout_no_wrap(display_title, font_id, text_color);
 
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, TAB_HEIGHT), egui::Sense::click());
+    resp.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::WidgetType::SelectableLabel,
+            ui.is_enabled(),
+            item.selected,
+            item.title,
+        )
+    });
     let resp = resp
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .on_hover_text(item.title);
@@ -98,11 +106,11 @@ pub(super) fn draw_workspace_tab_item(
     context_action_menu(ui, &resp, theme, context_menu);
 
     // Tab Background & Borders
-    let rounding = egui::Rounding {
-        nw: RADIUS_SM,
-        ne: RADIUS_SM,
-        sw: 0.0,
-        se: 0.0,
+    let rounding = egui::CornerRadius {
+        nw: (RADIUS_SM) as u8,
+        ne: (RADIUS_SM) as u8,
+        sw: 0.0 as u8,
+        se: 0.0 as u8,
     };
 
     if item.selected {
@@ -110,8 +118,7 @@ pub(super) fn draw_workspace_tab_item(
             rect,
             rounding,
             theme.surface_app,
-            egui::Stroke::new(STROKE_THIN, theme.border_subtle),
-        );
+            egui::Stroke::new(STROKE_THIN, theme.border_subtle), egui::StrokeKind::Inside);
     } else if hovered {
         ui.painter().rect_filled(rect, rounding, theme.surface_hover);
     }
@@ -151,7 +158,7 @@ pub(super) fn draw_workspace_tab_item(
 
         if close_hovered {
             ui.painter()
-                .rect_filled(close_rect, egui::Rounding::same(RADIUS_SM), theme.surface_hover);
+                .rect_filled(close_rect, egui::CornerRadius::same(RADIUS_SM as u8), theme.surface_hover);
         }
 
         let close_color = if close_hovered {
@@ -199,7 +206,7 @@ mod tests {
             let theme = DbProTheme::light();
             DbProTheme::install_fonts(&ctx);
             theme.apply(&ctx);
-            let output = ctx.run(egui::RawInput::default(), |ctx| {
+            let output = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     draw_workspace_tab_item(
                         ui,

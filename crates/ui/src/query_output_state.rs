@@ -118,19 +118,16 @@ mod tests {
         app.theme.apply(&ctx);
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
         let frame = |app: &mut DbProApp, events: Vec<egui::Event>| {
-            ctx.run(
-                egui::RawInput {
-                    screen_rect: Some(screen),
-                    events,
-                    ..Default::default()
-                },
-                |ctx| {
-                    egui::CentralPanel::default().show(ctx, |ui| {
-                        ui.set_min_size(screen.size());
-                        app.draw_query(ui);
-                    });
-                },
-            )
+            crate::test_frame::frame(&ctx, egui::RawInput {
+                screen_rect: Some(screen),
+                events,
+                ..Default::default()
+            }, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.set_min_size(screen.size());
+                    app.draw_query(ui);
+                });
+            })
         };
 
         let output = frame(&mut app, Vec::new());

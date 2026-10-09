@@ -50,7 +50,7 @@ impl DbProApp {
                 input.pointer.primary_clicked()
                     && input.pointer.interact_pos().is_some_and(|pos| !cell_rect.contains(pos))
             });
-            if clicked_outside && !ui.ctx().memory(|memory| memory.any_popup_open()) {
+            if clicked_outside && !egui::Popup::is_any_open(ui.ctx()) {
                 self.commit_active_data_edit(result);
             }
             return;
@@ -283,7 +283,7 @@ impl DbProApp {
                 self.open_cell_inspector(result, row_index, column_index);
             }
             Some(result_grid_record_surface_view::RecordInspectorAction::CopyLabel(column_index)) => {
-                ui.output_mut(|output| output.copied_text = result.columns[column_index].name.clone());
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(result.columns[column_index].name.clone())));
             }
             Some(result_grid_record_surface_view::RecordInspectorAction::CopyValue(column_index)) => {
                 self.copy_cell_at(ui, result, row_index, column_index);
@@ -317,7 +317,7 @@ impl DbProApp {
                 self.table.editing.record_view_open = false
             }
             Some(result_grid_record_surface_view::RecordInspectorAction::CopyLabel(column_index)) => {
-                ui.output_mut(|output| output.copied_text = result.columns[column_index].name.clone());
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(result.columns[column_index].name.clone())));
                 self.feedback.copy_status = "Field name copied".to_owned();
             }
             Some(result_grid_record_surface_view::RecordInspectorAction::CopyValue(column_index)) => {

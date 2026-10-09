@@ -1473,7 +1473,7 @@ fn closing_agent_restores_sidebar_state_after_narrow_window() {
 
     app.set_agent_open(false, &ctx);
     assert!(app.workspace.sidebar_open);
-    let _ = ctx.end_pass();
+    let _ = crate::test_frame::finish_pass(&ctx);
 }
 
 #[test]
@@ -3392,29 +3392,28 @@ fn command_palette_shortcut_is_available_from_the_native_shell() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     let ctx = egui::Context::default();
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
-        modifiers: egui::Modifiers {
-            ctrl: true,
-            ..Default::default()
-        },
-        events: vec![egui::Event::Key {
-            key: egui::Key::K,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: egui::Modifiers {
+        events: vec![
+            egui::Event::ModifiersChanged(egui::Modifiers {
                 ctrl: true,
                 ..Default::default()
+            }),
+            egui::Event::Key {
+                key: egui::Key::K,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers {
+                    ctrl: true,
+                    ..Default::default()
+                },
             },
-        }],
+        ],
         ..Default::default()
-    });
-
-    app.handle_shortcuts(&ctx);
+    }, |ui| app.handle_shortcuts(ui.ctx()));
 
     assert_eq!(app.palette.mode, Some(PaletteMode::QuickOpen));
-    let _ = ctx.end_pass();
 }
 
 #[test]
@@ -3422,31 +3421,66 @@ fn command_palette_shortcut_accepts_mac_command_modifier() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     let ctx = egui::Context::default();
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
-        modifiers: egui::Modifiers {
-            mac_cmd: true,
-            command: true,
-            ..Default::default()
-        },
-        events: vec![egui::Event::Key {
-            key: egui::Key::K,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: egui::Modifiers {
+        events: vec![
+            egui::Event::ModifiersChanged(egui::Modifiers {
                 mac_cmd: true,
                 command: true,
                 ..Default::default()
+            }),
+            egui::Event::Key {
+                key: egui::Key::K,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers {
+                    mac_cmd: true,
+                    command: true,
+                    ..Default::default()
+                },
             },
-        }],
+        ],
         ..Default::default()
-    });
-
-    app.handle_shortcuts(&ctx);
+    }, |ui| app.handle_shortcuts(ui.ctx()));
 
     assert_eq!(app.palette.mode, Some(PaletteMode::QuickOpen));
-    let _ = ctx.end_pass();
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn inspector_toggles_with_mod_shift_i() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let ctx = egui::Context::default();
+    let input = || egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        events: vec![
+            egui::Event::ModifiersChanged(egui::Modifiers {
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            }),
+            egui::Event::Key {
+                key: egui::Key::I,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers {
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+            },
+        ],
+        ..Default::default()
+    };
+
+    assert!(!app.dev_tools.open);
+    let _ = crate::test_frame::frame(&ctx, input(), |ui| app.handle_shortcuts(ui.ctx()));
+    assert!(app.dev_tools.open, "mod+shift+i must open the inspector");
+    let _ = crate::test_frame::frame(&ctx, input(), |ui| app.handle_shortcuts(ui.ctx()));
+    assert!(!app.dev_tools.open, "mod+shift+i must close the inspector");
 }
 
 #[test]
@@ -3456,46 +3490,48 @@ fn native_text_edit_maps_linux_ctrl_to_command_shortcuts() {
     let mut value = "select me".to_owned();
     let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0));
 
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
         ..Default::default()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
+        });
     });
-    egui::CentralPanel::default().show(&ctx, |ui| {
-        ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
-    });
-    let _ = ctx.end_pass();
 
     let modifiers = egui::Modifiers {
         ctrl: true,
         command: true,
         ..Default::default()
     };
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
-        modifiers,
-        events: vec![egui::Event::Key {
-            key: egui::Key::A,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers,
-        }],
+        events: vec![
+            egui::Event::ModifiersChanged(modifiers),
+            egui::Event::Key {
+                key: egui::Key::A,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            },
+        ],
         ..Default::default()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut value).id(id));
+        });
     });
-    egui::CentralPanel::default().show(&ctx, |ui| {
-        ui.add(egui::TextEdit::singleline(&mut value).id(id));
-    });
-    let _ = ctx.end_pass();
 
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
         events: vec![egui::Event::Text("replaced".to_owned())],
         ..Default::default()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut value).id(id));
+        });
     });
-    egui::CentralPanel::default().show(&ctx, |ui| {
-        ui.add(egui::TextEdit::singleline(&mut value).id(id));
-    });
-    let _ = ctx.end_pass();
 
     assert_eq!(value, "replaced");
 }
@@ -3509,37 +3545,36 @@ fn global_panel_shortcuts_do_not_steal_text_input_combinations() {
     let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0));
     let mut value = String::new();
 
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
         ..Default::default()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
+        });
     });
-    egui::CentralPanel::default().show(&ctx, |ui| {
-        ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
-    });
-    let _ = ctx.end_pass();
 
     let modifiers = egui::Modifiers {
         ctrl: true,
         command: true,
         ..Default::default()
     };
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
-        modifiers,
-        events: vec![egui::Event::Key {
-            key: egui::Key::B,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers,
-        }],
+        events: vec![
+            egui::Event::ModifiersChanged(modifiers),
+            egui::Event::Key {
+                key: egui::Key::B,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            },
+        ],
         ..Default::default()
-    });
-
-    app.handle_shortcuts(&ctx);
+    }, |ui| app.handle_shortcuts(ui.ctx()));
 
     assert!(app.workspace.sidebar_open);
-    let _ = ctx.end_pass();
 }
 
 #[test]
@@ -3551,37 +3586,36 @@ fn global_palette_shortcuts_do_not_steal_text_input_combinations() {
     let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0));
     let mut value = String::new();
 
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
         ..Default::default()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
+        });
     });
-    egui::CentralPanel::default().show(&ctx, |ui| {
-        ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
-    });
-    let _ = ctx.end_pass();
 
     let modifiers = egui::Modifiers {
         ctrl: true,
         command: true,
         ..Default::default()
     };
-    ctx.begin_pass(egui::RawInput {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput {
         screen_rect: Some(screen_rect),
-        modifiers,
-        events: vec![egui::Event::Key {
-            key: egui::Key::K,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers,
-        }],
+        events: vec![
+            egui::Event::ModifiersChanged(modifiers),
+            egui::Event::Key {
+                key: egui::Key::K,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            },
+        ],
         ..Default::default()
-    });
-
-    app.handle_shortcuts(&ctx);
+    }, |ui| app.handle_shortcuts(ui.ctx()));
 
     assert_eq!(app.palette.mode, None);
-    let _ = ctx.end_pass();
 }
 
 #[test]
@@ -7011,8 +7045,8 @@ fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::
         ..Default::default()
     };
     // The first frame only measures; only the second frame's shapes are asserted on.
-    let _ = ctx.run(input(), |ctx| app.draw_sidebar(ctx));
-    ctx.run(input(), |ctx| app.draw_sidebar(ctx)).shapes
+    let _ = crate::test_frame::frame(&ctx, input(), |ctx| app.draw_sidebar(ctx));
+    crate::test_frame::frame(&ctx, input(), |ctx| app.draw_sidebar(ctx)).shapes
 }
 
 #[test]
@@ -7046,23 +7080,21 @@ fn navigator_tree_scrolls_with_the_mouse_wheel() {
         ..Default::default()
     };
 
-    let _ = ctx.run(input(Vec::new()), |ctx| app.draw_sidebar(ctx));
-    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| app.draw_sidebar(ctx));
-    let _ = ctx.run(
-        input(vec![egui::Event::MouseWheel {
-            unit: egui::MouseWheelUnit::Point,
-            delta: egui::vec2(0.0, -120.0),
-            modifiers: egui::Modifiers::default(),
-        }]),
-        |ctx| {
-            assert_eq!(ctx.pointer_hover_pos(), Some(pointer));
-            assert!(ctx.input(|input| input.smooth_scroll_delta.y < 0.0));
-            app.draw_sidebar(ctx);
-        },
-    );
+    let _ = crate::test_frame::frame(&ctx, input(Vec::new()), |ctx| app.draw_sidebar(ctx));
+    let _ = crate::test_frame::frame(&ctx, input(vec![egui::Event::PointerMoved(pointer)]), |ctx| app.draw_sidebar(ctx));
+    let _ = crate::test_frame::frame(&ctx, input(vec![egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: egui::vec2(0.0, -120.0),
+        phase: egui::TouchPhase::Move,
+        modifiers: egui::Modifiers::default(),
+    }]), |ctx| {
+        assert_eq!(ctx.pointer_hover_pos(), Some(pointer));
+        assert!(ctx.input(|input| input.smooth_scroll_delta.y < 0.0));
+        app.draw_sidebar(ctx);
+    });
 
     let sidebar_ui_id = egui::Id::new("dbpro_sidebar_content");
-    let scroll_id = sidebar_ui_id.with(egui::Id::new("codex_navigator_scroll"));
+    let scroll_id = sidebar_ui_id.with(egui::IdSalt::new("codex_navigator_scroll"));
     let offset = egui::scroll_area::State::load(&ctx, scroll_id)
         .expect("navigator ScrollArea state was not stored")
         .offset
@@ -7196,7 +7228,7 @@ fn the_tree_row_spans_its_layout_width_not_its_clip() {
     };
     let column_width = 240.0;
     let mut painted = None;
-    let _ = ctx.run(input, |ctx| {
+    let _ = crate::test_frame::frame(&ctx, input, |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             let column = egui::Rect::from_min_size(egui::Pos2::new(8.0, 8.0), egui::vec2(column_width, 160.0));
             let mut row_ui = ui.new_child(egui::UiBuilder::new().max_rect(column));

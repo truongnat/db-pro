@@ -2,7 +2,7 @@ use super::{config, handler, AccordionItem};
 use crate::components::disclosure;
 use crate::tokens::{FONT_SIZE_BADGE, FONT_SIZE_UI_LABEL, ICON_SM, ICON_TEXT_GAP, SPACE_MD, SPACE_SM};
 use crate::DbProTheme;
-use egui::{Align2, FontFamily, FontId, Pos2, Rect, Rounding, Sense, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{Align2, CornerRadius, FontFamily, FontId, Pos2, Rect, Sense, Ui, Vec2, WidgetInfo, WidgetType};
 use std::collections::BTreeSet;
 
 pub struct Accordion {
@@ -131,7 +131,7 @@ impl Accordion {
         if let Some((badge_rect, galley)) = badge_layout {
             ui.painter().rect_filled(
                 badge_rect,
-                Rounding::same(config::BADGE_CORNER_RADIUS),
+                CornerRadius::same(config::BADGE_CORNER_RADIUS as u8),
                 self.theme.surface_elevated,
             );
             ui.painter().with_clip_rect(badge_rect).galley(

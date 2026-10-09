@@ -3,7 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::tokens::*;
 use crate::DbProTheme;
-use egui::{Align2, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Align2, CornerRadius, Response, RichText, Sense, Stroke, Ui, Vec2};
 
 use super::config::{
     PROGRESS_RING_INSET, PROGRESS_RING_TRACK_WIDTH, TERMINAL_DOT_RADIUS, TERMINAL_HEADER_HEIGHT,
@@ -35,11 +35,11 @@ impl<'a> TerminalBlock<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_editor)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .rounding(Rounding::same(RADIUS_CARD))
-            .inner_margin(egui::Margin::same(0.0));
+            .corner_radius(CornerRadius::same(RADIUS_CARD as u8))
+            .inner_margin(egui::Margin::same(0.0 as i8));
 
         frame
             .show(ui, |ui| {
@@ -50,11 +50,11 @@ impl<'a> TerminalBlock<'a> {
                     ui.allocate_exact_size(Vec2::new(ui.available_width(), TERMINAL_HEADER_HEIGHT), Sense::hover());
                 ui.painter().rect_filled(
                     header_rect,
-                    Rounding {
-                        nw: RADIUS_CARD,
-                        ne: RADIUS_CARD,
-                        sw: 0.0,
-                        se: 0.0,
+                    CornerRadius {
+                        nw: (RADIUS_CARD) as u8,
+                        ne: (RADIUS_CARD) as u8,
+                        sw: 0.0 as u8,
+                        se: 0.0 as u8,
                     },
                     self.theme.surface_panel,
                 );
@@ -160,7 +160,7 @@ mod tests {
     fn run_ui(mut on_ui: impl FnMut(&mut egui::Ui)) {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| on_ui(ui));
         });
     }

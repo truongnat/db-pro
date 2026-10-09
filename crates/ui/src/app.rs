@@ -16,7 +16,7 @@ use crate::{
     UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
     UiTriggerSummary, UiViewSummary,
 };
-use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
+use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit};
 use lucide_icons::Icon;
 use std::collections::{BTreeSet, HashMap};
 use std::time::Duration;
@@ -43,6 +43,8 @@ pub struct DbProApp {
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
     gallery_state: component_gallery_view::ComponentGalleryState,
+    #[cfg(debug_assertions)]
+    dev_tools: crate::dev_tools::DevToolsState,
 }
 
 // CapabilityLookup lives in `capability_lookup.rs`.
@@ -293,7 +295,7 @@ impl DbProApp {
         self.workspace.agent_open = open;
         if open {
             self.workspace.sidebar_open_before_agent = Some(self.workspace.sidebar_open);
-            if ctx.screen_rect().width() < AGENT_SIDEBAR_COLLAPSE_WIDTH {
+            if ctx.content_rect().width() < AGENT_SIDEBAR_COLLAPSE_WIDTH {
                 self.workspace.sidebar_open = false;
             }
         } else if let Some(sidebar_open) = self.workspace.sidebar_open_before_agent.take() {

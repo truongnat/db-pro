@@ -96,11 +96,11 @@ mod tests {
     fn single_modal_is_always_topmost() {
         let ctx = egui::Context::default();
         let solo = Id::new("solo");
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             assert!(register(ctx, solo));
         });
         let mut topmost = false;
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             topmost = register(ctx, solo);
         });
         assert!(topmost, "a lone dialog must stay topmost across passes");
@@ -113,14 +113,14 @@ mod tests {
         let upper = Id::new("upper");
 
         // Warm-up pass establishes the reference stack [lower, upper].
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             register(ctx, lower);
             register(ctx, upper);
         });
 
         let mut lower_topmost = true;
         let mut upper_topmost = false;
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             lower_topmost = register(ctx, lower);
             upper_topmost = register(ctx, upper);
         });
@@ -136,13 +136,13 @@ mod tests {
         let fresh = Id::new("fresh");
 
         // Pass 1: only `existing` is open.
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             register(ctx, existing);
         });
 
         // Pass 2: `fresh` opens on top; the previous stack is still [existing], so
         // `existing` owns this pass and exactly one dialog is topmost.
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             assert!(register(ctx, existing), "existing owns the pass it stacked on");
             assert!(!register(ctx, fresh), "a freshly stacked dialog waits one pass");
         });
@@ -150,7 +150,7 @@ mod tests {
         // Pass 3: previous stack is now [existing, fresh]; the newer dialog takes over.
         let mut fresh_topmost = false;
         let mut existing_topmost = true;
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             existing_topmost = register(ctx, existing);
             fresh_topmost = register(ctx, fresh);
         });
@@ -183,7 +183,7 @@ mod tests {
         let anchor = overlay_id.with("focus_anchor");
         let mut focused_widget = None;
 
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::Area::new(overlay_id)
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {

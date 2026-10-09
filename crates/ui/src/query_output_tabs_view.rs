@@ -136,10 +136,10 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                     context.theme.text_muted
                 };
 
-                let response = egui::Frame::none()
+                let response = egui::Frame::NONE
                     .fill(bg_color)
-                    .rounding(egui::Rounding::same(RADIUS_SM))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                    .corner_radius(egui::CornerRadius::same(RADIUS_SM as u8))
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.label(
@@ -174,6 +174,14 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                     });
 
                 let response = response.response.interact(egui::Sense::click());
+                response.widget_info(|| {
+                    egui::WidgetInfo::selected(
+                        egui::WidgetType::SelectableLabel,
+                        ui.is_enabled(),
+                        selected,
+                        label,
+                    )
+                });
                 let response = if icon_only {
                     response.on_hover_text(label)
                 } else {

@@ -1,7 +1,7 @@
 //! Pure result-grid cell surface and value rendering.
 
 use super::*;
-use egui::{Align2, FontId, Pos2, Rect, Rounding, Stroke};
+use egui::{Align2, FontId, Pos2, Rect, CornerRadius, Stroke};
 
 pub(super) struct GridCellSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
@@ -42,7 +42,7 @@ pub(super) fn draw_surface(
     } else {
         context.theme.surface_editor
     };
-    ui.painter().rect_filled(cell_rect, Rounding::ZERO, fill);
+    ui.painter().rect_filled(cell_rect, CornerRadius::ZERO, fill);
     let border = Stroke::new(1.0, context.theme.border_subtle);
     ui.painter().hline(cell_rect.x_range(), cell_rect.bottom(), border);
     if context.cell_selected {
@@ -50,16 +50,14 @@ pub(super) fn draw_surface(
         // never bleeds over neighboring borders
         ui.painter().rect_stroke(
             cell_rect.shrink(1.0),
-            Rounding::ZERO,
-            Stroke::new(1.5, context.theme.accent),
-        );
+            CornerRadius::ZERO,
+            Stroke::new(1.5, context.theme.accent), egui::StrokeKind::Inside);
     }
     if context.validation_error {
         ui.painter().rect_stroke(
             cell_rect.shrink(1.0),
-            Rounding::ZERO,
-            Stroke::new(1.5, context.theme.danger),
-        );
+            CornerRadius::ZERO,
+            Stroke::new(1.5, context.theme.danger), egui::StrokeKind::Inside);
         if let Some(error) = context.edit_error {
             cell_response.clone().on_hover_text(error);
         }
@@ -67,7 +65,7 @@ pub(super) fn draw_surface(
     if context.cell_mutation_error || context.row_mutation_error {
         ui.painter().rect_stroke(
             cell_rect.shrink(1.0),
-            Rounding::ZERO,
+            CornerRadius::ZERO,
             Stroke::new(
                 1.5,
                 if context.conflict_error {
@@ -75,8 +73,7 @@ pub(super) fn draw_surface(
                 } else {
                     context.theme.danger
                 },
-            ),
-        );
+            ), egui::StrokeKind::Inside);
         if let Some(error) = context.mutation_error {
             cell_response.clone().on_hover_text(error);
         }
@@ -176,7 +173,7 @@ fn draw_badge(
         content_rect.center().y - size.y * 0.5,
     );
     let badge_rect = Rect::from_min_size(origin, size);
-    painter.rect_filled(badge_rect, Rounding::same(4.0), style.fill);
-    painter.rect_stroke(badge_rect, Rounding::same(4.0), Stroke::new(1.0, style.border));
+    painter.rect_filled(badge_rect, CornerRadius::same(4.0 as u8), style.fill);
+    painter.rect_stroke(badge_rect, CornerRadius::same(4.0 as u8), Stroke::new(1.0, style.border), egui::StrokeKind::Inside);
     painter.galley(origin + pad, galley, style.foreground);
 }

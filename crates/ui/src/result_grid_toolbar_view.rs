@@ -103,12 +103,15 @@ fn draw_copy_actions(
         .access_label("Copy visible rows in another format")
         .tooltip("Copy visible rows as CSV, JSON, Markdown or SQL INSERT")
         .show(ui);
-    egui::popup::popup_below_widget(
-        ui,
+    egui::Popup::new(
         menu_button.id.with("copy_formats"),
+        ui.ctx().clone(),
         &menu_button,
-        egui::PopupCloseBehavior::CloseOnClick,
-        |ui| {
+        ui.layer_id(),
+    )
+    .close_behavior(egui::PopupCloseBehavior::CloseOnClick)
+    .open_memory(None)
+    .show(|ui| {
             ui.set_min_width(180.0);
             for (icon, label, next) in [
                 (Icon::FileSpreadsheet, "CSV", ResultGridToolbarAction::CopyVisibleCsv),

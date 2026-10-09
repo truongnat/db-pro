@@ -8,7 +8,7 @@ use crate::components::table::config::{
 };
 use crate::components::table::handler::{build_column_layout, select_all_state, SelectAllState, TableGeometry};
 use crate::components::table::{draw_crisp_checkmark, draw_crisp_minus, Table, TableColumnAlign};
-use egui::{Align, Color32, Frame, Layout, Margin, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
+use egui::{Align, Color32, CornerRadius, Frame, Layout, Margin, Pos2, Rect, RichText, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 impl<'a> Table<'a> {
@@ -45,7 +45,7 @@ impl<'a> Table<'a> {
                 crate::components::table::config::DIVIDER_STROKE_WIDTH,
                 self.theme.border_default,
             ),
-            rounding: Rounding::same(TABLE_CORNER_RADIUS),
+            corner_radius: CornerRadius::same(TABLE_CORNER_RADIUS as u8),
             inner_margin: Margin::ZERO,
             ..Default::default()
         }
@@ -58,11 +58,11 @@ impl<'a> Table<'a> {
             let header_rect = Rect::from_min_size(table_min, Vec2::new(table_w, header_h));
             ui.painter().rect_filled(
                 header_rect,
-                Rounding {
-                    nw: HEADER_INNER_RADIUS,
-                    ne: HEADER_INNER_RADIUS,
-                    sw: 0.0,
-                    se: 0.0,
+                CornerRadius {
+                    nw: (HEADER_INNER_RADIUS) as u8,
+                    ne: (HEADER_INNER_RADIUS) as u8,
+                    sw: 0.0 as u8,
+                    se: 0.0 as u8,
                 },
                 self.theme.surface_hover.linear_multiply(0.4),
             );
@@ -87,7 +87,7 @@ impl<'a> Table<'a> {
                     };
                     ui.painter().rect_filled(
                         box_rect,
-                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                         fill,
                     );
                     draw_crisp_checkmark(ui.painter(), center, self.theme.accent_foreground);
@@ -102,7 +102,7 @@ impl<'a> Table<'a> {
                     };
                     ui.painter().rect_filled(
                         box_rect,
-                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                         fill,
                     );
                     draw_crisp_minus(ui.painter(), center, self.theme.accent_foreground);
@@ -119,13 +119,14 @@ impl<'a> Table<'a> {
                     };
                     ui.painter().rect_filled(
                         box_rect,
-                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                         fill,
                     );
                     ui.painter().rect_stroke(
                         box_rect,
-                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                         Stroke::new(crate::components::table::config::CHECKBOX_STROKE_WIDTH, border_color),
+                        egui::StrokeKind::Inside,
                     );
                 }
 
@@ -151,7 +152,7 @@ impl<'a> Table<'a> {
 
                 if col.sortable && resp.hovered() {
                     ui.painter()
-                        .rect_filled(col_rect, Rounding::ZERO, self.theme.surface_hover);
+                        .rect_filled(col_rect, CornerRadius::ZERO, self.theme.surface_hover);
                 }
 
                 let is_sorted = self.sort_column == Some(col_idx);
@@ -301,7 +302,7 @@ impl<'a> Table<'a> {
                     if row_idx % 2 == 1 {
                         ui.painter().rect_filled(
                             row_rect,
-                            Rounding::ZERO,
+                            CornerRadius::ZERO,
                             self.theme.surface_hover.linear_multiply(0.25),
                         );
                     }
@@ -309,7 +310,7 @@ impl<'a> Table<'a> {
                     if select_t > 0.001 {
                         ui.painter().rect_filled(
                             row_rect,
-                            Rounding::ZERO,
+                            CornerRadius::ZERO,
                             crate::components::animation::lerp_color(
                                 Color32::TRANSPARENT,
                                 self.theme.accent_soft,
@@ -319,7 +320,7 @@ impl<'a> Table<'a> {
                     } else if hover_t > 0.001 {
                         ui.painter().rect_filled(
                             row_rect,
-                            Rounding::ZERO,
+                            CornerRadius::ZERO,
                             crate::components::animation::lerp_color(
                                 Color32::TRANSPARENT,
                                 self.theme.surface_hover,
@@ -346,7 +347,7 @@ impl<'a> Table<'a> {
                             };
                             ui.painter().rect_filled(
                                 box_rect,
-                                Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                                CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                                 fill,
                             );
                             draw_crisp_checkmark(ui.painter(), center, self.theme.accent_foreground);
@@ -363,13 +364,14 @@ impl<'a> Table<'a> {
                             };
                             ui.painter().rect_filled(
                                 box_rect,
-                                Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                                CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                                 fill,
                             );
                             ui.painter().rect_stroke(
                                 box_rect,
-                                Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                                CornerRadius::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS as u8),
                                 Stroke::new(crate::components::table::config::CHECKBOX_STROKE_WIDTH, border_color),
+                                egui::StrokeKind::Inside,
                             );
                         }
 

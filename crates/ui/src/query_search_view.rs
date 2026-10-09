@@ -31,8 +31,8 @@ pub(super) fn draw_editor_search_overlay(context: &mut QuerySearchContext<'_>, c
         .show(ctx, |ui| {
             egui::Frame {
                 fill: context.theme.surface_elevated,
-                inner_margin: egui::Margin::symmetric(8.0, 6.0),
-                rounding: egui::Rounding::same(RADIUS_SM),
+                inner_margin: egui::Margin::symmetric(8.0 as i8, 6.0 as i8),
+                corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
                 stroke: egui::Stroke::new(1.0, context.theme.border_subtle),
                 shadow: context.theme.floating_shadow(),
                 ..Default::default()

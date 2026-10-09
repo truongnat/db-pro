@@ -28,12 +28,12 @@ pub(crate) use query_helpers::{
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::none()
+        egui::Frame::NONE
             .inner_margin(egui::Margin {
-                left: SPACE_XS,
-                right: SPACE_XS,
-                top: SPACE_XS,
-                bottom: 0.0,
+                left: (SPACE_XS) as i8,
+                right: (SPACE_XS) as i8,
+                top: (SPACE_XS) as i8,
+                bottom: 0.0 as i8,
             })
             .show(ui, |ui| self.draw_query_content(ui));
     }

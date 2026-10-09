@@ -21,24 +21,24 @@ pub(super) struct ActivityBarContext {
     pub(super) agent_open: bool,
 }
 
-pub(super) fn draw_activity_bar(ctx: &egui::Context, context: &ActivityBarContext) -> Option<ActivityBarAction> {
+pub(super) fn draw_activity_bar(ui: &mut egui::Ui, context: &ActivityBarContext) -> Option<ActivityBarAction> {
     let mut action = None;
-    egui::SidePanel::left("activity_bar")
+    egui::Panel::left("activity_bar")
         .resizable(false)
-        .exact_width(48.0)
+        .exact_size(48.0)
         .show_separator_line(false)
         .frame(egui::Frame {
             fill: context.theme.surface_panel,
             inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin::ZERO,
             stroke: egui::Stroke::NONE,
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             shadow: egui::Shadow::NONE,
         })
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             let full = ui.max_rect();
             ui.painter()
-                .rect_filled(full, egui::Rounding::ZERO, context.theme.surface_panel);
+                .rect_filled(full, egui::CornerRadius::ZERO, context.theme.surface_panel);
             let line_x = ui.painter().round_to_pixel_center(full.right() - 1.0);
             ui.painter().vline(
                 line_x,
@@ -137,12 +137,13 @@ fn draw_rail_icon_button(
 ) -> bool {
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(36.0, 34.0), egui::Sense::click());
     let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), hint));
     let hovered = resp.hovered();
 
     if active {
         ui.painter().rect_filled(
             rect,
-            egui::Rounding::same(crate::tokens::RADIUS_BUTTON),
+            egui::CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8),
             theme.surface_active,
         );
         // Left accent indicator pill on the panel edge (Stitch 2px active pill)
@@ -151,11 +152,11 @@ fn draw_rail_icon_button(
             egui::pos2(bar_left, rect.center().y - 9.0),
             egui::pos2(bar_left + 2.0, rect.center().y + 9.0),
         );
-        ui.painter().rect_filled(bar_rect, egui::Rounding::same(1.0), theme.accent);
+        ui.painter().rect_filled(bar_rect, egui::CornerRadius::same(1.0 as u8), theme.accent);
     } else if hovered {
         ui.painter().rect_filled(
             rect,
-            egui::Rounding::same(crate::tokens::RADIUS_BUTTON),
+            egui::CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8),
             theme.surface_hover,
         );
     }

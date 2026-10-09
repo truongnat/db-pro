@@ -55,11 +55,7 @@ impl ScrollArea {
         if let Some(max_height) = self.max_height {
             area = area.max_height(max_height);
         }
-        // Scrollbar rendering temporarily changes clip policy. Always restore the caller's
-        // visuals after egui has rendered the child, preserving style state across siblings.
-        let previous = handler::apply_scrollbar_visuals(ui);
         let output = area.show(ui, add_contents);
-        handler::restore_visuals(ui, previous);
         output.inner
     }
 }

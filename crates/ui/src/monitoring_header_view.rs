@@ -20,8 +20,8 @@ impl MonitoringHeaderContext<'_> {
         let mut actions = Vec::new();
         egui::Frame {
             fill: self.theme.surface_elevated,
-            inner_margin: egui::Margin::same(SPACE_MD),
-            rounding: egui::Rounding::same(RADIUS_MD),
+            inner_margin: egui::Margin::same(SPACE_MD as i8),
+            corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
             stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
             ..Default::default()
         }

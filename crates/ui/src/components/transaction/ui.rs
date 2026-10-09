@@ -11,7 +11,7 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::components::input::Input;
 use crate::DbProTheme;
-use egui::{FontFamily, FontId, Pos2, Rect, RichText, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{CornerRadius, FontFamily, FontId, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 // ── Transaction Bar ──────────────────────────────────────────────────────────
@@ -58,11 +58,11 @@ impl<'a> TransactionBar<'a> {
         let mut commit_clicked = false;
         let mut begin_clicked = false;
 
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(BAR_STROKE_WIDTH, self.theme.border_default))
-            .rounding(Rounding::same(BAR_RADIUS))
-            .inner_margin(egui::Margin::symmetric(BAR_MARGIN_X, BAR_MARGIN_Y));
+            .corner_radius(CornerRadius::same(BAR_RADIUS as u8))
+            .inner_margin(egui::Margin::symmetric(BAR_MARGIN_X as i8, BAR_MARGIN_Y as i8));
         frame.show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
@@ -95,13 +95,14 @@ impl<'a> TransactionBar<'a> {
                     );
                     ui.painter().rect_filled(
                         badge_rect,
-                        Rounding::same(PENDING_BADGE_RADIUS),
+                        CornerRadius::same(PENDING_BADGE_RADIUS as u8),
                         self.theme.warning_soft(),
                     );
                     ui.painter().rect_stroke(
                         badge_rect,
-                        Rounding::same(PENDING_BADGE_RADIUS),
+                        CornerRadius::same(PENDING_BADGE_RADIUS as u8),
                         Stroke::new(BAR_STROKE_WIDTH, self.theme.warning.linear_multiply(0.4)),
+                        egui::StrokeKind::Inside,
                     );
                     ui.painter().galley(
                         Pos2::new(
@@ -210,14 +211,14 @@ impl<'a> DestructiveOperationDialog<'a> {
             ui.add_space(DIALOG_TOP_SPACE);
 
             // Keep the destructive warning visually separate so users see the irreversible-action risk first.
-            let banner_frame = egui::Frame::none()
+            let banner_frame = egui::Frame::NONE
                 .fill(theme.danger_soft())
                 .stroke(Stroke::new(
                     DIALOG_BANNER_STROKE_WIDTH,
                     theme.danger.linear_multiply(0.4),
                 ))
-                .rounding(Rounding::same(DIALOG_BANNER_RADIUS))
-                .inner_margin(egui::Margin::same(DIALOG_BANNER_MARGIN));
+                .corner_radius(CornerRadius::same(DIALOG_BANNER_RADIUS as u8))
+                .inner_margin(egui::Margin::same(DIALOG_BANNER_MARGIN as i8));
 
             banner_frame.show(ui, |ui| {
                 ui.horizontal(|ui| {

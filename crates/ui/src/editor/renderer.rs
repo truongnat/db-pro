@@ -11,7 +11,7 @@ use crate::components::interact::text_input_info;
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Event, FontId, Id, Key, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2,
+    CornerRadius, Event, FontId, Id, Key, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
 };
 use std::time::Duration;
 
@@ -247,11 +247,13 @@ impl<'a> SqlEditor<'a> {
     /// Font metrics and content extents for one frame.
     fn measure(&self, ui: &Ui, available_size: Vec2) -> EditorMetrics {
         let font_id = FontId::monospace(self.font_size);
-        let glyph_row = ui.fonts(|f| f.row_height(&font_id));
+        let glyph_row = ui.fonts_mut(|f| f.row_height(&font_id));
         let line_height = (self.font_size * LINE_HEIGHT_MULT)
             .max(glyph_row)
             .max(DEFAULT_LINE_HEIGHT);
-        let char_width = ui.fonts(|f| f.glyph_width(&font_id, 'M')).max(self.font_size * 0.55);
+        let char_width = ui
+            .fonts_mut(|f| f.glyph_width(&font_id, 'M'))
+            .max(self.font_size * 0.55);
         let line_count = self.buffer.line_count().max(1);
         let max_line_chars = self.buffer.max_line_len_chars().max(40);
         let gutter_w = self.gutter_width(char_width);
@@ -272,13 +274,17 @@ impl<'a> SqlEditor<'a> {
     /// horizontal scroll (Stitch gutter spec).
     // cc-scan:allow TOO_MANY_PARAMS — service/view signature passes grouped context through
     fn paint_chrome(&self, ui: &Ui, viewport: Rect, gutter_w: f32, focused: bool) {
-        ui.painter()
-            .rect_filled(viewport, Rounding::same(EDITOR_ROUNDING), self.theme.surface_editor);
+        ui.painter().rect_filled(
+            viewport,
+            CornerRadius::same(EDITOR_ROUNDING as u8),
+            self.theme.surface_editor,
+        );
         if focused {
             ui.painter().rect_stroke(
                 viewport,
-                Rounding::same(EDITOR_ROUNDING),
+                CornerRadius::same(EDITOR_ROUNDING as u8),
                 Stroke::new(1.0, self.theme.border_subtle),
+                egui::StrokeKind::Inside,
             );
         }
         let gutter_rect = Rect::from_min_max(
@@ -286,7 +292,7 @@ impl<'a> SqlEditor<'a> {
             Pos2::new(viewport.min.x + gutter_w, viewport.max.y),
         );
         ui.painter()
-            .rect_filled(gutter_rect, Rounding::ZERO, self.theme.editor_gutter_fill());
+            .rect_filled(gutter_rect, CornerRadius::ZERO, self.theme.editor_gutter_fill());
         ui.painter().vline(
             viewport.min.x + gutter_w,
             viewport.y_range(),
@@ -412,11 +418,14 @@ impl<'a> SqlEditor<'a> {
             Pos2::new(frame.viewport.max.x, current_line_top + frame.line_height),
         );
         if current_line_rect.intersects(frame.viewport) {
-            ui.painter()
-                .rect_filled(current_line_rect, Rounding::ZERO, self.theme.editor_current_line_fill());
+            ui.painter().rect_filled(
+                current_line_rect,
+                CornerRadius::ZERO,
+                self.theme.editor_current_line_fill(),
+            );
             ui.painter().rect_filled(
                 Rect::from_min_size(current_line_rect.min, Vec2::new(2.0, frame.line_height)),
-                Rounding::ZERO,
+                CornerRadius::ZERO,
                 self.theme.accent,
             );
         }
@@ -442,13 +451,23 @@ impl<'a> SqlEditor<'a> {
                 );
                 for m_rect in rects {
                     if is_active_match {
-                        ui.painter()
-                            .rect_filled(m_rect, Rounding::same(2.0), self.theme.accent.linear_multiply(0.4));
-                        ui.painter()
-                            .rect_stroke(m_rect, Rounding::same(2.0), Stroke::new(1.5, self.theme.accent));
+                        ui.painter().rect_filled(
+                            m_rect,
+                            CornerRadius::same(2.0 as u8),
+                            self.theme.accent.linear_multiply(0.4),
+                        );
+                        ui.painter().rect_stroke(
+                            m_rect,
+                            CornerRadius::same(2.0 as u8),
+                            Stroke::new(1.5, self.theme.accent),
+                            egui::StrokeKind::Inside,
+                        );
                     } else {
-                        ui.painter()
-                            .rect_filled(m_rect, Rounding::same(2.0), self.theme.warning.linear_multiply(0.28));
+                        ui.painter().rect_filled(
+                            m_rect,
+                            CornerRadius::same(2.0 as u8),
+                            self.theme.warning.linear_multiply(0.28),
+                        );
                     }
                 }
             }
@@ -466,7 +485,7 @@ impl<'a> SqlEditor<'a> {
             ) {
                 ui.painter().rect_filled(
                     execution_rect,
-                    Rounding::same(1.0),
+                    CornerRadius::same(1.0 as u8),
                     self.theme.accent.linear_multiply(0.08),
                 );
             }
@@ -491,8 +510,11 @@ impl<'a> SqlEditor<'a> {
                 frame.tokens,
             );
             for s_rect in rects {
-                ui.painter()
-                    .rect_filled(s_rect, Rounding::same(2.0), self.theme.editor_selection_fill());
+                ui.painter().rect_filled(
+                    s_rect,
+                    CornerRadius::same(2.0 as u8),
+                    self.theme.editor_selection_fill(),
+                );
             }
         }
     }
@@ -520,8 +542,9 @@ impl<'a> SqlEditor<'a> {
                 ) {
                     ui.painter().rect_stroke(
                         highlighted,
-                        Rounding::same(2.0),
+                        CornerRadius::same(2.0 as u8),
                         Stroke::new(1.2, color.linear_multiply(0.85)),
+                        egui::StrokeKind::Inside,
                     );
                 }
                 if let Some(matching) = delimiter.matching {
@@ -537,8 +560,9 @@ impl<'a> SqlEditor<'a> {
                     ) {
                         ui.painter().rect_stroke(
                             highlighted,
-                            Rounding::same(2.0),
+                            CornerRadius::same(2.0 as u8),
                             Stroke::new(1.2, self.theme.accent.linear_multiply(0.85)),
+                            egui::StrokeKind::Inside,
                         );
                     }
                 }
@@ -681,7 +705,13 @@ impl<'a> SqlEditor<'a> {
                     // A diagnostic tooltip must not fight the completion popup or the
                     // delayed rich-hover card — those popups own the hover real estate.
                     if d_rect.contains(pos) && !self.completion_open && !self.rich_hover_open {
-                        egui::show_tooltip(ui.ctx(), ui.layer_id(), egui::Id::new("diag_hover"), |ui| {
+                        let _ = egui::Tooltip::always_open(
+                            ui.ctx().clone(),
+                            ui.layer_id(),
+                            egui::Id::new("diag_hover"),
+                            egui::PopupAnchor::Pointer,
+                        )
+                        .show(|ui| {
                             ui.horizontal(|ui| {
                                 let badge = match diag.severity {
                                     DiagnosticSeverity::Error => "Error",
@@ -738,8 +768,9 @@ impl<'a> SqlEditor<'a> {
                         ) {
                             ui.painter().rect_stroke(
                                 replacement_rect,
-                                Rounding::same(2.0),
+                                CornerRadius::same(2.0 as u8),
                                 Stroke::new(1.0, self.theme.accent.linear_multiply(0.35)),
+                                egui::StrokeKind::Inside,
                             );
                         }
                     }
@@ -807,12 +838,14 @@ impl<'a> SqlEditor<'a> {
             );
             if blink_on {
                 ui.painter()
-                    .rect_filled(cursor_rect, Rounding::ZERO, self.theme.text_primary);
+                    .rect_filled(cursor_rect, CornerRadius::ZERO, self.theme.text_primary);
             }
             ui.output_mut(|o| {
                 o.ime = Some(egui::output::IMEOutput {
+                    purpose: egui::IMEPurpose::Normal,
                     rect: cursor_rect,
                     cursor_rect,
+                    should_interrupt_composition: false,
                 });
             });
             let next_secs = if self.theme.reduce_motion {
@@ -992,19 +1025,19 @@ impl<'a> SqlEditor<'a> {
                         response.wants_completion = true;
                     }
                 }
-                Event::Ime(egui::ImeEvent::Preedit(_) | egui::ImeEvent::Enabled | egui::ImeEvent::Disabled) => {}
+                Event::Ime(_) => {}
                 Event::Cut if !self.selection.is_empty() => {
                     self.buffer.break_typing_group();
                     let (start, end) = self.selection.normalized();
                     let text = self.buffer.slice(start, end).to_owned();
-                    ui.output_mut(|o| o.copied_text = text);
+                    ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(text)));
                     self.delete_selection();
                     response.changed = true;
                 }
                 Event::Copy if !self.selection.is_empty() => {
                     let (start, end) = self.selection.normalized();
                     let text = self.buffer.slice(start, end).to_owned();
-                    ui.output_mut(|o| o.copied_text = text);
+                    ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(text)));
                 }
                 Event::Paste(text) if !text.is_empty() => {
                     self.buffer.break_typing_group();
@@ -1648,8 +1681,8 @@ fn layout_line(
 
 fn glyph_x(galley: &egui::Galley, char_index: usize) -> f32 {
     galley
-        .pos_from_ccursor(egui::text::CCursor {
-            index: char_index,
+        .pos_from_cursor(egui::text::CCursor {
+            index: egui::text::CharIndex(char_index),
             prefer_next_row: false,
         })
         .min
@@ -1662,7 +1695,7 @@ fn char_index_at_x(galley: &egui::Galley, local_x: f32) -> usize {
         .first()
         .map(|row| (row.min_y() + row.max_y()) * 0.5)
         .unwrap_or(0.0);
-    galley.cursor_from_pos(egui::vec2(local_x.max(0.0), y)).ccursor.index
+    galley.cursor_from_pos(egui::vec2(local_x.max(0.0), y)).index.0
 }
 
 fn is_single_identifier_char(text: &str) -> bool {
@@ -1739,7 +1772,7 @@ fn paint_editor_scrollbars(
             DiagnosticSeverity::Warning => theme.warning,
             _ => theme.accent,
         };
-        painter.rect_filled(mark_rect, Rounding::same(1.0), mark_color);
+        painter.rect_filled(mark_rect, CornerRadius::same(1.0 as u8), mark_color);
     }
 
     if max_scroll.y > 1.0 {
@@ -1749,7 +1782,7 @@ fn paint_editor_scrollbars(
         let thumb = Rect::from_min_size(Pos2::new(track_x, thumb_y), Vec2::new(THICK, thumb_h));
         painter.rect_filled(
             thumb,
-            Rounding::same(THICK * 0.5),
+            CornerRadius::same((THICK * 0.5) as u8),
             theme.text_muted.linear_multiply(0.55),
         );
     }
@@ -1764,7 +1797,7 @@ fn paint_editor_scrollbars(
         );
         painter.rect_filled(
             thumb,
-            Rounding::same(THICK * 0.5),
+            CornerRadius::same((THICK * 0.5) as u8),
             theme.text_muted.linear_multiply(0.45),
         );
     }

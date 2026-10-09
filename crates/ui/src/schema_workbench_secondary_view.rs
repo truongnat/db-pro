@@ -147,11 +147,11 @@ pub(super) fn draw_execution_history(
     }
 
     for entry in &context.workbench.history {
-        egui::Frame::none()
+        egui::Frame::NONE
             .fill(context.theme.surface_panel)
             .stroke(egui::Stroke::new(1.0, context.theme.border_subtle))
-            .rounding(egui::Rounding::same(6.0))
-            .inner_margin(egui::Margin::same(10.0))
+            .corner_radius(egui::CornerRadius::same(6.0 as u8))
+            .inner_margin(egui::Margin::same(10.0 as i8))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(&entry.timestamp).small().color(context.theme.text_muted));
@@ -208,7 +208,7 @@ pub(super) fn draw_execution_history(
                         .show(ui)
                         .clicked()
                     {
-                        ui.output_mut(|o| o.copied_text = entry.sql.clone());
+                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(entry.sql.clone())));
                     }
                 });
             });

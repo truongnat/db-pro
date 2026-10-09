@@ -24,17 +24,17 @@ pub(super) struct ShellStatusbarContext<'a> {
 }
 
 impl ShellStatusbarContext<'_> {
-    pub(super) fn draw(&self, ctx: &egui::Context) -> Option<ShellStatusbarAction> {
+    pub(super) fn draw(&self, ui: &mut egui::Ui) -> Option<ShellStatusbarAction> {
         let mut action = None;
-        TopBottomPanel::bottom("statusbar")
-            .exact_height(28.0)
+        egui::Panel::bottom("statusbar")
+            .exact_size(28.0)
             .frame(egui::Frame {
                 fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(SPACE_MD, SPACE_XXS),
+                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_XXS as i8),
                 stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
                 ..Default::default()
             })
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
                     self.draw_identity(ui);

@@ -105,7 +105,7 @@ pub(super) fn draw_row(
             } else {
                 context.theme.surface_editor
             };
-            ui.painter().rect_filled(skipped, egui::Rounding::ZERO, fill);
+            ui.painter().rect_filled(skipped, egui::CornerRadius::ZERO, fill);
             ui.painter().hline(
                 skipped.x_range(),
                 skipped.bottom(),
@@ -124,7 +124,7 @@ pub(super) fn draw_row(
             } else {
                 context.theme.surface_editor
             };
-            ui.painter().rect_filled(fill_rect, egui::Rounding::ZERO, fill);
+            ui.painter().rect_filled(fill_rect, egui::CornerRadius::ZERO, fill);
             ui.painter().hline(
                 fill_rect.x_range(),
                 fill_rect.bottom(),

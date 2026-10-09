@@ -67,7 +67,7 @@ pub(super) fn draw_floating_completion_popup(
     let popup_pos = crate::components::clamp_popup_to_screen(
         doc.completion.popup_position,
         egui::vec2(popup_width, popup_height),
-        ctx.screen_rect(),
+        ctx.content_rect(),
         10.0,
     );
 
@@ -79,10 +79,10 @@ pub(super) fn draw_floating_completion_popup(
         .show(ctx, |ui| {
             egui::Frame {
                 fill: theme.surface_panel,
-                rounding: egui::Rounding::same(10.0),
+                corner_radius: egui::CornerRadius::same(10.0 as u8),
                 stroke: egui::Stroke::new(1.0, theme.border_default),
                 shadow: theme.floating_shadow(),
-                inner_margin: egui::Margin::symmetric(4.0, 4.0),
+                inner_margin: egui::Margin::symmetric(4.0 as i8, 4.0 as i8),
                 ..Default::default()
             }
             .show(ui, |ui| {
@@ -191,10 +191,10 @@ fn draw_completion_row(
     if selected {
         let highlight = rect.shrink2(egui::vec2(2.0, 1.0));
         ui.painter()
-            .rect_filled(highlight, egui::Rounding::same(6.0), theme.accent_soft);
+            .rect_filled(highlight, egui::CornerRadius::same(6.0 as u8), theme.accent_soft);
     }
     let content = rect.shrink2(egui::vec2(10.0, 0.0));
-    ui.allocate_new_ui(
+    ui.scope_builder(
         egui::UiBuilder::new()
             .max_rect(content)
             .id_salt(("completion_row_body", idx))

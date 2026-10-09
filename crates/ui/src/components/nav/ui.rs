@@ -3,7 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::components::interact::paint_focus_ring;
 use crate::DbProTheme;
-use egui::{Align2, FontFamily, FontId, Response, RichText, Rounding, Sense, Stroke, Ui, WidgetInfo, WidgetType};
+use egui::{Align2, CornerRadius, FontFamily, FontId, Response, RichText, Sense, Stroke, Ui, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 
 use super::config::{
@@ -73,7 +73,8 @@ pub fn page_icon_button(ui: &mut Ui, icon: Icon, enabled: bool, theme: DbProThem
 
     let rect = response.rect;
     let (fill, color) = page_button_colors(enabled, response.hovered(), &theme);
-    ui.painter().rect_filled(rect, Rounding::same(PAGE_BUTTON_RADIUS), fill);
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(PAGE_BUTTON_RADIUS as u8), fill);
     if response.has_focus() {
         paint_focus_ring(ui, rect, PAGE_BUTTON_RADIUS, theme);
     }
@@ -243,7 +244,7 @@ mod tests {
     fn run_ui(mut on_ui: impl FnMut(&mut egui::Ui)) {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| on_ui(ui));
         });
     }

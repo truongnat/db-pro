@@ -191,16 +191,19 @@ pub(super) fn draw_metadata_filter_header_with_trailing(
             ui.visuals_mut().widgets.inactive.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_default);
             ui.visuals_mut().widgets.hovered.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_default);
             ui.visuals_mut().widgets.active.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_focus);
-            ui.add(
+            let edit = ui.add(
                 egui::TextEdit::singleline(search)
                     .hint_text(RichText::new(hint).color(theme.text_muted))
                     .font(font_ui_label())
                     .desired_width(220.0)
                     .min_size(egui::vec2(220.0, height - SPACE_XS * 2.0))
-                    .margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                    .margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
                     .vertical_align(egui::Align::Center)
                     .text_color(theme.text_primary),
             );
+            edit.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), format!("Search {title}"))
+            });
         });
         if !search.is_empty()
             && Button::new(theme)
@@ -231,33 +234,30 @@ mod metadata_filter_header_tests {
         let mut tab_rects = Vec::new();
         let mut total_rect = None;
 
-        let _ = context.run(
-            egui::RawInput {
-                screen_rect: Some(screen),
-                ..Default::default()
-            },
-            |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    draw_metadata_filter_header_with_trailing(
-                        ui,
-                        DbProTheme::dark(),
-                        "Dependencies",
-                        &mut search,
-                        "Filter dependencies…",
-                        |ui| {
-                            for (label, selected) in [
-                                ("All", false),
-                                ("Depends On (Outgoing)", true),
-                                ("Depended By (Incoming)", false),
-                            ] {
-                                tab_rects.push(tab_button(ui, DbProTheme::dark(), None, label, selected).rect);
-                            }
-                            total_rect = Some(ui.label("3 of 3").rect);
-                        },
-                    );
-                });
-            },
-        );
+        let _ = crate::test_frame::frame(&context, egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        }, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
+                draw_metadata_filter_header_with_trailing(
+                    ui,
+                    DbProTheme::dark(),
+                    "Dependencies",
+                    &mut search,
+                    "Filter dependencies…",
+                    |ui| {
+                        for (label, selected) in [
+                            ("All", false),
+                            ("Depends On (Outgoing)", true),
+                            ("Depended By (Incoming)", false),
+                        ] {
+                            tab_rects.push(tab_button(ui, DbProTheme::dark(), None, label, selected).rect);
+                        }
+                        total_rect = Some(ui.label("3 of 3").rect);
+                    },
+                );
+            });
+        });
 
         let total_rect = total_rect.expect("result count is rendered");
         assert!(!tab_rects.is_empty(), "filter tabs are rendered");

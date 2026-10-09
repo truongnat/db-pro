@@ -10,8 +10,8 @@ use crate::components::clamp_popup_to_screen;
 use crate::DbProTheme;
 use chrono::{Datelike, Local};
 use egui::{
-    Align2, FontFamily, FontId, Frame, Layout, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke,
-    Ui, Vec2, WidgetInfo, WidgetType,
+    Align2, CornerRadius, FontFamily, FontId, Frame, Layout, Margin, Order, Pos2, Rect, Response, RichText, Sense,
+    Stroke, Ui, Vec2, WidgetInfo, WidgetType,
 };
 use lucide_icons::Icon;
 
@@ -180,8 +180,8 @@ impl<'a> Calendar<'a> {
         let frame = Frame {
             fill: self.theme.surface_floating,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: Margin::same(config::CALENDAR_INNER_MARGIN),
-            rounding: Rounding::same(config::SURFACE_RADIUS),
+            inner_margin: Margin::same(config::CALENDAR_INNER_MARGIN as i8),
+            corner_radius: CornerRadius::same(config::SURFACE_RADIUS as u8),
             shadow: self.theme.floating_shadow(),
             ..Default::default()
         };
@@ -225,7 +225,7 @@ impl<'a> Calendar<'a> {
                                 if p_hover > 0.001 {
                                     ui.painter().rect_filled(
                                         prev_resp.0,
-                                        Rounding::same(config::CONTROL_RADIUS),
+                                        CornerRadius::same(config::CONTROL_RADIUS as u8),
                                         self.theme.surface_hover.linear_multiply(p_hover),
                                     );
                                 }
@@ -283,7 +283,7 @@ impl<'a> Calendar<'a> {
                                 if n_hover > 0.001 {
                                     ui.painter().rect_filled(
                                         next_resp.0,
-                                        Rounding::same(config::NAVIGATION_RADIUS),
+                                        CornerRadius::same(config::NAVIGATION_RADIUS as u8),
                                         self.theme.surface_hover.linear_multiply(n_hover),
                                     );
                                 }
@@ -433,13 +433,13 @@ impl<'a> Calendar<'a> {
                                         if is_selected {
                                             ui.painter().rect_filled(
                                                 cell_rect,
-                                                Rounding::same(config::CONTROL_RADIUS),
+                                                CornerRadius::same(config::CONTROL_RADIUS as u8),
                                                 self.theme.accent,
                                             );
                                         } else if hover > 0.001 {
                                             ui.painter().rect_filled(
                                                 cell_rect,
-                                                Rounding::same(config::CONTROL_RADIUS),
+                                                CornerRadius::same(config::CONTROL_RADIUS as u8),
                                                 self.theme.surface_hover.linear_multiply(hover),
                                             );
                                         }
@@ -667,10 +667,10 @@ impl<'a> DatePicker<'a> {
         };
 
         ui.painter()
-            .rect_filled(rect, Rounding::same(config::CONTROL_RADIUS), fill);
+            .rect_filled(rect, CornerRadius::same(config::CONTROL_RADIUS as u8), fill);
         ui.painter().rect_stroke(
             rect,
-            Rounding::same(config::CONTROL_RADIUS),
+            CornerRadius::same(config::CONTROL_RADIUS as u8),
             Stroke::new(
                 1.0,
                 if is_open {
@@ -681,6 +681,7 @@ impl<'a> DatePicker<'a> {
                     self.theme.border_default
                 },
             ),
+            egui::StrokeKind::Inside,
         );
 
         // Icon Calendar on left
@@ -732,7 +733,7 @@ impl<'a> DatePicker<'a> {
             let mut view_month = ui
                 .data(|d| d.get_temp::<u32>(id.with("view_month")))
                 .unwrap_or(self.date.map(|d| d.month).unwrap_or(today.month()));
-            let popover_pos = Calendar::popup_position(rect, ui.ctx().screen_rect(), false);
+            let popover_pos = Calendar::popup_position(rect, ui.ctx().content_rect(), false);
             let popup = egui::Area::new(id.with("popover"))
                 .order(Order::Foreground)
                 .fixed_pos(popover_pos)

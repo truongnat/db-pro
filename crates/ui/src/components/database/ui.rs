@@ -13,7 +13,7 @@ use super::ConnectionCardAction;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::tokens::*;
 use crate::DbProTheme;
-use egui::{Align2, Pos2, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{Align2, CornerRadius, Pos2, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 
 /// A stateless summary of a saved connection that returns the action chosen by the user.
 pub struct ConnectionCard<'a> {
@@ -61,11 +61,11 @@ impl<'a> ConnectionCard<'a> {
             self.theme.border_default
         };
 
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(STROKE_THIN, border_color))
-            .rounding(Rounding::same(RADIUS_CARD))
-            .inner_margin(egui::Margin::same(CARD_INNER_PAD));
+            .corner_radius(CornerRadius::same(RADIUS_CARD as u8))
+            .inner_margin(egui::Margin::same(CARD_INNER_PAD as i8));
 
         frame.show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -165,7 +165,7 @@ impl<'a> ConnectionCard<'a> {
                     let (ssl_rect, ssl_response) =
                         ui.allocate_exact_size(Vec2::new(ssl_width, SSL_BADGE_HEIGHT), Sense::hover());
                     ui.painter()
-                        .rect_filled(ssl_rect, Rounding::same(RADIUS_XS), self.theme.surface_hover);
+                        .rect_filled(ssl_rect, CornerRadius::same(RADIUS_XS as u8), self.theme.surface_hover);
                     ui.painter().galley(
                         Pos2::new(
                             ssl_rect.left() + SSL_BADGE_PADDING_X * 0.5,
@@ -260,11 +260,12 @@ impl<'a> DatabaseTypeBadge<'a> {
             ui.allocate_exact_size(Vec2::new(DATABASE_BADGE_WIDTH, DATABASE_BADGE_HEIGHT), Sense::hover());
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, true, self.driver.name()));
         ui.painter()
-            .rect_filled(rect, Rounding::same(RADIUS_SM), self.theme.surface_hover);
+            .rect_filled(rect, CornerRadius::same(RADIUS_SM as u8), self.theme.surface_hover);
         ui.painter().rect_stroke(
             rect,
-            Rounding::same(RADIUS_SM),
+            CornerRadius::same(RADIUS_SM as u8),
             Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            egui::StrokeKind::Inside,
         );
 
         ui.painter().text(

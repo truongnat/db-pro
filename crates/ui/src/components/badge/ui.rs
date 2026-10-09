@@ -1,5 +1,5 @@
 use crate::DbProTheme;
-use egui::{FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, WidgetInfo, WidgetType};
+use egui::{CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
@@ -69,10 +69,11 @@ impl<'a> Badge<'a> {
 }
 
 fn paint_badge_background(ui: &Ui, rect: egui::Rect, palette: &BadgePalette) {
-    let rounding = Rounding::same(RADIUS_BADGE);
+    let rounding = CornerRadius::same(RADIUS_BADGE as u8);
     ui.painter().rect_filled(rect, rounding, palette.fill);
     if palette.border_stroke != Stroke::NONE {
-        ui.painter().rect_stroke(rect, rounding, palette.border_stroke);
+        ui.painter()
+            .rect_stroke(rect, rounding, palette.border_stroke, egui::StrokeKind::Inside);
     }
 }
 
@@ -125,7 +126,7 @@ mod tests {
         DbProTheme::install_fonts(&ctx);
         let mut height = 0.0;
         let mut width = 0.0;
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let response = Badge::new("Active", theme)
                     .variant(BadgeVariant::Success)

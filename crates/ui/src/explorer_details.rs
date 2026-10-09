@@ -140,11 +140,11 @@ impl DbProApp {
             }
             TableRowAction::CopyQualifiedName => {
                 let qualified_name = result_grid_export::qualified_sql_name(schema, table);
-                ui.output_mut(|output| output.copied_text = qualified_name.clone());
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(qualified_name.clone())));
                 self.feedback.runtime_message = format!("Copied `{qualified_name}` to clipboard");
             }
             TableRowAction::CopyName => {
-                ui.output_mut(|output| output.copied_text = table.to_owned());
+                ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(table.to_owned())));
                 self.feedback.runtime_message = format!("Copied `{table}` to clipboard");
             }
             TableRowAction::AskAgent => self.open_agent_prompt(

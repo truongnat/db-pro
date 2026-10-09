@@ -60,12 +60,12 @@ impl<'a> Tooltip<'a> {
         }
 
         let ctx = &response.ctx;
-        let screen = ctx.screen_rect();
+        let screen = ctx.content_rect();
         let target_rect = response.rect;
 
         let font_id = egui::FontId::proportional(config::TOOLTIP_FONT_SIZE);
         let galley =
-            ctx.fonts(|fonts| fonts.layout(self.text.to_owned(), font_id.clone(), self.theme.text_primary, 260.0));
+            ctx.fonts_mut(|fonts| fonts.layout(self.text.to_owned(), font_id.clone(), self.theme.text_primary, 260.0));
 
         let mut tooltip_w = galley.size().x + config::TOOLTIP_HORIZONTAL_PADDING;
         if self.shortcut.is_some() {
@@ -126,7 +126,7 @@ impl<'a> Tooltip<'a> {
             .interactable(false)
             .show(ctx, |ui| {
                 ui.set_opacity(fade_alpha(progress));
-                floating_surface(theme, 6.0, Margin::symmetric(8.0, 5.0)).show(ui, |ui| {
+                floating_surface(theme, 6.0, Margin::symmetric(8.0 as i8, 5.0 as i8)).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
                         ui.label(

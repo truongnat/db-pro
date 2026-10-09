@@ -5,7 +5,7 @@ use crate::tokens::{ICON_TEXT_GAP, RADIUS_BUTTON};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Shape, Stroke, Ui, Vec2,
+    Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
 use std::borrow::Cow;
@@ -180,7 +180,7 @@ impl<'a> Button<'a> {
         };
 
         let (content_w, text_galley) = if let Some(ref text) = self.label {
-            let galley = ui.fonts(|fonts| {
+            let galley = ui.fonts_mut(|fonts| {
                 fonts.layout_no_wrap(text.to_string(), FontId::proportional(tokens.font_size), text_color)
             });
             let gap = ICON_TEXT_GAP;
@@ -214,10 +214,11 @@ impl<'a> Button<'a> {
 
     fn paint_loading(&self, ui: &mut Ui, layout: &LoadingLayout, tokens: &SizeTokens) {
         let text_color = layout.text_color;
-        let rounding = Rounding::same(RADIUS_BUTTON);
+        let rounding = CornerRadius::same(RADIUS_BUTTON as u8);
         ui.painter().rect_filled(layout.rect, rounding, layout.fill_color);
         if layout.border_stroke != Stroke::NONE {
-            ui.painter().rect_stroke(layout.rect, rounding, layout.border_stroke);
+            ui.painter()
+                .rect_stroke(layout.rect, rounding, layout.border_stroke, egui::StrokeKind::Inside);
         }
         let start_x = leading_content_x(
             layout.left_aligned,
@@ -261,7 +262,7 @@ impl<'a> Button<'a> {
             ButtonPalette::disabled(self.theme)
         };
         let label_layout =
-            ui.fonts(|fonts| fonts.layout_job(button_label_layout_job(&self, tokens, Color32::PLACEHOLDER)));
+            ui.fonts_mut(|fonts| fonts.layout_job(button_label_layout_job(&self, tokens, Color32::PLACEHOLDER)));
         let width = tokens.calculate_width(label_layout.size().x, self.full_width, ui.available_width());
         let (rect, response) = allocate_interactive_button(
             ui,
@@ -323,10 +324,10 @@ fn allocate_interactive_button(ui: &mut Ui, allocation: InteractiveAllocation<'_
     // Disabled buttons may still be hovered for context, but cannot receive a
     // click or focus event that would activate a caller-owned action.
     let sense = if button.enabled {
-        Sense {
-            click: true,
-            drag: false,
-            focusable: button.focusable,
+        if button.focusable {
+            Sense::CLICK | Sense::FOCUSABLE
+        } else {
+            Sense::CLICK
         }
     } else {
         Sense::hover()
@@ -375,10 +376,15 @@ fn add_tooltip(response: Response, tooltip_text: Option<&str>, theme: DbProTheme
 }
 
 fn paint_interactive_surface(ui: &mut Ui, layout: InteractiveLayout<'_>) {
-    let rounding = Rounding::same(RADIUS_BUTTON);
+    let rounding = CornerRadius::same(RADIUS_BUTTON as u8);
     let mut shapes = vec![Shape::rect_filled(layout.paint_rect, rounding, layout.fill)];
     if layout.stroke != Stroke::NONE {
-        shapes.push(Shape::rect_stroke(layout.paint_rect, rounding, layout.stroke));
+        shapes.push(Shape::rect_stroke(
+            layout.paint_rect,
+            rounding,
+            layout.stroke,
+            egui::StrokeKind::Inside,
+        ));
     }
 
     let text_x = leading_content_x(
@@ -455,12 +461,12 @@ mod tests {
     fn press_scales_background_icon_text_and_underline_together() {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let button = Button::new(DbProTheme::light()).icon(Icon::Play).text("Run");
                 let tokens = SizeTokens::from_size(button.size);
                 let galley =
-                    ui.fonts(|fonts| fonts.layout_job(button_label_layout_job(&button, &tokens, Color32::WHITE)));
+                    ui.fonts_mut(|fonts| fonts.layout_job(button_label_layout_job(&button, &tokens, Color32::WHITE)));
                 let original = galley.rows[0].visuals.mesh.vertices.clone();
                 let rect = Rect::from_min_size(Pos2::new(20.0, 20.0), Vec2::new(140.0, 40.0));
                 let scale = press_scale(1.0);
@@ -537,7 +543,7 @@ mod tests {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
         let theme = DbProTheme::dark();
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let response = Button::new(theme).icon(Icon::X).access_label("Close panel").show(ui);
                 assert!(response.rect.is_positive());
@@ -550,7 +556,7 @@ mod tests {
     fn icon_only_button_without_access_label_is_rejected_in_all_builds() {
         let ctx = egui::Context::default();
         let theme = DbProTheme::dark();
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 Button::new(theme).icon(Icon::X).tooltip("Close panel").show(ui);
             });

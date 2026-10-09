@@ -1,7 +1,7 @@
 //! Pure visual rendering for a result-grid column header.
 
 use super::*;
-use egui::{Color32, FontId, Pos2, Rect, Rounding, Stroke, Vec2};
+use egui::{Color32, FontId, Pos2, Rect, CornerRadius, Stroke, Vec2};
 
 pub(super) struct GridHeaderContentContext<'a> {
     pub(super) column: &'a crate::UiColumn,
@@ -63,7 +63,7 @@ fn draw_key_badge(
         Pos2::new(header_rect.left(), header_rect.center().y - 7.0),
         Vec2::new(galley.size().x + 6.0, 14.0),
     );
-    painter.rect_filled(badge_rect, Rounding::same(3.0), color.linear_multiply(0.18));
+    painter.rect_filled(badge_rect, CornerRadius::same(3.0 as u8), color.linear_multiply(0.18));
     painter.galley(
         Pos2::new(badge_rect.left() + 3.0, badge_rect.center().y - galley.size().y * 0.5),
         galley,

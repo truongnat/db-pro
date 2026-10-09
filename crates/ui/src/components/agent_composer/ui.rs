@@ -6,7 +6,7 @@ use crate::tokens::{
     font_caption, FONT_SIZE_CAPTION, RADIUS_COMPOSER, RADIUS_XS, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN,
 };
 use crate::DbProTheme;
-use egui::{Color32, Rect, RichText, Rounding, Stroke, Ui, WidgetInfo, WidgetType};
+use egui::{Color32, CornerRadius, Rect, RichText, Stroke, Ui, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 
 use super::{handler, AgentComposerAction, AgentMode};
@@ -45,11 +45,11 @@ impl<'a> AgentComposer<'a> {
     pub fn show(self, ui: &mut Ui) -> Option<AgentComposerAction> {
         let mut triggered = None;
 
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .rounding(Rounding::same(RADIUS_COMPOSER))
-            .inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM));
+            .corner_radius(CornerRadius::same(RADIUS_COMPOSER as u8))
+            .inner_margin(egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8));
 
         frame.show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -65,7 +65,7 @@ impl<'a> AgentComposer<'a> {
             let text_edit = egui::TextEdit::multiline(self.prompt)
                 .desired_rows(2)
                 .desired_width(ui.available_width())
-                .frame(false)
+                .frame(egui::Frame::NONE)
                 .hint_text("Ask AI to generate, optimize, or investigate SQL queries...");
             let edit_resp = ui.add(text_edit);
             edit_resp.widget_info(|| WidgetInfo::labeled(WidgetType::TextEdit, true, "Prompt"));
@@ -149,7 +149,8 @@ impl<'a> AgentComposer<'a> {
 }
 
 fn paint_badge(ui: &Ui, rect: Rect, galley: std::sync::Arc<egui::Galley>, fill_color: Color32) {
-    ui.painter().rect_filled(rect, Rounding::same(RADIUS_XS), fill_color);
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(RADIUS_XS as u8), fill_color);
     ui.painter()
         .galley(handler::badge_text_pos(rect), galley, Color32::PLACEHOLDER);
 }

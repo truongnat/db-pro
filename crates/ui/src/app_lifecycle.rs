@@ -14,14 +14,17 @@ impl eframe::App for DbProApp {
         self.persist_ui_preferences(storage);
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.normalize_input_modifiers(ctx);
         self.prepare_frame(ctx);
-        self.draw_shell(ctx);
-        self.draw_overlays(ctx);
-        ctx.set_cursor_icon(egui::CursorIcon::Default);
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.draw_shell(ui);
+        self.draw_overlays(ui.ctx());
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
         if cfg!(target_os = "linux") {
-            shell_topbar_view::draw_window_resize_handles(ctx);
+            shell_topbar_view::draw_window_resize_handles(ui.ctx());
         }
     }
 }
@@ -179,18 +182,19 @@ impl DbProApp {
         self.handle_shortcuts(ctx);
     }
 
-    fn draw_shell(&mut self, ctx: &egui::Context) {
+    fn draw_shell(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
         let settings_mode = self.workspace.activity == Activity::Settings;
         if !settings_mode || cfg!(target_os = "linux") {
-            self.draw_topbar(ctx);
+            self.draw_topbar(ui);
         }
         // Query owns its rich output dock and the Results workspace tab renders
         // the grid itself; the shell panel is for the remaining tabs.
         if !settings_mode && self.shows_shell_output_panel() {
-            self.draw_output_panel(ctx);
+            self.draw_output_panel(ui);
         }
         if !settings_mode {
-            self.draw_statusbar(ctx);
+            self.draw_statusbar(ui);
         }
         let activity_context = activity_bar_view::ActivityBarContext {
             theme: self.theme,
@@ -198,20 +202,20 @@ impl DbProApp {
             active_tab: self.workspace.active_tab,
             agent_open: self.workspace.agent_open,
         };
-        if let Some(action) = activity_bar_view::draw_activity_bar(ctx, &activity_context) {
-            self.apply_activity_bar_action(action, ctx);
+        if let Some(action) = activity_bar_view::draw_activity_bar(ui, &activity_context) {
+            self.apply_activity_bar_action(action, &ctx);
         }
 
         if self.workspace.sidebar_open && !settings_mode {
-            self.draw_sidebar(ctx);
+            self.draw_sidebar(ui);
         }
 
         if self.workspace.agent_open {
-            self.draw_agent_panel(ctx);
+            self.draw_agent_panel(ui);
         }
 
         shell_frame_view::draw_central_panel(
-            ctx,
+            ui,
             &shell_frame_view::ShellFrameContext {
                 theme: self.theme,
                 settings_mode,
@@ -304,9 +308,36 @@ impl DbProApp {
             self.draw_palette(ctx);
         }
 
+        // Debug-build inspector; compiled out of release, no-op when closed.
+        #[cfg(debug_assertions)]
+        self.dev_tools.draw(ctx, self.theme);
+
         self.feedback.toasts.render_ctx(ctx, self.theme);
         if !self.feedback.toasts.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(50));
+        }
+    }
+}
+
+/// Headless audit (`DB_PRO_AUDIT_JSON=<path>`): the same 12-rule pipeline the
+/// inspector draws, emitted as schema-v1 JSON with an exit code. Debug builds
+/// only — the dev-tools module doesn't exist in release.
+#[cfg(debug_assertions)]
+impl DbProApp {
+    /// Take a pending audit emission produced inside `dev_tools.draw` and write
+    /// it to `DB_PRO_AUDIT_JSON`. `None` until the pipeline is warm — callers
+    /// poll this per frame and exit with the returned code on `Some`.
+    pub fn take_audit_emission(&mut self) -> Option<i32> {
+        let (json, code) = self.dev_tools.take_audit_emission()?;
+        let Some(out) = std::env::var_os(crate::dev_tools::report::OUTPUT_ENV) else {
+            return Some(crate::dev_tools::report::EXIT_TOOL_ERROR);
+        };
+        match std::fs::write(&out, serde_json::to_string_pretty(&json).unwrap_or_default()) {
+            Ok(()) => Some(code),
+            Err(e) => {
+                tracing::error!(path = ?out, "audit report write failed: {e}");
+                Some(crate::dev_tools::report::EXIT_TOOL_ERROR)
+            }
         }
     }
 }

@@ -27,7 +27,7 @@ mod tests {
     }
 
     fn frame_with_row(ctx: &egui::Context, input: egui::RawInput, theme: DbProTheme, menu_rendered: &mut bool) {
-        let _ = ctx.run(input, |ctx| {
+        let _ = crate::test_frame::frame(&ctx, input, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let (_rect, response) = ui.allocate_exact_size(egui::vec2(300.0, 26.0), egui::Sense::click());
                 context_action_menu(ui, &response, theme, |ui, _close_menu| {

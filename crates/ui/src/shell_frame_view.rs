@@ -9,7 +9,7 @@ pub(super) struct ShellFrameContext {
     pub(super) settings_mode: bool,
 }
 
-pub(super) fn draw_central_panel<F>(ctx: &egui::Context, context: &ShellFrameContext, draw_workspace: F)
+pub(super) fn draw_central_panel<F>(ui: &mut egui::Ui, context: &ShellFrameContext, draw_workspace: F)
 where
     F: FnOnce(&mut egui::Ui),
 {
@@ -23,16 +23,16 @@ where
                 context.theme.surface_panel
             },
             inner_margin: egui::Margin {
-                left: if context.settings_mode { 0.0 } else { SHELL_SPLIT_INSET },
-                right: if context.settings_mode { 0.0 } else { SHELL_SPLIT_INSET },
-                top: 0.0,
-                bottom: 0.0,
+                left: if context.settings_mode { 0 } else { SHELL_SPLIT_INSET as i8 },
+                right: if context.settings_mode { 0 } else { SHELL_SPLIT_INSET as i8 },
+                top: 0,
+                bottom: 0,
             },
             outer_margin: egui::Margin::ZERO,
             stroke: egui::Stroke::NONE,
             ..Default::default()
         })
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             ui.set_min_size(ui.available_size());
             ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
             draw_workspace(ui);

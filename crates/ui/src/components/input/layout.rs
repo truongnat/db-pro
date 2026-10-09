@@ -5,7 +5,7 @@ use crate::tokens::component::input::{
 };
 use crate::tokens::RADIUS_XS;
 use crate::DbProTheme;
-use egui::{Id, Rect, Rounding, Stroke, Ui};
+use egui::{CornerRadius, Id, Rect, Stroke, Ui};
 
 // The state struct is owned by the input contract; re-exported here so the
 // input module keeps constructing field state through this module.
@@ -48,7 +48,8 @@ pub(crate) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChrome
     // exactly `rect`, and `rounding - w` grown by the same stroke is `rounding`.
     ui.painter().rect_stroke(
         rect.shrink(stroke.width),
-        Rounding::same((RADIUS_XS - stroke.width).max(0.0)),
+        CornerRadius::same((RADIUS_XS - stroke.width).max(0.0) as u8),
         stroke,
+        egui::StrokeKind::Inside,
     );
 }

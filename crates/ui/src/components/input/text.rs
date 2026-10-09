@@ -1,7 +1,9 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Sense, Stroke, TextEdit, Ui, Vec2};
+use egui::{
+    CornerRadius, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Sense, Stroke, TextEdit, Ui, Vec2,
+};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
@@ -88,7 +90,7 @@ impl<'a> Input<'a> {
         self
     }
 
-    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+    pub fn id_salt(mut self, id_salt: impl std::hash::Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(id_salt));
         self
     }
@@ -122,8 +124,8 @@ impl<'a> Input<'a> {
             let frame = Frame {
                 fill,
                 stroke: Stroke::NONE,
-                inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),
-                rounding: Rounding::same(RADIUS_XS),
+                inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+                corner_radius: CornerRadius::same(RADIUS_XS as u8),
                 ..Default::default()
             };
 
@@ -165,7 +167,7 @@ impl<'a> Input<'a> {
                             .hint_text(RichText::new(self.placeholder.as_ref()).color(self.theme.text_muted))
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)
-                            .frame(false)
+                            .frame(egui::Frame::NONE)
                             .text_color(if self.enabled {
                                 self.theme.text_primary
                             } else {
@@ -174,14 +176,8 @@ impl<'a> Input<'a> {
                     );
 
                     if show_clear {
-                        let (clear_rect, clear_response) = ui.allocate_at_least(
-                            Vec2::new(24.0, ui.spacing().interact_size.y),
-                            Sense {
-                                click: true,
-                                drag: false,
-                                focusable: false,
-                            },
-                        );
+                        let (clear_rect, clear_response) =
+                            ui.allocate_at_least(Vec2::new(24.0, ui.spacing().interact_size.y), Sense::CLICK);
                         let clear_response = clear_response.on_hover_text("Clear");
                         clear_response.widget_info(|| button_info(true, "Clear"));
                         ui.painter().text(

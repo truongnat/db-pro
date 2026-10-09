@@ -43,7 +43,7 @@ impl<'a> Label<'a> {
             self.theme.text_disabled
         };
         // Labels are noninteractive: use their font height rather than a button-sized row.
-        let height = ui.fonts(|fonts| fonts.row_height(&egui::FontId::proportional(LABEL_FONT_SIZE)));
+        let height = ui.fonts_mut(|fonts| fonts.row_height(&egui::FontId::proportional(LABEL_FONT_SIZE)));
         ui.allocate_ui_with_layout(
             egui::vec2(ui.available_width(), height),
             egui::Layout::left_to_right(egui::Align::Center),
@@ -102,7 +102,7 @@ impl<'a> FormField<'a> {
         }
     }
     /// Sets a stable unique ID salt for repeated labels; labels remain the default.
-    pub fn id_salt(mut self, salt: impl Hash) -> Self {
+    pub fn id_salt(mut self, salt: impl Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(salt));
         self
     }
@@ -166,7 +166,7 @@ mod tests {
             DbProTheme::install_fonts(&ctx);
             theme.apply(&ctx);
             let mut value = String::from("database");
-            let output = ctx.run(egui::RawInput::default(), |ctx| {
+            let output = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.set_width(300.0);
                     ui.spacing_mut().item_spacing = spacing;

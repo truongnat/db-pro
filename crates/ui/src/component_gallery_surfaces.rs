@@ -286,11 +286,11 @@ impl DbProApp {
                 ui.label(RichText::new("Hierarchical Database Tree").size(13.0).strong().color(theme.text_secondary));
                 ui.add_space(SPACE_SM);
 
-                let tree_frame = egui::Frame::none()
+                let tree_frame = egui::Frame::NONE
                     .fill(theme.surface_editor)
                     .stroke(egui::Stroke::new(STROKE_THIN, theme.border_default))
-                    .rounding(egui::Rounding::same(RADIUS_CARD))
-                    .inner_margin(egui::Margin::same(SPACE_SM));
+                    .corner_radius(egui::CornerRadius::same(RADIUS_CARD as u8))
+                    .inner_margin(egui::Margin::same(SPACE_SM as i8));
 
                 tree_frame.show(ui, |ui| {
                     DatabaseTreeNode::new("localhost:5432", TreeNodeKind::Server, 0, theme)

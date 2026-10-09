@@ -1,5 +1,5 @@
 use super::*;
-use egui::{Pos2, Rect, Rounding, Vec2};
+use egui::{Pos2, Rect, CornerRadius, Vec2};
 
 pub(super) struct SchemaCompareViewContext<'a> {
     pub(super) theme: DbProTheme,
@@ -252,7 +252,7 @@ pub(super) fn draw_schema_compare(
                     let galley = ui.painter().layout_no_wrap(risk_label.to_owned(), font_caption(), risk_color);
                     // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                     let r = Rect::from_min_size(Pos2::new(ui.cursor().min.x, ui.cursor().min.y + 1.0), Vec2::new(galley.size().x + 6.0, 15.0));
-                    ui.painter().rect_filled(r, Rounding::same(RADIUS_XS), risk_bg);
+                    ui.painter().rect_filled(r, CornerRadius::same(RADIUS_XS as u8), risk_bg);
                     ui.painter().galley(Pos2::new(r.left() + 3.0, r.top() + 1.0), galley, egui::Color32::PLACEHOLDER);
                     ui.add_space(r.width() + 4.0);
                     ui.label(
@@ -271,7 +271,7 @@ pub(super) fn draw_schema_compare(
                     ui.label(RichText::new("Generated Migration DDL").strong().color(context.theme.text_primary));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if compact_button_with_icon(ui, Icon::Copy, "Copy SQL", context.theme).clicked() {
-                            ui.output_mut(|o| o.copied_text = context.compare.migration_preview_sql.clone());
+                            ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(context.compare.migration_preview_sql.clone())));
                             context.feedback.set_runtime_message("Copied migration SQL to clipboard");
                         }
                     });

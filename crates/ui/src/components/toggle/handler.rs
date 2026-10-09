@@ -1,6 +1,6 @@
 use super::config;
 use crate::DbProTheme;
-use egui::{Color32, Rounding, Stroke};
+use egui::{Color32, CornerRadius, Stroke};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToggleVariant {
@@ -174,27 +174,27 @@ pub fn standalone_appearance(
 }
 
 /// Calculates the outer corner radii for an item in a contiguous single-select group.
-pub fn group_rounding(index: usize, count: usize) -> Rounding {
+pub fn group_rounding(index: usize, count: usize) -> CornerRadius {
     if count <= 1 {
-        return Rounding::same(config::TOGGLE_ROUNDING);
+        return CornerRadius::same(config::TOGGLE_ROUNDING as u8);
     }
     if index == 0 {
-        return Rounding {
-            nw: config::TOGGLE_ROUNDING,
-            sw: config::TOGGLE_ROUNDING,
-            ne: 0.0,
-            se: 0.0,
+        return CornerRadius {
+            nw: (config::TOGGLE_ROUNDING) as u8,
+            sw: (config::TOGGLE_ROUNDING) as u8,
+            ne: 0.0 as u8,
+            se: 0.0 as u8,
         };
     }
     if index + 1 == count {
-        return Rounding {
-            nw: 0.0,
-            sw: 0.0,
-            ne: config::TOGGLE_ROUNDING,
-            se: config::TOGGLE_ROUNDING,
+        return CornerRadius {
+            nw: 0.0 as u8,
+            sw: 0.0 as u8,
+            ne: (config::TOGGLE_ROUNDING) as u8,
+            se: (config::TOGGLE_ROUNDING) as u8,
         };
     }
-    Rounding::ZERO
+    CornerRadius::ZERO
 }
 
 /// Resolves the fill for a group item without mutating selection state.
@@ -293,10 +293,10 @@ mod tests {
 
     #[test]
     fn group_rounding_only_rounds_the_outer_edges() {
-        assert_eq!(group_rounding(0, 1), Rounding::same(config::TOGGLE_ROUNDING));
-        assert_eq!(group_rounding(0, 3).ne, 0.0);
-        assert_eq!(group_rounding(1, 3), Rounding::ZERO);
-        assert_eq!(group_rounding(2, 3).se, config::TOGGLE_ROUNDING);
+        assert_eq!(group_rounding(0, 1), CornerRadius::same(config::TOGGLE_ROUNDING as u8));
+        assert_eq!(group_rounding(0, 3).ne, 0);
+        assert_eq!(group_rounding(1, 3), CornerRadius::ZERO);
+        assert_eq!(group_rounding(2, 3).se, config::TOGGLE_ROUNDING as u8);
     }
 
     #[test]

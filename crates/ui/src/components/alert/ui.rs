@@ -4,7 +4,7 @@
 use super::{config, handler};
 use crate::components::button::{Button, ButtonVariant};
 use crate::DbProTheme;
-use egui::{Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Response, RichText, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 use std::borrow::Cow;
@@ -72,8 +72,13 @@ impl<'a> Alert<'a> {
         Frame {
             fill: style.fill,
             stroke: Stroke::new(config::ALERT_BORDER_WIDTH, style.border),
-            inner_margin: Margin::symmetric(config::ALERT_FRAME_PADDING_X, config::ALERT_FRAME_PADDING_Y),
-            rounding: Rounding::same(config::ALERT_RADIUS),
+            // egui 0.36 counts stroke width in the frame's total margin; subtract it so the
+            // content keeps its 0.29-era inset (the stroke now absorbs 1pt per side).
+            inner_margin: Margin::symmetric(
+                (config::ALERT_FRAME_PADDING_X - config::ALERT_BORDER_WIDTH) as i8,
+                (config::ALERT_FRAME_PADDING_Y - config::ALERT_BORDER_WIDTH) as i8,
+            ),
+            corner_radius: CornerRadius::same(config::ALERT_RADIUS as u8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -191,7 +196,7 @@ impl<'a> AlertDialog<'a> {
     }
 
     /// Supplies a stable identity when more than one alert dialog can be rendered.
-    pub fn id_salt(mut self, salt: impl std::hash::Hash) -> Self {
+    pub fn id_salt(mut self, salt: impl std::hash::Hash + std::fmt::Debug) -> Self {
         self.id_salt = egui::Id::new(("alert_dialog", salt));
         self
     }
@@ -206,7 +211,7 @@ impl<'a> AlertDialog<'a> {
         }
 
         let mut action = None;
-        let screen_rect = ctx.screen_rect();
+        let screen_rect = ctx.content_rect();
         let modal_width = handler::dialog_outer_width(screen_rect.width());
         let content_width = handler::dialog_content_width(screen_rect.width());
         let focus_cancel = ctx.memory(|memory| memory.focused().is_none());
@@ -220,7 +225,7 @@ impl<'a> AlertDialog<'a> {
                 let (_, response) = ui.allocate_exact_size(screen_rect.size(), Sense::click());
                 ui.painter().rect_filled(
                     screen_rect,
-                    Rounding::ZERO,
+                    CornerRadius::ZERO,
                     Color32::from_black_alpha(config::BACKDROP_OPACITY),
                 );
                 if handler::should_close_from_backdrop(self.destructive, response.clicked()) {
@@ -239,12 +244,12 @@ impl<'a> AlertDialog<'a> {
                 Frame {
                     fill: self.theme.surface_elevated,
                     stroke: Stroke::new(config::DIALOG_BORDER_WIDTH, self.theme.border_default),
-                    inner_margin: Margin::same(config::DIALOG_PADDING),
-                    rounding: Rounding::same(config::DIALOG_RADIUS),
+                    inner_margin: Margin::same(config::DIALOG_PADDING as i8),
+                    corner_radius: CornerRadius::same(config::DIALOG_RADIUS as u8),
                     shadow: egui::epaint::Shadow {
-                        offset: egui::vec2(0.0, config::DIALOG_SHADOW_OFFSET_Y),
-                        blur: config::DIALOG_SHADOW_BLUR,
-                        spread: 0.0,
+                        offset: [0, config::DIALOG_SHADOW_OFFSET_Y as i8],
+                        blur: config::DIALOG_SHADOW_BLUR as u8,
+                        spread: 0,
                         color: Color32::from_black_alpha(config::DIALOG_SHADOW_OPACITY),
                     },
                     ..Default::default()

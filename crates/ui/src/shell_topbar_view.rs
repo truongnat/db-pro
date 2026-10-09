@@ -10,7 +10,7 @@ pub(super) fn draw_window_resize_handles(ctx: &egui::Context) {
         return;
     }
 
-    let screen_rect = ctx.input(|input| input.screen_rect());
+    let screen_rect = ctx.input(|input| input.content_rect());
     draw_corner_resize_handles(ctx, screen_rect);
     draw_edge_resize_handles(ctx, screen_rect);
 }
@@ -94,9 +94,20 @@ fn interact_resize_handle(
         .order(egui::Order::Foreground)
         .fixed_pos(rect.min)
         .default_size(rect.size())
-        .interactable(false)
+        .interactable(true)
+        // egui 0.36: `interactable(false)` disables inner widgets entirely; hover
+        // sense keeps background clicks passing through while the handle stays
+        // draggable.
+        .sense(Sense::hover())
         .show(ctx, |ui| {
             let response = ui.interact(rect, ui.id().with("target"), Sense::click_and_drag());
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(
+                    egui::WidgetType::Button,
+                    ui.is_enabled(),
+                    format!("Resize window ({direction:?})"),
+                )
+            });
             if response.hovered() {
                 ctx.set_cursor_icon(cursor);
             }
@@ -140,26 +151,27 @@ pub(super) struct ShellTopbarContext<'a> {
 }
 
 impl ShellTopbarContext<'_> {
-    pub(super) fn draw(&self, ctx: &egui::Context) -> Vec<ShellTopbarAction> {
+    pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<ShellTopbarAction> {
+        let ctx = ui.ctx().clone();
         let mut actions = Vec::new();
         let modifier = primary_modifier_label();
-        TopBottomPanel::top("topbar")
-            .exact_height(38.0)
+        egui::Panel::top("topbar")
+            .exact_size(38.0)
             .frame(egui::Frame {
                 fill: self.theme.surface_app,
-                inner_margin: egui::Margin::symmetric(SPACE_MD, 4.0),
+                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, 4),
                 stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
                 ..Default::default()
             })
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
                     self.draw_navigation(ui, &mut actions, modifier);
                     ui.add_space(SPACE_SM);
                     ui.label(RichText::new("│").font(font_caption()).color(self.theme.border_subtle));
                     ui.add_space(SPACE_SM);
-                    self.draw_connection(ui, ctx);
-                    self.draw_global_actions(ui, &mut actions, modifier, ctx);
+                    self.draw_connection(ui, &ctx);
+                    self.draw_global_actions(ui, &mut actions, modifier, &ctx);
                 });
             });
         actions
@@ -319,7 +331,7 @@ impl ShellTopbarContext<'_> {
         let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 28.0), Sense::click());
         if response.hovered() {
             let fill = if is_close { theme.danger } else { theme.surface_hover };
-            ui.painter().rect_filled(rect, egui::Rounding::same(4.0), fill);
+            ui.painter().rect_filled(rect, egui::CornerRadius::same(4.0 as u8), fill);
         }
         let icon_color = if is_close && response.hovered() {
             theme.text_on_solid(theme.danger)
@@ -329,9 +341,8 @@ impl ShellTopbarContext<'_> {
         if response.has_focus() {
             ui.painter().rect_stroke(
                 rect,
-                egui::Rounding::same(4.0),
-                egui::Stroke::new(STROKE_THIN, theme.border_focus),
-            );
+                egui::CornerRadius::same(4.0 as u8),
+                egui::Stroke::new(STROKE_THIN, theme.border_focus), egui::StrokeKind::Inside);
         }
         ui.painter().text(
             rect.center(),
@@ -427,6 +438,13 @@ impl ShellTopbarContext<'_> {
         ui.add_space(SPACE_SM);
         let search_width = (ui.available_width() - 32.0).clamp(180.0, 360.0);
         let (rect, response) = ui.allocate_exact_size(egui::vec2(search_width, 26.0), Sense::click());
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(
+                egui::WidgetType::Button,
+                ui.is_enabled(),
+                format!("Search commands, tables, schemas ({modifier}P)"),
+            )
+        });
         let background = if response.hovered() {
             self.theme.surface_hover
         } else {
@@ -439,10 +457,9 @@ impl ShellTopbarContext<'_> {
         };
         ui.painter().rect(
             rect,
-            egui::Rounding::same(RADIUS_MD),
+            egui::CornerRadius::same(RADIUS_MD as u8),
             background,
-            egui::Stroke::new(1.0, border),
-        );
+            egui::Stroke::new(1.0, border), egui::StrokeKind::Inside);
         let icon_font = egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into()));
         ui.painter().text(
             egui::pos2(rect.left() + 8.0, rect.center().y),
@@ -495,23 +512,26 @@ mod window_control_tests {
     }
 
     fn commands(ctx: &Context, events: Vec<Event>) -> Vec<egui::ViewportCommand> {
-        ctx.run(input(events), draw_window_resize_handles)
-            .viewport_output
-            .remove(&ViewportId::ROOT)
-            .expect("root viewport output")
-            .commands
+        crate::test_frame::frame(&ctx, input(events), |ui| {
+            draw_window_resize_handles(ui.ctx());
+        })
+        .viewport_output
+        .remove(&ViewportId::ROOT)
+        .expect("root viewport output")
+        .commands
     }
 
     fn render_controls(ctx: &Context, events: Vec<Event>, rects: &mut [Rect; 3]) -> egui::FullOutput {
-        ctx.run(input(events), |ctx| {
-            egui::TopBottomPanel::top("test_topbar")
-                .exact_height(38.0)
-                .show(ctx, |ui| {
+        crate::test_frame::frame(&ctx, input(events), |ui| {
+            egui::Panel::top("test_topbar")
+                .exact_size(38.0)
+                .show(ui, |ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        *rects = ShellTopbarContext::draw_window_controls(ui, ctx, DbProTheme::light());
+                        let ctx = ui.ctx().clone();
+                        *rects = ShellTopbarContext::draw_window_controls(ui, &ctx, DbProTheme::light());
                     });
                 });
-            draw_window_resize_handles(ctx);
+            draw_window_resize_handles(ui.ctx());
         })
     }
 

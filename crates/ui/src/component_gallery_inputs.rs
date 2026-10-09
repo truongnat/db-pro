@@ -590,11 +590,11 @@ impl DbProApp {
 }
 
 fn gallery_panel<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-    egui::Frame::none()
+    egui::Frame::NONE
         .fill(theme.surface_panel)
         .stroke(egui::Stroke::new(STROKE_THIN, theme.border_subtle))
-        .rounding(egui::Rounding::same(RADIUS_CARD))
-        .inner_margin(egui::Margin::same(SPACE_MD))
+        .corner_radius(egui::CornerRadius::same(RADIUS_CARD as u8))
+        .inner_margin(egui::Margin::same(SPACE_MD as i8))
         .show(ui, add_contents)
         .inner
 }

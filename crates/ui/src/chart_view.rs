@@ -6,7 +6,7 @@ mod chart_engine;
 
 pub use chart_engine::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartType};
 
-use egui::{Align2, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
+use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Stroke, Vec2};
 use lucide_icons::Icon;
 use std::collections::HashSet;
 
@@ -229,7 +229,7 @@ impl ChartRenderer {
                 Pos2::new(px + bar_width / 2.0, py.max(base_y)),
             );
 
-            painter.rect_filled(bar_rect, Rounding::ZERO, color.gamma_multiply(0.8));
+            painter.rect_filled(bar_rect, CornerRadius::ZERO, color.gamma_multiply(0.8));
         }
     }
 
@@ -394,7 +394,7 @@ impl ChartRenderer {
             let ly = rect.min.y + i as f32 * 18.0;
             painter.rect_filled(
                 Rect::from_min_size(Pos2::new(legend_x, ly), Vec2::new(12.0, 12.0)),
-                Rounding::ZERO,
+                CornerRadius::ZERO,
                 color,
             );
             painter.text(

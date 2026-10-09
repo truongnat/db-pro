@@ -25,7 +25,7 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
         lerp_color(Color32::TRANSPARENT, theme.surface_hover, hover)
     };
     ui.painter()
-        .rect_filled(rect, ui.style().visuals.widgets.inactive.rounding, bg);
+        .rect_filled(rect, ui.style().visuals.widgets.inactive.corner_radius, bg);
     let text_color = if selected { theme.accent } else { theme.text_primary };
     // Measure/wrap text within the helper-computed rectangle, keeping layout policy testable outside egui painting.
     let text_rect = option_text_rect(rect, ui.spacing().button_padding.x, selected);

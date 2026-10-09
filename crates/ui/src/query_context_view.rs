@@ -215,25 +215,30 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -
     } else {
         context.theme.warning
     };
-    egui::Frame::none()
+    let response = egui::Frame::NONE
         .fill(chip_fill)
-        .rounding(egui::Rounding::same(RADIUS_SM))
-        .inner_margin(egui::Margin::symmetric(SPACE_XS + 2.0, 2.0))
+        .corner_radius(egui::CornerRadius::same(RADIUS_SM as u8))
+        .inner_margin(egui::Margin::symmetric((SPACE_XS + 2.0) as i8, 2))
         .stroke(egui::Stroke::new(1.0, chip_stroke))
         .show(ui, |ui| {
             // cc-scan:allow TOO_MANY_PARAMS — context params passed through
-            draw_context_chip_contents(context, ui, is_production, chip_text, color)
+            draw_context_chip_contents(context, ui, is_production, &chip_text, color)
         })
         .response
         .on_hover_text(tooltip)
-        .interact(egui::Sense::click())
+        .interact(egui::Sense::click());
+    // The chip is clickable but painted manually — egui can't derive a name.
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), chip_text.as_str())
+    });
+    response
 }
 
 fn draw_context_chip_contents(
     context: &QueryContextViewContext<'_>,
     ui: &mut egui::Ui,
     is_production: bool,
-    chip_text: String,
+    chip_text: &str,
     color: egui::Color32,
 ) {
     ui.horizontal(|ui| {

@@ -44,7 +44,7 @@ impl SettingsSurfaceContext<'_> {
             inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin::ZERO,
             stroke: egui::Stroke::NONE,
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -73,13 +73,13 @@ impl SettingsSurfaceContext<'_> {
                 egui::Frame {
                     fill: self.theme.surface_panel,
                     inner_margin: egui::Margin {
-                        left: SPACE_LG,
-                        right: SPACE_LG,
-                        top: SPACE_2XL,
-                        bottom: SPACE_LG,
+                        left: (SPACE_LG) as i8,
+                        right: (SPACE_LG) as i8,
+                        top: (SPACE_2XL) as i8,
+                        bottom: (SPACE_LG) as i8,
                     },
                     stroke: egui::Stroke::NONE,
-                    rounding: egui::Rounding::ZERO,
+                    corner_radius: egui::CornerRadius::ZERO,
                     ..Default::default()
                 }
                 .show(ui, |ui| {
@@ -90,7 +90,7 @@ impl SettingsSurfaceContext<'_> {
         );
 
         let (divider, _) = ui.allocate_exact_size(egui::vec2(STROKE_THIN, available_height), egui::Sense::hover());
-        ui.painter().rect_filled(divider, egui::Rounding::ZERO, self.theme.border_subtle);
+        ui.painter().rect_filled(divider, egui::CornerRadius::ZERO, self.theme.border_subtle);
     }
 
     fn draw_content_panel(

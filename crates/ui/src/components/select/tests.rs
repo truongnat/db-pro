@@ -20,7 +20,7 @@ fn compact_select_matches_toolbar_button_height_and_alignment() {
     let mut selected = 0;
     for variant in [SelectVariant::Outline, SelectVariant::Ghost] {
         for _ in 0..2 {
-            let _ = ctx.run(egui::RawInput::default(), |ctx| {
+            let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         let button = Button::new(theme).text("Run").size(ButtonSize::Sm).show(ui);
@@ -45,7 +45,7 @@ fn default_select_retains_form_height() {
     crate::DbProTheme::install_fonts(&ctx);
     let options = vec!["500 rows".to_owned()];
     let mut selected = 0;
-    let _ = ctx.run(egui::RawInput::default(), |ctx| {
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             let response = super::Select::new("form_height", &mut selected, &options)
                 .width(120.0)

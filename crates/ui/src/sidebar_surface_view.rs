@@ -29,38 +29,39 @@ struct SidebarPanel {
 
 pub(super) fn draw<F>(
     context: &SidebarSurfaceContext<'_>,
-    egui_context: &egui::Context,
+    ui: &mut egui::Ui,
     mut draw_activity: F,
 ) -> Vec<SidebarSurfaceAction>
 where
     F: FnMut(&mut egui::Ui),
 {
-    let panel = draw_panel(context, egui_context);
-    let mut actions = draw_content(context, egui_context, &panel, &mut draw_activity);
-    if let Some(width) = draw_resize_handle(context, egui_context, &panel) {
+    let egui_context = ui.ctx().clone();
+    let panel = draw_panel(context, ui);
+    let mut actions = draw_content(context, &egui_context, &panel, &mut draw_activity);
+    if let Some(width) = draw_resize_handle(context, &egui_context, &panel) {
         actions.push(SidebarSurfaceAction::Resize(width));
     }
     actions
 }
 
-fn draw_panel(context: &SidebarSurfaceContext<'_>, egui_context: &egui::Context) -> SidebarPanel {
-    let response = egui::SidePanel::left("sidebar")
+fn draw_panel(context: &SidebarSurfaceContext<'_>, ui: &mut egui::Ui) -> SidebarPanel {
+    let response = egui::Panel::left("sidebar")
         .resizable(false)
-        .exact_width(context.sidebar_width)
+        .exact_size(context.sidebar_width)
         .show_separator_line(false)
         .frame(egui::Frame {
             fill: context.theme.surface_panel,
             inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin::ZERO,
             stroke: egui::Stroke::NONE,
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             shadow: egui::Shadow::NONE,
         })
-        .show(egui_context, |ui| {
+        .show(ui, |ui| {
             let panel_origin = ui.max_rect().min;
             let full = Rect::from_min_size(panel_origin, vec2(context.sidebar_width, ui.max_rect().height()));
             ui.painter()
-                .rect_filled(full, egui::Rounding::ZERO, context.theme.surface_panel);
+                .rect_filled(full, egui::CornerRadius::ZERO, context.theme.surface_panel);
             ui.allocate_rect(full, Sense::hover());
             (full, ui.layer_id())
         });
@@ -121,9 +122,8 @@ fn sidebar_ui(egui_context: &egui::Context, content_rect: Rect, layer_id: egui::
     let id = egui::Id::new("dbpro_sidebar_content");
     let mut ui = egui::Ui::new(
         egui_context.clone(),
-        layer_id,
         id,
-        egui::UiBuilder::new().max_rect(content_rect),
+        egui::UiBuilder::new().max_rect(content_rect).layer_id(layer_id),
     );
     ui.set_clip_rect(content_rect.expand(SIDEBAR_CLIP_BLEED));
     ui.set_min_size(content_rect.size());
@@ -137,18 +137,17 @@ fn draw_resize_handle(
     egui_context: &egui::Context,
     panel: &SidebarPanel,
 ) -> Option<f32> {
-    let grip = egui_context.style().interaction.resize_grab_radius_side.max(5.0);
+    let grip = egui_context.global_style().interaction.resize_grab_radius_side.max(5.0);
     let edge_x = panel.left + context.sidebar_width;
     let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), panel.y_range);
     let id = egui::Id::new("dbpro_sidebar_resize");
-    let layer_id = egui::LayerId::new(egui::Order::PanelResizeLine, id);
+    let layer_id = egui::LayerId::new(egui::Order::Foreground, id);
     let mut grip_ui = egui::Ui::new(
         egui_context.clone(),
-        layer_id,
         id,
-        egui::UiBuilder::new().max_rect(resize_rect),
+        egui::UiBuilder::new().max_rect(resize_rect).layer_id(layer_id),
     );
-    grip_ui.set_clip_rect(egui_context.screen_rect());
+    grip_ui.set_clip_rect(egui_context.content_rect());
     let response = grip_ui.allocate_rect(resize_rect, Sense::drag());
     let hovering = response.hovered();
     let dragging = response.dragged();

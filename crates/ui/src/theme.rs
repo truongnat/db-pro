@@ -1,7 +1,7 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{Color32, FontFamily, FontId, Margin, Rounding, Shadow, Stroke, TextStyle, Vec2, Visuals};
+use egui::{Color32, CornerRadius, FontFamily, FontId, Margin, Shadow, Stroke, TextStyle, Vec2, Visuals};
 
 use crate::tokens::semantic::{subtle_wash, SemanticTokens};
 use crate::tokens::{
@@ -258,7 +258,7 @@ impl DbProTheme {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "lucide".to_owned(),
-            egui::FontData::from_static(lucide_icons::LUCIDE_FONT_BYTES),
+            std::sync::Arc::new(egui::FontData::from_static(lucide_icons::LUCIDE_FONT_BYTES)),
         );
         fonts
             .families
@@ -266,18 +266,21 @@ impl DbProTheme {
             .or_default()
             .insert(0, "lucide".to_owned());
 
-        fonts
-            .font_data
-            .insert("inter".to_owned(), egui::FontData::from_static(INTER_REGULAR));
-        fonts
-            .font_data
-            .insert("inter_ext".to_owned(), egui::FontData::from_static(INTER_REGULAR_EXT));
-        fonts
-            .font_data
-            .insert("inter_medium".to_owned(), egui::FontData::from_static(INTER_MEDIUM));
+        fonts.font_data.insert(
+            "inter".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(INTER_REGULAR)),
+        );
+        fonts.font_data.insert(
+            "inter_ext".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(INTER_REGULAR_EXT)),
+        );
+        fonts.font_data.insert(
+            "inter_medium".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(INTER_MEDIUM)),
+        );
         fonts.font_data.insert(
             "inter_medium_ext".to_owned(),
-            egui::FontData::from_static(INTER_MEDIUM_EXT),
+            std::sync::Arc::new(egui::FontData::from_static(INTER_MEDIUM_EXT)),
         );
 
         let proportional = fonts.families.entry(FontFamily::Proportional).or_default();
@@ -303,9 +306,10 @@ impl DbProTheme {
         for path in system_font_paths {
             // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
             if let Ok(bytes) = std::fs::read(path) {
-                fonts
-                    .font_data
-                    .insert("system_ui".to_owned(), egui::FontData::from_owned(bytes));
+                fonts.font_data.insert(
+                    "system_ui".to_owned(),
+                    std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+                );
                 fonts
                     .families
                     .entry(FontFamily::Proportional)
@@ -332,9 +336,10 @@ impl DbProTheme {
         ];
         for path in mono_system_paths {
             if let Ok(bytes) = std::fs::read(path) {
-                fonts
-                    .font_data
-                    .insert("system_mono".to_owned(), egui::FontData::from_owned(bytes));
+                fonts.font_data.insert(
+                    "system_mono".to_owned(),
+                    std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+                );
                 fonts
                     .families
                     .entry(FontFamily::Monospace)
@@ -362,9 +367,10 @@ impl DbProTheme {
         ];
         for path in cjk_font_paths {
             if let Ok(bytes) = std::fs::read(path) {
-                fonts
-                    .font_data
-                    .insert("cjk_fallback".to_owned(), egui::FontData::from_owned(bytes));
+                fonts.font_data.insert(
+                    "cjk_fallback".to_owned(),
+                    std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+                );
                 fonts
                     .families
                     .entry(FontFamily::Proportional)
@@ -416,14 +422,14 @@ impl DbProTheme {
         let selection = Self::light();
         visuals.selection.bg_fill = selection.accent_hover;
         visuals.selection.stroke = Stroke::new(STROKE_THIN, selection.accent_foreground);
-        visuals.window_rounding = Rounding::same(RADIUS_EGUI_WINDOW);
+        visuals.window_corner_radius = CornerRadius::same(RADIUS_EGUI_WINDOW as u8);
         visuals.window_shadow = Shadow {
-            offset: egui::vec2(0.0, SHADOW_OFFSET_Y),
-            blur: SHADOW_BLUR,
-            spread: 0.0,
+            offset: [0, SHADOW_OFFSET_Y as i8],
+            blur: SHADOW_BLUR as u8,
+            spread: 0,
             color: Color32::from_black_alpha(WINDOW_SHADOW_ALPHA),
         };
-        visuals.menu_rounding = Rounding::same(RADIUS_EGUI_MENU);
+        visuals.menu_corner_radius = CornerRadius::same(RADIUS_EGUI_MENU as u8);
         visuals.popup_shadow = visuals.window_shadow;
         // Buttons opt into their own emphasis. Bare icon/ghost controls should
         // read as actions in the workspace, not as a wall of outlined fields.
@@ -433,37 +439,37 @@ impl DbProTheme {
         visuals.widgets.noninteractive.bg_fill = self.surface_panel;
         visuals.widgets.noninteractive.bg_stroke = Stroke::new(STROKE_THIN, self.border_subtle);
         visuals.widgets.noninteractive.fg_stroke = Stroke::new(STROKE_THIN, self.text_secondary);
-        visuals.widgets.noninteractive.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
+        visuals.widgets.noninteractive.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.inactive.bg_fill = self.surface_panel;
         visuals.widgets.inactive.weak_bg_fill = self.surface_panel;
         // Resting inputs stay quiet; hover/focus still provide the interaction boundary.
         visuals.widgets.inactive.bg_stroke = Stroke::NONE;
         visuals.widgets.inactive.fg_stroke = Stroke::new(STROKE_THIN, self.text_secondary);
-        visuals.widgets.inactive.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
+        visuals.widgets.inactive.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.hovered.bg_fill = self.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = self.surface_hover;
         visuals.widgets.hovered.bg_stroke = Stroke::new(STROKE_THIN, self.border_strong);
         visuals.widgets.hovered.fg_stroke = Stroke::new(STROKE_THIN, self.accent);
-        visuals.widgets.hovered.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
+        visuals.widgets.hovered.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.active.bg_fill = self.surface_active;
         visuals.widgets.active.weak_bg_fill = self.surface_active;
         visuals.widgets.active.bg_stroke = Stroke::new(STROKE_THIN, self.accent_hover);
         visuals.widgets.active.fg_stroke = Stroke::new(STROKE_THIN, self.accent);
-        visuals.widgets.active.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
+        visuals.widgets.active.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.open.bg_fill = self.surface_hover;
         visuals.widgets.open.weak_bg_fill = self.surface_hover;
         visuals.widgets.open.bg_stroke = Stroke::new(STROKE_THIN, self.border_strong);
         visuals.widgets.open.fg_stroke = Stroke::new(STROKE_THIN, self.text_primary);
-        visuals.widgets.open.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
+        visuals.widgets.open.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.window_stroke = Stroke::new(STROKE_THIN, self.border_subtle);
         ctx.set_visuals(visuals);
 
-        let mut style = (*ctx.style()).clone();
+        let mut style = (*ctx.global_style()).clone();
         style.spacing.item_spacing = EGUI_ITEM_SPACING;
         style.spacing.button_padding = EGUI_BUTTON_PADDING;
         style.spacing.interact_size = EGUI_INTERACT_SIZE;
-        style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN);
-        style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN);
+        style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN as i8);
+        style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN as i8);
         style.spacing.indent = EGUI_INDENT;
         style
             .text_styles
@@ -477,14 +483,14 @@ impl DbProTheme {
         style
             .text_styles
             .insert(TextStyle::Monospace, FontId::monospace(FONT_SIZE_MONO_UI));
-        ctx.set_style(style);
+        ctx.set_global_style(style);
     }
 
     pub fn floating_shadow(self) -> Shadow {
         Shadow {
-            offset: egui::vec2(0.0, SHADOW_OFFSET_Y),
-            blur: SHADOW_BLUR,
-            spread: 0.0,
+            offset: [0, SHADOW_OFFSET_Y as i8],
+            blur: SHADOW_BLUR as u8,
+            spread: 0,
             color: Color32::from_black_alpha(if self.dark_mode {
                 SHADOW_ALPHA_DARK
             } else {
@@ -606,7 +612,7 @@ mod tests {
     fn install_fonts_registers_inter_medium_for_ui_labels() {
         let ctx = egui::Context::default();
         super::DbProTheme::install_fonts(&ctx);
-        let _ = ctx.run(Default::default(), |ctx| {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
                 let galley = ui.painter().layout_no_wrap(
                     "GPT-4o".to_owned(),

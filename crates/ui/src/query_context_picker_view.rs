@@ -27,12 +27,12 @@ pub(super) fn draw_picker(
     let menu = egui::Area::new(egui::Id::new("query_context_picker"))
         .order(egui::Order::Foreground)
         .fixed_pos(menu_position)
-        .constrain_to(ctx.screen_rect().shrink(4.0))
+        .constrain_to(ctx.content_rect().shrink(4.0))
         .show(ctx, |ui| {
             egui::Frame {
                 fill: context.theme.surface_elevated,
-                inner_margin: egui::Margin::same(8.0),
-                rounding: egui::Rounding::same(8.0),
+                inner_margin: egui::Margin::same(8.0 as i8),
+                corner_radius: egui::CornerRadius::same(8.0 as u8),
                 stroke: egui::Stroke::new(1.0, context.theme.border_subtle),
                 ..Default::default()
             }

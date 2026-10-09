@@ -253,8 +253,8 @@ mod tests {
         let context = egui::Context::default();
         let mut child_bounds = Vec::new();
         let mut sibling_bounds = None;
-        let _ = context.run(egui::RawInput::default(), |context| {
-            egui::CentralPanel::default().show(context, |ui| {
+        let _ = crate::test_frame::frame(&context, egui::RawInput::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 Container::new().max_width(100.0).show(ui, |content| {
                     content.allocate_exact_size(Vec2::new(40.0, 30.0), Sense::hover());
                     child_bounds.push(content.min_rect());
@@ -275,8 +275,8 @@ mod tests {
         let mut second_child = None;
         let mut parent_resp_1 = None;
         let mut parent_resp_2 = None;
-        let _ = context.run(egui::RawInput::default(), |context| {
-            egui::CentralPanel::default().show(context, |ui| {
+        let _ = crate::test_frame::frame(&context, egui::RawInput::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 let (r1, _) = Container::new().max_width(50.0).gutter(10.0).show(ui, |content| {
                     content.allocate_exact_size(Vec2::new(30.0, 40.0), Sense::hover());
                     first_child = Some(content.min_rect());
@@ -309,8 +309,8 @@ mod tests {
     fn grid_cells_render_with_bounded_width_and_intrinsic_row_height() {
         let context = egui::Context::default();
         let mut bounds = Vec::new();
-        let _ = context.run(egui::RawInput::default(), |context| {
-            egui::CentralPanel::default().show(context, |ui| {
+        let _ = crate::test_frame::frame(&context, egui::RawInput::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 ResponsiveGrid::new(80.0)
                     .gap(8.0)
                     .max_columns(2)
@@ -330,8 +330,8 @@ mod tests {
     #[test]
     fn grid_gutters_do_not_leak_into_cell_content_or_parent() {
         let context = egui::Context::default();
-        let _ = context.run(egui::RawInput::default(), |context| {
-            egui::CentralPanel::default().show(context, |ui| {
+        let _ = crate::test_frame::frame(&context, egui::RawInput::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 let spacing = Vec2::new(8.0, 4.0);
                 ui.spacing_mut().item_spacing = spacing;
                 for gap in [0.0, 12.0, 16.0] {

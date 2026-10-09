@@ -75,11 +75,11 @@ pub fn trigger_text_width(available: f32) -> f32 {
 }
 
 pub fn trigger_inner_margin(padding_x: f32, padding_y: f32) -> Margin {
-    Margin::symmetric(padding_x, padding_y + crate::tokens::SPACE_XXS)
+    Margin::symmetric(padding_x as i8, (padding_y + crate::tokens::SPACE_XXS) as i8)
 }
 
 pub fn menu_surface_margin(menu_margin_left: f32) -> Margin {
-    Margin::symmetric(menu_margin_left, RADIUS_DROPDOWN)
+    Margin::symmetric(menu_margin_left as i8, RADIUS_DROPDOWN as i8)
 }
 
 pub fn menu_min_content_width(menu_width: f32) -> f32 {
@@ -252,13 +252,13 @@ mod tests {
     #[test]
     fn menu_and_trigger_geometry_helpers_compute_correct_values() {
         let margin = trigger_inner_margin(8.0, 4.0);
-        assert_eq!(margin.left, 8.0);
-        assert_eq!(margin.right, 8.0);
-        assert_eq!(margin.top, 4.0 + crate::tokens::SPACE_XXS);
+        assert_eq!(margin.left, 8);
+        assert_eq!(margin.right, 8);
+        assert_eq!(margin.top, (4.0 + crate::tokens::SPACE_XXS) as i8);
 
         let menu_margin = menu_surface_margin(12.0);
-        assert_eq!(menu_margin.left, 12.0);
-        assert_eq!(menu_margin.top, RADIUS_DROPDOWN);
+        assert_eq!(menu_margin.left, 12);
+        assert_eq!(menu_margin.top, RADIUS_DROPDOWN as i8);
 
         let min_content_width = menu_min_content_width(150.0);
         assert_eq!(min_content_width, 150.0 - ICON_TEXT_GAP);

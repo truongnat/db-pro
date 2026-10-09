@@ -43,7 +43,8 @@ fn input_field_receives_click_when_clicked() {
     let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 200.0));
 
     let mut edit_rect = None;
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             ..Default::default()
@@ -59,7 +60,8 @@ fn input_field_receives_click_when_clicked() {
     let pos = edit_rect.center();
     let mut edit_clicked = false;
     for pressed in [true, false] {
-        let _ = ctx.run(
+        let _ = crate::test_frame::frame(
+            &ctx,
             RawInput {
                 screen_rect: Some(screen),
                 events: vec![Event::PointerButton {
@@ -99,7 +101,8 @@ fn auto_focus_requests_once_without_stealing_later_focus() {
     let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 200.0));
     let mut input_id = None;
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             ..Default::default()
@@ -119,7 +122,8 @@ fn auto_focus_requests_once_without_stealing_later_focus() {
     let input_id = input_id.expect("the input must be laid out");
     assert_eq!(ctx.memory(|memory| memory.focused()), Some(input_id));
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             ..Default::default()
@@ -149,7 +153,8 @@ fn tab_moves_between_single_line_inputs() {
     let mut first_response = None;
     let mut second_response = None;
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             ..Default::default()
@@ -172,7 +177,8 @@ fn tab_moves_between_single_line_inputs() {
     );
     assert!(first_response.expect("first input must be laid out").has_focus());
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             events: vec![Event::Key {
@@ -216,7 +222,8 @@ fn tab_moves_between_inputs_in_horizontal_form_row() {
     let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(640.0, 240.0));
     let mut second_response = None;
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             ..Default::default()
@@ -243,7 +250,8 @@ fn tab_moves_between_inputs_in_horizontal_form_row() {
         },
     );
 
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             events: vec![Event::Key {
@@ -295,7 +303,7 @@ fn tab_follows_row_order_across_form_columns() {
         auto_focus_first: bool,
     ) -> Vec<Response> {
         let mut responses = Vec::with_capacity(values.len());
-        let _ = ctx.run(raw_input, |ctx| {
+        let _ = crate::test_frame::frame(&ctx, raw_input, |ctx| {
             CentralPanel::default().show(ctx, |ui| {
                 ui.columns(2, |columns| {
                     responses.push(
@@ -403,7 +411,8 @@ fn password_eye_toggles_when_clicked() {
     let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 200.0));
 
     let mut edit_rect = None;
-    let _ = ctx.run(
+    let _ = crate::test_frame::frame(
+        &ctx,
         RawInput {
             screen_rect: Some(screen),
             ..Default::default()
@@ -426,7 +435,8 @@ fn password_eye_toggles_when_clicked() {
         let pos = Pos2::new(edit_rect.right() + dx, edit_rect.center().y);
         let before = show_password;
         for pressed in [true, false] {
-            let _ = ctx.run(
+            let _ = crate::test_frame::frame(
+                &ctx,
                 RawInput {
                     screen_rect: Some(screen),
                     events: vec![Event::PointerButton {
@@ -474,7 +484,7 @@ fn standard_field_geometry_is_independent_of_parent_spacing_and_accessories() {
             let mut visible = false;
             let mut selected = 0;
             let options = vec!["PostgreSQL".to_owned()];
-            let output = ctx.run(RawInput::default(), |ctx| {
+            let output = crate::test_frame::frame(&ctx, RawInput::default(), |ctx| {
                 CentralPanel::default().show(ctx, |ui| {
                     ui.set_width(300.0);
                     ui.set_max_width(300.0);

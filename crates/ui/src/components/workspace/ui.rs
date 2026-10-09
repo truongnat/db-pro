@@ -3,7 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use crate::tokens::*;
 use crate::DbProTheme;
-use egui::{Align2, Color32, Pos2, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Align2, Color32, CornerRadius, Pos2, Response, RichText, Sense, Stroke, Ui, Vec2};
 
 use super::config::{
     ACTIVITY_ACCENT_RADIUS, ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE, CONNECTION_DOT_RADIUS,
@@ -36,7 +36,8 @@ impl<'a> StatusBar<'a> {
         let (rect, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), STATUS_BAR_HEIGHT), Sense::hover());
 
         // Background & border top
-        ui.painter().rect_filled(rect, Rounding::ZERO, self.theme.surface_panel);
+        ui.painter()
+            .rect_filled(rect, CornerRadius::ZERO, self.theme.surface_panel);
         ui.painter().hline(
             rect.x_range(),
             rect.top(),
@@ -175,7 +176,7 @@ impl ActivityBar {
 
         // Sidebar background
         ui.painter()
-            .rect_filled(rect, Rounding::ZERO, self.theme.surface_editor);
+            .rect_filled(rect, CornerRadius::ZERO, self.theme.surface_editor);
         ui.painter().vline(
             rect.right(),
             rect.y_range(),
@@ -192,24 +193,28 @@ impl ActivityBar {
 
             if (resp.hovered() || has_focus) && !is_selected {
                 ui.painter()
-                    .rect_filled(item_rect, Rounding::same(RADIUS_SM), self.theme.surface_hover);
+                    .rect_filled(item_rect, CornerRadius::same(RADIUS_SM as u8), self.theme.surface_hover);
             }
 
             if is_selected {
-                ui.painter()
-                    .rect_filled(item_rect, Rounding::same(RADIUS_SM), self.theme.surface_active);
+                ui.painter().rect_filled(
+                    item_rect,
+                    CornerRadius::same(RADIUS_SM as u8),
+                    self.theme.surface_active,
+                );
                 // Left accent bar
                 ui.painter().rect_filled(
                     activity_accent_rect(rect.left(), y),
-                    Rounding::same(ACTIVITY_ACCENT_RADIUS),
+                    CornerRadius::same(ACTIVITY_ACCENT_RADIUS as u8),
                     self.theme.accent,
                 );
             }
             if has_focus {
                 ui.painter().rect_stroke(
                     item_rect,
-                    Rounding::same(RADIUS_SM),
+                    CornerRadius::same(RADIUS_SM as u8),
                     Stroke::new(STROKE_THIN, self.theme.border_focus),
+                    egui::StrokeKind::Inside,
                 );
             }
 
@@ -281,11 +286,11 @@ impl<'a> ConnectionIndicator<'a> {
             ConnectionHealth::Disconnected => self.theme.danger,
         };
 
-        let frame = egui::Frame::none()
+        let frame = egui::Frame::NONE
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .rounding(Rounding::same(RADIUS_MD))
-            .inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM));
+            .corner_radius(CornerRadius::same(RADIUS_MD as u8))
+            .inner_margin(egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8));
 
         let response = frame
             .show(ui, |ui| {

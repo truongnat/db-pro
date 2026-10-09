@@ -128,6 +128,22 @@ const SCREENSHOT_RETRY_FRAMES: u32 = 30;
 /// arrived, exit instead of letting the capture process run forever.
 const CAPTURE_TIMEOUT_FRAMES: u32 = 600;
 
+/// Env var enabling headless-audit mode: `DB_PRO_AUDIT_JSON=<path>` runs the
+/// inspector's audit pipeline, writes schema-v1 JSON, and exits with the
+/// audit verdict code (0 clean / 1 findings / 2 tool error). Shares the fixture
+/// (`DB_PRO_INSPECTOR_AUDIT_FIXTURE`), surface-selection, and
+/// [`SIZE_ENV`] env vars with capture mode.
+const AUDIT_ENV: &str = "DB_PRO_AUDIT_JSON";
+
+/// Fallback frame budget for audit mode when the semantic tree never warms up
+/// (e.g. accesskit disabled): emit anyway rather than hang forever.
+const AUDIT_TIMEOUT_FRAMES: u32 = 180;
+
+/// True when the headless audit run is requested (a non-empty output path).
+fn audit_requested() -> bool {
+    std::env::var_os(AUDIT_ENV).is_some_and(|v| !v.is_empty())
+}
+
 /// The settle frame count, honouring [`SETTLE_ENV`]. A malformed or zero value
 /// falls back to the default, so a typo cannot produce a blank capture.
 fn settle_frames() -> u32 {
@@ -150,6 +166,11 @@ pub(super) struct CaptureApp {
     opened_dialog: bool,
     prepared_loading: bool,
     pinned: Option<egui::Vec2>,
+    /// Headless audit mode (`DB_PRO_AUDIT_JSON`): emit once warm, then exit.
+    audit: bool,
+    /// Set once the report has been written so a straggler frame can't
+    /// double-emit before the process exits.
+    audit_done: bool,
 }
 
 impl CaptureApp {
@@ -168,6 +189,8 @@ impl CaptureApp {
                 opened_dialog: false,
                 prepared_loading: false,
                 pinned: capture_size_from_env(),
+                audit: audit_requested(),
+                audit_done: false,
             }),
             None => Box::new(super::NativeMenuApp { inner, menu }),
         }
@@ -185,6 +208,21 @@ impl CaptureApp {
                 opened_dialog: false,
                 prepared_loading: false,
                 pinned: capture_size_from_env(),
+                audit: audit_requested(),
+                audit_done: false,
+            }),
+            None if audit_requested() && cfg!(debug_assertions) => Box::new(Self {
+                inner,
+                // Audit mode ignores `path` — no screenshot is taken.
+                path: PathBuf::new(),
+                settle: settle_frames(),
+                frames: 0,
+                requested_at: None,
+                opened_dialog: false,
+                prepared_loading: false,
+                pinned: capture_size_from_env(),
+                audit: true,
+                audit_done: false,
             }),
             None => Box::new(inner),
         }
@@ -217,17 +255,25 @@ impl CaptureApp {
 }
 
 impl eframe::App for CaptureApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         #[cfg(target_os = "macos")]
-        self.menu.apply_pending_actions(&mut self.inner, ctx);
+        self.menu.apply_pending_actions(&mut self.inner, &ctx);
         self.prepare_loading();
-        self.inner.update(ctx, frame);
-        self.open_requested_surface(ctx);
-        self.pin_viewport(ctx);
-        if self.capture_screenshot(ctx) {
+        eframe::App::ui(&mut self.inner, ui, frame);
+        self.open_requested_surface(&ctx);
+        self.pin_viewport(&ctx);
+        #[cfg(debug_assertions)]
+        if self.audit {
+            // Audit mode owns the frame loop end-to-end: collect the emission
+            // or keep painting — the screenshot path below is for captures.
+            self.run_audit(&ctx);
             return;
         }
-        self.advance_capture(ctx);
+        if self.capture_screenshot(&ctx) {
+            return;
+        }
+        self.advance_capture(&ctx);
     }
 }
 
@@ -282,7 +328,7 @@ impl CaptureApp {
             self.inner.open_query_workspace_for_capture();
         }
         if std::env::var_os("DB_PRO_CAPTURE_QUERY_LIMIT").is_some() {
-            ctx.memory_mut(|memory| memory.open_popup(egui::Id::new("query_row_limit")));
+            egui::Popup::open_id(ctx, egui::Id::new("query_row_limit"));
         }
         true
     }
@@ -361,6 +407,26 @@ impl CaptureApp {
         }
     }
 
+    /// Headless audit (`DB_PRO_AUDIT_JSON`): the emission is produced inside
+    /// `dev_tools.draw` once warm — this collects it and exits with the verdict
+    /// code. Release builds lack the dev-tools module; the env var is inert.
+    #[cfg(debug_assertions)]
+    fn run_audit(&mut self, ctx: &egui::Context) {
+        self.frames += 1;
+        if let Some(code) = self.inner.take_audit_emission() {
+            self.audit_done = true;
+            tracing::info!(code, "audit: report written");
+            std::process::exit(code);
+        }
+        // Nothing emitted yet → the pipeline isn't warm; keep repainting so
+        // egui doesn't idle, bail with a tool error on timeout.
+        if self.frames >= AUDIT_TIMEOUT_FRAMES {
+            tracing::error!(frames = self.frames, "audit: report never became ready");
+            std::process::exit(2);
+        }
+        ctx.request_repaint();
+    }
+
     fn capture_screenshot(&self, ctx: &egui::Context) -> bool {
         // The reply to `ViewportCommand::Screenshot`.
         let captured = ctx.input(|input| {
@@ -386,7 +452,7 @@ impl CaptureApp {
                 .is_none_or(|at| self.frames - at >= SCREENSHOT_RETRY_FRAMES);
             if retry_due {
                 self.requested_at = Some(self.frames);
-                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
+                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
             }
             if self.frames - self.settle > CAPTURE_TIMEOUT_FRAMES {
                 tracing::error!(

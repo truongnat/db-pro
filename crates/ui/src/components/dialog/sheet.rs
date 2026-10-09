@@ -1,4 +1,4 @@
-use egui::{Area, Frame, Id, LayerId, Margin, Order, Pos2, Rect, RichText, Rounding, Stroke, Ui};
+use egui::{Area, CornerRadius, Frame, Id, LayerId, Margin, Order, Pos2, Rect, RichText, Stroke, Ui};
 use std::hash::Hash;
 
 use crate::components::animation::overlay_t;
@@ -38,7 +38,7 @@ impl<'a> Sheet<'a> {
         self
     }
 
-    pub fn id_salt(mut self, salt: impl Hash) -> Self {
+    pub fn id_salt(mut self, salt: impl Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(salt));
         self
     }
@@ -108,12 +108,12 @@ impl<'a> Sheet<'a> {
                 Frame {
                     fill: theme.surface_floating,
                     stroke: Stroke::new(1.0, theme.border_subtle),
-                    inner_margin: Margin::same(SHEET_PADDING),
-                    rounding: Rounding {
-                        nw: SHEET_CORNER_RADIUS,
-                        ne: 0.0,
-                        sw: SHEET_CORNER_RADIUS,
-                        se: 0.0,
+                    inner_margin: Margin::same(SHEET_PADDING as i8),
+                    corner_radius: CornerRadius {
+                        nw: (SHEET_CORNER_RADIUS) as u8,
+                        ne: 0.0 as u8,
+                        sw: (SHEET_CORNER_RADIUS) as u8,
+                        se: 0.0 as u8,
                     },
                     shadow: theme.floating_shadow(),
                     ..Default::default()
