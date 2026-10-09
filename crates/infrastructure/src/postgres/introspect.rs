@@ -196,7 +196,6 @@ async fn introspect_tables(pool: &sqlx::PgPool) -> Result<Vec<Table>, DbError> {
         SELECT table_name, table_schema
         FROM information_schema.tables
         WHERE table_type = 'BASE TABLE'
-          // cc-scan:allow LINE_TOO_LONG — literal must not wrap
           AND table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND table_schema !~ '^pg_(toast_)?temp'
         ORDER BY table_schema, table_name
         "#,
@@ -822,7 +821,6 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             AND n.nspname = t.event_object_schema
             AND c.relname = t.event_object_table
         LEFT JOIN pg_proc ON pg_proc.oid = pg_t.tgfoid
-        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
         WHERE t.trigger_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND t.trigger_schema !~ '^pg_(toast_)?temp'
         ORDER BY t.event_object_schema, t.event_object_table, t.trigger_name
         "#,
