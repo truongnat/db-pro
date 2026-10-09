@@ -39,6 +39,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 | Feature | Branch | PR | State | Notes |
 |---|---|---|---|---|
+| keyring Vendored Build | fix/keyring-vendored-build | — | IMPLEMENTING | Add vendored feature flag to keyring workspace dependency for clean builds in Linux container environments without system dbus headers. Plan: docs/plans/active/keyring-vendored-build/. |
 | ER Diagram Canvas UX | main | — | RUNTIME_VERIFY | Infinite canvas (pan/wheel-zoom/node-drag), auto-fit, minimap, compact icon toolbar, per-connection persisted layouts, LOD banding fix. Gates green (1685 tests, clippy, fmt, release build, perf+clean scans); native captures at 1280×800 dark+light, 1440×838, 1920×838 (height capped by host display). Pointer-level drag smoke test pending owner check. Plan: docs/plans/active/er-diagram-canvas-ux/. |
 | macOS App Menu and Schema Cache Refresh | main | — | IMPLEMENTING | Add native app/File/Edit/View/Window menus with schema Refresh and connection-scoped Refresh Cache actions. Plan: docs/plans/active/macos-app-menu-refresh/. |
 | Native UI Stitch Parity Pass | main | — | REVIEW | T1–T5 landed: status telemetry (`7ede34a5`), sidebar count + snippet codes (`73340682`), unified execution history (`153756e2`), explorer filter workbench (`bb137c33`), compare summary + target safety lock (`34601996`). T6 deferred (no spec-10 delta in audit). 976 ui tests green; T5 visual capture pending — host windowing stopped emitting screenshots. Plan: docs/plans/active/ui-stitch-parity-pass/. |
