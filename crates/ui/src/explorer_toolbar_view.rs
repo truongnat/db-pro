@@ -21,8 +21,13 @@ impl ExplorerToolbarContext<'_> {
         ui.horizontal(|ui| {
             ui.allocate_ui_with_layout(ui.available_size(), Layout::right_to_left(Align::Center), |ui| {
                 let mut refresh_schema = false;
-                let refresh_button =
-                    compact_icon_button(ui, Icon::RotateCcw, self.theme).on_hover_text("Refresh active schema");
+                let refresh_button = Button::new(self.theme)
+                    .icon(Icon::RotateCcw)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Refresh active schema")
+                    .access_label("Refresh active schema")
+                    .show(ui);
                 refresh_button.context_menu(|ui| {
                     if ctx_menu_item(
                         ui,
@@ -56,8 +61,13 @@ impl ExplorerToolbarContext<'_> {
     fn draw_filter_workbench(&mut self, ui: &mut egui::Ui) {
         let popup_id = ui.make_persistent_id("explorer_object_filter_workbench");
         let filter_active = !self.filter.is_default();
-        let button = compact_icon_button(ui, Icon::ListFilter, self.theme)
-            .on_hover_text("Object filter options");
+        let button = Button::new(self.theme)
+            .icon(Icon::ListFilter)
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::IconSm)
+            .tooltip("Object filter options")
+            .access_label("Object filter options")
+            .show(ui);
         if filter_active {
             ui.painter().circle_filled(
                 egui::pos2(button.rect.right() - 5.0, button.rect.top() + 5.0),
@@ -126,7 +136,14 @@ impl ExplorerToolbarContext<'_> {
                     .color(self.theme.text_muted),
             );
             ui.add_space(12.0);
-            if compact_button_with_icon(ui, Icon::Plus, "New connection", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Plus)
+                .text("New connection")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(ExplorerToolbarAction::NewConnection);
             }
         });

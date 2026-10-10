@@ -29,12 +29,30 @@ impl ExplorerSchemaFeedbackContext<'_> {
 
     fn draw_error(&self, ui: &mut egui::Ui, error: &str) -> Vec<ExplorerSchemaFeedbackAction> {
         let mut actions = Vec::new();
-        grid_frame(self.theme).show(ui, |ui| {
+        egui::Frame {
+            fill: self.theme.surface_panel,
+            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::TriangleAlert, "Schema load failed", self.theme.danger));
+                ui.label(
+                    RichText::new(char::from(Icon::TriangleAlert).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(self.theme.danger),
+                );
+                ui.label(RichText::new("Schema load failed").strong().color(self.theme.danger));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if self.has_active_connection
-                        && secondary_button_with_icon(ui, Icon::RotateCcw, "Refresh schema", self.theme).clicked()
+                        && Button::new(self.theme)
+                            .icon(Icon::RotateCcw)
+                            .text("Refresh schema")
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
                     {
                         actions.push(ExplorerSchemaFeedbackAction::RefreshSchema);
                     }
@@ -55,14 +73,25 @@ impl ExplorerSchemaFeedbackContext<'_> {
     }
 
     fn draw_loading(&self, ui: &mut egui::Ui) {
-        grid_frame(self.theme).show(ui, |ui| {
+        egui::Frame {
+            fill: self.theme.surface_panel,
+            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
                 if self.reduce_motion {
-                    ui.label(icon_text(Icon::LoaderCircle, "Loading schema…", self.theme.accent));
+                    ui.label(
+                        RichText::new(char::from(Icon::LoaderCircle).to_string())
+                            .font(font_icon(ICON_DEFAULT))
+                            .color(self.theme.accent),
+                    );
                 } else {
-                    ui.spinner();
-                    ui.label(RichText::new("Loading schema…").color(self.theme.accent));
+                    Spinner::new(self.theme).show(ui);
                 }
+                ui.label(RichText::new("Loading schema…").color(self.theme.accent));
                 ui.label(
                     RichText::new("Large databases may take a moment.")
                         .small()
