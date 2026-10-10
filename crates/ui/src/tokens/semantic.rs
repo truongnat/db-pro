@@ -224,7 +224,7 @@ impl SemanticTokens {
         }
     }
 
-    /// Codex-aligned dark roles tuned for dense database workspaces.
+    /// ChatGPT macOS aligned dark roles tuned for database workspaces.
     // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     pub fn dark() -> Self {
         Self {
@@ -232,33 +232,33 @@ impl SemanticTokens {
                 canvas: dark::NEUTRAL_850,
                 panel: dark::NEUTRAL_810,
                 elevated: dark::NEUTRAL_780,
-                floating: dark::NEUTRAL_790,
-                editor: dark::NEUTRAL_860,
+                floating: dark::NEUTRAL_780,
+                editor: dark::NEUTRAL_850,
                 hover: dark::NEUTRAL_750,
-                selected: dark::NEUTRAL_725,
+                selected: dark::NEUTRAL_750,
                 subtle: dark::NEUTRAL_775,
                 overlay: dark::SCRIM,
             },
             foreground: Foreground {
                 primary: dark::NEUTRAL_50,
-                secondary: dark::NEUTRAL_300,
-                tertiary: dark::NEUTRAL_475,
+                secondary: dark::NEUTRAL_200,
+                tertiary: dark::NEUTRAL_350,
                 muted: dark::NEUTRAL_450,
                 disabled: dark::NEUTRAL_500,
                 inverse: dark::NEUTRAL_900,
-                on_accent: dark::NEUTRAL_0,
+                on_accent: dark::NEUTRAL_900,
             },
             border: Border {
                 subtle: dark::NEUTRAL_740,
                 default: dark::NEUTRAL_700,
                 strong: dark::NEUTRAL_650,
-                focus: dark::BLUE_500,
-                separator: dark::NEUTRAL_700,
+                focus: dark::NEUTRAL_50,
+                separator: dark::NEUTRAL_740,
             },
             accent: Accent {
-                subtle: dark::BLUE_900,
-                solid: dark::BLUE_500,
-                solid_hover: dark::BLUE_400,
+                subtle: dark::NEUTRAL_775,
+                solid: dark::NEUTRAL_50,
+                solid_hover: dark::NEUTRAL_0,
                 foreground: dark::NEUTRAL_900,
             },
             status: Status {
@@ -269,14 +269,14 @@ impl SemanticTokens {
             },
             syntax: Syntax {
                 keyword: dark::PURPLE_400,
-                string: dark::GREEN_400,
-                number: dark::ORANGE_400,
-                comment: dark::SLATE_500,
-                type_: dark::AMBER_300,
-                function: dark::BLUE_300,
-                operator: dark::CYAN_300,
-                punctuation: dark::CYAN_300,
-                variable: dark::NEUTRAL_25,
+                string: dark::GREEN_500,
+                number: dark::AMBER_400,
+                comment: dark::NEUTRAL_450,
+                type_: dark::AMBER_400,
+                function: dark::CYAN_300,
+                operator: dark::NEUTRAL_200,
+                punctuation: dark::NEUTRAL_450,
+                variable: dark::NEUTRAL_50,
             },
         }
     }

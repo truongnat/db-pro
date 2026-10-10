@@ -48,18 +48,18 @@ pub const RADIUS_FULL: f32 = 999.0;
 
 // Radius role mappings (Stitch Native Spec: 4px controls/cards, 6px dialogs/popovers).
 // Component contracts consume these roles; they are not renderer-specific.
-pub const RADIUS_BUTTON: f32 = RADIUS_XS; // 4.0
-pub const RADIUS_ICON_BUTTON: f32 = RADIUS_XS; // 4.0
-pub const RADIUS_INPUT: f32 = RADIUS_XS; // 4.0
-pub const RADIUS_DROPDOWN: f32 = RADIUS_SM; // 6.0
-pub const RADIUS_POPOVER: f32 = RADIUS_SM; // 6.0
-pub const RADIUS_CARD: f32 = RADIUS_XS; // 4.0
-pub const RADIUS_DIALOG: f32 = RADIUS_SM; // 6.0
-pub const RADIUS_COMPOSER: f32 = RADIUS_SM; // 6.0
-pub const RADIUS_BADGE: f32 = RADIUS_XS; // 4.0
+pub const RADIUS_BUTTON: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_ICON_BUTTON: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_INPUT: f32 = RADIUS_MD; // 8.0
+pub const RADIUS_DROPDOWN: f32 = RADIUS_MD; // 8.0
+pub const RADIUS_POPOVER: f32 = RADIUS_MD; // 8.0
+pub const RADIUS_CARD: f32 = RADIUS_MD; // 8.0
+pub const RADIUS_DIALOG: f32 = RADIUS_LG; // 12.0
+pub const RADIUS_COMPOSER: f32 = RADIUS_XL; // 16.0
+pub const RADIUS_BADGE: f32 = RADIUS_FULL; // 999.0
 pub const RADIUS_BADGE_PILL: f32 = RADIUS_FULL; // 999.0
-pub const RADIUS_TOAST: f32 = RADIUS_SM; // 6.0
-pub const RADIUS_CODE_BLOCK: f32 = RADIUS_XS; // 4.0
+pub const RADIUS_TOAST: f32 = RADIUS_MD; // 8.0
+pub const RADIUS_CODE_BLOCK: f32 = RADIUS_MD; // 8.0
 
 // ── 3. Typography scale & font helpers ───────────────────────────────────────
 
@@ -199,50 +199,36 @@ pub mod light {
     pub const SCRIM: Color32 = Color32::from_black_alpha(38);
 }
 
-/// Raw palette values for the Codex-aligned dark theme.
+/// Raw palette values for the ChatGPT / OpenAI monochrome dark theme.
 pub mod dark {
     use egui::Color32;
 
     // Neutrals.
     pub const NEUTRAL_0: Color32 = Color32::from_rgb(255, 255, 255); // #ffffff
-    pub const NEUTRAL_25: Color32 = Color32::from_rgb(223, 223, 223); // #dfdfdf
-    pub const NEUTRAL_50: Color32 = Color32::from_rgb(223, 223, 223); // #dfdfdf
-    pub const NEUTRAL_300: Color32 = Color32::from_rgb(189, 189, 189); // #bdbdbd
-    pub const NEUTRAL_450: Color32 = Color32::from_rgb(154, 154, 154); // #9a9a9a
-    pub const NEUTRAL_475: Color32 = Color32::from_rgb(150, 150, 150); // #969696
-    pub const NEUTRAL_500: Color32 = Color32::from_rgb(122, 122, 122); // #7a7a7a
-    pub const NEUTRAL_650: Color32 = Color32::from_rgb(75, 75, 75); // #4b4b4b
-    pub const NEUTRAL_700: Color32 = Color32::from_rgb(63, 63, 63); // #3f3f3f
-    pub const NEUTRAL_725: Color32 = Color32::from_rgb(48, 48, 48); // #303030
-    pub const NEUTRAL_740: Color32 = Color32::from_rgb(54, 54, 54); // #363636
-    pub const NEUTRAL_750: Color32 = Color32::from_rgb(42, 42, 42); // #2a2a2a
-    pub const NEUTRAL_775: Color32 = Color32::from_rgb(36, 36, 36); // #242424
-    pub const NEUTRAL_780: Color32 = Color32::from_rgb(38, 38, 38); // #262626
-    pub const NEUTRAL_790: Color32 = Color32::from_rgb(37, 37, 37); // #252525
-    pub const NEUTRAL_810: Color32 = Color32::from_rgb(33, 33, 33); // #212121
-    pub const NEUTRAL_850: Color32 = Color32::from_rgb(24, 24, 24); // #181818
-    pub const NEUTRAL_860: Color32 = Color32::from_rgb(24, 24, 24); // #181818
-    pub const NEUTRAL_900: Color32 = Color32::from_rgb(18, 18, 18); // #121212
+    pub const NEUTRAL_50: Color32 = Color32::from_rgb(236, 236, 236); // #ececec (primary text & white pill)
+    pub const NEUTRAL_200: Color32 = Color32::from_rgb(180, 180, 180); // #b4b4b4 (secondary text)
+    pub const NEUTRAL_350: Color32 = Color32::from_rgb(160, 160, 160); // #a0a0a0 (tertiary text)
+    pub const NEUTRAL_450: Color32 = Color32::from_rgb(142, 142, 142); // #8e8e8e (muted text)
+    pub const NEUTRAL_500: Color32 = Color32::from_rgb(90, 90, 90); // #5a5a5a (disabled)
+    pub const NEUTRAL_650: Color32 = Color32::from_rgb(74, 74, 74); // #4a4a4a (border strong)
+    pub const NEUTRAL_700: Color32 = Color32::from_rgb(58, 58, 58); // #3a3a3a (border default)
+    pub const NEUTRAL_740: Color32 = Color32::from_rgb(44, 44, 44); // #2c2c2c (border subtle)
+    pub const NEUTRAL_750: Color32 = Color32::from_rgb(52, 52, 52); // #343434 (surface hover)
+    pub const NEUTRAL_775: Color32 = Color32::from_rgb(40, 40, 40); // #282828 (surface subtle)
+    pub const NEUTRAL_780: Color32 = Color32::from_rgb(47, 47, 47); // #2f2f2f (surface elevated & cards)
+    pub const NEUTRAL_810: Color32 = Color32::from_rgb(23, 23, 23); // #171717 (surface panel / sidebar)
+    pub const NEUTRAL_850: Color32 = Color32::from_rgb(33, 33, 33); // #212121 (surface canvas / app)
+    pub const NEUTRAL_900: Color32 = Color32::from_rgb(13, 13, 13); // #0d0d0d (pure dark)
 
-    // Accent (restrained blue action accent).
-    pub const BLUE_300: Color32 = Color32::from_rgb(130, 170, 255); // #82aaff
-    pub const BLUE_400: Color32 = Color32::from_rgb(96, 177, 255); // #60b1ff
-    pub const BLUE_450: Color32 = Color32::from_rgb(88, 166, 255); // #58a6ff
-    pub const BLUE_500: Color32 = Color32::from_rgb(51, 156, 255); // #339cff
-    pub const BLUE_900: Color32 = Color32::from_rgb(27, 49, 88); // #1b3158
+    // Status / Accent.
+    pub const GREEN_500: Color32 = Color32::from_rgb(16, 163, 127); // #10a37f (OpenAI Emerald)
+    pub const AMBER_400: Color32 = Color32::from_rgb(234, 179, 8); // #eab308
+    pub const RED_400: Color32 = Color32::from_rgb(239, 68, 68); // #ef4444
+    pub const BLUE_450: Color32 = Color32::from_rgb(96, 165, 250); // #60a5fa
 
-    // Shipped status colors.
-    pub const GREEN_500: Color32 = Color32::from_rgb(58, 197, 121); // #3ac579
-    pub const AMBER_400: Color32 = Color32::from_rgb(242, 180, 90); // #f2b45a
-    pub const RED_400: Color32 = Color32::from_rgb(239, 107, 115); // #ef6b73
-
-    // SQL syntax hues (highlight.js default-inspired dark palette).
-    pub const PURPLE_400: Color32 = Color32::from_rgb(199, 146, 234); // #c792ea (synKeyword)
-    pub const GREEN_400: Color32 = Color32::from_rgb(195, 232, 141); // #c3e88d (synString)
-    pub const ORANGE_400: Color32 = Color32::from_rgb(247, 140, 108); // #f78c6c (synConst)
-    pub const SLATE_500: Color32 = Color32::from_rgb(138, 143, 199); // #8a8fc7 (synComment)
-    pub const AMBER_300: Color32 = Color32::from_rgb(255, 203, 107); // #ffcb6b (synType)
-    pub const CYAN_300: Color32 = Color32::from_rgb(137, 221, 255); // #89ddff (synPunct)
+    // SQL syntax hues.
+    pub const PURPLE_400: Color32 = Color32::from_rgb(199, 146, 234); // #c792ea
+    pub const CYAN_300: Color32 = Color32::from_rgb(137, 221, 255); // #89ddff
 
     /// Modal scrim: black at ~29% to dim the workstation surfaces.
     pub const SCRIM: Color32 = Color32::from_black_alpha(74);

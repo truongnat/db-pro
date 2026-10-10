@@ -542,12 +542,12 @@ mod tests {
     fn dark_tokens_follow_codex_surface_contract() {
         let theme = DbProTheme::dark();
 
-        assert_eq!(theme.surface_app, egui::Color32::from_rgb(24, 24, 24));
-        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(33, 33, 33));
-        assert_eq!(theme.surface_active, egui::Color32::from_rgb(48, 48, 48));
-        assert_eq!(theme.text_primary, egui::Color32::from_rgb(223, 223, 223));
-        assert_eq!(theme.accent, egui::Color32::from_rgb(51, 156, 255));
-        assert_eq!(theme.accent_foreground, egui::Color32::from_rgb(18, 18, 18));
+        assert_eq!(theme.surface_app, egui::Color32::from_rgb(33, 33, 33));
+        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(23, 23, 23));
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(52, 52, 52));
+        assert_eq!(theme.text_primary, egui::Color32::from_rgb(236, 236, 236));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(236, 236, 236));
+        assert_eq!(theme.accent_foreground, egui::Color32::from_rgb(13, 13, 13));
     }
 
     #[test]

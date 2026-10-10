@@ -49,12 +49,21 @@ impl ToolsHubContext<'_> {
         crate::components::SearchInput::new(self.search_query, "Search tools & administration…", self.theme).show(ui);
         ui.add_space(SPACE_SM);
 
-        // Section 1: Schema & Architecture
+        self.draw_schema_section(ui, &mut actions);
+        ui.add_space(SPACE_MD);
+        self.draw_admin_section(ui, &mut actions);
+        ui.add_space(SPACE_MD);
+        self.draw_data_section(ui, &mut actions);
+        ui.add_space(SPACE_LG);
+        actions
+    }
+
+    fn draw_schema_section(&self, ui: &mut egui::Ui, actions: &mut Vec<ToolsHubAction>) {
         self.draw_category_header(ui, "Schema & Migration", Icon::GitCompare);
         ui.add_space(SPACE_XXS);
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::SchemaCompare,
                 icon: Icon::GitCompare,
@@ -65,7 +74,7 @@ impl ToolsHubContext<'_> {
         );
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::SchemaWorkbench,
                 icon: Icon::Boxes,
@@ -76,7 +85,7 @@ impl ToolsHubContext<'_> {
         );
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::Diagram,
                 icon: Icon::Workflow,
@@ -85,15 +94,14 @@ impl ToolsHubContext<'_> {
                 is_active: self.active_activity == Activity::Diagram,
             },
         );
+    }
 
-        ui.add_space(SPACE_MD);
-
-        // Section 2: Administration & Monitoring
+    fn draw_admin_section(&self, ui: &mut egui::Ui, actions: &mut Vec<ToolsHubAction>) {
         self.draw_category_header(ui, "Administration & Server", Icon::Gauge);
         ui.add_space(SPACE_XXS);
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::Monitor,
                 icon: Icon::Gauge,
@@ -104,7 +112,7 @@ impl ToolsHubContext<'_> {
         );
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::Security,
                 icon: Icon::Shield,
@@ -115,7 +123,7 @@ impl ToolsHubContext<'_> {
         );
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::History,
                 icon: Icon::History,
@@ -124,15 +132,14 @@ impl ToolsHubContext<'_> {
                 is_active: self.active_activity == Activity::History,
             },
         );
+    }
 
-        ui.add_space(SPACE_MD);
-
-        // Section 3: Data & Automation
+    fn draw_data_section(&self, ui: &mut egui::Ui, actions: &mut Vec<ToolsHubAction>) {
         self.draw_category_header(ui, "Data & Automation", Icon::ArrowRightLeft);
         ui.add_space(SPACE_XXS);
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::Transfers,
                 icon: Icon::Upload,
@@ -143,7 +150,7 @@ impl ToolsHubContext<'_> {
         );
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::Tasks,
                 icon: Icon::ListTodo,
@@ -154,7 +161,7 @@ impl ToolsHubContext<'_> {
         );
         self.draw_tool_card(
             ui,
-            &mut actions,
+            actions,
             ToolCardItem {
                 action: ToolsHubAction::Problems,
                 icon: Icon::TriangleAlert,
@@ -163,9 +170,6 @@ impl ToolsHubContext<'_> {
                 is_active: self.active_activity == Activity::Problems,
             },
         );
-
-        ui.add_space(SPACE_LG);
-        actions
     }
 
     fn draw_category_header(&self, ui: &mut egui::Ui, title: &str, icon: Icon) {
