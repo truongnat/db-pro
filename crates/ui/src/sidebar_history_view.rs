@@ -184,7 +184,7 @@ impl SidebarHistoryContext<'_> {
         local: Option<chrono::DateTime<chrono::Local>>,
         actions: &mut Vec<SidebarHistoryAction>,
     ) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.label(
                 RichText::new(&entry.id)
                     .font(font_mono_sm())
@@ -216,10 +216,24 @@ impl SidebarHistoryContext<'_> {
                 );
             });
             ui.horizontal(|ui| {
-                if compact_button_with_icon(ui, Icon::ExternalLink, "Open as new query", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::ExternalLink)
+                    .text("Open as new query")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(SidebarHistoryAction::OpenAsNewQuery(entry.sql.clone()));
                 }
-                if compact_button_with_icon(ui, Icon::Copy, "Copy SQL", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Copy)
+                    .text(t!("compare.copy_sql"))
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(SidebarHistoryAction::CopySql(entry.sql.clone()));
                 }
             });

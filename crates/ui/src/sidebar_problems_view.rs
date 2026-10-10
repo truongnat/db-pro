@@ -172,7 +172,13 @@ impl SidebarProblemsContext<'_> {
         if entry.has_fix {
             ui.horizontal(|ui| {
                 ui.add_space(12.0);
-                if compact_button(ui, "Quick fix", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Quick fix")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(SidebarProblemsAction::QuickFix {
                         document_index: entry.document_index,
                         diagnostic_index: entry.diagnostic_index,

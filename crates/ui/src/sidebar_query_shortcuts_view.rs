@@ -16,14 +16,21 @@ impl SidebarQueryShortcutsContext {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryShortcutAction> {
         let mut actions = self.draw_snippets(ui);
         ui.add_space(14.0);
-        section_label(ui, "SCRATCH", self.theme);
+        ui.label(RichText::new("SCRATCH").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(6.0);
         ui.label(
             RichText::new("Scratch tabs are disposable — use New scratch for throwaway SQL.")
                 .small()
                 .color(self.theme.text_muted),
         );
-        if compact_button_with_icon(ui, Icon::FilePlus2, "Open scratch SQL", self.theme).clicked() {
+        if Button::new(self.theme)
+            .icon(Icon::FilePlus2)
+            .text("Open scratch SQL")
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             actions.push(SidebarQueryShortcutAction::NewScratch);
         }
         actions
@@ -31,7 +38,7 @@ impl SidebarQueryShortcutsContext {
 
     fn draw_snippets(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryShortcutAction> {
         let mut actions = Vec::new();
-        section_label(ui, "SNIPPETS", self.theme);
+        ui.label(RichText::new("SNIPPETS").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(6.0);
         for (label, trigger, snippet) in query_snippets::builtin_sql_snippets() {
             let response = sidebar_item(ui, Icon::Braces, label, false, self.theme);

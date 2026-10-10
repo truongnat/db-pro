@@ -78,7 +78,12 @@ impl FilesTasksContext<'_> {
     fn draw_benchmark(&self, ui: &mut egui::Ui) -> Vec<FilesTasksAction> {
         let mut actions = Vec::new();
         ui.add_space(8.0);
-        section_label(ui, "BENCHMARK (local timing)", self.theme);
+        ui.label(
+            RichText::new("BENCHMARK (local timing)")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         if Button::new(self.theme)
             .text("Run sample suite")
             .variant(ButtonVariant::Secondary)

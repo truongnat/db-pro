@@ -758,21 +758,36 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
 
                     // Reorder & delete buttons — icon buttons, not glyph labels
                     if idx > 0
-                        && compact_icon_button(ui, Icon::ChevronUp, context.theme)
-                            .on_hover_text("Move column up")
+                        && Button::new(context.theme)
+                            .icon(Icon::ChevronUp)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip("Move column up")
+                            .access_label("Move column up")
+                            .show(ui)
                             .clicked()
                     {
                         move_up_idx = Some(idx);
                     }
                     if idx + 1 < col_count
-                        && compact_icon_button(ui, Icon::ChevronDown, context.theme)
-                            .on_hover_text("Move column down")
+                        && Button::new(context.theme)
+                            .icon(Icon::ChevronDown)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip("Move column down")
+                            .access_label("Move column down")
+                            .show(ui)
                             .clicked()
                     {
                         move_down_idx = Some(idx);
                     }
-                    if compact_icon_button(ui, Icon::X, context.theme)
-                        .on_hover_text("Remove column")
+                    if Button::new(context.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Remove column")
+                        .access_label("Remove column")
+                        .show(ui)
                         .clicked()
                     {
                         remove_idx = Some(idx);

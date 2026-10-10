@@ -11,7 +11,7 @@ pub(crate) struct SettingsEditorContext<'a> {
 
 impl SettingsEditorContext<'_> {
     pub(crate) fn draw(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             section_label(ui, "EDITOR", self.theme);
             ui.add_space(10.0);
             self.draw_editor_core(ui);
@@ -23,14 +23,26 @@ impl SettingsEditorContext<'_> {
     fn draw_editor_core(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(RichText::new("Font size").color(self.theme.text_secondary));
-            if compact_button(ui, "−", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("−")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.query.editor.editor_font_size = (self.query.editor.editor_font_size - 1.0).max(10.0);
                 self.preferences.settings.editor.font_size = self.query.editor.editor_font_size;
             }
             ui.label(
                 RichText::new(format!("{:.0} px", self.query.editor.editor_font_size)).color(self.theme.text_primary),
             );
-            if compact_button(ui, "+", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("+")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.query.editor.editor_font_size = (self.query.editor.editor_font_size + 1.0).min(24.0);
                 self.preferences.settings.editor.font_size = self.query.editor.editor_font_size;
             }

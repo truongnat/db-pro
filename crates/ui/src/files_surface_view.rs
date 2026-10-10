@@ -43,17 +43,27 @@ impl FilesSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<FilesSurfaceAction>) {
         ui.horizontal(|ui| {
-            section_label(ui, "WORKSPACE", self.theme);
+            ui.label(RichText::new("WORKSPACE").font(font_caption()).strong().color(self.theme.text_secondary));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::FolderOpen, self.theme)
-                    .on_hover_text("Add / open folder")
+                if Button::new(self.theme)
+                    .icon(Icon::FolderOpen)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Add / open folder")
+                    .access_label("Add / open folder")
+                    .show(ui)
                     .clicked()
                 {
                     actions.push(FilesSurfaceAction::OpenFolder);
                 }
                 if !self.workspace.roots.is_empty()
-                    && compact_icon_button(ui, Icon::RefreshCw, self.theme)
-                        .on_hover_text("Refresh tree")
+                    && Button::new(self.theme)
+                        .icon(Icon::RefreshCw)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip(t!("common.refresh"))
+                        .access_label(t!("common.refresh"))
+                        .show(ui)
                         .clicked()
                 {
                     actions.push(FilesSurfaceAction::Refresh);
@@ -84,7 +94,7 @@ impl FilesSurfaceContext<'_> {
             return;
         }
         ui.add_space(12.0);
-        section_label(ui, "RECENT", self.theme);
+        ui.label(RichText::new("RECENT").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(6.0);
         for path in self.workspace.recent_roots.iter().take(8) {
             let label = path
@@ -124,19 +134,33 @@ impl FilesSurfaceContext<'_> {
 
             // Header row: Folder icon + Name + Action buttons
             ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::FolderTree, "", self.theme.accent));
+                ui.label(
+                    RichText::new(char::from(Icon::FolderTree).to_string())
+                        .font(font_icon(ICON_XS))
+                        .color(self.theme.accent),
+                );
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 ui.label(RichText::new(crate::components::truncate_ellipsis(&active_root_name, 28)).font(font_ui_label()).strong().color(self.theme.text_primary));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Close workspace")
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Close workspace")
+                        .access_label("Close workspace")
+                        .show(ui)
                         .clicked()
                     {
                         actions.push(FilesSurfaceAction::Close);
                     }
                     if self.workspace.roots.len() > 1
-                        && compact_icon_button(ui, Icon::Trash2, self.theme)
-                            .on_hover_text("Remove active root")
+                        && Button::new(self.theme)
+                            .icon(Icon::Trash2)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip("Remove active root")
+                            .access_label("Remove active root")
+                            .show(ui)
                             .clicked()
                     {
                         actions.push(FilesSurfaceAction::RemoveRoot);
@@ -169,7 +193,7 @@ impl FilesSurfaceContext<'_> {
                 (Icon::ShieldAlert, self.theme.warning, "Untrusted")
             };
             ui.horizontal(|ui| {
-                ui.label(icon_text(trust_icon, "", trust_color));
+                ui.label(RichText::new(char::from(trust_icon).to_string()).font(font_icon(ICON_XS)).color(trust_color));
                 ui.label(RichText::new(trust_label).font(font_caption()).color(trust_color));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let (toggle_label, toggle_hint) = if trusted {
@@ -177,8 +201,12 @@ impl FilesSurfaceContext<'_> {
                     } else {
                         ("Trust", "Trust this workspace to enable writes and tasks")
                     };
-                    if compact_button(ui, toggle_label, self.theme)
-                        .on_hover_text(toggle_hint)
+                    if Button::new(self.theme)
+                        .text(toggle_label)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip(toggle_hint)
+                        .show(ui)
                         .clicked()
                     {
                         actions.push(FilesSurfaceAction::SetTrusted(!trusted));

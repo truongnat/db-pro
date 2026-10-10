@@ -27,15 +27,21 @@ impl SettingsKeybindingsContext<'_> {
         let mut actions = Vec::new();
         section_label(ui, "KEYBINDINGS", self.theme);
         ui.add_space(10.0);
-        input_full_width(
-            ui,
+        Input::new(
             &mut self.preferences.keybindings_filter,
             "Search commands…",
             self.theme,
-        );
+        )
+        .show(ui);
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            if compact_button(ui, "Reset all to defaults", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Reset all to defaults")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.preferences.settings.keybindings.reset_all();
                 self.preferences.keybinding_edit_id = None;
                 actions.push(SettingsKeybindingsAction::ResetAll);
@@ -105,7 +111,12 @@ impl SettingsKeybindingsContext<'_> {
             )
         });
         if (response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)))
-            || compact_button(ui, "Save", self.theme).clicked()
+            || Button::new(self.theme)
+                .text(t!("common.save"))
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
         {
             let draft = self.preferences.keybinding_edit_draft.trim().to_ascii_lowercase();
             if draft.is_empty() || draft == command.default_shortcut {
@@ -119,18 +130,35 @@ impl SettingsKeybindingsContext<'_> {
             }
             self.preferences.keybinding_edit_id = None;
         }
-        if compact_button(ui, "Cancel", self.theme).clicked() {
+        if Button::new(self.theme)
+            .text(t!("common.cancel"))
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             self.preferences.keybinding_edit_id = None;
         }
     }
 
     fn draw_read_only_row(&mut self, ui: &mut egui::Ui, command: KeybindingCommand, resolved: String) {
-        if compact_button(ui, "Edit", self.theme).clicked() {
+        if Button::new(self.theme)
+            .text(t!("common.edit"))
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             self.preferences.keybinding_edit_id = Some(command.id.to_owned());
             self.preferences.keybinding_edit_draft = resolved.clone();
         }
         if self.preferences.settings.keybindings.overrides.contains_key(command.id)
-            && compact_button(ui, "Reset", self.theme).clicked()
+            && Button::new(self.theme)
+                .text(t!("common.reset"))
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
         {
             self.preferences.settings.keybindings.reset_one(command.id);
         }

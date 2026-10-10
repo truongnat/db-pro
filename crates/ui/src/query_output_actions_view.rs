@@ -160,7 +160,7 @@ pub(super) fn draw_history_pane(
             ui.add_space(SPACE_MD);
             Input::new(
                 &mut context.editor.query_history_search,
-                &*t!("query.filter_history"),
+                t!("query.filter_history"),
                 context.theme,
             )
             .width(180.0)
@@ -197,16 +197,16 @@ pub(super) fn draw_history_pane(
         if context.editor.query_history_entries.is_empty() {
             EmptyState::new(
                 Icon::History,
-                &*t!("query.no_history"),
-                &*t!("query.no_history_desc"),
+                &t!("query.no_history"),
+                &t!("query.no_history_desc"),
                 context.theme,
             )
             .show(ui);
         } else if filtered_entries.is_empty() {
             EmptyState::new(
                 Icon::Search,
-                &*t!("query.no_matching_queries"),
-                &*t!("query.no_matching_queries_desc"),
+                &t!("query.no_matching_queries"),
+                &t!("query.no_matching_queries_desc"),
                 context.theme,
             )
             .show(ui);

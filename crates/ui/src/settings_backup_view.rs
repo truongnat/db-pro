@@ -20,8 +20,8 @@ pub(super) struct SettingsBackupContext<'a> {
 impl SettingsBackupContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<SettingsBackupAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "DATABASE FILES", self.theme);
+        Card::new(self.theme).show(ui, |ui| {
+            ui.label(RichText::new("DATABASE FILES").font(font_caption()).strong().color(self.theme.text_secondary));
             if !self.supported {
                 ui.label(
                     RichText::new("Backup and restore are unavailable for the active provider")
@@ -58,17 +58,31 @@ impl SettingsBackupContext<'_> {
                 .small()
                 .color(self.theme.text_secondary),
         );
-        input_full_width(
-            ui,
+        Input::new(
             &mut self.overlay.backup_output_path,
             "Choose a .sql backup path",
             self.theme,
-        );
+        )
+        .show(ui);
         ui.horizontal_wrapped(|ui| {
-            if compact_button_with_icon(ui, Icon::FolderOpen, "Choose path", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FolderOpen)
+                .text("Choose path")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SettingsBackupAction::PickBackup);
             }
-            if secondary_button_with_icon(ui, Icon::Archive, "Create backup", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Archive)
+                .text("Create backup")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SettingsBackupAction::CreateBackup);
             }
         });
@@ -80,17 +94,31 @@ impl SettingsBackupContext<'_> {
                 .small()
                 .color(self.theme.text_secondary),
         );
-        input_full_width(
-            ui,
+        Input::new(
             &mut self.overlay.restore_input_path,
             "Choose a backup file",
             self.theme,
-        );
+        )
+        .show(ui);
         ui.horizontal_wrapped(|ui| {
-            if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FolderOpen)
+                .text("Choose file")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SettingsBackupAction::PickRestore);
             }
-            if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::RotateCcw)
+                .text("Restore database")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.overlay.restore_confirmation = true;
             }
         });

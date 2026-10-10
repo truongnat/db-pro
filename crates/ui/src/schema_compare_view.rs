@@ -120,8 +120,8 @@ pub(super) fn draw_schema_compare(
             ui.set_min_width((ui.available_width() - 8.0).max(0.0));
             EmptyState::new(
                 Icon::GitCompare,
-                &*t!("compare.no_diff_yet"),
-                &*t!("compare.no_diff_desc"),
+                &t!("compare.no_diff_yet"),
+                &t!("compare.no_diff_desc"),
                 context.theme,
             )
             .show(ui);

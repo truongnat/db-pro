@@ -20,7 +20,7 @@ pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult
         let Some(result) = result else {
             EmptyState::new(
                 Icon::ChartColumn,
-                &*t!("table.no_rows"),
+                &t!("table.no_rows"),
                 "Open the Data tab or wait for the current page to load, then return to Profile.",
                 theme,
             )
@@ -30,7 +30,7 @@ pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult
         if result.columns.is_empty() {
             EmptyState::new(
                 Icon::ChartColumn,
-                &*t!("table.no_columns"),
+                &t!("table.no_columns"),
                 "This result has no columns to profile.",
                 theme,
             )
@@ -40,7 +40,7 @@ pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult
         if result.rows.is_empty() {
             EmptyState::new(
                 Icon::ChartColumn,
-                &*t!("table.no_rows"),
+                &t!("table.no_rows"),
                 "Load a page of rows in the Data tab to calculate column profiles.",
                 theme,
             )

@@ -119,7 +119,7 @@ impl TableStructureContext<'_> {
             if matching_columns.is_empty() {
                 EmptyState::new(
                     Icon::Columns3,
-                    &*t!("table.no_columns"),
+                    &t!("table.no_columns"),
                     "Try entering a different column name or data type.",
                     self.theme,
                 )

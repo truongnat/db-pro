@@ -104,8 +104,8 @@ impl SavedTasksSurfaceContext<'_> {
             return;
         };
         ui.label(RichText::new("New task").strong().color(theme.text_primary));
-        input_full_width(ui, &mut draft.name, "Name", theme);
-        input_full_width(ui, &mut draft.description, "Description", theme);
+        Input::new(&mut draft.name, "Name", theme).show(ui);
+        Input::new(&mut draft.description, "Description", theme).show(ui);
         Self::draw_payload_fields(ui, &mut draft.payload, theme);
         Self::draw_draft_actions(ui, action, theme);
     }
@@ -122,19 +122,19 @@ impl SavedTasksSurfaceContext<'_> {
                 output_path,
                 custom_format,
             } => {
-                input_full_width(ui, output_path, "Output path", theme);
+                Input::new(output_path, "Output path", theme).show(ui);
                 ui.checkbox(custom_format, "Custom (pg_dump -Fc) format");
             }
             SavedTaskPayload::Export { table, format } => {
                 let mut table_text = table.clone().unwrap_or_default();
-                input_full_width(ui, &mut table_text, "Table (optional)", theme);
+                Input::new(&mut table_text, "Table (optional)", theme).show(ui);
                 *table = (!table_text.trim().is_empty()).then_some(table_text);
-                input_full_width(ui, format, "Format (csv/tsv/json)", theme);
+                Input::new(format, "Format (csv/tsv/json)", theme).show(ui);
             }
             SavedTaskPayload::Maintenance { operation, target } => {
-                input_full_width(ui, operation, "Operation (vacuum/analyze)", theme);
+                Input::new(operation, "Operation (vacuum/analyze)", theme).show(ui);
                 let mut target_text = target.clone().unwrap_or_default();
-                input_full_width(ui, &mut target_text, "Target (optional)", theme);
+                Input::new(&mut target_text, "Target (optional)", theme).show(ui);
                 *target = (!target_text.trim().is_empty()).then_some(target_text);
             }
         }

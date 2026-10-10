@@ -118,7 +118,7 @@ impl FilesSearchContext<'_> {
             return;
         }
         ui.add_space(6.0);
-        section_label(ui, "REPLACE PREVIEW", self.theme);
+        ui.label(RichText::new("REPLACE PREVIEW").font(font_caption()).strong().color(self.theme.text_secondary));
         for preview in self.replace_previews.iter().take(30) {
             ui.label(
                 RichText::new(format!(
@@ -137,7 +137,7 @@ impl FilesSearchContext<'_> {
         }
         let mut actions = Vec::new();
         ui.add_space(6.0);
-        section_label(ui, "SEARCH RESULTS", self.theme);
+        ui.label(RichText::new("SEARCH RESULTS").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(4.0);
         for hit in self.search_hits.iter().take(40) {
             let label = format!("{}:{}", hit.relative_path, hit.line);

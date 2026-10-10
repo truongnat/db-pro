@@ -75,18 +75,30 @@ impl SecurityRolesContext<'_> {
             if user.can_create_role {
                 badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
             }
-            if danger_button(ui, "Drop", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Drop")
+                .variant(ButtonVariant::Destructive)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRolesAction::RequestDrop(user.name.clone()));
             }
         });
     }
 
     fn draw_create_role(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRolesAction> {
-        section_label(ui, "CREATE ROLE", self.theme);
+        ui.label(RichText::new("CREATE ROLE").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(SPACE_SM);
-        input_full_width(ui, &mut self.state.security_new_role, "role name", self.theme);
+        Input::new(&mut self.state.security_new_role, "role name", self.theme).show(ui);
         ui.checkbox(&mut self.state.security_new_role_login, "LOGIN");
-        if primary_button_with_icon(ui, Icon::Plus, "Create role", self.theme).clicked()
+        if Button::new(self.theme)
+            .icon(Icon::Plus)
+            .text("Create role")
+            .variant(ButtonVariant::Default)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
             && !self.state.security_new_role.trim().is_empty()
         {
             return vec![SecurityRolesAction::Create {

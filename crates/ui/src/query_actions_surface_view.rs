@@ -93,7 +93,7 @@ impl QueryActionsSurfaceContext<'_> {
         let run_label = if self.session.selected_text.is_empty() {
             t!("query.run")
         } else {
-            t!("query.run")
+            t!("query.run_selection")
         };
         if action_menu_button(ui, Icon::Play, &run_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Run);
@@ -120,7 +120,7 @@ impl QueryActionsSurfaceContext<'_> {
             actions.push(QueryActionsSurfaceAction::Close);
         }
         let builder_label = if self.editor.visual_builder.open {
-            t!("query.visual_builder")
+            t!("query.hide_visual_builder")
         } else {
             t!("query.visual_builder")
         };

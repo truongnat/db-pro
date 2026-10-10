@@ -26,18 +26,33 @@ impl FilesTreeContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<FilesTreeAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            section_label(ui, format!("FILES · {}", self.file_count), self.theme);
+            ui.label(
+                RichText::new(format!("FILES · {}", self.file_count))
+                    .font(font_caption())
+                    .strong()
+                    .color(self.theme.text_secondary),
+            );
             // Header icon buttons match the Queries activity chrome instead of
             // a dedicated button row.
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::FolderPlus, self.theme)
-                    .on_hover_text("New folder")
+                if Button::new(self.theme)
+                    .icon(Icon::FolderPlus)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip(t!("query.new_folder"))
+                    .access_label(t!("query.new_folder"))
+                    .show(ui)
                     .clicked()
                 {
                     actions.push(FilesTreeAction::NewFolder);
                 }
-                if compact_icon_button(ui, Icon::FilePlus2, self.theme)
-                    .on_hover_text("New SQL file")
+                if Button::new(self.theme)
+                    .icon(Icon::FilePlus2)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("New SQL file")
+                    .access_label("New SQL file")
+                    .show(ui)
                     .clicked()
                 {
                     actions.push(FilesTreeAction::NewSql);

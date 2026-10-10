@@ -137,6 +137,7 @@ explorer:
 
 query:
   run: "実行"
+  run_selection: "選択範囲を実行"
   stop: "停止"
   running: "実行中…"
   explain: "Explain"
@@ -146,6 +147,7 @@ query:
   save_query: "クエリを保存"
   save_query_as: "名前を付けて保存…"
   visual_builder: "ビジュアルクエリビルダー"
+  hide_visual_builder: "ビジュアルクエリビルダーを非表示"
   find_in_sql: "SQL内を検索"
   sql_snippets: "SQLスニペット"
   new_folder: "新規フォルダー"

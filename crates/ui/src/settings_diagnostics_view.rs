@@ -79,10 +79,24 @@ impl SettingsDiagnosticsContext<'_> {
     fn draw_actions(&self, ui: &mut egui::Ui) -> Vec<SettingsDiagnosticsAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            if compact_button_with_icon(ui, Icon::Copy, "Copy diagnostics summary", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Copy)
+                .text("Copy diagnostics summary")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SettingsDiagnosticsAction::CopySummary);
             }
-            if compact_button_with_icon(ui, Icon::Download, "Export support bundle", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Download)
+                .text("Export support bundle")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SettingsDiagnosticsAction::ExportBundle);
             }
         });

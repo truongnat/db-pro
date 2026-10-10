@@ -40,16 +40,31 @@ impl SidebarQueriesContext<'_> {
     fn draw_header(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            section_label(ui, format!("OPEN QUERIES ({})", self.documents.len()), self.theme);
+            ui.label(
+                RichText::new(format!("OPEN QUERIES ({})", self.documents.len()))
+                    .font(font_caption())
+                    .strong()
+                    .color(self.theme.text_secondary),
+            );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::FilePlus2, self.theme)
-                    .on_hover_text("New scratch query")
+                if Button::new(self.theme)
+                    .icon(Icon::FilePlus2)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("New scratch query")
+                    .access_label("New scratch query")
+                    .show(ui)
                     .clicked()
                 {
                     actions.push(SidebarQueriesAction::NewScratch);
                 }
-                if compact_icon_button(ui, Icon::Plus, self.theme)
-                    .on_hover_text("New query")
+                if Button::new(self.theme)
+                    .icon(Icon::Plus)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("New query")
+                    .access_label("New query")
+                    .show(ui)
                     .clicked()
                 {
                     actions.push(SidebarQueriesAction::NewQuery);

@@ -78,10 +78,22 @@ impl SidebarQueryLibraryContext<'_> {
         let mut action = None;
         ui.colored_label(self.theme.warning, "Delete this saved query?");
         ui.horizontal(|ui| {
-            if compact_button(ui, "Confirm delete", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Confirm delete")
+                .variant(ButtonVariant::Destructive)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 action = Some(SidebarQueryLibraryAction::ConfirmDelete(query_id.to_owned()));
             }
-            if compact_button(ui, "Cancel", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text(t!("common.cancel"))
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 action = Some(SidebarQueryLibraryAction::CancelDelete);
             }
         });
@@ -90,9 +102,13 @@ impl SidebarQueryLibraryContext<'_> {
 
     fn draw_empty_saved_queries(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryLibraryAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label(icon_text(Icon::Bookmark, "", self.theme.accent));
+                ui.label(
+                    RichText::new(char::from(Icon::Bookmark).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(self.theme.accent),
+                );
                 ui.add_space(6.0);
                 ui.label(RichText::new("No saved queries yet").strong());
                 ui.label(
@@ -101,7 +117,14 @@ impl SidebarQueryLibraryContext<'_> {
                         .color(self.theme.text_muted),
                 );
                 ui.add_space(8.0);
-                if compact_button_with_icon(ui, Icon::Plus, "New query", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Plus)
+                    .text("New query")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(SidebarQueryLibraryAction::NewQuery);
                 }
             });

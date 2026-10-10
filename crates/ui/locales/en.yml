@@ -137,6 +137,7 @@ explorer:
 
 query:
   run: "Run"
+  run_selection: "Run selection"
   stop: "Stop"
   running: "Running…"
   explain: "Explain"
@@ -146,6 +147,7 @@ query:
   save_query: "Save query"
   save_query_as: "Save query as…"
   visual_builder: "Visual query builder"
+  hide_visual_builder: "Hide visual query builder"
   find_in_sql: "Find in SQL"
   sql_snippets: "SQL snippets"
   new_folder: "New folder"

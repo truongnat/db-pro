@@ -38,7 +38,7 @@ impl TableRelationsContext<'_> {
             if matching.is_empty() {
                 EmptyState::new(
                     Icon::ArrowRightLeft,
-                    &*t!("table.no_foreign_keys"),
+                    &t!("table.no_foreign_keys"),
                     "This table has no outgoing foreign keys or none match the search.",
                     self.theme,
                 )

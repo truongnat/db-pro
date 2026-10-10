@@ -137,6 +137,7 @@ explorer:
 
 query:
   run: "Chạy"
+  run_selection: "Chạy đoạn chọn"
   stop: "Dừng"
   running: "Đang chạy…"
   explain: "Giải thích"
@@ -146,6 +147,7 @@ query:
   save_query: "Lưu truy vấn"
   save_query_as: "Lưu truy vấn thành…"
   visual_builder: "Trình tạo truy vấn trực quan"
+  hide_visual_builder: "Ẩn trình tạo truy vấn trực quan"
   find_in_sql: "Tìm trong SQL"
   sql_snippets: "Mẫu câu lệnh SQL"
   new_folder: "Thư mục mới"

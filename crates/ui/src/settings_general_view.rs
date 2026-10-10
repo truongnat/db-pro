@@ -64,17 +64,17 @@ impl SettingsGeneralContext<'_> {
     fn draw_workspace_sessions(&mut self, ui: &mut egui::Ui) -> Vec<SettingsGeneralAction> {
         let mut actions = Vec::new();
         ui.add_space(12.0);
-        section_label(ui, "WORKSPACE SESSIONS", self.theme);
+        ui.label(RichText::new("WORKSPACE SESSIONS").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(6.0);
         ui.label(
             RichText::new("Named sessions store layout and tab references — not SQL text, secrets, or result grids.")
                 .small()
                 .color(self.theme.text_muted),
         );
-        input_full_width(ui, &mut self.sessions.name_draft, "Session name", self.theme);
+        Input::new(&mut self.sessions.name_draft, "Session name", self.theme).show(ui);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
-                .text("Save workspace")
+                .text(t!("common.save"))
                 .variant(ButtonVariant::Default)
                 .size(ButtonSize::Sm)
                 .show(ui)

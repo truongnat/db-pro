@@ -47,7 +47,7 @@ impl ExplorerToolbarContext<'_> {
                     actions.push(ExplorerToolbarAction::RefreshSchema);
                 }
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    SearchInput::new(self.search, &*t!("explorer.filter_objects"), self.theme).show(ui);
+                    SearchInput::new(self.search, &t!("explorer.filter_objects"), self.theme).show(ui);
                     self.draw_filter_workbench(ui);
                 });
             });

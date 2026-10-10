@@ -37,40 +37,58 @@ impl SecurityRoleDetailsContext<'_> {
     fn draw_attributes(&self, ui: &mut egui::Ui) -> Vec<SecurityRoleDetailsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_MD);
-        section_label(ui, format!("ATTRIBUTES · {}", self.role), self.theme);
+        ui.label(
+            RichText::new(format!("ATTRIBUTES · {}", self.role))
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
         ui.horizontal(|ui| {
-            if secondary_button_with_icon(ui, Icon::Check, "LOGIN", self.theme).clicked() {
-                actions.push(SecurityRoleDetailsAction::AlterRole(
+            for (icon, label, attr) in [
+                (
+                    Icon::Check,
+                    "LOGIN",
                     db_pro_core::domain::user::RoleAttributes {
                         login: Some(true),
                         ..Default::default()
                     },
-                ));
-            }
-            if secondary_button_with_icon(ui, Icon::X, "NOLOGIN", self.theme).clicked() {
-                actions.push(SecurityRoleDetailsAction::AlterRole(
+                ),
+                (
+                    Icon::X,
+                    "NOLOGIN",
                     db_pro_core::domain::user::RoleAttributes {
                         login: Some(false),
                         ..Default::default()
                     },
-                ));
-            }
-            if secondary_button_with_icon(ui, Icon::Database, "CREATEDB", self.theme).clicked() {
-                actions.push(SecurityRoleDetailsAction::AlterRole(
+                ),
+                (
+                    Icon::Database,
+                    "CREATEDB",
                     db_pro_core::domain::user::RoleAttributes {
                         createdb: Some(true),
                         ..Default::default()
                     },
-                ));
-            }
-            if secondary_button_with_icon(ui, Icon::Users, "CREATEROLE", self.theme).clicked() {
-                actions.push(SecurityRoleDetailsAction::AlterRole(
+                ),
+                (
+                    Icon::Users,
+                    "CREATEROLE",
                     db_pro_core::domain::user::RoleAttributes {
                         createrole: Some(true),
                         ..Default::default()
                     },
-                ));
+                ),
+            ] {
+                if Button::new(self.theme)
+                    .icon(icon)
+                    .text(label)
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    actions.push(SecurityRoleDetailsAction::AlterRole(attr));
+                }
             }
         });
         actions
@@ -79,21 +97,32 @@ impl SecurityRoleDetailsContext<'_> {
     fn draw_password(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRoleDetailsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_MD);
-        section_label(ui, format!("PASSWORD · {}", self.role), self.theme);
+        ui.label(
+            RichText::new(format!("PASSWORD · {}", self.role))
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new("Password is never logged or shown in runtime events.")
                 .small()
                 .color(self.theme.text_muted),
         );
-        password_input(
-            ui,
+        PasswordInput::new(
             &mut self.state.security_password,
             "new password",
-            ui.available_width(),
+            &mut self.state.security_show_password,
             self.theme,
-        );
-        if primary_button_with_icon(ui, Icon::Key, "Update password", self.theme).clicked()
+        )
+        .show(ui);
+        if Button::new(self.theme)
+            .icon(Icon::Key)
+            .text("Update password")
+            .variant(ButtonVariant::Default)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
             && !self.state.security_password.is_empty()
         {
             actions.push(SecurityRoleDetailsAction::UpdatePassword(
@@ -106,7 +135,12 @@ impl SecurityRoleDetailsContext<'_> {
     fn draw_memberships(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRoleDetailsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_MD);
-        section_label(ui, format!("MEMBERSHIPS · {}", self.role), self.theme);
+        ui.label(
+            RichText::new(format!("MEMBERSHIPS · {}", self.role))
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
         if self.state.security_memberships.is_empty() {
             ui.label(
@@ -123,19 +157,31 @@ impl SecurityRoleDetailsContext<'_> {
                             .monospace()
                             .color(self.theme.text_secondary),
                     );
-                    if danger_button(ui, "Revoke", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Revoke")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(SecurityRoleDetailsAction::RevokeMembership(membership.role.clone()));
                     }
                 });
             }
         }
-        input_full_width(
-            ui,
+        Input::new(
             &mut self.state.security_membership_role,
             "grant role name",
             self.theme,
-        );
-        if secondary_button_with_icon(ui, Icon::Plus, "Grant membership", self.theme).clicked()
+        )
+        .show(ui);
+        if Button::new(self.theme)
+            .icon(Icon::Plus)
+            .text("Grant membership")
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
             && !self.state.security_membership_role.trim().is_empty()
         {
             actions.push(SecurityRoleDetailsAction::GrantMembership(
@@ -227,17 +273,23 @@ impl SecurityRoleDetailsContext<'_> {
             db_pro_core::domain::user::PrivilegeObjectKind::Database
                 | db_pro_core::domain::user::PrivilegeObjectKind::Schema
         ) {
-            input_full_width(ui, &mut self.state.security_grant_schema, "schema", self.theme);
+            Input::new(&mut self.state.security_grant_schema, "schema", self.theme).show(ui);
         }
         let object_hint = self.state.security_grant_kind.as_label();
-        input_full_width(ui, &mut self.state.security_grant_object, object_hint, self.theme);
-        input_full_width(
-            ui,
+        Input::new(&mut self.state.security_grant_object, object_hint, self.theme).show(ui);
+        Input::new(
             &mut self.state.security_grant_privilege,
             "privilege (SELECT/USAGE/CONNECT/…)",
             self.theme,
-        );
-        if primary_button_with_icon(ui, Icon::Plus, "Grant privilege", self.theme).clicked()
+        )
+        .show(ui);
+        if Button::new(self.theme)
+            .icon(Icon::Plus)
+            .text("Grant privilege")
+            .variant(ButtonVariant::Default)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
             && !self.state.security_grant_object.trim().is_empty()
             && !self.state.security_grant_privilege.trim().is_empty()
         {

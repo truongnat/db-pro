@@ -87,8 +87,8 @@ where
             ui.centered_and_justified(|ui| {
                 EmptyState::new(
                     Icon::Table2,
-                    &*t!("query.no_results"),
-                    &*t!("query.no_results_desc"),
+                    &t!("query.no_results"),
+                    &t!("query.no_results_desc"),
                     context.theme,
                 )
                 .show(ui);

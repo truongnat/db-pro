@@ -49,35 +49,35 @@ impl SecurityRlsContext<'_> {
 
     fn draw_controls(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRlsAction> {
         let mut actions = Vec::new();
-        input_full_width(ui, &mut self.state.security_rls_schema, "schema", self.theme);
-        input_full_width(ui, &mut self.state.security_rls_table, "table", self.theme);
+        Input::new(&mut self.state.security_rls_schema, "schema", self.theme).show(ui);
+        Input::new(&mut self.state.security_rls_table, "table", self.theme).show(ui);
         ui.horizontal(|ui| {
-            if secondary_button_with_icon(ui, Icon::RefreshCw, "Inspect RLS", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::RefreshCw)
+                .text("Inspect RLS")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRlsAction::Inspect);
             }
-            if secondary_button_with_icon(ui, Icon::Shield, "Enable RLS", self.theme).clicked() {
-                actions.push(SecurityRlsAction::PreviewTable {
-                    force: false,
-                    enable: true,
-                });
-            }
-            if secondary_button_with_icon(ui, Icon::ShieldOff, "Disable RLS", self.theme).clicked() {
-                actions.push(SecurityRlsAction::PreviewTable {
-                    force: false,
-                    enable: false,
-                });
-            }
-            if secondary_button_with_icon(ui, Icon::Lock, "Force RLS", self.theme).clicked() {
-                actions.push(SecurityRlsAction::PreviewTable {
-                    force: true,
-                    enable: true,
-                });
-            }
-            if secondary_button_with_icon(ui, Icon::Unlock, "No Force", self.theme).clicked() {
-                actions.push(SecurityRlsAction::PreviewTable {
-                    force: true,
-                    enable: false,
-                });
+            for (icon, label, force, enable) in [
+                (Icon::Shield, "Enable RLS", false, true),
+                (Icon::ShieldOff, "Disable RLS", false, false),
+                (Icon::Lock, "Force RLS", true, true),
+                (Icon::Unlock, "No Force", true, false),
+            ] {
+                if Button::new(self.theme)
+                    .icon(icon)
+                    .text(label)
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    actions.push(SecurityRlsAction::PreviewTable { force, enable });
+                }
             }
         });
         actions
@@ -149,34 +149,45 @@ impl SecurityRlsContext<'_> {
     fn draw_policy_form(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRlsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_SM);
-        section_label(ui, "CREATE / ALTER POLICY", self.theme);
-        input_full_width(ui, &mut self.state.security_rls_policy_name, "policy name", self.theme);
-        input_full_width(
-            ui,
+        ui.label(RichText::new("CREATE / ALTER POLICY").font(font_caption()).strong().color(self.theme.text_secondary));
+        Input::new(&mut self.state.security_rls_policy_name, "policy name", self.theme).show(ui);
+        Input::new(
             &mut self.state.security_rls_command,
             "command (ALL/SELECT/INSERT/UPDATE/DELETE)",
             self.theme,
-        );
-        input_full_width(
-            ui,
+        ).show(ui);
+        Input::new(
             &mut self.state.security_rls_roles,
             "roles (comma; empty=PUBLIC)",
             self.theme,
-        );
-        input_full_width(ui, &mut self.state.security_rls_using, "USING expression", self.theme);
-        input_full_width(
-            ui,
+        ).show(ui);
+        Input::new(&mut self.state.security_rls_using, "USING expression", self.theme).show(ui);
+        Input::new(
             &mut self.state.security_rls_with_check,
             "WITH CHECK expression",
             self.theme,
-        );
+        ).show(ui);
         ui.horizontal(|ui| {
-            if primary_button_with_icon(ui, Icon::Eye, "Preview CREATE", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Eye)
+                .text("Preview CREATE")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRlsAction::PreviewPolicy(
                     db_pro_core::domain::object_mutation::ObjectAction::Create,
                 ));
             }
-            if secondary_button_with_icon(ui, Icon::Pencil, "Preview ALTER", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Pencil)
+                .text("Preview ALTER")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRlsAction::PreviewPolicy(
                     db_pro_core::domain::object_mutation::ObjectAction::Alter,
                 ));

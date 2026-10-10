@@ -137,6 +137,7 @@ explorer:
 
 query:
   run: "运行"
+  run_selection: "运行所选内容"
   stop: "停止"
   running: "正在运行…"
   explain: "Explain"
@@ -146,6 +147,7 @@ query:
   save_query: "保存查询"
   save_query_as: "另存为…"
   visual_builder: "可视化查询构建器"
+  hide_visual_builder: "隐藏可视化查询构建器"
   find_in_sql: "在 SQL 中查找"
   sql_snippets: "SQL 代码片段"
   new_folder: "新建文件夹"

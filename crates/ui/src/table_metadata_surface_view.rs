@@ -35,7 +35,7 @@ impl TableMetadataContext<'_> {
             if rows.is_empty() {
                 EmptyState::new(
                     Icon::ShieldCheck,
-                    &*t!("table.no_constraints"),
+                    &t!("table.no_constraints"),
                     "No table constraints match the selected category or search filter.",
                     self.theme,
                 )
@@ -83,7 +83,7 @@ impl TableMetadataContext<'_> {
             if dependencies.is_empty() {
                 EmptyState::new(
                     Icon::GitBranch,
-                    &*t!("table.no_dependencies"),
+                    &t!("table.no_dependencies"),
                     "No incoming or outgoing dependency relations match the filter.",
                     self.theme,
                 )

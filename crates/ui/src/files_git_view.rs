@@ -45,7 +45,7 @@ impl FilesGitContext<'_> {
     fn draw_header(&self, ui: &mut egui::Ui) -> Vec<FilesGitAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            section_label(ui, "GIT", self.theme);
+            ui.label(RichText::new("GIT").font(font_caption()).strong().color(self.theme.text_secondary));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if Button::new(self.theme)
                     .icon(Icon::RefreshCw)
@@ -218,7 +218,12 @@ impl FilesGitContext<'_> {
             return;
         };
         ui.add_space(8.0);
-        section_label(ui, format!("DIFF · {} vs {}", diff.path, diff.against), self.theme);
+        ui.label(
+            RichText::new(format!("DIFF · {} vs {}", diff.path, diff.against))
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(4.0);
         egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
             ui.label(

@@ -99,8 +99,13 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             );
                             // 7. Plus Button for New Query
                             ui.add_space(SPACE_XS);
-                            if compact_icon_button(ui, Icon::Plus, self.theme)
-                                .on_hover_text(format!("New Query Tab ({modifier}N)"))
+                            if Button::new(self.theme)
+                                .icon(Icon::Plus)
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::IconSm)
+                                .tooltip(format!("New Query Tab ({modifier}N)"))
+                                .access_label(format!("New Query Tab ({modifier}N)"))
+                                .show(ui)
                                 .clicked()
                             {
                                 self.new_query_document();
