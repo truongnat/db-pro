@@ -325,9 +325,46 @@ async fn seed_sqlite_sample_fixture(runtime: &DbProRuntime) {
     }
 }
 
+fn sample_enterprise_pg_connection_config() -> db_pro_core::domain::connection::ConnectionConfig {
+    db_pro_core::domain::connection::ConnectionConfig {
+        name: "Enterprise Multi-Domain (PostgreSQL 115 Tables)".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "enterprise_db".to_owned(),
+        username: "truongdq".to_owned(),
+        driver: db_pro_core::domain::connection::DriverType::Postgres,
+        ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+        ssh_tunnel: None,
+        ssh_profile_id: None,
+        ssl_root_cert_path: None,
+        ssl_client_cert_path: None,
+        ssl_client_key_path: None,
+        query_timeout_ms: 30_000,
+        max_rows: 5_000,
+        color: Some("#3B82F6".to_owned()),
+        tags: vec!["sample".to_owned(), "postgres".to_owned(), "115-tables".to_owned()],
+        group: Some("Local Samples".to_owned()),
+        favorite: true,
+        environment: Default::default(),
+        readonly: false,
+    }
+}
+
+async fn seed_enterprise_pg_sample_connection(runtime: &DbProRuntime) {
+    let existing = runtime.connections().list().await.unwrap_or_default();
+    if existing.iter().any(|c| c.config.database == "enterprise_db") {
+        return;
+    }
+    let config = sample_enterprise_pg_connection_config();
+    if let Err(err) = runtime.connections().create(config, "").await {
+        tracing::warn!("failed to seed Enterprise PostgreSQL connection: {err}");
+    }
+}
+
 /// Seeds the demo PostgreSQL connection the first time the app runs.
 async fn seed_default_connection(runtime: &DbProRuntime) {
     seed_sqlite_sample_fixture(runtime).await;
+    seed_enterprise_pg_sample_connection(runtime).await;
     let Some(config) = developer_preset_connection() else {
         return;
     };
