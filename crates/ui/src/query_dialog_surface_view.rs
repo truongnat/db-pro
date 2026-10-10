@@ -44,7 +44,14 @@ impl DestructiveDialogContext<'_> {
         if preview.chars().count() > 600 {
             preview = preview.chars().take(600).collect::<String>() + "…";
         }
-        editor_frame(self.theme).show(ui, |ui| {
+        egui::Frame {
+            fill: self.theme.surface_editor,
+            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
             ui.label(
                 RichText::new(preview)
                     .font(font_mono_sm())
@@ -123,7 +130,7 @@ impl ExportDialogContext<'_> {
                 .color(self.theme.text_muted),
         );
         ui.add_space(SPACE_XS);
-        input_full_width(ui, &mut self.overlay.export_path, "/path/to/results.csv", self.theme);
+        Input::new(&mut self.overlay.export_path, "/path/to/results.csv", self.theme).show(ui);
         ui.add_space(SPACE_XS);
         ui.label(
             RichText::new("Rows beyond the visible limit are not included in the export.")

@@ -26,8 +26,9 @@ impl SaveAsDialogContext<'_> {
             .id_salt("save_query_as_dialog")
             .show_framed_ctx(ctx, |frame| {
                 frame.body(|ui| {
-                    ui.label("Name");
-                    ui.text_edit_singleline(self.name);
+                    Input::new(self.name, "Query name", self.theme)
+                        .label("Name")
+                        .show(ui);
                 });
                 frame.footer(|ui| {
                     if Button::new(self.theme)
