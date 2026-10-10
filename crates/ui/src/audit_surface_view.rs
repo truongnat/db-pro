@@ -28,7 +28,7 @@ impl AuditSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<AuditSurfaceAction>) {
         ui.add_space(SPACE_MD);
-        section_label(ui, "DATABASE AUDIT / ACTIVITY LOG", self.theme);
+        ui.label(RichText::new("DATABASE AUDIT / ACTIVITY LOG").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new(
@@ -39,10 +39,24 @@ impl AuditSurfaceContext<'_> {
             .color(self.theme.text_muted),
         );
         ui.horizontal(|ui| {
-            if secondary_button_with_icon(ui, Icon::RefreshCw, "Load audit page", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::RefreshCw)
+                .text("Load audit page")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(AuditSurfaceAction::Refresh);
             }
-            if secondary_button_with_icon(ui, Icon::Download, "Export selected", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Download)
+                .text("Export selected")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(AuditSurfaceAction::ExportSelected);
             }
         });
@@ -51,13 +65,13 @@ impl AuditSurfaceContext<'_> {
     fn draw_filters(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Text").small().color(self.theme.text_muted));
-            input(ui, &mut self.state.audit_filter_text, "message/query", 120.0, self.theme);
+            Input::new(&mut self.state.audit_filter_text, "message/query", self.theme).width(120.0).show(ui);
             ui.label(RichText::new("DB").small().color(self.theme.text_muted));
-            input(ui, &mut self.state.audit_filter_database, "database", 80.0, self.theme);
+            Input::new(&mut self.state.audit_filter_database, "database", self.theme).width(80.0).show(ui);
             ui.label(RichText::new("User").small().color(self.theme.text_muted));
-            input(ui, &mut self.state.audit_filter_username, "user", 80.0, self.theme);
+            Input::new(&mut self.state.audit_filter_username, "user", self.theme).width(80.0).show(ui);
             ui.label(RichText::new("Severity").small().color(self.theme.text_muted));
-            input(ui, &mut self.state.audit_filter_severity, "level", 60.0, self.theme);
+            Input::new(&mut self.state.audit_filter_severity, "level", self.theme).width(60.0).show(ui);
         });
     }
 
@@ -107,7 +121,7 @@ impl AuditSurfaceContext<'_> {
     ) {
         let bookmarked = self.state.audit_bookmarks.contains(&event.id);
         let selected = self.state.audit_selected.contains(&event.id);
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 let mut selected_now = selected;
                 if ui.checkbox(&mut selected_now, "").changed() {
@@ -142,13 +156,27 @@ impl AuditSurfaceContext<'_> {
                     query.clone()
                 };
                 ui.label(RichText::new(preview).monospace().small().color(self.theme.text_muted));
-                if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::FileCode2)
+                    .text("Open SQL")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(AuditSurfaceAction::OpenQuery(query.clone()));
                 }
             }
             ui.horizontal(|ui| {
                 let label = if bookmarked { "Unbookmark" } else { "Bookmark" };
-                if ghost_button_with_icon(ui, Icon::Bookmark, label, self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Bookmark)
+                    .text(label)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(AuditSurfaceAction::ToggleBookmark(event.id.clone()));
                 }
             });

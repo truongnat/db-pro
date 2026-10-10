@@ -44,17 +44,23 @@ impl EventTriggerSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<EventTriggerSurfaceAction>) {
         ui.add_space(SPACE_MD);
-        section_label(ui, "EVENT TRIGGERS", self.theme);
+        ui.label(RichText::new("EVENT TRIGGERS").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new(
-                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "PostgreSQL-only · database-level DDL hooks · not table/row triggers · create requires existing function",
             )
             .small()
             .color(self.theme.text_muted),
         );
-        if secondary_button_with_icon(ui, Icon::RefreshCw, "Load event triggers", self.theme).clicked() {
+        if Button::new(self.theme)
+            .icon(Icon::RefreshCw)
+            .text("Load event triggers")
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             actions.push(EventTriggerSurfaceAction::Refresh);
         }
         if let Some(error) = &self.state.event_trigger_error {
@@ -135,7 +141,14 @@ impl EventTriggerSurfaceContext<'_> {
             input(ui, &mut self.state.event_trigger_create_tags, "tags CSV optional", 140.0, self.theme);
         });
         ui.horizontal(|ui| {
-            if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FileCode2)
+                .text("Preview CREATE")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(EventTriggerSurfaceAction::PreviewCreate {
                     name: self.state.event_trigger_create_name.clone(),
                     event: self.state.event_trigger_create_event.clone(),
@@ -143,7 +156,13 @@ impl EventTriggerSurfaceContext<'_> {
                     tags_csv: self.state.event_trigger_create_tags.clone(),
                 });
             }
-            if secondary_button(ui, "Create (confirm)", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Create (confirm)")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(EventTriggerSurfaceAction::Create);
             }
         });
@@ -162,7 +181,13 @@ impl EventTriggerSurfaceContext<'_> {
                     ui.label(RichText::new(preview).monospace());
                 });
                 frame.footer(|ui| {
-                    if secondary_button(ui, "Close", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Close")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(EventTriggerSurfaceAction::ClosePreview);
                     }
                 });
@@ -187,10 +212,22 @@ impl EventTriggerSurfaceContext<'_> {
                     ));
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, "Drop", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Drop")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(EventTriggerSurfaceAction::ConfirmDrop(name.clone()));
                     }
-                    if secondary_button(ui, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(EventTriggerSurfaceAction::CancelDrop);
                     }
                 });

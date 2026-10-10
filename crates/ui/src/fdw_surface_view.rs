@@ -44,14 +44,21 @@ impl FdwSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<FdwSurfaceAction>) {
         ui.add_space(SPACE_MD);
-        section_label(ui, "FOREIGN DATA (FDW)", self.theme);
+        ui.label(RichText::new("FOREIGN DATA (FDW)").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new("PostgreSQL-only · passwords/options redacted · CREATE EXTENSION never auto-run")
                 .small()
                 .color(self.theme.text_muted),
         );
-        if secondary_button_with_icon(ui, Icon::RefreshCw, "Load FDW inventory", self.theme).clicked() {
+        if Button::new(self.theme)
+            .icon(Icon::RefreshCw)
+            .text("Load FDW inventory")
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             actions.push(FdwSurfaceAction::Refresh);
         }
         if let Some(error) = &self.state.fdw_error {
@@ -157,7 +164,14 @@ impl FdwSurfaceContext<'_> {
             input(ui, &mut self.state.fdw_create_port, "port", 56.0, self.theme);
         });
         ui.horizontal(|ui| {
-            if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FileCode2)
+                .text("Preview CREATE")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(FdwSurfaceAction::PreviewCreate {
                     name: self.state.fdw_create_name.clone(),
                     wrapper: self.state.fdw_create_wrapper.clone(),
@@ -166,7 +180,13 @@ impl FdwSurfaceContext<'_> {
                     port: self.state.fdw_create_port.clone(),
                 });
             }
-            if secondary_button(ui, "Create (confirm)", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Create (confirm)")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(FdwSurfaceAction::Create);
             }
         });
@@ -185,7 +205,13 @@ impl FdwSurfaceContext<'_> {
                     ui.label(RichText::new(preview).monospace());
                 });
                 frame.footer(|ui| {
-                    if secondary_button(ui, "Close", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Close")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(FdwSurfaceAction::ClosePreview);
                     }
                 });
@@ -210,13 +236,25 @@ impl FdwSurfaceContext<'_> {
                     ));
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, "Drop CASCADE", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Drop CASCADE")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(FdwSurfaceAction::ConfirmDropServer {
                             name: name.clone(),
                             cascade: true,
                         });
                     }
-                    if secondary_button(ui, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(FdwSurfaceAction::CancelDrop);
                     }
                 });
