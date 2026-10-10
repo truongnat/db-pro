@@ -83,6 +83,9 @@ fn welcome_items() -> [WelcomeItem; 4] {
     ]
 }
 
+const CARD_GAP: f32 = 12.0;
+const CARD_HEIGHT: f32 = 64.0;
+
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let avail_width = ui.available_width();
     let is_wide = avail_width >= 660.0;
@@ -94,7 +97,6 @@ fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAct
         ui.add_space(side_margin);
         ui.vertical(|ui| {
             ui.set_width(container_width);
-            ui.set_max_width(container_width);
             let items = welcome_items();
             if is_wide {
                 triggered = draw_wide_grid(theme, ui, container_width, &items);
@@ -112,29 +114,30 @@ fn draw_wide_grid(
     container_width: f32,
     items: &[WelcomeItem; 4],
 ) -> Option<WelcomeAction> {
-    let card_w = (container_width - SPACE_SM) * 0.5;
+    let card_w = ((container_width - CARD_GAP) * 0.5).floor();
+    let card_size = egui::vec2(card_w, CARD_HEIGHT);
     let mut action = None;
 
     // Row 1
     ui.horizontal(|ui| {
-        if draw_card_item(theme, ui, card_w, items[0].icon, items[0].title, items[0].desc) {
+        ui.spacing_mut().item_spacing.x = CARD_GAP;
+        if draw_card_item(theme, ui, card_size, items[0].icon, items[0].title, items[0].desc) {
             action = Some(items[0].action);
         }
-        ui.add_space(SPACE_SM);
-        if draw_card_item(theme, ui, card_w, items[1].icon, items[1].title, items[1].desc) {
+        if draw_card_item(theme, ui, card_size, items[1].icon, items[1].title, items[1].desc) {
             action = Some(items[1].action);
         }
     });
 
-    ui.add_space(SPACE_SM);
+    ui.add_space(CARD_GAP);
 
     // Row 2
     ui.horizontal(|ui| {
-        if draw_card_item(theme, ui, card_w, items[2].icon, items[2].title, items[2].desc) {
+        ui.spacing_mut().item_spacing.x = CARD_GAP;
+        if draw_card_item(theme, ui, card_size, items[2].icon, items[2].title, items[2].desc) {
             action = Some(items[2].action);
         }
-        ui.add_space(SPACE_SM);
-        if draw_card_item(theme, ui, card_w, items[3].icon, items[3].title, items[3].desc) {
+        if draw_card_item(theme, ui, card_size, items[3].icon, items[3].title, items[3].desc) {
             action = Some(items[3].action);
         }
     });
@@ -148,12 +151,13 @@ fn draw_narrow_stack(
     container_width: f32,
     items: &[WelcomeItem; 4],
 ) -> Option<WelcomeAction> {
+    let card_size = egui::vec2(container_width, CARD_HEIGHT);
     let mut action = None;
     for item in items {
-        if draw_card_item(theme, ui, container_width, item.icon, item.title, item.desc) {
+        if draw_card_item(theme, ui, card_size, item.icon, item.title, item.desc) {
             action = Some(item.action);
         }
-        ui.add_space(SPACE_XS);
+        ui.add_space(CARD_GAP);
     }
     action
 }
@@ -161,57 +165,64 @@ fn draw_narrow_stack(
 fn draw_card_item(
     theme: DbProTheme,
     ui: &mut egui::Ui,
-    card_width: f32,
+    card_size: egui::Vec2,
     icon: Icon,
     title: &str,
     desc: &str,
 ) -> bool {
-    let card_frame = egui::Frame {
-        fill: theme.surface_elevated,
-        inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
-        stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
-        corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
-        ..Default::default()
+    let (rect, resp) = ui.allocate_exact_size(card_size, egui::Sense::click());
+    let hovered = resp.hovered();
+
+    let bg = if hovered {
+        theme.surface_hover
+    } else {
+        theme.surface_elevated
     };
+    let stroke_color = if hovered {
+        theme.border_strong
+    } else {
+        theme.border_subtle
+    };
+    let corner_radius = egui::CornerRadius::same(RADIUS_MD as u8);
 
-    let inner_w = (card_width - SPACE_MD * 2.0).max(60.0);
-    const CARD_CONTENT_HEIGHT: f32 = 46.0;
+    ui.painter().rect_filled(rect, corner_radius, bg);
+    ui.painter().rect_stroke(
+        rect,
+        corner_radius,
+        egui::Stroke::new(STROKE_THIN, stroke_color),
+        egui::StrokeKind::Inside,
+    );
 
-    let response = card_frame
-        .show(ui, |ui| {
-            ui.set_min_size(egui::vec2(inner_w, CARD_CONTENT_HEIGHT));
-            ui.set_max_size(egui::vec2(inner_w, CARD_CONTENT_HEIGHT));
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(char::from(icon).to_string())
-                        .font(font_icon(ICON_DEFAULT))
-                        .color(theme.accent),
-                );
-                ui.add_space(SPACE_XS);
-                ui.vertical(|ui| {
-                    ui.set_width(inner_w - ICON_DEFAULT - SPACE_XS);
-                    ui.spacing_mut().item_spacing.y = 1.0;
-                    ui.label(
-                        RichText::new(title)
-                            .font(font_ui_label())
-                            .strong()
-                            .color(theme.text_primary),
-                    );
-                    ui.label(RichText::new(desc).font(font_caption()).color(theme.text_muted));
-                });
-            });
-        })
-        .response;
-
-    let interact_resp = ui.interact(response.rect, response.id, egui::Sense::click());
-    if interact_resp.hovered() {
-        ui.painter().rect_stroke(
-            response.rect,
-            egui::CornerRadius::same(RADIUS_MD as u8),
-            egui::Stroke::new(STROKE_THIN, theme.border_strong),
-            egui::StrokeKind::Inside,
-        );
+    if hovered {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
-    interact_resp.clicked()
+
+    let content_rect = rect.shrink2(egui::vec2(SPACE_MD, SPACE_SM));
+    let mut child_ui = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(content_rect)
+            .layout(egui::Layout::left_to_right(egui::Align::Center)),
+    );
+
+    child_ui.label(
+        RichText::new(char::from(icon).to_string())
+            .font(font_icon(ICON_DEFAULT))
+            .color(theme.accent),
+    );
+    child_ui.add_space(SPACE_XS);
+
+    child_ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 1.0;
+        ui.label(
+            RichText::new(title)
+                .font(font_ui_label())
+                .strong()
+                .color(theme.text_primary),
+        );
+        ui.add(
+            egui::Label::new(RichText::new(desc).font(font_caption()).color(theme.text_muted)).wrap(),
+        );
+    });
+
+    resp.clicked()
 }
