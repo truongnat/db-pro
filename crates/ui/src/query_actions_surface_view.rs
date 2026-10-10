@@ -90,38 +90,32 @@ impl QueryActionsSurfaceContext<'_> {
     }
 
     fn draw_run_actions(&self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
-        if menu_button_with_icon(
-            ui,
-            Icon::Play,
-            if self.session.selected_text.is_empty() {
-                "Run query"
-            } else {
-                "Run selection"
-            },
-            self.theme,
-        )
-        .clicked()
-        {
+        let run_label = if self.session.selected_text.is_empty() {
+            "Run query"
+        } else {
+            "Run selection"
+        };
+        if action_menu_button(ui, Icon::Play, run_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Run);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
+        if action_menu_button(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Format);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
+        if action_menu_button(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Explain);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::AskAgent);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if menu_button_with_icon(ui, Icon::Save, "Save query", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Save, "Save query", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Save);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if menu_button_with_icon(ui, Icon::Save, "Save query as…", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Save, "Save query as…", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::SaveAs);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -130,7 +124,7 @@ impl QueryActionsSurfaceContext<'_> {
         } else {
             "Visual query builder"
         };
-        if menu_button_with_icon(ui, Icon::LayoutTemplate, builder_label, self.theme).clicked() {
+        if action_menu_button(ui, Icon::LayoutTemplate, builder_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleVisualBuilder);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -143,7 +137,7 @@ impl QueryActionsSurfaceContext<'_> {
     }
 
     fn draw_editor_controls(&self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
-        if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleSearch);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -152,20 +146,20 @@ impl QueryActionsSurfaceContext<'_> {
         } else {
             "Show transaction controls"
         };
-        if menu_button_with_icon(ui, Icon::GitBranch, transaction_label, self.theme).clicked() {
+        if action_menu_button(ui, Icon::GitBranch, transaction_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleTransaction);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::DecreaseFont);
         }
-        if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::IncreaseFont);
         }
     }
 
     fn draw_prediction_controls(&self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
-        if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::GeneratePrediction);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -200,18 +194,18 @@ impl QueryActionsSurfaceContext<'_> {
     }
 
     fn draw_folder_controls(&mut self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
-        if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
+        if action_menu_button(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleSnippets);
             actions.push(QueryActionsSurfaceAction::Close);
         }
         ui.horizontal(|ui| {
-            input(
-                ui,
+            Input::new(
                 &mut self.library.query_folder,
                 "folder (optional)",
-                150.0,
                 self.theme,
-            );
+            )
+            .width(150.0)
+            .show(ui);
             if Button::new(self.theme)
                 .text("New folder")
                 .variant(ButtonVariant::Secondary)
@@ -223,4 +217,15 @@ impl QueryActionsSurfaceContext<'_> {
             }
         });
     }
+}
+
+fn action_menu_button(ui: &mut egui::Ui, icon: Icon, label: &str, theme: DbProTheme) -> egui::Response {
+    Button::new(theme)
+        .icon(icon)
+        .text(label)
+        .variant(ButtonVariant::Ghost)
+        .size(ButtonSize::Sm)
+        .full_width(true)
+        .left_aligned()
+        .show(ui)
 }

@@ -159,7 +159,11 @@ fn draw_file_path_breadcrumb(theme: DbProTheme, ui: &mut egui::Ui, path: &str) {
     let start = segments.len().saturating_sub(3);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
-        ui.label(icon_text(Icon::FileCode2, "", theme.text_muted));
+        ui.label(
+            RichText::new(char::from(Icon::FileCode2).to_string())
+                .font(font_icon(ICON_XS))
+                .color(theme.text_muted),
+        );
         if start > 0 {
             ui.label(RichText::new("…").font(font_caption()).color(theme.text_muted));
             ui.label(RichText::new("/").font(font_caption()).color(theme.text_muted));
