@@ -1,6 +1,5 @@
 //! A modern ChatGPT-inspired introduction with interactive quick-action cards.
 use super::*;
-use crate::components::{Container, ResponsiveGrid};
 use egui::RichText;
 use lucide_icons::Icon;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,34 +85,84 @@ const CARD_HEIGHT: f32 = 64.0;
 
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let items = welcome_items();
-    let mut triggered = None;
+    let avail_width = ui.available_width();
+    let is_wide = avail_width >= 620.0;
+    let container_width = if is_wide { 620.0 } else { (avail_width - 32.0).max(280.0) };
+    let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
-    Container::new()
-        .max_width(620.0)
-        .gutter(SPACE_MD)
-        .show(ui, |ui| {
-            let actions = ResponsiveGrid::new(280.0)
-                .gap(CARD_GAP)
-                .max_columns(2)
-                .show(ui, &items, |cell_ui, item| {
-                    draw_card_item(theme, cell_ui, item)
-                });
-            for action in actions.into_iter().flatten() {
-                triggered = Some(action);
+    let mut triggered = None;
+    ui.horizontal(|ui| {
+        ui.add_space(side_margin);
+        ui.vertical(|ui| {
+            ui.set_width(container_width);
+            if is_wide {
+                triggered = draw_wide_rows(theme, ui, container_width, &items);
+            } else {
+                triggered = draw_stacked_rows(theme, ui, container_width, &items);
             }
         });
-
+    });
     triggered
+}
+
+fn draw_wide_rows(
+    theme: DbProTheme,
+    ui: &mut egui::Ui,
+    width: f32,
+    items: &[WelcomeItem; 4],
+) -> Option<WelcomeAction> {
+    let card_w = ((width - CARD_GAP) * 0.5).floor();
+    let card_size = egui::vec2(card_w, CARD_HEIGHT);
+    let mut action = None;
+
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = CARD_GAP;
+        if let Some(act) = draw_card_item(theme, ui, card_size, &items[0]) {
+            action = Some(act);
+        }
+        if let Some(act) = draw_card_item(theme, ui, card_size, &items[1]) {
+            action = Some(act);
+        }
+    });
+    ui.add_space(CARD_GAP);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = CARD_GAP;
+        if let Some(act) = draw_card_item(theme, ui, card_size, &items[2]) {
+            action = Some(act);
+        }
+        if let Some(act) = draw_card_item(theme, ui, card_size, &items[3]) {
+            action = Some(act);
+        }
+    });
+    action
+}
+
+fn draw_stacked_rows(
+    theme: DbProTheme,
+    ui: &mut egui::Ui,
+    width: f32,
+    items: &[WelcomeItem; 4],
+) -> Option<WelcomeAction> {
+    let card_size = egui::vec2(width, CARD_HEIGHT);
+    let mut action = None;
+    for item in items {
+        if let Some(act) = draw_card_item(theme, ui, card_size, item) {
+            action = Some(act);
+        }
+        ui.add_space(CARD_GAP);
+    }
+    action
 }
 
 fn draw_card_item(
     theme: DbProTheme,
     ui: &mut egui::Ui,
+    card_size: egui::Vec2,
     item: &WelcomeItem,
 ) -> Option<WelcomeAction> {
-    let card_size = egui::vec2(ui.available_width(), CARD_HEIGHT);
-    let (rect, resp) = ui.allocate_exact_size(card_size, egui::Sense::click());
-    let hovered = resp.hovered();
+    let (rect, mut response) = ui.allocate_exact_size(card_size, egui::Sense::click());
+    response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let hovered = response.hovered();
 
     let bg = if hovered {
         theme.surface_hover
@@ -135,38 +184,44 @@ fn draw_card_item(
         egui::StrokeKind::Inside,
     );
 
-    if hovered {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-    }
-
-    let content_rect = rect.shrink2(egui::vec2(SPACE_MD, SPACE_SM));
-    let mut child_ui = ui.new_child(
-        egui::UiBuilder::new()
-            .max_rect(content_rect)
-            .layout(egui::Layout::left_to_right(egui::Align::Center)),
+    let icon_char = char::from(item.icon).to_string();
+    let icon_pos = egui::pos2(rect.left() + SPACE_MD, rect.center().y - ICON_DEFAULT * 0.5);
+    ui.painter().text(
+        icon_pos,
+        egui::Align2::LEFT_TOP,
+        icon_char,
+        font_icon(ICON_DEFAULT),
+        theme.accent,
     );
 
-    child_ui.label(
-        RichText::new(char::from(item.icon).to_string())
-            .font(font_icon(ICON_DEFAULT))
-            .color(theme.accent),
+    let text_x = rect.left() + SPACE_MD + ICON_DEFAULT + SPACE_SM;
+    let max_text_w = (rect.right() - SPACE_MD - text_x).max(10.0);
+
+    let title_job = egui::text::LayoutJob::simple_singleline(
+        item.title.to_string(),
+        font_ui_label(),
+        theme.text_primary,
     );
-    child_ui.add_space(SPACE_XS);
+    let title_galley = ui.fonts_mut(|f| f.layout_job(title_job));
 
-    child_ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing.y = 1.0;
-        ui.label(
-            RichText::new(item.title)
-                .font(font_ui_label())
-                .strong()
-                .color(theme.text_primary),
-        );
-        ui.add(
-            egui::Label::new(RichText::new(item.desc).font(font_caption()).color(theme.text_muted)).wrap(),
-        );
-    });
+    let mut desc_job = egui::text::LayoutJob::simple(
+        item.desc.to_string(),
+        font_caption(),
+        theme.text_muted,
+        max_text_w,
+    );
+    desc_job.wrap.max_width = max_text_w;
+    let desc_galley = ui.fonts_mut(|f| f.layout_job(desc_job));
 
-    if resp.clicked() {
+    let title_h = title_galley.size().y;
+    let desc_h = desc_galley.size().y;
+    let total_h = title_h + 2.0 + desc_h;
+    let text_top = (rect.center().y - total_h * 0.5).round();
+
+    ui.painter().galley(egui::pos2(text_x, text_top), title_galley, theme.text_primary);
+    ui.painter().galley(egui::pos2(text_x, text_top + title_h + 2.0), desc_galley, theme.text_muted);
+
+    if response.clicked() {
         Some(item.action)
     } else {
         None
