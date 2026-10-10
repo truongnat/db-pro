@@ -34,19 +34,23 @@ pub(super) fn draw_diagram_empty_state(
             let arranging = search_mode
                 && !no_matches
                 && matches!(ctx.diagram.layout_state, crate::diagram::ErLayoutState::Computing { .. });
-            ui.label(icon_text(
-                if no_matches { Icon::Search } else { Icon::Workflow },
-                if no_matches {
-                    "No matching tables"
-                } else if arranging {
-                    "Loading the schema map"
-                } else if search_mode {
-                    "Focus the schema map"
-                } else {
-                    "No schema map yet"
-                },
-                ctx.theme.text_secondary,
-            ));
+            let (icon, label) = if no_matches {
+                (Icon::Search, "No matching tables")
+            } else if arranging {
+                (Icon::Workflow, "Loading the schema map")
+            } else if search_mode {
+                (Icon::Workflow, "Focus the schema map")
+            } else {
+                (Icon::Workflow, "No schema map yet")
+            };
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(char::from(icon).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(ctx.theme.text_secondary),
+                );
+                ui.label(RichText::new(label).strong().color(ctx.theme.text_secondary));
+            });
             ui.add_space(8.0);
             let description = if no_matches {
                 "Try a different table or column name.".to_owned()
@@ -64,7 +68,13 @@ pub(super) fn draw_diagram_empty_state(
             ui.label(RichText::new(description).small().color(ctx.theme.text_muted));
             if no_matches {
                 ui.add_space(10.0);
-                if compact_button(ui, "Clear search", ctx.theme).clicked() {
+                if Button::new(ctx.theme)
+                    .text("Clear search")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     ctx.diagram.search.clear();
                 }
             }

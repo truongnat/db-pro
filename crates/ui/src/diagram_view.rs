@@ -351,14 +351,22 @@ fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
         diagram_show_all_after_search_edit(ctx.diagram.show_all, &ctx.diagram.search, search_changed);
     if diagram_search_mode(true, ctx.diagram.show_all) {
         draw_hop_toggles(ctx, ui);
-        if compact_button(ui, format!("Show all {all_table_count}"), ctx.theme)
-            .on_hover_text("Render every table — can be slow on very large schemas")
+        if Button::new(ctx.theme)
+            .text(format!("Show all {all_table_count}"))
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .tooltip("Render every table — can be slow on very large schemas")
+            .show(ui)
             .clicked()
         {
             ctx.diagram.show_all = true;
         }
-    } else if compact_button(ui, "Focus search", ctx.theme)
-        .on_hover_text("Back to the focused neighborhood map")
+    } else if Button::new(ctx.theme)
+        .text("Focus search")
+        .variant(ButtonVariant::Secondary)
+        .size(ButtonSize::Sm)
+        .tooltip("Back to the focused neighborhood map")
+        .show(ui)
         .clicked()
     {
         ctx.diagram.show_all = false;
@@ -386,9 +394,18 @@ fn draw_hop_toggles(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) {
 /// Right-aligned icon actions: Design mode toggle and manual-layout reset.
 fn draw_diagram_toolbar_actions(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) {
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        let design_toggle = ErIconToggle { icon: Icon::PencilRuler, active: ctx.diagram.design.enabled };
-        if compact_icon_button_active(ui, design_toggle, ctx.theme)
-            .on_hover_text("Design Mode — draft schema edits, never mutates the database until Apply")
+        let design_variant = if ctx.diagram.design.enabled {
+            ButtonVariant::Secondary
+        } else {
+            ButtonVariant::Ghost
+        };
+        if Button::new(ctx.theme)
+            .icon(Icon::PencilRuler)
+            .variant(design_variant)
+            .size(ButtonSize::IconSm)
+            .tooltip("Design Mode — draft schema edits, never mutates the database until Apply")
+            .access_label("Design Mode")
+            .show(ui)
             .clicked()
         {
             ctx.diagram.design.enabled = !ctx.diagram.design.enabled;
@@ -410,8 +427,14 @@ fn draw_diagram_toolbar_actions(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
             .as_deref()
             .and_then(|id| ctx.diagram.saved_layouts.get(id))
             .is_some_and(|snapshot| !snapshot.positions.is_empty());
-        if compact_icon_button_enabled(ui, Icon::RotateCcw, has_manual_layout, ctx.theme)
-            .on_hover_text("Reset layout — clear dragged positions and refit the map")
+        if Button::new(ctx.theme)
+            .icon(Icon::RotateCcw)
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::IconSm)
+            .enabled(has_manual_layout)
+            .tooltip("Reset layout — clear dragged positions and refit the map")
+            .access_label("Reset layout")
+            .show(ui)
             .clicked()
         {
             reset_diagram_layout(ctx);
@@ -440,30 +463,6 @@ fn hop_button(ui: &mut egui::Ui, toggle: ErToggleButton<'_>, theme: DbProTheme) 
     )
 }
 
-/// Icon + active state of a compact toolbar toggle.
-#[derive(Clone, Copy)]
-struct ErIconToggle {
-    icon: Icon,
-    active: bool,
-}
-
-/// 24px icon button with an `active` fill — the compact-row toggle variant of
-/// [`compact_icon_button`].
-fn compact_icon_button_active(ui: &mut egui::Ui, toggle: ErIconToggle, theme: DbProTheme) -> egui::Response {
-    let button = egui::Button::new(
-        RichText::new(char::from(toggle.icon).to_string())
-            .font(egui::FontId::new(14.0, egui::FontFamily::Name("lucide".into())))
-            .color(if toggle.active { theme.accent } else { theme.text_muted }),
-    )
-    .min_size(egui::vec2(24.0, 24.0))
-    .corner_radius(egui::CornerRadius::same(7.0 as u8))
-    .stroke(egui::Stroke::NONE);
-    if toggle.active {
-        ui.add(button.fill(theme.surface_active))
-    } else {
-        ui.add(button)
-    }
-}
 
 /// Drops every manual position for this connection and rebuilds the grid, then
 /// lets the canvas refit on the next frame.
@@ -1020,8 +1019,13 @@ pub(super) fn draw_diagram_zoom_controls(
         }
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                if compact_icon_button(ui, Icon::Minus, theme)
-                    .on_hover_text("Zoom out")
+                if Button::new(theme)
+                    .icon(Icon::Minus)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Zoom out")
+                    .access_label("Zoom out")
+                    .show(ui)
                     .clicked()
                 {
                     *zoom = (*zoom - 0.1).clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
@@ -1040,21 +1044,36 @@ pub(super) fn draw_diagram_zoom_controls(
                 {
                     *zoom = 1.0;
                 }
-                if compact_icon_button(ui, Icon::Plus, theme)
-                    .on_hover_text("Zoom in")
+                if Button::new(theme)
+                    .icon(Icon::Plus)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Zoom in")
+                    .access_label("Zoom in")
+                    .show(ui)
                     .clicked()
                 {
                     *zoom = (*zoom + 0.1).clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
                 }
-                if compact_icon_button(ui, Icon::RotateCcw, theme)
-                    .on_hover_text("Reset zoom (100%)")
+                if Button::new(theme)
+                    .icon(Icon::RotateCcw)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Reset zoom (100%)")
+                    .access_label("Reset zoom")
+                    .show(ui)
                     .clicked()
                 {
                     *zoom = 1.0;
                     *pan = egui::Vec2::ZERO;
                 }
-                if compact_icon_button(ui, Icon::Maximize2, theme)
-                    .on_hover_text("Fit diagram to viewport")
+                if Button::new(theme)
+                    .icon(Icon::Maximize2)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Fit diagram to viewport")
+                    .access_label("Fit diagram to viewport")
+                    .show(ui)
                     .clicked()
                 {
                     let target_bounds = if let Some(filter) = active_filter {
