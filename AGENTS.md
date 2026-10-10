@@ -160,6 +160,20 @@ When reshaping a surface, read the project UI skills first:
 
 Those skills do not override `DbProTheme`. Map any chosen colors through theme tokens.
 
+### Mandatory UI Skill Usage & Self-Verification Rule (2026-10-10)
+
+Whenever designing, modifying, or refactoring any UI component, view, layout, or theme:
+
+1. **MUST Invoke and Apply UI Skills**:
+   - `frontend-ui-engineering` / `.cursor/skills/frontend-design/SKILL.md`: layout structure, breathing whitespace, visual hierarchy, typography scale.
+   - `theme-factory` / `.cursor/skills/theme-factory/SKILL.md`: semantic color roles, contrast ratios, and theme mapping.
+   - `ui-design-review` / `ui-product-reviewer`: aesthetic critique, clutter elimination, removal of harsh separator lines.
+
+2. **MUST Self-Verify with Runtime Visual Evidence Before Reporting**:
+   - After completing UI code changes, the agent **MUST automatically capture runtime screenshots** (using the deterministic `--features capture` engine: `DB_PRO_CAPTURE_TO=/tmp/screen.png DB_PRO_WINDOW_SIZE=1280x800 ./target/debug/db-pro-native`) or launch the app and inspect rendered visual surfaces with the `read` image tool.
+   - Verify both **Light Mode** and **Dark Mode**, including active/hover/empty states.
+   - **STRICT RULE**: NEVER report to the user as "Done" or ask for review before visually verifying the rendered output yourself. Only report after self-verification proves the UI is clean, well-aligned, and visually defect-free.
+
 UI changes require runtime evidence (screenshot or short screen recording) of the
 affected surface at 1280×800, 1440×900 and 1920×1080, in normal plus
 loading/error/empty states. The visual acceptance gate is defined in
