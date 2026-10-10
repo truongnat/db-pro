@@ -282,8 +282,52 @@ const SEED_FAILURE_MESSAGE: &str = "failed to seed default Xe Lạc Hồng conne
 #[cfg(not(debug_assertions))]
 const SEED_FAILURE_MESSAGE: &str = "failed to seed the developer default connection";
 
+fn sample_sqlite_connection_config() -> db_pro_core::domain::connection::ConnectionConfig {
+    db_pro_core::domain::connection::ConnectionConfig {
+        name: "Sample E-Commerce (SQLite)".to_owned(),
+        host: String::new(),
+        port: 0,
+        database: "/tmp/db_pro_sample.db".to_owned(),
+        username: String::new(),
+        driver: db_pro_core::domain::connection::DriverType::SQLite,
+        ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+        ssh_tunnel: None,
+        ssh_profile_id: None,
+        ssl_root_cert_path: None,
+        ssl_client_cert_path: None,
+        ssl_client_key_path: None,
+        query_timeout_ms: 30_000,
+        max_rows: 5_000,
+        color: Some("#10A37F".to_owned()),
+        tags: vec!["sample".to_owned(), "sqlite".to_owned()],
+        group: Some("Local Samples".to_owned()),
+        favorite: true,
+        environment: Default::default(),
+        readonly: false,
+    }
+}
+
+async fn seed_sqlite_sample_fixture(runtime: &DbProRuntime) {
+    let sample_path = std::path::Path::new("/tmp/db_pro_sample.db");
+    if !sample_path.exists() {
+        const FIXTURE_SQL: &str = include_str!("../../../fixtures/sqlite/fixture.sql");
+        if let Ok(conn) = rusqlite::Connection::open(sample_path) {
+            let _ = conn.execute_batch(FIXTURE_SQL);
+        }
+    }
+    let existing = runtime.connections().list().await.unwrap_or_default();
+    if existing.iter().any(|c| c.config.database == "/tmp/db_pro_sample.db") {
+        return;
+    }
+    let config = sample_sqlite_connection_config();
+    if let Err(err) = runtime.connections().create(config, "").await {
+        tracing::warn!("failed to seed Sample E-Commerce SQLite connection: {err}");
+    }
+}
+
 /// Seeds the demo PostgreSQL connection the first time the app runs.
 async fn seed_default_connection(runtime: &DbProRuntime) {
+    seed_sqlite_sample_fixture(runtime).await;
     let Some(config) = developer_preset_connection() else {
         return;
     };

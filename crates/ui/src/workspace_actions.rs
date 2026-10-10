@@ -282,6 +282,21 @@ impl DbProApp {
         self.activate_welcome_tab();
         self.preferences.dark_mode = !light;
         self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+        self.connection.catalog.replace(vec![crate::UiConnectionSummary {
+            id: "sample-ecommerce-conn".to_owned(),
+            name: "Sample E-Commerce (SQLite)".to_owned(),
+            host: "/tmp/db_pro_sample.db".to_owned(),
+            port: 0,
+            database: "main".to_owned(),
+            username: String::new(),
+            driver: "SQLite".to_owned(),
+            ssl_mode: crate::UiSslMode::Disable,
+            readonly: false,
+            tags: vec!["sample".to_owned(), "sqlite".to_owned()],
+            group: Some("Local Samples".to_owned()),
+            favorite: true,
+            environment: "Development".to_owned(),
+        }]);
     }
 
     /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).

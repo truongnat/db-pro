@@ -30,6 +30,7 @@ uuid.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+rusqlite.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Native macOS menu bar used by the eframe app.

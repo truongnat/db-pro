@@ -1241,6 +1241,7 @@ dependencies = [
  "image",
  "muda",
  "rfd",
+ "rusqlite",
  "serde_json",
  "tokio",
  "tracing",
