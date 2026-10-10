@@ -198,6 +198,7 @@ impl DbProApp {
             .documents
             .get(self.query.session.active_document_index)
             .map_or_else(|| "Saved query".to_owned(), |document| document.title.clone());
+        self.query.session.save_as_name_error = false;
         self.query.session.save_as_open = true;
     }
 
@@ -208,16 +209,18 @@ impl DbProApp {
         let action = query_save_dialog_surface_view::SaveAsDialogContext {
             theme: self.theme,
             name: &mut self.query.session.save_as_name,
+            show_name_error: &mut self.query.session.save_as_name_error,
         }
         .draw(ctx);
         match action {
             Some(query_save_dialog_surface_view::SaveAsDialogAction::Cancel) => {
+                self.query.session.save_as_name_error = false;
                 self.query.session.save_as_open = false;
             }
             Some(query_save_dialog_surface_view::SaveAsDialogAction::Save) => {
                 let name = self.query.session.save_as_name.trim().to_owned();
                 if name.is_empty() {
-                    self.feedback.runtime_message = "Enter a name for the saved query".to_owned();
+                    self.query.session.save_as_name_error = true;
                     return;
                 }
                 let document_index = self.query.session.active_document_index;
@@ -225,12 +228,14 @@ impl DbProApp {
                     document.saved_query_id = None;
                     document.title = name;
                 }
+                self.query.session.save_as_name_error = false;
                 self.query.session.save_as_open = false;
                 self.save_query_document_at(document_index);
             }
             None => {}
         }
     }
+
 
     pub(super) fn draw_dirty_close_dialog(&mut self, ctx: &egui::Context) {
         let Some(document_index) = self.query.session.pending_dirty_close else {

@@ -1,16 +1,16 @@
 //! Input component contract (single-line fields, textareas, password/search fields).
 //!
-//! States supported: default, hover, focus, error, disabled. Text fields have no
-//! loading/active/selected states today. Precedence (strongest first):
-//! `disabled → error → focus → hover → default`; `error` is a display status
-//! inserted directly after `disabled`, so a disabled field never wears a focus
-//! ring or an error border. `components/input/layout.rs` resolves every painted
-//! border through [`resolve_chrome`].
+//! States supported: default, hover, focus, error, disabled. Resting fields are
+//! unoutlined; hover adds a subtle outline, while focus and errors use clear
+//! semantic strokes. Text fields have no loading/active/selected states today.
+//! Precedence (strongest first): `disabled → error → focus → hover → default`;
+//! `components/input/layout.rs` resolves every painted border through
+//! [`resolve_chrome`].
 //!
-//! Semantic roles consumed (via `DbProTheme`): `border.default/strong` for the
-//! resting/hover border, `border.focus` for the focus outline, `status.danger.solid`
-//! for errors, `foreground.disabled` for disabled text, `background.subtle` for the
-//! disabled fill.
+//! Semantic roles consumed (via `DbProTheme`): `border.strong` for hover,
+//! `border.focus` for the focus outline, `status.danger.solid` for errors,
+//! `foreground.disabled` for disabled text, and `background.subtle` for disabled
+//! fill.
 //!
 //! Owned values: field heights and chrome stroke widths. Min width, inner margins,
 //! and icon/gap sizes stay in `components/input/config.rs` as component geometry;

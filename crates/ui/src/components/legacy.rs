@@ -284,21 +284,18 @@ pub fn password_input(ui: &mut Ui, value: &mut String, hint: &str, width: f32, t
 
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
 pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: DbProTheme) -> Response {
-    let width = ui.available_width();
-    let text_color = if active {
-        theme.text_primary
-    } else {
-        theme.text_secondary
-    };
-    let button = Button::new(icon_layout(icon, label, text_color))
-        .min_size(egui::vec2(width, 26.0))
-        .corner_radius(CornerRadius::same(6.0 as u8))
-        .stroke(Stroke::NONE);
-    let response = if active {
-        ui.add(button.fill(theme.surface_active))
-    } else {
-        ui.add(button)
-    };
+    let button = crate::components::button::Button::new(theme)
+        .icon(icon)
+        .text(label)
+        .variant(if active {
+            crate::components::button::ButtonVariant::Secondary
+        } else {
+            crate::components::button::ButtonVariant::Ghost
+        })
+        .size(crate::components::button::ButtonSize::Sm)
+        .full_width(true)
+        .left_aligned();
+    let response = button.show(ui);
     if active {
         let pill_rect = Rect::from_min_max(
             egui::pos2(response.rect.left() + 1.0, response.rect.top() + 4.0),

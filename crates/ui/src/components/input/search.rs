@@ -150,6 +150,18 @@ impl<'a> SearchInput<'a> {
             self.theme,
         );
 
+        // Keep the subtle outline on search controls for discoverability. Standard
+        // text inputs use their fill at rest and reserve outlines for interaction.
+        if !edit_response.has_focus() && !frame_output.response.hovered() && !edit_response.hovered() {
+            let width = crate::tokens::component::input::BORDER_STROKE_WIDTH;
+            ui.painter().rect_stroke(
+                frame_rect.shrink(width),
+                CornerRadius::same((RADIUS_XS - width).max(0.0) as u8),
+                Stroke::new(width, self.theme.border_subtle),
+                egui::StrokeKind::Inside,
+            );
+        }
+
         edit_response
     }
 }

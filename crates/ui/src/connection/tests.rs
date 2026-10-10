@@ -118,6 +118,11 @@ fn test_validate_connection_draft() {
 
     draft.port = "invalid".into();
     assert!(validate_connection_draft(&draft).is_err());
+    draft.port = "0".into();
+    assert!(
+        validate_connection_draft(&draft).is_err(),
+        "port zero is outside the validated 1–65535 range"
+    );
 
     draft.port = "5432".into();
     draft.ssh_tunnel_enabled = true;
@@ -126,6 +131,11 @@ fn test_validate_connection_draft() {
     draft.ssh_host = "bastion.test".into();
     draft.ssh_user = "user".into();
     draft.ssh_private_key = "/path/to/key".into();
+    draft.ssh_port = "0".into();
+    assert!(
+        validate_connection_draft(&draft).is_err(),
+        "SSH port zero is outside the validated 1–65535 range"
+    );
     draft.ssh_port = "22".into();
     assert!(validate_connection_draft(&draft).is_ok());
 }

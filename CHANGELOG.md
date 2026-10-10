@@ -223,6 +223,15 @@ is frozen at `fbf9fdab9100f08f12e29434983f32c18f14ac2f`.
   - `crates/tauri-app` is retained as a legacy transitional host and is marked for removal at cutover.
   - README, AGENTS.md, architecture docs, release docs, and plans were updated to describe native UI as the development direction.
 
+### Fixed
+
+- Native UI regressions after the egui 2→3 upgrade: legacy sidebar buttons now use the shared
+  theme-aware component; modal Tab/Shift+Tab traversal stays inside the dialog; required connection
+  and Save Query fields show markers and inline errors; Agent Settings marks the API key required.
+- Connection port validation now rejects `0`, matching the existing 1–65535 validation message.
+- Removed global noninteractive strokes, standard input outlines at rest, and dialog separators while
+  preserving search, focus, error, and explicitly framed component outlines.
+
 ### Fixed during release UX closure
 
 - table single-click now opens Data preview rather than structure/config

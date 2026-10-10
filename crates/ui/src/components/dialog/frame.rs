@@ -27,7 +27,6 @@ impl<'a> DialogFrame<'a> {
     /// Renders a fixed sticky footer at the bottom of the card, outside the scroll area.
     pub fn footer<F>(&mut self, add_footer: impl FnOnce(&mut Ui) -> F) -> F {
         self.ui.add_space(DIALOG_FOOTER_SPACING);
-        self.ui.separator();
         self.ui.add_space(DIALOG_FOOTER_SPACING);
         add_footer(self.ui)
     }

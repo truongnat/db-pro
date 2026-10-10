@@ -459,13 +459,19 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
             ui.vertical(|ui| {
                 ui.set_width(input_w);
                 ui.set_max_width(input_w);
-                Input::new(&mut self.dialog.draft.database, "/path/to/database.db", self.theme)
+                let show_database_error =
+                    !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
+                let mut db_input = Input::new(&mut self.dialog.draft.database, "/path/to/database.db", self.theme)
                     .label(t!("connection.database_file_path"))
+                    .required(true)
                     .id_salt(focus_id::SQLITE_DATABASE_FILE)
                     .width(input_w)
                     .leading_icon(Icon::FolderArchive)
-                    .clearable(true)
-                    .show(ui);
+                    .clearable(true);
+                if show_database_error {
+                    db_input = db_input.error_text(t!("connection.validation_database_required"));
+                }
+                db_input.show(ui);
             });
             ui.vertical(|ui| {
                 ui.set_width(button_w);

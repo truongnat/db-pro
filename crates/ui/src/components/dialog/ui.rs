@@ -252,7 +252,6 @@ fn paint_dialog_card<R>(
         draw_dialog_header(ui, title, description, open, theme, inner_w);
 
         ui.add_space(DIALOG_SECTION_SPACING);
-        ui.separator();
         ui.add_space(DIALOG_SECTION_SPACING);
 
         let mut frame = DialogFrame {

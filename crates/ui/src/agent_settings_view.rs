@@ -122,6 +122,8 @@ impl AgentSettingsContext<'_> {
             self.api_key_show_password,
             self.theme,
         )
+        .label("API key")
+        .required(true)
         .id_salt("agent.api_key")
         .width(ui.available_width())
         .show(ui);

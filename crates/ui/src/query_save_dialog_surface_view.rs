@@ -15,6 +15,7 @@ pub(super) enum SaveAsDialogAction {
 pub(super) struct SaveAsDialogContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) name: &'a mut String,
+    pub(super) show_name_error: &'a mut bool,
 }
 
 impl SaveAsDialogContext<'_> {
@@ -26,9 +27,15 @@ impl SaveAsDialogContext<'_> {
             .id_salt("save_query_as_dialog")
             .show_framed_ctx(ctx, |frame| {
                 frame.body(|ui| {
-                    Input::new(self.name, "Query name", self.theme)
+                    let mut name_input = Input::new(self.name, "Query name", self.theme)
                         .label("Name")
-                        .show(ui);
+                        .required(true);
+                    if *self.show_name_error {
+                        name_input = name_input.error_text("Enter a name for the saved query");
+                    }
+                    if name_input.show(ui).changed() && !self.name.trim().is_empty() {
+                        *self.show_name_error = false;
+                    }
                 });
                 frame.footer(|ui| {
                     if Button::new(self.theme)

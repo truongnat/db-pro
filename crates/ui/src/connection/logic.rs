@@ -6,12 +6,16 @@ use db_pro_core::domain::connection_diagnostics::{
 };
 
 /// Validate that the draft has all required fields and valid ports.
+pub(super) fn is_valid_port(port: &str) -> bool {
+    matches!(port.parse::<u16>(), Ok(port) if port > 0)
+}
+
 pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String> {
     if draft.name.trim().is_empty() || draft.database.trim().is_empty() {
         return Err("Name and database are required".to_owned());
     }
     if matches!(draft.driver, UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer)
-        && draft.port.parse::<u16>().is_err()
+        && !is_valid_port(&draft.port)
     {
         return Err("Port must be a number between 1 and 65535".to_owned());
     }
@@ -22,7 +26,7 @@ pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String
         {
             return Err("SSH host, user and private key are required".to_owned());
         }
-        if draft.ssh_port.parse::<u16>().is_err() {
+        if !is_valid_port(&draft.ssh_port) {
             return Err("SSH port must be a number between 1 and 65535".to_owned());
         }
     }

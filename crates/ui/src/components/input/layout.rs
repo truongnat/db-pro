@@ -21,20 +21,20 @@ pub fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
 }
 
 pub(crate) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChromeState, theme: DbProTheme) {
-    // Keep the border inside the field's own rect (not on or around it) so no container
-    // can clip it, and so we do not stack a gray Frame border under a blue outline.
+    // Resting fields are identified by their fill; reserve outlines for hover,
+    // keyboard focus, and validation errors.
     //
     // Precedence comes from the input contract: disabled → error → focus → hover →
     // default, so a disabled field paints no border even while focused or errored.
     let stroke = match resolve_chrome(state) {
-        FieldChrome::Disabled => return,
+        FieldChrome::Disabled | FieldChrome::Rest => return,
         FieldChrome::Error => Stroke::new(ERROR_STROKE_WIDTH, theme.danger),
         FieldChrome::Focus => Stroke::new(FOCUS_STROKE_WIDTH, theme.border_focus),
-        chrome => {
-            let hover = hover_t(ui.ctx(), id.with("input_hover"), matches!(chrome, FieldChrome::Hover));
+        FieldChrome::Hover => {
+            let hover = hover_t(ui.ctx(), id.with("input_hover"), true);
             Stroke::new(
                 BORDER_STROKE_WIDTH,
-                lerp_color(theme.border_default, theme.border_strong, hover),
+                lerp_color(egui::Color32::TRANSPARENT, theme.border_strong, hover),
             )
         }
     };

@@ -437,7 +437,7 @@ impl DbProTheme {
         visuals.collapsing_header_frame = false;
         visuals.striped = true;
         visuals.widgets.noninteractive.bg_fill = self.surface_panel;
-        visuals.widgets.noninteractive.bg_stroke = Stroke::new(STROKE_THIN, self.border_subtle);
+        visuals.widgets.noninteractive.bg_stroke = Stroke::NONE;
         visuals.widgets.noninteractive.fg_stroke = Stroke::new(STROKE_THIN, self.text_secondary);
         visuals.widgets.noninteractive.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.inactive.bg_fill = self.surface_panel;

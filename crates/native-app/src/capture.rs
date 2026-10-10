@@ -31,6 +31,8 @@ const NEW_CONNECTION_ENV: &str = "DB_PRO_CAPTURE_NEW_CONNECTION";
 /// Environment variable that opens the New Connection dialog with a stable
 /// validation error for the error-state acceptance capture.
 const CONNECTION_ERROR_ENV: &str = "DB_PRO_CAPTURE_CONNECTION_ERROR";
+/// When set with either connection-dialog capture mode, use the light theme.
+const CONNECTION_LIGHT_ENV: &str = "DB_PRO_CAPTURE_CONNECTION_LIGHT";
 
 /// Environment variable that holds the Welcome connection request pending for
 /// the loading-state acceptance capture.
@@ -349,9 +351,9 @@ impl CaptureApp {
     fn open_dialog_capture(&mut self) -> bool {
         let inner = &mut self.inner;
         if std::env::var_os(NEW_CONNECTION_ENV).is_some() {
-            inner.open_new_connection_for_capture();
+            inner.open_connection_dialog_for_capture(Some(std::env::var_os(CONNECTION_LIGHT_ENV).is_some()), false);
         } else if std::env::var_os(CONNECTION_ERROR_ENV).is_some() {
-            inner.open_connection_error_for_capture();
+            inner.open_connection_dialog_for_capture(Some(std::env::var_os(CONNECTION_LIGHT_ENV).is_some()), true);
         } else if std::env::var_os(EDIT_CONNECTION_ENV).is_some() {
             inner.open_edit_connection_for_capture();
         } else if std::env::var_os("DB_PRO_CAPTURE_WELCOME").is_some() {

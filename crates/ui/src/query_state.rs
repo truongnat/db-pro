@@ -16,6 +16,7 @@ pub(crate) struct QuerySessionState {
     pub(super) pending_dirty_close: Option<usize>,
     pub(super) pending_close_after_save: Option<usize>,
     pub(super) save_as_name: String,
+    pub(super) save_as_name_error: bool,
     pub(super) save_as_open: bool,
 }
 

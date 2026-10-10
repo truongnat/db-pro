@@ -70,6 +70,12 @@ pub(super) fn register(ctx: &Context, id: Id) -> bool {
 /// inside the content (e.g. focusing the first text field) issued later in the
 /// same pass wins over the anchor fallback.
 pub(super) fn trap_focus(ctx: &Context, card_layer: LayerId, anchor_id: Id) {
+    // Let egui apply Tab or Shift+Tab to its focus chain; the next pass restores
+    // focus if traversal landed outside the topmost dialog.
+    if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
+        return;
+    }
+
     let focused = ctx.memory(|m| m.focused());
     let inside = match focused {
         Some(fid) if fid == anchor_id => true,
@@ -197,5 +203,145 @@ mod tests {
         assert_eq!(ctx.memory(|memory| memory.focused()), Some(focused_widget));
         trap_focus(&ctx, overlay_layer, anchor);
         assert_eq!(ctx.memory(|memory| memory.focused()), Some(focused_widget));
+    }
+
+    #[test]
+    fn tab_advances_focus_between_fields_inside_modal() {
+        use egui::{Event, Key, Modifiers, Pos2, RawInput, Rect, TextEdit, Vec2};
+
+        let ctx = egui::Context::default();
+        let overlay_id = Id::new("tab_modal");
+        let overlay_layer = LayerId::new(egui::Order::Foreground, overlay_id);
+        let anchor = overlay_id.with("focus_anchor");
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(640.0, 240.0));
+        let mut first = String::new();
+        let mut second = String::new();
+        let mut first_response = None;
+        let mut second_response = None;
+        let _ = crate::test_frame::frame(
+            &ctx,
+            RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            },
+            |ctx| {
+                trap_focus(ctx, overlay_layer, anchor);
+                egui::Area::new(overlay_id)
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        first_response = Some(ui.add(TextEdit::singleline(&mut first).id_salt("modal.first")));
+                        first_response
+                            .as_ref()
+                            .expect("first input should be rendered")
+                            .request_focus();
+                        second_response = Some(ui.add(TextEdit::singleline(&mut second).id_salt("modal.second")));
+                    });
+            },
+        );
+
+        let _ = crate::test_frame::frame(
+            &ctx,
+            RawInput {
+                screen_rect: Some(screen),
+                events: vec![Event::Key {
+                    key: Key::Tab,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: Modifiers::default(),
+                }],
+                ..Default::default()
+            },
+            |ctx| {
+                trap_focus(ctx, overlay_layer, anchor);
+                egui::Area::new(overlay_id)
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        first_response = Some(ui.add(TextEdit::singleline(&mut first).id_salt("modal.first")));
+                        second_response = Some(ui.add(TextEdit::singleline(&mut second).id_salt("modal.second")));
+                    });
+            },
+        );
+
+        assert!(
+            second_response
+                .as_ref()
+                .expect("second dialog input should be rendered")
+                .has_focus(),
+            "Tab should advance focus within the modal instead of returning focus to the anchor"
+        );
+
+        let _ = crate::test_frame::frame(
+            &ctx,
+            RawInput {
+                screen_rect: Some(screen),
+                events: vec![Event::Key {
+                    key: Key::Tab,
+                    physical_key: None,
+                    pressed: false,
+                    repeat: false,
+                    modifiers: Modifiers::default(),
+                }],
+                ..Default::default()
+            },
+            |ctx| {
+                trap_focus(ctx, overlay_layer, anchor);
+                egui::Area::new(overlay_id)
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        first_response = Some(ui.add(TextEdit::singleline(&mut first).id_salt("modal.first")));
+                        second_response = Some(ui.add(TextEdit::singleline(&mut second).id_salt("modal.second")));
+                    });
+            },
+        );
+
+        let _ = crate::test_frame::frame(
+            &ctx,
+            RawInput {
+                screen_rect: Some(screen),
+                events: vec![Event::Key {
+                    key: Key::Tab,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: Modifiers::SHIFT,
+                }],
+                ..Default::default()
+            },
+            |ctx| {
+                trap_focus(ctx, overlay_layer, anchor);
+                egui::Area::new(overlay_id)
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        first_response = Some(ui.add(TextEdit::singleline(&mut first).id_salt("modal.first")));
+                        second_response = Some(ui.add(TextEdit::singleline(&mut second).id_salt("modal.second")));
+                    });
+            },
+        );
+
+        let _ = crate::test_frame::frame(
+            &ctx,
+            RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            },
+            |ctx| {
+                trap_focus(ctx, overlay_layer, anchor);
+                egui::Area::new(overlay_id)
+                    .order(egui::Order::Foreground)
+                    .show(ctx, |ui| {
+                        first_response = Some(ui.add(TextEdit::singleline(&mut first).id_salt("modal.first")));
+                        second_response = Some(ui.add(TextEdit::singleline(&mut second).id_salt("modal.second")));
+                    });
+            },
+        );
+
+        let first_response = first_response.as_ref().expect("first dialog input should be rendered");
+        assert!(
+            first_response.has_focus(),
+            "Shift+Tab should return focus to the previous field inside the modal; focused={:?}, expected={:?}",
+            ctx.memory(|memory| memory.focused()),
+            first_response.id
+        );
     }
 }

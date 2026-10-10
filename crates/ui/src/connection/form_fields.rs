@@ -33,18 +33,24 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             ui.vertical(|ui| {
                 ui.set_width(name_w);
                 ui.set_max_width(name_w);
-                Input::new(
+                let show_name_error =
+                    !self.dialog.error.is_empty() && self.dialog.draft.name.trim().is_empty();
+                let mut name_input = Input::new(
                     &mut self.dialog.draft.name,
                     t!("connection.connection_name_placeholder"),
                     self.theme,
                 )
                 .label(t!("connection.connection_name"))
+                .required(true)
                 .id_salt(focus_id::NAME)
                 .auto_focus(focus_name)
                 .width(name_w)
                 .leading_icon(Icon::Tag)
-                .clearable(true)
-                .show(ui);
+                .clearable(true);
+                if show_name_error {
+                    name_input = name_input.error_text(t!("connection.validation_name_required"));
+                }
+                name_input.show(ui);
             });
             ui.vertical(|ui| {
                 ui.set_width(group_w);
@@ -162,23 +168,29 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             ui.vertical(|ui| {
                 ui.set_width(host_w);
                 ui.set_max_width(host_w);
-                Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
+                let host_input = Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
                     .label(t!("connection.host"))
                     .id_salt(focus_id::HOST)
                     .width(host_w)
-                    .leading_icon(Icon::Server)
-                    .show(ui);
+                    .leading_icon(Icon::Server);
+                host_input.show(ui);
             });
             ui.vertical(|ui| {
                 ui.set_width(port_w);
                 ui.set_max_width(port_w);
                 let default_port = default_port_for_driver(self.dialog.draft.driver);
-                Input::new(&mut self.dialog.draft.port, default_port, self.theme)
+                let show_port_error =
+                    !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
+                let mut port_input = Input::new(&mut self.dialog.draft.port, default_port, self.theme)
                     .label(t!("connection.port"))
+                    .required(true)
                     .id_salt(focus_id::PORT)
                     .width(port_w)
-                    .leading_icon(Icon::Hash)
-                    .show(ui);
+                    .leading_icon(Icon::Hash);
+                if show_port_error {
+                    port_input = port_input.error_text(t!("connection.validation_port_invalid"));
+                }
+                port_input.show(ui);
             });
         });
         ui.add_space(SPACE_SM);
@@ -191,13 +203,19 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
                 let default_db = default_database_for_driver(self.dialog.draft.driver);
-                Input::new(&mut self.dialog.draft.database, default_db, self.theme)
+                let show_database_error =
+                    !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
+                let mut db_input = Input::new(&mut self.dialog.draft.database, default_db, self.theme)
                     .label(t!("connection.database"))
+                    .required(true)
                     .id_salt(focus_id::DATABASE)
                     .width(half_w)
                     .leading_icon(Icon::Database)
-                    .clearable(true)
-                    .show(ui);
+                    .clearable(true);
+                if show_database_error {
+                    db_input = db_input.error_text(t!("connection.validation_database_required"));
+                }
+                db_input.show(ui);
             });
             ui.vertical(|ui| {
                 ui.set_width(half_w);

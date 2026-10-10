@@ -24,6 +24,7 @@ pub struct Input<'a> {
     error_text: Option<Cow<'a, str>>,
     leading_icon: Option<Icon>,
     clearable: bool,
+    required: bool,
     width: Option<f32>,
     id_salt: Option<Id>,
     auto_focus: bool,
@@ -42,6 +43,7 @@ impl<'a> Input<'a> {
             error_text: None,
             leading_icon: None,
             clearable: false,
+            required: false,
             width: None,
             id_salt: None,
             auto_focus: false,
@@ -80,6 +82,11 @@ impl<'a> Input<'a> {
         self
     }
 
+    pub fn required(mut self, required: bool) -> Self {
+        self.required = required;
+        self
+    }
+
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
         self
@@ -109,12 +116,14 @@ impl<'a> Input<'a> {
             ui.set_max_width(width);
             if let Some(label) = &self.label {
                 crate::components::Label::new(label.as_ref(), self.theme)
+                    .required(self.required)
                     .enabled(self.enabled)
                     .show(ui);
                 ui.add_space(LABEL_HELPER_GAP);
             }
 
             let has_error = self.error_text.is_some();
+
             let fill = if self.enabled {
                 self.theme.surface_editor
             } else {

@@ -229,39 +229,56 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     ui.vertical(|ui| {
                         ui.set_width(host_w);
                         ui.set_max_width(host_w);
-                        Input::new(&mut self.dialog.draft.ssh_host, "bastion.example.com", self.theme)
-                            .label(t!("connection.ssh_host"))
-                            .width(host_w)
-                            .leading_icon(Icon::Server)
-                            .show(ui);
+                        let show_ssh_host_error =
+                            !self.dialog.error.is_empty() && self.dialog.draft.ssh_host.trim().is_empty();
+                        let mut ssh_host =
+                            Input::new(&mut self.dialog.draft.ssh_host, "bastion.example.com", self.theme)
+                                .label(t!("connection.ssh_host"))
+                                .required(true)
+                                .width(host_w)
+                                .leading_icon(Icon::Server);
+                        if show_ssh_host_error {
+                            ssh_host = ssh_host.error_text(t!("connection.validation_ssh_host_required"));
+                        }
+                        ssh_host.show(ui);
                     });
                     ui.vertical(|ui| {
                         ui.set_width(port_w);
                         ui.set_max_width(port_w);
-                        Input::new(&mut self.dialog.draft.ssh_port, "22", self.theme)
+                        let show_ssh_port_error =
+                            !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.ssh_port);
+                        let mut ssh_port = Input::new(&mut self.dialog.draft.ssh_port, "22", self.theme)
                             .label(t!("connection.port"))
+                            .required(true)
                             .width(port_w)
-                            .leading_icon(Icon::Hash)
-                            .show(ui);
+                            .leading_icon(Icon::Hash);
+                        if show_ssh_port_error {
+                            ssh_port = ssh_port.error_text(t!("connection.validation_ssh_port_invalid"));
+                        }
+                        ssh_port.show(ui);
                     });
                     ui.vertical(|ui| {
                         ui.set_width(user_w);
                         ui.set_max_width(user_w);
-                        Input::new(&mut self.dialog.draft.ssh_user, "ubuntu", self.theme)
-                            .label(t!("connection.ssh_user"))
-                            .width(user_w)
-                            .leading_icon(Icon::User)
-                            .show(ui);
+                        let show_ssh_user_error =
+                            !self.dialog.error.is_empty() && self.dialog.draft.ssh_user.trim().is_empty();
+                        let mut ssh_user =
+                            Input::new(&mut self.dialog.draft.ssh_user, "ubuntu", self.theme)
+                                .label(t!("connection.ssh_user"))
+                                .required(true)
+                                .width(user_w)
+                                .leading_icon(Icon::User);
+                        if show_ssh_user_error {
+                            ssh_user = ssh_user.error_text(t!("connection.validation_ssh_user_required"));
+                        }
+                        ssh_user.show(ui);
                     });
                     ui.vertical(|ui| {
                         ui.set_width(key_w);
                         ui.set_max_width(key_w);
-                        ui.label(
-                            RichText::new(t!("connection.ssh_private_key"))
-                                .size(12.0)
-                                .strong()
-                                .color(self.theme.text_secondary),
-                        );
+                        crate::components::Label::new(t!("connection.ssh_private_key"), self.theme)
+                            .required(true)
+                            .show(ui);
                         ui.add_space(SPACE_XXS);
                         ui.horizontal(|ui| {
                             let browse_w = 68.0;
@@ -269,10 +286,20 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                             ui.vertical(|ui| {
                                 ui.set_width(key_input_w);
                                 ui.set_max_width(key_input_w);
-                                Input::new(&mut self.dialog.draft.ssh_private_key, "~/.ssh/id_rsa", self.theme)
-                                    .width(key_input_w)
-                                    .leading_icon(Icon::Key)
-                                    .show(ui);
+                                let show_ssh_key_error =
+                                    !self.dialog.error.is_empty()
+                                        && self.dialog.draft.ssh_private_key.trim().is_empty();
+                                let mut ssh_key = Input::new(
+                                    &mut self.dialog.draft.ssh_private_key,
+                                    "~/.ssh/id_rsa",
+                                    self.theme,
+                                )
+                                .width(key_input_w)
+                                .leading_icon(Icon::Key);
+                                if show_ssh_key_error {
+                                    ssh_key = ssh_key.error_text(t!("connection.validation_ssh_key_required"));
+                                }
+                                ssh_key.show(ui);
                             });
                             ui.add_space(SPACE_XS);
                             if Button::new(self.theme)

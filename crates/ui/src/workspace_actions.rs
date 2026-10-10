@@ -223,16 +223,34 @@ impl DbProApp {
     /// Capture/evidence helper: open the connection editor with a deterministic
     /// validation error, without requiring a live database.
     pub fn open_connection_error_for_capture(&mut self) {
+        self.open_connection_dialog_for_capture(None, true);
+    }
+
+    /// Capture/evidence helper: open a connection dialog with an explicit theme and state.
+    pub fn open_connection_dialog_for_capture(&mut self, light: Option<bool>, show_error: bool) {
+        if let Some(light) = light {
+            self.preferences.dark_mode = !light;
+            self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+        }
+
         self.connection.open_new();
-        self.connection
-            .dialog
-            .set_error("Connection test failed: authentication rejected by the server.");
-        self.feedback.runtime_message = "Connection test failed".to_owned();
+        if show_error {
+            self.connection.dialog.set_draft(UiConnectionDraft {
+                name: String::new(),
+                database: String::new(),
+                port: "0".to_owned(),
+                ..UiConnectionDraft::default()
+            });
+            self.connection
+                .dialog
+                .set_error("Name, database, and port values are required and must be valid.");
+            self.feedback.runtime_message = "Connection details are invalid".to_owned();
+        }
     }
 
     /// Capture/evidence helper: open the new-connection dialog in its normal state.
     pub fn open_new_connection_for_capture(&mut self) {
-        self.connection.open_new();
+        self.open_connection_dialog_for_capture(None, false);
     }
 
     /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
