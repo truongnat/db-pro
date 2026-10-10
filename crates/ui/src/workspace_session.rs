@@ -109,6 +109,7 @@ fn activity_label(activity: Activity) -> &'static str {
         Activity::Explorer => "Explorer",
         Activity::Files => "Files",
         Activity::Queries => "Queries",
+        Activity::Tools => "Tools",
         Activity::Data => "Data",
         Activity::History => "History",
         Activity::Transfers => "Transfers",
@@ -127,6 +128,7 @@ fn parse_activity(label: &str) -> Activity {
     match label {
         "Files" => Activity::Files,
         "Queries" => Activity::Queries,
+        "Tools" => Activity::Tools,
         "Data" => Activity::Data,
         "History" => Activity::History,
         "Transfers" => Activity::Transfers,

@@ -36,8 +36,9 @@ pub(crate) struct PersistedGridLayout {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Activity {
     Explorer,
-    Files,
     Queries,
+    Tools,
+    Files,
     Data,
     History,
     Transfers,

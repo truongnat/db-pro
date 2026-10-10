@@ -436,6 +436,8 @@ mod sidebar_query_library_view;
 mod sidebar_query_shortcuts_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
+#[path = "tools_hub_surface_view.rs"]
+mod tools_hub_surface_view;
 #[path = "synthetic_data.rs"]
 mod synthetic_data;
 #[path = "table_conflict_dialog_surface.rs"]

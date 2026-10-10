@@ -66,6 +66,7 @@ impl DbProApp {
 
     fn draw_sidebar_activity_body(&mut self, ui: &mut egui::Ui) {
         match self.workspace.activity {
+            Activity::Tools => self.draw_tools_hub_activity(ui),
             Activity::Queries => self.draw_queries(ui),
             Activity::Files => self.draw_files_activity(ui),
             Activity::Data => self.draw_data_activity(ui),
@@ -104,6 +105,47 @@ impl DbProApp {
             }
             Activity::Tasks => self.draw_tasks_activity(ui),
             Activity::Explorer => unreachable!(),
+        }
+    }
+    fn draw_tools_hub_activity(&mut self, ui: &mut egui::Ui) {
+        let mut context = tools_hub_surface_view::ToolsHubContext {
+            theme: self.theme,
+            active_activity: self.workspace.activity,
+            search_query: &mut self.schema.explorer.explorer_search,
+        };
+        for action in context.draw(ui) {
+            match action {
+                tools_hub_surface_view::ToolsHubAction::SchemaCompare => {
+                    self.workspace.activity = Activity::Compare;
+                    self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                }
+                tools_hub_surface_view::ToolsHubAction::SchemaWorkbench => {
+                    self.workspace.activity = Activity::Schema;
+                    self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+                }
+                tools_hub_surface_view::ToolsHubAction::Diagram => {
+                    self.workspace.activity = Activity::Diagram;
+                    self.workspace.active_tab = WorkspaceTab::Diagram;
+                }
+                tools_hub_surface_view::ToolsHubAction::Monitor => {
+                    self.workspace.activity = Activity::Monitor;
+                }
+                tools_hub_surface_view::ToolsHubAction::Security => {
+                    self.workspace.activity = Activity::Security;
+                }
+                tools_hub_surface_view::ToolsHubAction::Transfers => {
+                    self.workspace.activity = Activity::Transfers;
+                }
+                tools_hub_surface_view::ToolsHubAction::Tasks => {
+                    self.workspace.activity = Activity::Tasks;
+                }
+                tools_hub_surface_view::ToolsHubAction::History => {
+                    self.workspace.activity = Activity::History;
+                }
+                tools_hub_surface_view::ToolsHubAction::Problems => {
+                    self.workspace.activity = Activity::Problems;
+                }
+            }
         }
     }
 

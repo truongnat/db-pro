@@ -64,55 +64,48 @@ fn draw_activity_buttons(ui: &mut egui::Ui, context: &ActivityBarContext) -> Opt
     ui.add_space(SPACE_XS);
     let mut action = None;
 
-    // Group 1: Core Navigation
-    let group1 = [
-        (Some(Activity::Explorer), Icon::Database, "Explorer"),
-        (Some(Activity::Queries), Icon::FileCode2, "Queries"),
-        (Some(Activity::Files), Icon::FolderOpen, "Files"),
-        (Some(Activity::Data), Icon::Table2, "Data"),
-    ];
+    // 1. Database Navigator (Explorer)
+    let explorer_active = context.activity == Activity::Explorer;
+    if draw_rail_icon_button(ui, Icon::Database, explorer_active, "Database Navigator", context.theme) {
+        action = activity_action(Some(Activity::Explorer), "Database Navigator");
+    }
+    ui.add_space(2.0);
 
-    for (activity, icon, hint) in group1 {
-        let active = activity.is_some_and(|value| context.activity == value)
-            || (hint == "Queries" && context.active_tab == WorkspaceTab::Query);
-        if draw_rail_icon_button(ui, icon, active, hint, context.theme) {
-            action = activity_action(activity, hint);
-        }
-        ui.add_space(2.0);
+    // 2. SQL Scripts & Projects
+    let queries_active = context.activity == Activity::Queries
+        || context.activity == Activity::Files
+        || context.active_tab == WorkspaceTab::Query;
+    if draw_rail_icon_button(ui, Icon::FileCode2, queries_active, "SQL Scripts & Projects", context.theme) {
+        action = activity_action(Some(Activity::Queries), "SQL Scripts & Projects");
+    }
+    ui.add_space(2.0);
+
+    // 3. Tools & Administration Hub
+    let tools_active = matches!(
+        context.activity,
+        Activity::Tools
+            | Activity::Diagram
+            | Activity::Schema
+            | Activity::Compare
+            | Activity::History
+            | Activity::Problems
+            | Activity::Transfers
+            | Activity::Monitor
+            | Activity::Security
+            | Activity::Tasks
+            | Activity::Data
+    );
+    if draw_rail_icon_button(ui, Icon::Boxes, tools_active, "Tools & Management Hub", context.theme) {
+        action = activity_action(Some(Activity::Tools), "Tools & Management Hub");
     }
 
-    ui.add_space(SPACE_XS);
+    ui.add_space(SPACE_SM);
     draw_rail_separator(ui, context.theme);
-    ui.add_space(SPACE_XS);
+    ui.add_space(SPACE_SM);
 
-    // Group 2: Tools & Management
-    let group2 = [
-        (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
-        (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
-        (Some(Activity::Compare), Icon::GitCompare, "Schema compare"),
-        (Some(Activity::History), Icon::History, "History"),
-        (Some(Activity::Problems), Icon::TriangleAlert, "Problems"),
-        (Some(Activity::Transfers), Icon::Upload, "Transfers"),
-        (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
-        (Some(Activity::Security), Icon::Shield, "Security"),
-        (Some(Activity::Tasks), Icon::ListTodo, "Saved tasks"),
-    ];
-
-    for (activity, icon, hint) in group2 {
-        let active = activity.is_some_and(|value| context.activity == value);
-        if draw_rail_icon_button(ui, icon, active, hint, context.theme) {
-            action = activity_action(activity, hint);
-        }
-        ui.add_space(2.0);
-    }
-
-    ui.add_space(SPACE_XS);
-    draw_rail_separator(ui, context.theme);
-    ui.add_space(SPACE_XS);
-
-    // Group 3: AI Copilot
+    // 4. AI Copilot
     let agent_active = context.agent_open;
-    if draw_rail_icon_button(ui, Icon::Bot, agent_active, "Agent (Copilot)", context.theme) {
+    if draw_rail_icon_button(ui, Icon::Sparkles, agent_active, "AI Copilot (Agent)", context.theme) {
         action = Some(ActivityBarAction::ToggleAgent);
     }
 
@@ -196,7 +189,7 @@ fn activity_action(activity: Option<Activity>, hint: &str) -> Option<ActivityBar
         (Some(Activity::Schema), _) => Some(ActivityBarAction::OpenSchemaWorkbench),
         (Some(Activity::Compare), _) => Some(ActivityBarAction::OpenSchemaCompare),
         (Some(value), _) => Some(ActivityBarAction::SelectActivity(value)),
-        (None, "Agent (Copilot)") => Some(ActivityBarAction::ToggleAgent),
+        (None, "AI Copilot (Agent)" | "Agent (Copilot)") => Some(ActivityBarAction::ToggleAgent),
         _ => None,
     }
 }
@@ -208,23 +201,19 @@ mod tests {
     #[test]
     fn activity_clicks_emit_navigation_intents_without_mutating_state() {
         assert!(matches!(
-            activity_action(Some(Activity::Queries), "Queries"),
+            activity_action(Some(Activity::Queries), "SQL Scripts & Projects"),
             Some(ActivityBarAction::OpenQuery)
         ));
         assert!(matches!(
-            activity_action(Some(Activity::Diagram), "ER diagram"),
-            Some(ActivityBarAction::OpenDiagram)
+            activity_action(Some(Activity::Tools), "Tools & Management Hub"),
+            Some(ActivityBarAction::SelectActivity(Activity::Tools))
         ));
         assert!(matches!(
-            activity_action(Some(Activity::Schema), "Schema workbench"),
-            Some(ActivityBarAction::OpenSchemaWorkbench)
-        ));
-        assert!(matches!(
-            activity_action(Some(Activity::Explorer), "Explorer"),
+            activity_action(Some(Activity::Explorer), "Database Navigator"),
             Some(ActivityBarAction::SelectActivity(Activity::Explorer))
         ));
         assert!(matches!(
-            activity_action(None, "Agent (Copilot)"),
+            activity_action(None, "AI Copilot (Agent)"),
             Some(ActivityBarAction::ToggleAgent)
         ));
     }
