@@ -174,9 +174,13 @@ fn draw_card_item(
         ..Default::default()
     };
 
+    let inner_w = (card_width - SPACE_MD * 2.0).max(60.0);
+    const CARD_CONTENT_HEIGHT: f32 = 46.0;
+
     let response = card_frame
         .show(ui, |ui| {
-            ui.set_width(card_width - SPACE_MD * 2.0);
+            ui.set_min_size(egui::vec2(inner_w, CARD_CONTENT_HEIGHT));
+            ui.set_max_size(egui::vec2(inner_w, CARD_CONTENT_HEIGHT));
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(icon).to_string())
@@ -185,6 +189,7 @@ fn draw_card_item(
                 );
                 ui.add_space(SPACE_XS);
                 ui.vertical(|ui| {
+                    ui.set_width(inner_w - ICON_DEFAULT - SPACE_XS);
                     ui.spacing_mut().item_spacing.y = 1.0;
                     ui.label(
                         RichText::new(title)
