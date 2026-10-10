@@ -89,6 +89,10 @@ pub struct Table<'a> {
     sort_desc: bool,
     row_height: f32,
     show_vertical_grid: bool,
+    /// Per-row accessible name for the row's click region — real content,
+    /// e.g. the row's primary column. Without it a selectable row is an
+    /// unnamed interactive node for assistive tech.
+    row_label: Option<&'a dyn Fn(usize) -> String>,
 }
 
 impl<'a> Table<'a> {
@@ -103,6 +107,7 @@ impl<'a> Table<'a> {
             sort_desc: false,
             row_height: config::ROW_HEIGHT_DEFAULT,
             show_vertical_grid: false,
+            row_label: None,
         }
     }
 
@@ -130,6 +135,13 @@ impl<'a> Table<'a> {
 
     pub fn vertical_grid(mut self, show: bool) -> Self {
         self.show_vertical_grid = show;
+        self
+    }
+
+    /// Accessible name for each row's click region — supply real row content
+    /// (e.g. its primary column) so AT can announce the row.
+    pub fn row_label(mut self, label: &'a dyn Fn(usize) -> String) -> Self {
+        self.row_label = Some(label);
         self
     }
 }

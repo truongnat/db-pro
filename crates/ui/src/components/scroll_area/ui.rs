@@ -59,3 +59,19 @@ impl ScrollArea {
         output.inner
     }
 }
+
+/// Give a native `egui::ScrollArea`'s scroll bars an accessible name.
+///
+/// egui emits `ScrollBar` accesskit nodes for its native bars but never names
+/// them, so audits and assistive tech see anonymous controls. The bar's node
+/// id is `ScrollAreaOutput::id.with(d)` (d: 0 = horizontal, 1 = vertical) —
+/// an egui-internal id derivation; if egui changes it, the call is a no-op
+/// (`accesskit_node_builder` returns `None` for unknown ids), never a crash.
+/// Call once after `ScrollArea::show`; safe to call when accesskit is off.
+pub fn name_scroll_bars(ctx: &egui::Context, scroll_area_id: egui::Id, label: &str) {
+    for (d, axis) in [(0usize, "horizontal"), (1, "vertical")] {
+        ctx.accesskit_node_builder(scroll_area_id.with(d), |builder| {
+            builder.set_label(format!("{label} · {axis} scroll bar"));
+        });
+    }
+}

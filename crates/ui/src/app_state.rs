@@ -95,6 +95,7 @@ impl Default for DbProApp {
             gallery_state: ComponentGalleryState::default(),
             #[cfg(debug_assertions)]
             dev_tools: crate::dev_tools::DevToolsState::default(),
+            capture_evidence_seeded: false,
         }
     }
 }

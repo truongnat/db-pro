@@ -324,20 +324,74 @@ impl DbProApp {
 /// only — the dev-tools module doesn't exist in release.
 #[cfg(debug_assertions)]
 impl DbProApp {
-    /// Take a pending audit emission produced inside `dev_tools.draw` and write
-    /// it to `DB_PRO_AUDIT_JSON`. `None` until the pipeline is warm — callers
-    /// poll this per frame and exit with the returned code on `Some`.
-    pub fn take_audit_emission(&mut self) -> Option<i32> {
-        let (json, code) = self.dev_tools.take_audit_emission()?;
+    /// Take a pending audit emission produced inside `dev_tools.draw`.
+    /// `None` until the pipeline is warm — callers poll per frame. The caller
+    /// (capture driver) owns the write so it can attach `visual_review`
+    /// first; `write_audit_report` is the shared write step.
+    pub fn take_audit_emission(&mut self) -> Option<(serde_json::Value, i32)> {
+        self.dev_tools.take_audit_emission()
+    }
+
+    /// Write a finalized audit JSON to `DB_PRO_AUDIT_JSON`; returns the
+    /// verdict code to exit with (2 on write failure).
+    pub fn write_audit_report(&self, json: &serde_json::Value, code: i32) -> i32 {
         let Some(out) = std::env::var_os(crate::dev_tools::report::OUTPUT_ENV) else {
-            return Some(crate::dev_tools::report::EXIT_TOOL_ERROR);
+            return crate::dev_tools::report::EXIT_TOOL_ERROR;
         };
-        match std::fs::write(&out, serde_json::to_string_pretty(&json).unwrap_or_default()) {
-            Ok(()) => Some(code),
+        match std::fs::write(&out, serde_json::to_string_pretty(json).unwrap_or_default()) {
+            Ok(()) => code,
             Err(e) => {
                 tracing::error!(path = ?out, "audit report write failed: {e}");
-                Some(crate::dev_tools::report::EXIT_TOOL_ERROR)
+                crate::dev_tools::report::EXIT_TOOL_ERROR
             }
         }
+    }
+
+    /// Scenario name used for artifact file naming (`DB_PRO_AUDIT_SCENARIO`).
+    pub fn audit_scenario() -> String {
+        std::env::var(crate::dev_tools::report::SCENARIO_ENV).unwrap_or_else(|_| "shell".to_owned())
+    }
+
+    /// AI visual review (P11): enabled iff `DB_PRO_REVIEW_DIR` is set.
+    /// Builds the whitelisted bundle (no labels/text/credentials), runs the
+    /// provider command if configured, and returns the `visual_review`
+    /// section value plus the bundle path so the caller can drop the
+    /// screenshot next to it. `None` when review is off — offline default.
+    pub fn run_visual_review(
+        &self,
+        report: &serde_json::Value,
+        screenshot_ok: bool,
+    ) -> Option<(serde_json::Value, std::path::PathBuf, std::path::PathBuf)> {
+        use crate::dev_tools::visual_review as vr;
+        let dir = std::env::var_os(vr::REVIEW_DIR_ENV).map(std::path::PathBuf::from)?;
+        if dir.as_os_str().is_empty() {
+            return None;
+        }
+        let scenario = Self::audit_scenario();
+        let bundle = vr::bundle_path(&dir, &scenario);
+        let shot = vr::screenshot_path(&dir, &scenario);
+        let shot_name = shot.file_name()?.to_string_lossy().into_owned();
+        // Privacy gate: a live (non-fixture) session's screenshot may carry
+        // real query results — blocked before any provider sees it. The
+        // whitelisted bundle text is still written for manual review.
+        let outcome = if !screenshot_ok {
+            vr::ReviewOutcome::Failed("screenshot capture failed — no visual evidence".into())
+        } else {
+            let bundle_json = vr::build_bundle(report, &shot_name);
+            match std::fs::write(&bundle, serde_json::to_string_pretty(&bundle_json).unwrap_or_default()) {
+                Err(e) => vr::ReviewOutcome::Failed(format!("bundle write failed: {e}")),
+                Ok(()) if !vr::screenshot_is_safe(self.has_live_connection(), self.fixture_provenance()) => {
+                    vr::ReviewOutcome::Blocked(
+                        "live connection without fixture provenance — screenshot withheld from provider".into(),
+                    )
+                }
+                Ok(()) => vr::run_provider(&bundle),
+            }
+        };
+        Some((
+            outcome.to_json(&bundle.to_string_lossy(), &shot_name),
+            bundle,
+            shot,
+        ))
     }
 }

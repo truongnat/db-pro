@@ -319,20 +319,27 @@ pub(super) fn draw_schema_compare(
                 .small()
                 .color(context.theme.text_muted),
         );
+        ui.add_space(SPACE_XS);
         input_full_width(
             ui,
             &mut context.compare.data_diff_target_id,
             "target connection id",
             context.theme,
         );
+        // The shell zeroes workspace item_spacing — form fields must breathe
+        // explicitly or consecutive inputs render as one fused field.
+        ui.add_space(SPACE_XS);
         input_full_width(ui, &mut context.compare.data_diff_schema, "schema", context.theme);
+        ui.add_space(SPACE_XS);
         input_full_width(ui, &mut context.compare.data_diff_table, "table", context.theme);
+        ui.add_space(SPACE_XS);
         input_full_width(
             ui,
             &mut context.compare.data_diff_keys,
             "key columns (comma)",
             context.theme,
         );
+        ui.add_space(SPACE_XS);
         if primary_button_with_icon(ui, Icon::GitCompare, "Compare rows", context.theme).clicked() {
             action = Some(SchemaCompareAction::RequestDataDiff);
         }

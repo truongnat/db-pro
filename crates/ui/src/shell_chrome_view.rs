@@ -180,6 +180,12 @@ impl DbProApp {
                 query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
                 self.draw_output_pane(ui, result.as_ref());
             });
+        // egui's resizable Panel emits an anonymous `Unknown` node for the
+        // drag handle (id = panel id + "__resize") — name it so AT can
+        // announce "resize output panel" instead of nothing.
+        ui.ctx().accesskit_node_builder(egui::Id::new("output_panel").with("__resize"), |b| {
+            b.set_label("Resize output panel");
+        });
         self.workspace.set_bottom_panel_height(response.response.rect.height());
     }
 }

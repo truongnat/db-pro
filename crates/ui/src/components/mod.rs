@@ -86,7 +86,7 @@ pub use overlay::{
 };
 pub use radio_group::{RadioGroup, RadioGroupOption};
 pub use responsive_layout::{container_width, grid_metrics, Container, ContainerWidth, GridMetrics, ResponsiveGrid};
-pub use scroll_area::ScrollArea;
+pub use scroll_area::{name_scroll_bars, ScrollArea};
 pub use select::{dropdown_should_open_above, Select, SelectSize, SelectVariant};
 pub use selection::{Checkbox, Radio, Slider, Switch};
 pub use separator::{Separator, SeparatorOrientation};

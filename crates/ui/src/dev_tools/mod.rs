@@ -1,4 +1,6 @@
 // cc-scan:allow LONG_FUNCTION — the inspector window is a linear list of collapsing sections.
+// cc-scan:allow DEBUG_OUTPUT — `dump_audit_issues` is the DB_PRO_INSPECTOR_DUMP
+// stderr channel; stderr *is* the user interface for that env, not a debug leak.
 //! Debug-build-only UI inspector (developer tools panel).
 //!
 //! Backed by egui 0.36's built-in inspection APIs —
@@ -17,6 +19,7 @@ pub mod geometry;
 pub mod report;
 pub mod screen;
 pub mod semantic;
+pub mod visual_review;
 
 use crate::dev_tools::audit::{AuditIssue, AuditReport};
 use crate::dev_tools::geometry::{is_area_layer, transform_debug, GeometrySnapshot, SelectedWidget, WidgetGeometry};
@@ -71,6 +74,10 @@ pub struct DevToolsState {
     /// driver via `take_audit_emission` — `DevToolsState` owns the pipeline,
     /// so the report + exit decision live here too.
     pending_audit: Option<(serde_json::Value, i32)>,
+    /// Set once a fixture Area actually painted this session — provenance for
+    /// the visual-review privacy gate: env flags alone don't prove the screen
+    /// is synthetic, painted fixtures do.
+    fixture_painted: bool,
     /// Consecutive frames whose layout fingerprint matched the previous one —
     /// the stability signal the headless emit waits for.
     stable_streak: usize,
@@ -87,6 +94,7 @@ impl Default for DevToolsState {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         }
     }
@@ -109,6 +117,13 @@ impl DevToolsState {
         self.pending_audit.take()
     }
 
+    /// True once a synthetic fixture surface has painted this session —
+    /// the visual-review privacy gate's provenance: this is set by paint,
+    /// not by env flags.
+    pub fn fixture_provenance(&self) -> bool {
+        self.fixture_painted
+    }
+
     pub fn draw(&mut self, ctx: &egui::Context, theme: DbProTheme) {
         // Headless audit (`DB_PRO_AUDIT_JSON`) runs the pipeline with the
         // window closed — same snapshots and rules, no inspector UI.
@@ -119,9 +134,11 @@ impl DevToolsState {
 
         if audit_fixture_enabled() {
             paint_audit_fixture(ctx);
+            self.fixture_painted = true;
         }
         if let Some(mode) = screen_fixture_mode() {
             paint_screen_fixture(ctx, &mode);
+            self.fixture_painted = true;
         }
 
         // AccessKit tree feeds the semantic rules; plugin + flag are
@@ -944,15 +961,20 @@ fn draw_issue_row(
     });
 }
 
-/// One-line-per-issue stderr dump for `DB_PRO_INSPECTOR_DUMP` runs.
+/// One-line-per-issue stderr dump for `DB_PRO_INSPECTOR_DUMP` runs —
+/// stderr is the interface for that env, not a debug leak.
 fn dump_audit_issues(report: &AuditReport, snapshot: &GeometrySnapshot) {
-    eprintln!(
+    use std::io::Write;
+    let mut err = std::io::stderr().lock();
+    let _ = writeln!(
+        err,
         "=== audit dump: {} issue(s), {} widgets ===",
         report.issues.len(),
         report.widget_count
     );
     for r in &report.rules {
-        eprintln!(
+        let _ = writeln!(
+            err,
             "RULE {} {} eval={} skip={} na={}",
             r.verdict().label(),
             r.rule_id,
@@ -965,7 +987,8 @@ fn dump_audit_issues(report: &AuditReport, snapshot: &GeometrySnapshot) {
     // the report doesn't carry (widget rects aren't in the JSON by design).
     for (layer_id, ws) in &snapshot.layers {
         for w in ws {
-            eprintln!(
+            let _ = writeln!(
+                err,
                 "WID {} layer={} parent={} rect={:?} click={} enabled={} type={:?} label={:?}",
                 w.id_debug, w.layer_debug, w.parent_debug, w.rect, w.senses_click, w.enabled, w.widget_type, w.label
             );
@@ -974,7 +997,8 @@ fn dump_audit_issues(report: &AuditReport, snapshot: &GeometrySnapshot) {
     }
     if let Some(scr) = report.screen.as_ref() {
         for f in &scr.findings {
-            eprintln!(
+            let _ = writeln!(
+                err,
                 "SCREEN {} {} kind={} region={:?} wid={:?} :: {}",
                 f.severity.label(),
                 f.rule,
@@ -997,7 +1021,8 @@ fn dump_audit_issues(report: &AuditReport, snapshot: &GeometrySnapshot) {
                 )
             })
             .unwrap_or_else(|| " (no geometry join)".to_owned());
-        eprintln!(
+        let _ = writeln!(
+            err,
             "ISSUE {} {} wid={} other={:?}{} :: {}",
             i.severity.label(),
             i.rule_id,
@@ -1031,6 +1056,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
         let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ui| {
@@ -1047,6 +1073,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
         let out = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ui| {
@@ -1083,6 +1110,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
         // Pass 1 registers widgets; pass 2 audits them.
@@ -1175,6 +1203,56 @@ mod tests {
     }
 
     #[test]
+    fn named_scrollbar_and_textedit_nodes_report_accessible_names() {
+        // P15 regression: egui emits anonymous ScrollBar nodes and a plain
+        // multiline TextEdit carries no accessible name. The fixes name both;
+        // the audit's semantic.missing_name must see the names.
+        let ctx = egui::Context::default();
+        AccessKitCapture::ensure_installed(&ctx);
+
+        for _ in 0..3 {
+            let _ = crate::test_frame::frame(&ctx, plain_input(egui::vec2(800.0, 600.0)), |ui| {
+                // Overflowing vertical scroll → a live scroll bar node.
+                let scroll = egui::ScrollArea::vertical()
+                    .id_salt("p15-test-scroll")
+                    .max_height(50.0)
+                    .show(ui, |ui| {
+                        for i in 0..20 {
+                            ui.label(format!("row {i}"));
+                        }
+                    });
+                crate::components::scroll_area::name_scroll_bars(ui.ctx(), scroll.id, "Test list");
+
+                let mut text = "select 1".to_owned();
+                let resp = ui.add(egui::TextEdit::multiline(&mut text));
+                ui.ctx().accesskit_node_builder(resp.id, |b| {
+                    b.set_label("DDL script editor");
+                });
+            });
+        }
+
+        let update = AccessKitCapture::latest(&ctx).expect("tree update");
+        let sem = SemanticSnapshot::from_update(&update).expect("nodes");
+        let report = audit::run_audit(&ctx, &GeometrySnapshot::collect(&ctx, inspector_id()), Some(&sem));
+
+        // The named scrollbar + editor must not flag; nothing unnamed should remain.
+        let unnamed: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "semantic.missing_name")
+            .map(|i| i.evidence.as_str())
+            .collect();
+        assert!(unnamed.is_empty(), "named controls still flag: {unnamed:?}");
+        // ScrollBar node exists AND carries the name (sanity — the test would
+        // also pass if egui stopped emitting bar nodes at all).
+        assert!(
+            sem.nodes.values().any(|n| n.role == egui::accesskit::Role::ScrollBar
+                && n.name.as_deref().is_some_and(|n| n.contains("Test list"))),
+            "scroll bar must carry its accessible name"
+        );
+    }
+
+    #[test]
     fn pointer_press_pins_the_widget_under_the_click() {
         let ctx = egui::Context::default();
         let mut state = DevToolsState {
@@ -1186,6 +1264,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
 
@@ -1239,6 +1318,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
 
@@ -1319,6 +1399,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
 
@@ -1417,6 +1498,7 @@ mod tests {
             audit_dumped: false,
             audit_frames: 0,
             pending_audit: None,
+            fixture_painted: false,
             stable_streak: 0,
         };
 

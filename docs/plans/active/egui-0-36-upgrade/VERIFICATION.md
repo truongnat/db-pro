@@ -197,3 +197,306 @@ result grid (cells/rows), 25 in table-data grid, per-scenario names on
 diagram/compare/agent/profile; systematic 50% cell-hitbox overlaps (adjacent
 columns share a 4px edge — layout-intended overlap inside one row, reported
 as-is per "no rule changes").
+
+## Screen-level UI/UX analyzer (2026-10-09) — P10
+
+`dev_tools::screen` consumes the audited `GeometrySnapshot` +
+`SemanticSnapshot` + viewport and emits `screen` in the schema-v3 JSON:
+regions, rhythm, density, balance, hierarchy metrics (null = UNKNOWN),
+`coverage.gaps`, and a finding list that never enters `issues` or the exit
+code. No pixel/screenshot input, no generic UI standards — all findings are
+measured deviations (off-screen rect, left-nav >50% width outweighing every
+other region, gap outliers vs the group's own modal rhythm) or explicitly
+`heuristic`-kinded consistency signals.
+
+| Gate | Result |
+|------|--------|
+| fmt / check dev+release / clippy `-D warnings` | pass |
+| `cargo test --workspace` | 1354 pass / 0 fail (81 dev_tools) |
+| matrix | 25/25 scenarios ran; `/tmp/ui-audit-matrix/coverage-matrix.json` |
+| fixture ugly | 3 intended findings: off_screen, layout_inversion, spacing_outlier |
+| fixture good | 0 findings |
+
+Fixes this pass (all in dev-tools/capture only, no production UI):
+- `capture.rs`: macOS `wrap` ignored `DB_PRO_AUDIT_JSON` without a capture
+  path — headless audit hung; added the audit-only arm matching the
+  non-macOS variant.
+- `screen.layout_inversion`: any side-edge region counted as navigation →
+  right-edge content and full-width docks false-flagged. Now left-edge
+  panes only (navigation convention), widest region counts as work surface.
+- `is_grid_like`: added size-signature + banding (≥2 stripes of ≥4 aligned
+  members, ≥60% cover) signatures — cross-parent data grids (table-data)
+  were classified as unstructured content and congestion-flagged.
+- `control_congestion`: nested container hit-rects and duplicate rects
+  counted as separate controls → toolbar stacks flagged. Now leaf-only,
+  two-axis packing, and exempt when packed controls sit in top/bottom 15%
+  edge bands (toolbar-framed pane) — screenshot-verified against
+  results-dock and history.
+- matrix: diagram `DB_PRO_AUDIT_READY=140` > its 96 widgets → tool error;
+  lowered to 90.
+
+Screen findings on product UI (non-fixture): `no_primary_region` on
+shell-800 (largest region 10% of 800×600), table-data (9% across 27
+regions), table-profile (3% across 42). All medium-confidence objective
+measurements of genuinely fragmented content areas — borderline at small
+viewport; reported as-is.
+
+Limits: right-side inversion undetectable from geometry (wide right pane =
+right content, same shape); congestion still can't distinguish a real
+control wall from an unconventional-but-valid layout; semantic hierarchy
+metrics are UNKNOWN when accesskit is off; no pixel/theme-token checks in
+this phase.
+
+## AI visual review (2026-10-09) — P11
+
+`dev_tools::visual_review`: opt-in `DB_PRO_REVIEW_DIR` makes the headless
+audit run a second stage — capture screenshot → write `<scenario>.bundle.json`
+(whitelisted report excerpt + screenshot ref + review instructions) → run
+`DB_PRO_AI_REVIEW_CMD` (argv: bundle path; `DB_PRO_REVIEW_MODEL` forwarded)
+→ parse stdout into `visual_review` (schema v4). Provider failure/offline
+records `status: error|bundle_only`; the section never touches `issues` or
+the exit code.
+
+| Gate | Result |
+|------|--------|
+| fmt / check dev+release / clippy `-D warnings` | pass |
+| `cargo test --workspace` | 1783 pass / 0 fail (86 dev_tools, +5 review tests) |
+| runtime ugly fixture + mock provider | `/tmp/review-out/`: bundle+json+png, `status: completed`, exit 0 |
+| runtime good fixture, no provider | `bundle_only`, files written |
+| runtime, no `DB_PRO_REVIEW_DIR` | no `visual_review` key, nothing written |
+| runtime, malformed provider output | `status: error`, exit stays audit verdict |
+
+Bundle whitelist: `meta`, `summary`, `rules`, `issues`, `screen` — labels,
+text values, connection data and `signature` never leave the process.
+
+**Not verified**: a real vision model has not reviewed a bundle — the
+provider contract is exercised by mock/sh scripts only.
+
+## End-to-end audit + real vision model (2026-10-09) — P12
+
+Pipeline exercised end-to-end: fixture → audit JSON → screenshot → bundle →
+real vision provider → schema-v4 report with `visual_review`. Provider:
+`/tmp/p12/provider.py` → OpenAI Responses API (`gpt-4o` via
+`DB_PRO_REVIEW_MODEL`); `OPENAI_API_KEY` lives in the provider env, never in
+the app.
+
+| Gate | Result |
+|------|--------|
+| fmt / check dev+release / clippy `-D warnings` | pass |
+| `cargo test --workspace` | 1784 pass / 0 fail (87 dev_tools) |
+| ugly fixture ×3 runs | `attention` all runs; same defect set (off-screen rect, dominant left pane, 100px outlier) — matches audit screen findings |
+| good fixture | `ok`, 6 observation-only entries, zero fabricated warnings |
+| shell-1440 (product UI) | `ok`, 5 observations + 1 suggestion; audit exit 0 unchanged |
+| live-connected non-fixture | `blocked` — screenshot withheld (privacy gate: `has_live_connection` + seeded-fixture envs only; audit plumbing envs don't count) |
+| interactive mode | review unreachable — runs only inside headless `run_audit`; provider call is synchronous there by design (process exits right after) |
+
+Observed limits: provider latency ~5s per bundle; model echoed audit finding
+text as evidence on the ugly run (findings are in the bundle — screenshot
+grounding vs echo is not fully separable); rect sometimes returned as a
+string (normalized in provider script). `claude` CLI OAuth expired and
+`gemini` CLI deprecated on this machine — both unavailable.
+
+## Production readiness: CI policy, provenance, A/B (2026-10-09) — P13
+
+| Change | Evidence |
+|---|---|
+| `DB_PRO_AUDIT_FAIL_ON` policy (`error` default, `warning`, `screen`) | `report.rs:FailPolicy`, `exit_code_with_policy`; `meta.fail_policy` recorded; error verdicts/FAIL rules always gate; heuristic screen findings and AI output never |
+| Privacy gate → provenance, not env flags | `screenshot_is_safe(live, provenance)`; provenance = `DevToolsState.fixture_painted` (set at fixture paint) ∨ `CaptureApp.mark_capture_provenance` (set by `open_*_for_capture`/`prepare_loading`) — a spoofed env can no longer release a live screenshot |
+| Agent contract doc | `docs/ui-audit/AGENT_CLI.md`: env vars, exit codes 0/1/2, report schema, provider contract, privacy gate |
+| `eprintln!` dump → `writeln!(stderr)` | cc-scan gate: stderr is the `DB_PRO_INSPECTOR_DUMP` interface |
+
+| Gate | Result |
+|------|--------|
+| fmt / check dev+release / clippy `-D warnings` | pass |
+| `cargo test --workspace` | 1786 pass / 0 fail (89 dev_tools) |
+| `clean-code-scan --ratchet --ci` | 12 pass / 4 warn (pre-existing) / 0 fail |
+| E2E ugly fixture + real provider | `meta.fail_policy: error`, review `completed` |
+
+A/B evidence (gpt-4o, identical bundle/screenshot, `DB_PRO_REVIEW_EVIDENCE`
+selects assist vs screenshot-only):
+
+| Run | Verdict | Signal |
+|---|---|---|
+| assist-ugly | `attention` | 3 warnings — off-screen rect, dominant-left, spacing outlier (grounded in findings) |
+| solo-ugly | `ok` | 0 warnings — model **missed all three seeded defects** |
+| assist-good | `ok` | 5 info observations + 1 warning (icon discoverability) |
+| solo-good | `attention` | 2 warnings — density guess, icon clarity — one partially hallucinated ("data grid") |
+
+Reading: evidence-assisted runs detect what the audit measured but ground
+poorly against pixels; screenshot-only runs describe layout honestly yet miss
+off-screen/spatial defects the geometry sees. A model-callable follow-up
+would probe: tighter instruction to *verify* each screen finding against the
+image rather than restate it, and `detail=high` on the image input.
+
+## Full-surface UI quality review (2026-10-09) — P14
+
+Matrix: `tools/ui-audit-matrix.sh` — 25/25 scenarios produced reports
+(`/tmp/ui-audit-matrix/`, schema v4, macOS): 18 pass / 7 fail / 0 unsupported.
+NOTE: a same-day re-run attempt hit `CGSSessionScreenIsLocked` — winit never
+receives paint events while the console is locked; the 21:28 run predates the
+lock and uses the identical rule set (P13 changed policy only). AI review
+evidence reused from P12/P13 runs (shell + both fixtures).
+
+| Severity | Count | Where |
+|---|---|---|
+| error | 13 | semantic.missing_name ×12 + interactive.zero_size ×1 |
+| warning | 14 | touching_controls ×11, alignment_drift ×2, overlap ×1 |
+| screen findings | 6 | off_screen/layout_inversion/spacing_outlier (all screen-fixture-ugly, seeded) + no_primary_region ×3 (shell-800, table-data, table-profile) |
+
+Classification (fixture-broken = seeded, excluded from real defects):
+
+| # | Issue | Class | Source |
+|---|---|---|---|
+| 1 | Unnamed `ScrollBar` — results-dock (dark+light), table-profile, agent | confirmed defect (a11y) | `agent_thread_surface_view.rs:28/227`, `table_profile_surface_view.rs:253`, results dock ScrollArea — egui emits no name |
+| 2 | Unnamed `Unknown` interactives — agent ×1, table-profile ×5 | confirmed defect (a11y) | click-sensing widgets w/o accesskit name; painted null-rate bar + hover labels `table_profile_surface_view.rs:291-315` |
+| 3 | Unnamed `MultilineTextInput` — table-ddl | confirmed defect | `table_ddl_surface_view.rs:193` `TextEdit::multiline` — no name/hint |
+| 4 | 11 × `touching_controls` 0px — schema-compare | potential UX issue | diff rows `schema_compare_view.rs:167-172` + migration ops `251-264` — back-to-back horizontal rows |
+| 5 | `alignment_drift` 1.0px (agent) / 1.6px (gallery) | potential UX issue | shared-column edges x=1091 / x=578; subpixel-level, likely real |
+| 6 | `no_primary_region` — shell-800, table-data, table-profile | likely false positive | dense data grids fragment regions by design; rule needs a density exemption — logged, not changed per scope |
+| 7 | fixture-broken: zero-size + overlap + unnamed | intentional (seeded) | dev_tools audit fixture — proves rule sensitivity |
+| 8 | `screen.*` on screen-fixture-ugly ×3 | intentional (seeded) | off-screen rect, layout inversion, spacing outlier |
+| 9 | AI: icon-only toolbar discoverability (shell-1440) | potential UX issue | `activity_bar_view.rs` icon column — advisory only |
+| 10 | P9 note: 50% cell-hitbox overlap on grid edges | intentional design | adjacent-cell shared edge in result grid; role-gated rule no longer reports it |
+
+Priority: P1 = items 1-3 (error, a11y, 4+ surfaces); P2 = items 4-5;
+P3/backlog = 6 (rule calibration), 9 (advisory).
+
+## Accessibility naming pass (2026-10-10) — P15
+
+Closes P14 items 1-3 (`semantic.missing_name`, all surfaces). egui-specific:
+it emits anonymous `ScrollBar` nodes, resizable `Panel` drag handles land as
+`Unknown` (id = panel id + `"__resize"`, no public widget_info), and
+`TextEdit::multiline` carries no label.
+
+| Change | Evidence |
+|---|---|
+| `name_scroll_bars(ctx, scroll_id, label)` helper | `components/scroll_area/ui.rs` — walks the ScrollArea's child nodes post-show, labels `ScrollBar` role nodes "<label> — horizontal/vertical scroll bar" |
+| Scroll bars named | result grid cols+rows (`result_grid_body_view.rs`), agent thread + patch diff (`agent_thread_surface_view.rs`), agent context chips (`agent_surface_view.rs`), column profile grid (`table_profile_surface_view.rs`) |
+| Panel resize handles named | `agent_surface_view.rs` agent_panel, `shell_chrome_view.rs` output_panel — `accesskit_node_builder` on the reconstructed `__resize` id |
+| DDL editor named | `table_ddl_surface_view.rs` — `set_label("DDL script editor")` on the TextEdit node |
+| `Table` component | `components/table/{mod,ui}.rs` — optional `row_label(&dyn Fn(usize)->String)` names row click regions; select-all + per-row checkboxes get `WidgetInfo::selected(Checkbox)`; sortable headers get `WidgetInfo::labeled(Button)`. Callers that don't opt in still flag — naming must be real content |
+| Profile rows | `table_profile_surface_view.rs` — `row_label = column name` |
+
+| Gate | Result |
+|------|--------|
+| fmt / `cargo check -p db-pro-ui` / clippy `-D warnings` | pass |
+| `cargo test -p db-pro-ui --lib` | 1123 pass / 0 fail (91 dev_tools, +1 P15 test) |
+| new test `named_scrollbar_and_textedit_nodes_report_accessible_names` | scroll bar + multiline editor carry names; zero `missing_name` issues |
+
+Runtime re-audit @1440×900 (`DB_PRO_AUDIT_JSON`, `/tmp/p15/after-*.json`):
+
+| Scenario | Before (P14) | After |
+|---|---|---|
+| table-profile | 5 unnamed Unknown + scrollbars | 0 issues |
+| table-ddl | 1 unnamed MultilineTextInput | 0 issues |
+| results-dock / -light | unnamed scrollbars | 0 issues each |
+| agent | scrollbars + 1 Unknown + drift | 1 remaining: `alignment_drift` 1.0px (P14 item 5, geometry, not a11y) |
+| schema-compare | 11 × touching_controls | unchanged — unrelated pre-existing warnings (P14 item 4) |
+
+Not named: `Table::row_label` callers other than profile (data grids show
+painted rows, not widget rows — separate finding class), the `Unknown` node
+in agent resolved to the resize handle now labeled. No production UI geometry,
+rule logic, or audit policy changed.
+
+## Spacing & alignment triage (2026-10-10) — P16
+
+P14 backlog items 4-5 examined against geometry dumps + screenshots.
+
+Root cause of all `touching_controls`: `shell_frame_view.rs:37` zeroes
+`item_spacing` at the workspace root; child `Ui`s clone the parent `Arc<Style>`,
+so every widget inside stacks at 0px unless a view adds explicit `add_space`.
+
+| Cluster | Verdict | Evidence |
+|---|---|---|
+| 4 × data-compare `input_full_width` fields (32px, full width, 0px gap) | FIXED — bordered inputs fused into one white block, fields indistinguishable | before/after screenshots `/tmp/p16/{before,after}-crop.png` |
+| Description label touching first input | FIXED — hint glued to field edge | `schema_compare_view.rs` `add_space(SPACE_XS)` after the description + between each input |
+| `• item` bullet rows in diff cards (11px lines) | no fix — dense monospace list, readable, selectable text not discrete controls | `/tmp/p16/sc-rows.png` |
+| SAFETY LOCK card label lines | no fix — normal leading, readable | same crop |
+| MUTATING/DESTRUCTIVE op rows | no fix — badge + SQL text, readable | `/tmp/p16/sc-ops.png` |
+| agent `alignment_drift` 1.0px | no fix — buttons live inside `toolbar_frame`'s 1px stroke; egui `Frame` docs: stroke width is part of total margin, so the inset is the frame's visible border, not a misalignment | `agent_context_actions_view.rs:27`, `toolbar_frame` stroke, `/tmp/p16/agent-top.png` |
+| gallery `alignment_drift` 1.6px | no fix — workspace tab pill vs content column; different regions, tab has its own horizontal padding | `/tmp/p16/gallery.png` |
+
+No audit thresholds/rules changed; no `no_primary_region` work (out of scope).
+
+| Gate | Result |
+|------|--------|
+| fmt / check dev + release / clippy `-D warnings` | pass |
+| `cargo test --workspace` | 1787 pass / 0 fail (22 suites) |
+| schema-compare audit @1440×900 | 11 → 6 `touching_controls` (inputs + hint cleared; remaining 6 = readable text rows) |
+| agent / component-gallery audit | unchanged 1/1 — legitimate insets, verified in dumps + screenshots |
+| screenshots | `/tmp/p16/sc-1280x800.png`, `/tmp/p16/sc-1440x900.png` (after), `/tmp/p16/sc-1920x1080.png` — fields distinct at all sizes |
+| click/hover | unchanged — `add_space` only; interact ids/senses intact in post-fix dump |
+
+## Final regression (2026-10-10) — P17
+
+Read-only pass; no code/rule changes in this phase.
+
+| Gate | Result |
+|------|--------|
+| fmt `--check` | PASS |
+| `cargo check --workspace` dev + `--release` | PASS |
+| `clippy --workspace --all-targets -D warnings` | PASS |
+| `cargo test --workspace` | PASS — 1787 / 0 fail |
+| Full runtime matrix (25 scenarios) | **BLOCKED** — window server stops delivering `RedrawRequested` (`CGSSessionScreenIsLocked` class symptom): binary launches, NSApplication event loop runs, `update` never ticks; every capture times out at 120s. Same blocker P14 hit. Needs an unlocked console. |
+
+Post-P15/P16 re-audits that DID run (console was alive ~08:20–10:00):
+
+| Scenario | P14 baseline | Post-fix | Delta |
+|---|---|---|---|
+| table-profile | 6 err | 0 | -6 |
+| table-ddl | 1 err | 0 | -1 |
+| results-dock | 1 err | 0 | -1 |
+| results-dock-light | 1 err | 0 | -1 |
+| agent | 2 err + 1 warn | 1 warn (legit frame inset) | -2 err |
+| schema-compare | 11 warn | 6 warn (readable text rows) | -5 |
+| component-gallery | 1 warn | 1 warn (tab pill vs column) | = |
+
+Remaining findings classification:
+- **intentional design** — schema-compare text rows (6× `touching_controls` on
+  readable 11px list lines), agent drift (toolbar_frame stroke inset), gallery
+  drift (tab pill padding).
+- **unverified after P15/P16** — the other 18 scenarios were P14-clean and the
+  P15/P16 diffs don't touch their code paths (`Table::row_label` opt-in,
+  scrollbar naming, DDL label, schema-compare spacing only). Regression risk
+  low but not re-proven at runtime.
+
+Interaction checks (from tests + dumps, not live): keyboard focus
+(`semantic_tree_and_tab_focus_flow` test), scroll naming (`name_scroll_bars`),
+resize handles (`agent_panel`/`output_panel` `__resize` labels), popups
+(Foreground-layer exemption in touching_controls), shortcut handling
+(app_tests). No live screenshot regression comparison possible — see blocker.
+
+## P17 resume (2026-10-10, second attempt)
+
+Console unlock attempt: `IOConsoleLocked=false`, `sysadminctl screenLock is off`,
+window creates and receives `windowDidBecomeKey`/`windowDidChangeOcclusionState`/
+`drawRect:`/`mouseEntered`/`resetCursorRects` — yet **zero `RedrawRequested`**
+events reach egui (`winit=trace` log: `grep RedrawRequested` = 0 hits). Every
+`App::ui`/`run_audit` call starves because egui 0.36 `run_on_demand` only ticks
+on RedrawRequested, and winit only emits it while the window is visible — the
+window is created `visible: false, maximized: true` and the occlusion→redraw
+bridge never fires in this session. Tried: `caffeinate -d`, CGEvent jiggle,
+`env -i`-free runs, 60s settle, direct binary launch — all identical: process
+runs `CFRunLoop`/`mach_msg`, no `update` tick, 120s timeout.
+
+Conclusion: compositor-level starvation, not a code defect, not a rule gap.
+Full 25-scenario matrix remains **BLOCKED** on this machine/session. Re-run
+`tools/ui-audit-matrix.sh` from an interactive (physically attached, unlocked,
+awake) macOS session. Static gates all PASS (1787/0).
+
+## P17 resume (2026-10-10, resolved)
+
+The 10:00-10:55 window-server stall cleared (paint events resumed at ~11:06;
+cause consistent with `drawRect:` landing inside `event_handler.in_use()` +
+no queued `request_redraw` — a session-level transient, not a code path).
+Full 25-scenario matrix re-run on the same session, `/tmp/p18/matrix/`:
+
+| Status | Count | Scenarios |
+|---|---|---|
+| pass (0 issues) | 21 | all shells, welcome, query dark+light, table indexes/structure/data/DDL/profile, settings, explorer-filter, new-connection, quick-open, results-dock dark+light, diagram, history, screen-fixture-good+ugly |
+| fail — intentional | 3 | fixture-broken (2 err + 1 warn, seeded), schema-compare (6 warn readable text rows), agent (1 warn toolbar_frame stroke inset), component-gallery (1 warn tab-pill padding) |
+
+Zero `semantic.missing_name` errors on any real surface — P15 naming holds.
+Zero new issues vs P14 baseline; P15/P16 deltas verified at runtime:
+results-dock/dock-light/table-ddl/table-profile → 0 issues each;
+schema-compare 11→6; agent 3→1; component-gallery unchanged 1.

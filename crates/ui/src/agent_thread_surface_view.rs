@@ -25,7 +25,8 @@ impl AgentThreadSurfaceContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<AgentThreadAction> {
         let mut actions = Vec::new();
         let messages_height = (ui.available_height() - 86.0).max(160.0);
-        egui::ScrollArea::vertical()
+        let thread_scroll = egui::ScrollArea::vertical()
+            .id_salt("agent-thread-scroll")
             .max_height(messages_height)
             .auto_shrink([false, false])
             .stick_to_bottom(true)
@@ -55,6 +56,7 @@ impl AgentThreadSurfaceContext<'_> {
                     self.draw_thinking(ui);
                 }
             });
+        crate::components::name_scroll_bars(ui.ctx(), thread_scroll.id, "Agent thread");
         ui.add_space(SPACE_XS);
         ui.separator();
         ui.add_space(SPACE_XS);
@@ -224,7 +226,7 @@ impl AgentThreadSurfaceContext<'_> {
                 .small()
                 .color(self.theme.text_secondary),
         );
-        egui::ScrollArea::vertical()
+        let patch_scroll = egui::ScrollArea::vertical()
             .max_height(120.0)
             .id_salt("patch-diff-scroll")
             .show(ui, |ui| {
@@ -241,6 +243,7 @@ impl AgentThreadSurfaceContext<'_> {
                         .color(self.theme.success),
                 );
             });
+        crate::components::name_scroll_bars(ui.ctx(), patch_scroll.id, "Patch diff");
     }
 
     fn draw_confirmation_notice(

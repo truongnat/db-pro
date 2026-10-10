@@ -7,10 +7,12 @@
 use super::audit::{AuditIssue, AuditReport, Severity, Verdict};
 
 /// Bump when the report shape changes; baseline loaders check it first.
+/// v4 adds `visual_review` (P11): provider-run AI review of the bundle —
+/// absent or `status: bundle_only|error` offline; never gates the exit code.
 /// v3 adds the `screen` section (P10): measured screen metrics plus a
 /// separate finding list (screen findings never affect the exit code).
 /// v2 adds `scenario` to meta/signature and `layout_fingerprint` to meta.
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// Output path for the headless report (`db-pro-native` exits after writing).
 pub const OUTPUT_ENV: &str = "DB_PRO_AUDIT_JSON";
@@ -168,6 +170,7 @@ pub fn render_report(report: &AuditReport, _ctx: &egui::Context, rc: &ReportCont
             "fixture": rc.fixture,
             "frames": rc.frames,
             "layout_fingerprint": report.layout_fingerprint,
+            "fail_policy": FailPolicy::from_env().label(),
             "os": std::env::consts::OS,
             "timestamp": std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -355,16 +358,75 @@ pub fn issue_keys(report: &AuditReport) -> std::collections::HashSet<String> {
     report.issues.iter().map(|i| IssueKey::of(i).line()).collect()
 }
 
-/// Exit code for an audit run: FAIL verdicts or Error-severity issues mean the
-/// audit failed; SKIP/N/A are reported but never decide the code.
-pub fn exit_code(report: &AuditReport) -> i32 {
+/// What CI fails on (`DB_PRO_AUDIT_FAIL_ON`, comma-separated tokens).
+///
+/// - `error` (default): FAIL verdicts or Error-severity issues.
+/// - `warning`: additionally fails on Warning issues.
+/// - `screen`: additionally fails on *objective* screen findings (geometry
+///   facts like off-screen rects); heuristic screen findings never gate.
+///
+/// AI review observations can never influence the exit code — they are
+/// advisory output appended after the verdict is computed.
+#[derive(Clone, Debug, Default)]
+pub struct FailPolicy {
+    pub on_warnings: bool,
+    pub on_objective_screen: bool,
+}
+
+/// Env var selecting the CI fail policy.
+pub const FAIL_ON_ENV: &str = "DB_PRO_AUDIT_FAIL_ON";
+
+impl FailPolicy {
+    pub fn from_env() -> Self {
+        let mut p = Self::default();
+        if let Ok(v) = std::env::var(FAIL_ON_ENV) {
+            for token in v.split(',').map(|t| t.trim()) {
+                match token {
+                    "warning" => p.on_warnings = true,
+                    "screen" => p.on_objective_screen = true,
+                    "error" | "" => {}
+                    other => tracing::warn!(token = other, "audit: unknown fail-on token"),
+                }
+            }
+        }
+        p
+    }
+
+    /// Reported in meta so CI consumers see which policy produced the code.
+    pub fn label(&self) -> &'static str {
+        match (self.on_warnings, self.on_objective_screen) {
+            (false, false) => "error",
+            (true, false) => "error,warning",
+            (false, true) => "error,screen",
+            (true, true) => "error,warning,screen",
+        }
+    }
+}
+
+/// Exit code under an explicit policy — pure, testable.
+pub fn exit_code_with_policy(report: &AuditReport, policy: &FailPolicy) -> i32 {
     let failed = report.rules.iter().any(|r| r.verdict() == Verdict::Fail)
-        || report.issues.iter().any(|i| i.severity == Severity::Error);
+        || report.issues.iter().any(|i| i.severity == Severity::Error)
+        || (policy.on_warnings && report.issues.iter().any(|i| i.severity == Severity::Warning))
+        || (policy.on_objective_screen
+            && report.screen.as_ref().is_some_and(|s| {
+                s.findings
+                    .iter()
+                    .any(|f| f.kind == crate::dev_tools::screen::FindingKind::Objective)
+            }));
     if failed {
         EXIT_AUDIT_FAILED
     } else {
         EXIT_OK
     }
+}
+
+/// Exit code for an audit run under the env-configured policy. FAIL verdicts
+/// or Error-severity issues always fail; warnings and objective screen
+/// findings only when `DB_PRO_AUDIT_FAIL_ON` asks. SKIP/N/A and AI output
+/// never decide the code.
+pub fn exit_code(report: &AuditReport) -> i32 {
+    exit_code_with_policy(report, &FailPolicy::from_env())
 }
 
 #[cfg(test)]
@@ -398,7 +460,7 @@ mod tests {
     #[test]
     fn schema_and_exit_constants_are_stable() {
         // The schema version and exit codes are a public contract for CI.
-        assert_eq!(SCHEMA_VERSION, 3);
+        assert_eq!(SCHEMA_VERSION, 4);
         assert_eq!(EXIT_OK, 0);
         assert_eq!(EXIT_AUDIT_FAILED, 1);
         assert_eq!(EXIT_TOOL_ERROR, 2);
@@ -505,6 +567,79 @@ mod tests {
         assert_eq!(exit_code(&bad), EXIT_OK);
         let err = report(vec![issue("x", 1, None, Severity::Error)], vec![], &[1]);
         assert_eq!(exit_code(&err), EXIT_AUDIT_FAILED);
+    }
+
+    #[test]
+    fn fail_policy_gates_warnings_and_objective_screen_findings() {
+        use crate::dev_tools::screen::{FindingKind, ScreenAnalysis, ScreenFinding};
+        let warning = report(vec![issue("x", 1, None, Severity::Warning)], vec![], &[1]);
+        // Default policy: warning passes.
+        assert_eq!(exit_code_with_policy(&warning, &FailPolicy::default()), EXIT_OK);
+        let warn_policy = FailPolicy {
+            on_warnings: true,
+            ..Default::default()
+        };
+        assert_eq!(exit_code_with_policy(&warning, &warn_policy), EXIT_AUDIT_FAILED);
+
+        // Objective screen finding gates only under `screen`; heuristic never.
+        let mut with_screen = report(vec![], vec![], &[1]);
+        with_screen.screen = Some(ScreenAnalysis {
+            findings: vec![
+                ScreenFinding {
+                    rule: "screen.off_screen",
+                    kind: FindingKind::Objective,
+                    severity: Severity::Warning,
+                    confidence: super::super::audit::Confidence::High,
+                    widget_id: None,
+                    widget_debug: None,
+                    region: None,
+                    evidence: "test".into(),
+                },
+                ScreenFinding {
+                    rule: "screen.spacing_outlier",
+                    kind: FindingKind::Heuristic,
+                    severity: Severity::Warning,
+                    confidence: super::super::audit::Confidence::Medium,
+                    widget_id: None,
+                    widget_debug: None,
+                    region: None,
+                    evidence: "test".into(),
+                },
+            ],
+            ..Default::default()
+        });
+        assert_eq!(exit_code_with_policy(&with_screen, &FailPolicy::default()), EXIT_OK);
+        let screen_policy = FailPolicy {
+            on_objective_screen: true,
+            ..Default::default()
+        };
+        assert_eq!(exit_code_with_policy(&with_screen, &screen_policy), EXIT_AUDIT_FAILED);
+
+        // Heuristic-only findings never gate.
+        with_screen.screen.as_mut().unwrap().findings.remove(0);
+        assert_eq!(exit_code_with_policy(&with_screen, &screen_policy), EXIT_OK);
+    }
+
+    #[test]
+    fn ai_review_never_reaches_exit_code() {
+        // Contract, structural: exit_code consumes AuditReport only — there
+        // is no field through which visual_review could leak in. Verify the
+        // rendered report keeps the two channels separate.
+        let ctx = egui::Context::default();
+        let r = report(vec![], vec![], &[1]);
+        let rc = ReportContext {
+            viewport: "1440x900".into(),
+            fixture: false,
+            frames: 5,
+            scenario: "s".into(),
+            theme_label: "Dark".into(),
+        };
+        let mut j = render_report(&r, &ctx, &rc);
+        j["visual_review"] = serde_json::json!({"status": "completed", "verdict": "poor"});
+        assert_eq!(j["summary"]["issues"], 0);
+        assert_eq!(j["visual_review"]["verdict"], "poor");
+        // Exit code already computed from the report; AI verdict is inert.
+        assert_eq!(exit_code_with_policy(&r, &FailPolicy::default()), EXIT_OK);
     }
 
     fn write_tmp(json: &serde_json::Value) -> std::path::PathBuf {

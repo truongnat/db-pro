@@ -188,15 +188,19 @@ fn draw_script_error(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) {
 fn draw_script_editor(context: &mut DdlScriptContext<'_>, ui: &mut egui::Ui) -> Option<DdlScriptAction> {
     let mut changed = false;
     editor_frame(context.theme).show(ui, |ui| {
-        changed = ui
-            .add(
-                TextEdit::multiline(&mut *context.ddl)
-                    .font(FontId::monospace(13.0))
-                    .desired_width(ui.available_width())
-                    .desired_rows(18)
-                    .interactive(context.writable),
-            )
-            .changed();
+        let response = ui.add(
+            TextEdit::multiline(&mut *context.ddl)
+                .font(FontId::monospace(13.0))
+                .desired_width(ui.available_width())
+                .desired_rows(18)
+                .interactive(context.writable),
+        );
+        changed = response.changed();
+        // The editor has no visible label widget — name the accesskit node
+        // directly so AT announces the control (fixes semantic.missing_name).
+        ui.ctx().accesskit_node_builder(response.id, |builder| {
+            builder.set_label("DDL script editor");
+        });
     });
     changed.then_some(DdlScriptAction::Changed)
 }

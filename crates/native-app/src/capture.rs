@@ -171,6 +171,10 @@ pub(super) struct CaptureApp {
     /// Set once the report has been written so a straggler frame can't
     /// double-emit before the process exits.
     audit_done: bool,
+    /// Audit emission captured but waiting on the bundle screenshot frame —
+    /// `Some((report json, verdict code))` while stage 2 runs.
+    #[cfg(debug_assertions)]
+    pending_review: Option<(serde_json::Value, i32)>,
 }
 
 impl CaptureApp {
@@ -191,6 +195,24 @@ impl CaptureApp {
                 pinned: capture_size_from_env(),
                 audit: audit_requested(),
                 audit_done: false,
+                #[cfg(debug_assertions)]
+                pending_review: None,
+            }),
+            None if audit_requested() && cfg!(debug_assertions) => Box::new(Self {
+                inner,
+                menu,
+                // Audit mode ignores `path` — no screenshot is taken.
+                path: PathBuf::new(),
+                settle: settle_frames(),
+                frames: 0,
+                requested_at: None,
+                opened_dialog: false,
+                prepared_loading: false,
+                pinned: capture_size_from_env(),
+                audit: true,
+                audit_done: false,
+                #[cfg(debug_assertions)]
+                pending_review: None,
             }),
             None => Box::new(super::NativeMenuApp { inner, menu }),
         }
@@ -210,6 +232,8 @@ impl CaptureApp {
                 pinned: capture_size_from_env(),
                 audit: audit_requested(),
                 audit_done: false,
+                #[cfg(debug_assertions)]
+                pending_review: None,
             }),
             None if audit_requested() && cfg!(debug_assertions) => Box::new(Self {
                 inner,
@@ -223,6 +247,8 @@ impl CaptureApp {
                 pinned: capture_size_from_env(),
                 audit: true,
                 audit_done: false,
+                #[cfg(debug_assertions)]
+                pending_review: None,
             }),
             None => Box::new(inner),
         }
@@ -231,27 +257,44 @@ impl CaptureApp {
     /// Writes a captured frame to `self.path`, reporting the outcome. Named
     /// `write_png` rather than `save` because `eframe::App` already defines `save`.
     fn write_png(&self, image: &egui::ColorImage) -> bool {
+        self.write_png_to(&self.path.clone(), image)
+    }
+
+    /// PNG write to an explicit path — the review bundle's screenshot lands
+    /// in `DB_PRO_REVIEW_DIR`, separate from the capture output path.
+    fn write_png_to(&self, path: &std::path::Path, image: &egui::ColorImage) -> bool {
         let [width, height] = image.size;
         let Ok(width) = u32::try_from(width) else {
-            tracing::error!(path = %self.path.display(), width, "capture: framebuffer width exceeds PNG limits");
+            tracing::error!(path = %path.display(), width, "capture: framebuffer width exceeds PNG limits");
             return false;
         };
         let Ok(height) = u32::try_from(height) else {
-            tracing::error!(path = %self.path.display(), height, "capture: framebuffer height exceeds PNG limits");
+            tracing::error!(path = %path.display(), height, "capture: framebuffer height exceeds PNG limits");
             return false;
         };
         let rgba: Vec<u8> = image.pixels.iter().flat_map(|pixel| pixel.to_array()).collect();
-        match image::save_buffer(&self.path, &rgba, width, height, image::ColorType::Rgba8) {
+        match image::save_buffer(path, &rgba, width, height, image::ColorType::Rgba8) {
             Ok(()) => {
-                tracing::info!(path = %self.path.display(), width, height, "capture: wrote framebuffer");
+                tracing::info!(path = %path.display(), width, height, "capture: wrote framebuffer");
                 true
             }
             Err(err) => {
-                tracing::error!(path = %self.path.display(), %err, "capture: failed to write framebuffer");
+                tracing::error!(path = %path.display(), %err, "capture: failed to write framebuffer");
                 false
             }
         }
     }
+}
+
+/// The reply to `ViewportCommand::Screenshot` — shared by the capture path
+/// and the audit-review stage.
+fn take_screenshot(ctx: &egui::Context) -> Option<std::sync::Arc<egui::ColorImage>> {
+    ctx.input(|input| {
+        input.events.iter().find_map(|event| match event {
+            egui::Event::Screenshot { image, .. } => Some(image.clone()),
+            _ => None,
+        })
+    })
 }
 
 impl eframe::App for CaptureApp {
@@ -281,6 +324,7 @@ impl CaptureApp {
     fn prepare_loading(&mut self) {
         if !self.prepared_loading && std::env::var_os(LOADING_ENV).is_some() {
             self.inner.prepare_loading_for_capture();
+            self.inner.mark_capture_provenance();
             self.prepared_loading = true;
         }
     }
@@ -289,14 +333,16 @@ impl CaptureApp {
         if self.opened_dialog || self.frames < 2 {
             return;
         }
-        // Evidence hook: when asked, open the new-connection dialog so the capture
-        // documents the password input + eye toggle (the affected surface for the
-        // input click-steal fix) instead of the default window. Gated by an env var
-        // so a normal launch is unaffected.
+        // Evidence hook: when asked, open the requested fixture surface. Gated
+        // by env vars so a normal launch is unaffected; any opener that ran
+        // stamps provenance — a code path, not an env string.
         self.opened_dialog = self.open_dialog_capture()
             || self.open_query_capture(ctx)
             || self.open_table_capture()
             || self.open_workspace_capture();
+        if self.opened_dialog {
+            self.inner.mark_capture_provenance();
+        }
     }
 
     /// Connection-dialog captures: open the dialog surface, nothing else.
@@ -408,12 +454,41 @@ impl CaptureApp {
     }
 
     /// Headless audit (`DB_PRO_AUDIT_JSON`): the emission is produced inside
-    /// `dev_tools.draw` once warm — this collects it and exits with the verdict
-    /// code. Release builds lack the dev-tools module; the env var is inert.
+    /// `dev_tools.draw` once warm — this collects it. With `DB_PRO_REVIEW_DIR`
+    /// set the run continues: request a screenshot for the review bundle,
+    /// attach `visual_review`, then write the report and exit. Release builds
+    /// lack the dev-tools module; the env var is inert.
     #[cfg(debug_assertions)]
     fn run_audit(&mut self, ctx: &egui::Context) {
         self.frames += 1;
-        if let Some(code) = self.inner.take_audit_emission() {
+        // Stage 2: emission captured, waiting on the screenshot frame.
+        if let Some((json, code)) = self.pending_review.take() {
+            let shot_ok = take_screenshot(ctx)
+                .map(|image| {
+                    let target = std::env::var_os("DB_PRO_REVIEW_DIR")
+                        .map(std::path::PathBuf::from)
+                        .map(|d| d.join(format!("{}.png", db_pro_ui::DbProApp::audit_scenario())));
+                    target.map(|p| self.write_png_to(&p, &image)).unwrap_or(false)
+                })
+                .unwrap_or(false);
+            if shot_ok || self.frames > AUDIT_TIMEOUT_FRAMES {
+                self.finish_audit(json, code, shot_ok);
+            } else {
+                self.pending_review = Some((json, code));
+                ctx.request_repaint();
+            }
+            return;
+        }
+        // Stage 1: poll the pipeline; when review is enabled, arm the
+        // screenshot request instead of writing immediately.
+        if let Some((json, code)) = self.inner.take_audit_emission() {
+            if std::env::var_os("DB_PRO_REVIEW_DIR").is_some_and(|v| !v.is_empty()) {
+                self.pending_review = Some((json, code));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+                ctx.request_repaint();
+                return;
+            }
+            let code = self.inner.write_audit_report(&json, code);
             self.audit_done = true;
             tracing::info!(code, "audit: report written");
             std::process::exit(code);
@@ -427,15 +502,22 @@ impl CaptureApp {
         ctx.request_repaint();
     }
 
+    /// Attach `visual_review` (bundle written, provider consulted if
+    /// configured), write the report, exit with the AUDIT code — the review
+    /// is advisory and can never change the verdict.
+    #[cfg(debug_assertions)]
+    fn finish_audit(&mut self, mut json: serde_json::Value, code: i32, shot_ok: bool) -> ! {
+        if let Some((section, _, _)) = self.inner.run_visual_review(&json, shot_ok) {
+            json["visual_review"] = section;
+        }
+        let code = self.inner.write_audit_report(&json, code);
+        self.audit_done = true;
+        tracing::info!(code, shot_ok, "audit: report written with review section");
+        std::process::exit(code);
+    }
+
     fn capture_screenshot(&self, ctx: &egui::Context) -> bool {
-        // The reply to `ViewportCommand::Screenshot`.
-        let captured = ctx.input(|input| {
-            input.events.iter().find_map(|event| match event {
-                egui::Event::Screenshot { image, .. } => Some(image.clone()),
-                _ => None,
-            })
-        });
-        if let Some(image) = captured {
+        if let Some(image) = take_screenshot(ctx) {
             self.write_png(&image);
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             true

@@ -34,6 +34,12 @@ impl AgentPanelSurfaceContext {
                 ui.set_min_size(ui.available_size());
                 content(ui);
             });
+        // egui's resizable Panel emits an anonymous `Unknown` node for the
+        // drag handle (id = panel id + "__resize") — name it so AT can
+        // announce "resize agent panel" instead of nothing.
+        ui.ctx().accesskit_node_builder(egui::Id::new("agent_panel").with("__resize"), |b| {
+            b.set_label("Resize agent panel");
+        });
         response.response.rect.width()
     }
 }
@@ -218,7 +224,7 @@ pub(super) struct AgentContextSurfaceContext<'a> {
 impl AgentContextSurfaceContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) {
         toolbar_frame(self.theme).show(ui, |ui| {
-            egui::ScrollArea::horizontal()
+            let chips_scroll = egui::ScrollArea::horizontal()
                 .id_salt("agent-context-chips")
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
@@ -248,6 +254,7 @@ impl AgentContextSurfaceContext<'_> {
                         }
                     });
                 });
+            crate::components::name_scroll_bars(ui.ctx(), chips_scroll.id, "Agent context chips");
             ui.label(
                 RichText::new(self.provider_detail)
                     .font(font_caption())

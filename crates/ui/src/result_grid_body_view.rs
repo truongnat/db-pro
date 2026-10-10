@@ -78,7 +78,9 @@ pub(super) fn draw_body(
         Layout::top_down(Align::Min),
         |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
-            egui::ScrollArea::horizontal().show(ui, |ui| {
+            let grid_scroll = egui::ScrollArea::horizontal()
+                .id_salt("result-grid-columns-scroll")
+                .show(ui, |ui| {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
                 let content_width = GRID_ROW_NUMBER_WIDTH + context.widths.iter().sum::<f32>();
                 // Rows/header paint a trailing filler up to the grid edge, so the
@@ -98,8 +100,9 @@ pub(super) fn draw_body(
                 let row_height = 28.0;
                 let viewport_height = (grid_height - 28.0).max(140.0);
                 let rows_top = ui.cursor().top();
-                egui::ScrollArea::vertical()
+                let rows_scroll = egui::ScrollArea::vertical()
                     .max_height(viewport_height)
+                    .id_salt("result-grid-rows-scroll")
                     .show_rows(ui, row_height, context.indexes.len(), |ui, range| {
                         ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for position in range {
@@ -113,8 +116,12 @@ pub(super) fn draw_body(
                             );
                         }
                     });
+                crate::components::scroll_area::name_scroll_bars(ui.ctx(), rows_scroll.id, "Result rows");
                 draw_empty_fill(ui, rows_top, viewport_height, context.indexes.len(), row_height, context.theme);
             });
+            // egui never names its native scroll bars — name them so
+            // assistive tech sees "Result grid" / "Result rows".
+            crate::components::scroll_area::name_scroll_bars(ui.ctx(), grid_scroll.id, "Result grid");
         },
     );
 }

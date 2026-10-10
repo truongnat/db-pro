@@ -73,6 +73,9 @@ impl<'a> Table<'a> {
                 let resp = ui
                     .interact(cb_rect, ui.id().with("select_all"), egui::Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand);
+                resp.widget_info(|| {
+                    egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, self.all_selected, "Select all rows")
+                });
                 let center = cb_rect.center();
                 let box_rect = Rect::from_center_size(center, Vec2::splat(CHECKBOX_SIZE));
 
@@ -149,6 +152,11 @@ impl<'a> Table<'a> {
                         egui::Sense::hover()
                     },
                 );
+                if col.sortable {
+                    resp.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("Sort by {}", col.title))
+                    });
+                }
 
                 if col.sortable && resp.hovered() {
                     ui.painter()
@@ -289,6 +297,11 @@ impl<'a> Table<'a> {
                     let row_resp = ui
                         .interact(row_rect, ui.id().with(("row", row_idx)), egui::Sense::click())
                         .on_hover_cursor(egui::CursorIcon::PointingHand);
+                    if let Some(row_label) = self.row_label {
+                        row_resp.widget_info(|| {
+                            egui::WidgetInfo::labeled(egui::WidgetType::Other, true, row_label(row_idx))
+                        });
+                    }
 
                     let hover_t = crate::components::animation::hover_t(
                         ui.ctx(),
@@ -336,6 +349,14 @@ impl<'a> Table<'a> {
                         let cb_resp = ui
                             .interact(cb_rect, ui.id().with(("row_cb", row_idx)), egui::Sense::click())
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        cb_resp.widget_info(|| {
+                            egui::WidgetInfo::selected(
+                                egui::WidgetType::Checkbox,
+                                true,
+                                is_selected,
+                                format!("Select row {}", row_idx + 1),
+                            )
+                        });
                         let center = cb_rect.center();
                         let box_rect = Rect::from_center_size(center, Vec2::splat(CHECKBOX_SIZE));
 

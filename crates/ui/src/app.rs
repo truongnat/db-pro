@@ -45,11 +45,35 @@ pub struct DbProApp {
     gallery_state: component_gallery_view::ComponentGalleryState,
     #[cfg(debug_assertions)]
     dev_tools: crate::dev_tools::DevToolsState,
+    /// Set by `mark_capture_provenance` when a capture fixture opener ran —
+    /// a field, not an env var, so the review gate reads real provenance.
+    capture_evidence_seeded: bool,
 }
 
 // CapabilityLookup lives in `capability_lookup.rs`.
 
 impl DbProApp {
+    /// True when a live database session exists — used by the visual-review
+    /// privacy gate to keep screenshots of real data from leaving the app.
+    pub fn has_live_connection(&self) -> bool {
+        self.connection.lifecycle.is_connected()
+    }
+
+    /// Provenance for the visual-review privacy gate: true when the visible
+    /// surface was seeded by a capture fixture (`*for_capture` openers run
+    /// here) or a dev-tools fixture painted — not merely when an env var
+    /// claims it. Debug-only: the review pipeline is a dev-tools feature.
+    #[cfg(debug_assertions)]
+    pub fn fixture_provenance(&self) -> bool {
+        self.dev_tools.fixture_provenance() || self.capture_evidence_seeded
+    }
+
+    /// Mark that a `DB_PRO_CAPTURE_*` surface opener ran — the capture
+    /// driver's provenance stamp, set by code path not by env string.
+    pub fn mark_capture_provenance(&mut self) {
+        self.capture_evidence_seeded = true;
+    }
+
     /// Apply a driver choice from the connection dialog.
     pub fn select_connection_driver(&mut self, driver: UiDriver) {
         connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);

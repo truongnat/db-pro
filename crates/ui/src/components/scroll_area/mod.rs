@@ -2,4 +2,4 @@ mod config;
 mod handler;
 mod ui;
 
-pub use ui::ScrollArea;
+pub use ui::{name_scroll_bars, ScrollArea};

@@ -150,7 +150,7 @@ pub struct ScreenRegion {
 }
 
 /// Spacing rhythm over every measured sibling gap on the screen.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RhythmStats {
     /// Sibling gaps measured (unclipped, same-layer+parent, axis-aligned).
     pub gaps_measured: usize,
@@ -165,7 +165,7 @@ pub struct RhythmStats {
 }
 
 /// Widget density, measured not prescribed.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DensityStats {
     pub widgets: usize,
     pub interactive: usize,
@@ -177,7 +177,7 @@ pub struct DensityStats {
 
 /// Interactive-mass distribution across screen quadrants (area share of all
 /// interactive widget rect area — 4 numbers summing to ~1.0).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BalanceStats {
     pub left_top: f32,
     pub right_top: f32,
@@ -187,7 +187,7 @@ pub struct BalanceStats {
 
 /// Semantic hierarchy measurements. `Option` fields stay `None` when the
 /// accesskit tree is unavailable — consumers must read UNKNOWN, not 0.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct HierarchyStats {
     /// Deepest parent→root chain in the tree. `None` = no tree.
     pub max_depth: Option<u32>,
@@ -219,7 +219,7 @@ impl AnalysisGap {
 }
 
 /// Everything measured about one screen.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ScreenAnalysis {
     /// Whether the screen had enough widget geometry to analyze at all.
     /// `false` → metrics are the struct's `None` fields + gaps explains why.
@@ -747,12 +747,59 @@ fn classify(
     RegionKind::Content
 }
 
-/// Dense uniform-stride data surface: any single parent column or row with
-/// ≥8 same-size siblings at a repeated pitch. Result grids, explorer trees,
-/// and history lists all produce this signature; a toolbar of varied-size
-/// buttons does not.
+/// Dense data surface. Three signatures, any suffices:
+///
+/// - *Stride*: a single parent column/row with ≥8 same-size siblings at a
+///   repeated pitch — result grids and explorer trees produce this.
+/// - *Size*: ≥75% of the region's members share one rect size — grids whose
+///   cells are parented per row have no same-parent run but stay uniform.
+/// - *Banding*: ≥2 horizontal or vertical stripes (members sharing a `min_y`
+///   or `min_x` line, ≥4 per stripe) covering ≥60% of members — multi-column
+///   grids with per-cell parents and mixed widths (data tables).
+///
+/// A toolbar of varied-size buttons produces none of the three.
 fn is_grid_like(_ctx: &egui::Context, widgets: &[(&WidgetGeometry, Rect)], idx: &[usize]) -> bool {
     use std::collections::HashMap;
+    // Size signature: no parent structure needed — a region where ≥75% of
+    // members share one rect size is a dense uniform surface. Mixed-size
+    // toolbars and panels cannot reach that share.
+    if idx.len() >= GRID_MIN_ITEMS {
+        let mut sizes: HashMap<(i64, i64), usize> = HashMap::new();
+        for &i in idx {
+            let r = widgets[i].1;
+            *sizes
+                .entry(((r.width() * 2.0) as i64, (r.height() * 2.0) as i64))
+                .or_default() += 1;
+        }
+        let modal = sizes.values().copied().max().unwrap_or(0);
+        if modal >= GRID_MIN_ITEMS && modal * 4 >= idx.len() * 3 {
+            return true;
+        }
+    }
+    // Banding signature: rows/columns of cells sharing one min edge. Two or
+    // more stripes of ≥4 aligned widgets covering ≥60% of members is a data
+    // table pattern; scattered mixed layout cannot reach it.
+    if idx.len() >= GRID_MIN_ITEMS {
+        let banded = |vertical: bool| -> bool {
+            let mut lines: HashMap<i64, usize> = HashMap::new();
+            for &i in idx {
+                let r = widgets[i].1;
+                let edge = if vertical {
+                    (r.min.y * 2.0) as i64
+                } else {
+                    (r.min.x * 2.0) as i64
+                };
+                *lines.entry(edge).or_default() += 1;
+            }
+            let stripes = lines.values().filter(|&&n| n >= 4).count();
+            let covered: usize = lines.values().filter(|&&n| n >= 4).sum();
+            stripes >= 2 && covered * 5 >= idx.len() * 3
+        };
+        if banded(true) || banded(false) {
+            return true;
+        }
+    }
+    // Stride signature: same-parent run of same-size siblings on a pitch.
     let mut by_parent: HashMap<Id, Vec<usize>> = HashMap::new();
     for &i in idx {
         by_parent.entry(widgets[i].0.parent_id).or_default().push(i);
@@ -946,26 +993,32 @@ fn finding_off_screen(widgets: &[(&WidgetGeometry, Rect)], screen: Rect, finding
     }
 }
 
-/// Edge-anchored secondary regions outweighing the working surface — an
-/// inversion of the IDE contract (navigation serves content), measured as
+/// Inversion of the IDE contract (navigation serves content), measured as
 /// width-share comparison, not an aesthetic ratio.
+///
+/// The navigation pool is panes anchored to the LEFT edge only: DB Pro's
+/// chrome convention puts the activity rail and explorer on the left, while
+/// the working surface legitimately fills to the right edge — counting
+/// right-anchored panes as navigation flags every ordinary IDE layout.
+/// Full-width bands (touching both vertical edges) are docks/toolbars, not
+/// side panes. A wide LEFT pane that is also the screen's widest region
+/// means navigation outweighs the work surface — an inversion.
+///
+/// Limit: right-side inversion is undetectable from geometry alone — a wide
+/// right pane and right-anchored content are the same measured shape.
 fn finding_layout_inversion(regions: &[ScreenRegion], screen: Rect, findings: &mut Vec<ScreenFinding>) {
     let sw = screen.width().max(1.0);
     let sh = screen.height().max(1.0);
-    // Measured side-anchored navigation: touches a left/right edge, runs
-    // vertically, and isn't itself a data grid (a dense data pane anchored
-    // to the edge is working surface, not chrome). Compare its width against
-    // the widest interior region — if navigation outweighs the work surface
-    // the layout is inverted, by measurement not by ideal ratio.
     let mut secondary = 0.0_f32;
     let mut interior = 0.0_f32;
     for r in regions {
         let rect = r.rect.to_egui();
-        let side_anchored = (rect.min.x <= screen.min.x + EDGE_TOL_PX || rect.max.x >= screen.max.x - EDGE_TOL_PX)
+        let left_anchored = rect.min.x <= screen.min.x + EDGE_TOL_PX
+            && rect.max.x < screen.max.x - EDGE_TOL_PX
             && rect.min.y > screen.min.y + EDGE_TOL_PX
             && rect.max.y < screen.max.y - EDGE_TOL_PX
             && rect.height() / sh >= PANEL_MIN_HEIGHT_SHARE;
-        if side_anchored {
+        if left_anchored {
             secondary = secondary.max(rect.width());
         } else {
             interior = interior.max(rect.width());
@@ -981,7 +1034,7 @@ fn finding_layout_inversion(regions: &[ScreenRegion], screen: Rect, findings: &m
             widget_debug: None,
             region: None,
             evidence: format!(
-                "edge-anchored panel is {:.0}px wide ({:.0}% of screen) vs the widest interior region at {:.0}px",
+                "left-anchored pane is {:.0}px wide ({:.0}% of screen) vs the widest non-left region at {:.0}px",
                 secondary,
                 secondary / sw * 100.0,
                 interior
@@ -1159,9 +1212,11 @@ fn finding_spacing_outliers(widgets: &[(&WidgetGeometry, Rect)], findings: &mut 
     }
 }
 
-/// Interactive controls packed under [`CONGESTION_GAP_PX`] inside a non-data
-/// surface — a wall of undifferentiated controls. Dense data grids and edge
-/// chrome are exempt: their density is the IDE pattern, not a defect.
+/// Interactive controls packed under [`CONGESTION_GAP_PX`] on BOTH axes
+/// inside a non-data surface — a wall of undifferentiated controls. Packing
+/// on one axis alone is exempt: a toolbar row or tab strip has zero-gap
+/// horizontal hit-rects by IDE convention, a dense list has vertical. Data
+/// grids and edge chrome are exempt via `grid_like`/classification.
 fn finding_congestion(
     widgets: &[(&WidgetGeometry, Rect)],
     regions: &[ScreenRegion],
@@ -1171,35 +1226,96 @@ fn finding_congestion(
         if !matches!(region.kind, RegionKind::Content) || region.grid_like {
             continue;
         }
-        let inside: Vec<(&WidgetGeometry, Rect)> = widgets
+        // Leaf interactives only: egui registers container hit-rects that
+        // enclose their children (toolbar strip containing its buttons), and
+        // sometimes several widgets on the identical rect — both read as
+        // two-axis packed when they are one visual control. Geometry decides
+        // leaf-ness because nested widgets rarely share a parent Ui.
+        let raw: Vec<(&WidgetGeometry, Rect)> = widgets
             .iter()
             .copied()
             .filter(|(w, r)| w.enabled && (w.senses_click || w.senses_drag) && region.rect.to_egui().contains_rect(*r))
             .collect();
+        let inside: Vec<(&WidgetGeometry, Rect)> = raw
+            .iter()
+            .enumerate()
+            .filter(|(a, (_, ra))| {
+                !raw.iter().enumerate().any(|(b, (_, rb))| {
+                    if b == *a {
+                        return false;
+                    }
+                    // Strict containment → a is a wrapper around b.
+                    if rb.min.x > ra.min.x && rb.min.y > ra.min.y && rb.max.x < ra.max.x && rb.max.y < ra.max.y {
+                        return true;
+                    }
+                    // Identical rect → keep only the first occurrence.
+                    (rb.min.x - ra.min.x).abs() <= 0.5
+                        && (rb.min.y - ra.min.y).abs() <= 0.5
+                        && (rb.max.x - ra.max.x).abs() <= 0.5
+                        && (rb.max.y - ra.max.y).abs() <= 0.5
+                        && b < *a
+                })
+            })
+            .map(|(_, w)| *w)
+            .collect();
         if inside.len() < CONGESTION_MIN_WIDGETS {
             continue;
         }
-        // Close-packing score: share of nearest-neighbor distances below the
-        // congestion gap, on whichever axis the region flows.
-        let mut packed = 0usize;
-        for (a_idx, (wa, ra)) in inside.iter().enumerate() {
-            let nearest = inside
-                .iter()
-                .enumerate()
-                .filter(|(b_idx, _)| *b_idx != a_idx)
-                .map(|(_, (_, rb))| {
-                    let x = (rb.min.x - ra.max.x).max(ra.min.x - rb.max.x).max(0.0);
-                    let y = (rb.min.y - ra.max.y).max(ra.min.y - rb.max.y).max(0.0);
-                    x + y
-                })
-                .fold(f32::MAX, f32::min);
-            let _ = wa;
-            if nearest <= CONGESTION_GAP_PX {
-                packed += 1;
+        // Stacked-bar exemption: leaves sorted into ≥3 coarse bands (8px
+        // buckets on the flow axis) covering ≥50% are a tab-strip + toolbar
+        // stack — the conventional IDE pattern, not an unstructured wall.
+        // Banding needs tolerance: a band's sub-elements (label, icon, frame)
+        // share the row but sit a few px off its top edge.
+        {
+            use std::collections::HashMap;
+            let banded = |vertical: bool| -> bool {
+                let mut bands: HashMap<i64, usize> = HashMap::new();
+                for (_, r) in &inside {
+                    let edge = if vertical { r.min.y } else { r.min.x };
+                    *bands.entry((edge / 8.0) as i64).or_default() += 1;
+                }
+                let stripes = bands.values().filter(|&&n| n >= 4).count();
+                let covered: usize = bands.values().filter(|&&n| n >= 4).sum();
+                stripes >= 3 && covered * 2 >= inside.len()
+            };
+            if banded(true) || banded(false) {
+                continue;
             }
         }
-        let share = packed as f32 / inside.len() as f32;
-        if packed >= CONGESTION_MIN_WIDGETS && share >= 0.8 {
+        // Close-packing score per axis: a widget counts only when it has a
+        // ≤2px neighbor both horizontally AND vertically — one tight axis is
+        // toolbars/lists (intended), two tight axes is an unstructured wall.
+        let mut packed: Vec<usize> = Vec::new();
+        for (a_idx, (wa, ra)) in inside.iter().enumerate() {
+            let mut tight_x = f32::MAX;
+            let mut tight_y = f32::MAX;
+            for (b_idx, (_, rb)) in inside.iter().enumerate() {
+                if b_idx == a_idx {
+                    continue;
+                }
+                tight_x = tight_x.min((rb.min.x - ra.max.x).max(ra.min.x - rb.max.x).max(0.0));
+                tight_y = tight_y.min((rb.min.y - ra.max.y).max(ra.min.y - rb.max.y).max(0.0));
+            }
+            let _ = wa;
+            if tight_x <= CONGESTION_GAP_PX && tight_y <= CONGESTION_GAP_PX {
+                packed.push(a_idx);
+            }
+        }
+        // Toolbar-frame exemption: packed controls clustered within the top
+        // or bottom 15% of the region's own bounds are framing chrome (a
+        // toolbar plus a status/pagination strip around a calm middle) — the
+        // standard IDE pane, not a control wall.
+        let rrect = region.rect.to_egui();
+        let band = (rrect.height() * 0.15).max(24.0);
+        let framed = packed.iter().all(|&a| {
+            let r = inside[a].1;
+            r.min.y <= rrect.min.y + band || r.max.y >= rrect.max.y - band
+        });
+        if framed {
+            continue;
+        }
+        let share = packed.len() as f32 / inside.len() as f32;
+        if packed.len() >= CONGESTION_MIN_WIDGETS && share >= 0.8 {
             findings.push(ScreenFinding {
                 rule: "screen.control_congestion",
                 kind: FindingKind::Heuristic,
@@ -1209,7 +1325,8 @@ fn finding_congestion(
                 widget_debug: None,
                 region: Some(i),
                 evidence: format!(
-                    "{packed} of {} interactive widgets packed within {CONGESTION_GAP_PX:.0}px in a non-data region",
+                    "{} of {} interactive widgets packed within {CONGESTION_GAP_PX:.0}px on both axes in a non-data region",
+                    packed.len(),
                     inside.len()
                 ),
             });
@@ -1563,6 +1680,23 @@ mod tests {
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         assert!(findings_for(&a, "screen.layout_inversion").is_empty());
+    }
+    #[test]
+    fn layout_inversion_ignores_right_edge_content() {
+        // The working surface legitimately fills to the right edge — IDE
+        // panes are flush by design. Only a dominant LEFT pane inverts.
+        let ctx = egui::Context::default();
+        let (scope, _l) = scope();
+        let mut ws = Vec::new();
+        // Narrow left rail, content column flush to the right edge (200→800).
+        ws.extend(column(1, 8.0, 48.0, 8.0, 120.0, 30.0, 8));
+        ws.extend(column(2, 200.0, 48.0, 8.0, 600.0, 30.0, 8));
+        let snap = snapshot(ws);
+        let a = analyze_screen(&ctx, &snap, None, &scope);
+        assert!(
+            findings_for(&a, "screen.layout_inversion").is_empty(),
+            "right-anchored work surface is not navigation"
+        );
     }
 
     #[test]
