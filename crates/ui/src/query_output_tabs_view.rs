@@ -27,8 +27,13 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                 context.results_open.as_deref_mut(),
                 context.active_tab.as_deref_mut(),
             ) {
-                if compact_icon_button(ui, Icon::ExternalLink, context.theme)
-                    .on_hover_text("Open results in a workspace tab")
+                if Button::new(context.theme)
+                    .icon(Icon::ExternalLink)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Open results in a workspace tab")
+                    .access_label("Open results in a workspace tab")
+                    .show(ui)
                     .clicked()
                 {
                     *results_open = true;

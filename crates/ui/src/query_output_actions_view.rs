@@ -36,19 +36,37 @@ pub(super) fn draw_explain_pane(
 ) -> Option<QueryOutputAction> {
     let mut action = None;
     let output_width = ui.available_width();
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         ui.horizontal(|ui| {
-            if compact_button(ui, "Explain", context.theme).clicked() {
+            if Button::new(context.theme)
+                .text("Explain")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 action = Some(QueryOutputAction::Explain);
             }
-            if compact_button(ui, "Explain ANALYZE…", context.theme).clicked() {
+            if Button::new(context.theme)
+                .text("Explain ANALYZE…")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 context.execution.explain_analyze_confirmed = false;
                 action = Some(QueryOutputAction::ExplainAnalyze);
             }
             ui.checkbox(&mut context.execution.explain_show_raw_json, "Raw JSON");
             if let Some(plan) = context.session.active_explain_plan() {
-                if compact_button(ui, "Copy plan", context.theme).clicked() {
+                if Button::new(context.theme)
+                    .text("Copy plan")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(plan.to_owned())));
                     context.feedback.runtime_message = "Query plan copied".to_owned();
                 }
@@ -135,20 +153,25 @@ pub(super) fn draw_history_pane(
 ) -> Option<QueryOutputAction> {
     let mut action = None;
     let output_width = ui.available_width();
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         ui.horizontal(|ui| {
             ui.label(RichText::new("Recent Executions").font(font_subheading()).strong());
             ui.add_space(SPACE_MD);
-            input(
-                ui,
+            Input::new(
                 &mut context.editor.query_history_search,
                 "Filter history…",
-                180.0,
                 context.theme,
-            );
+            )
+            .width(180.0)
+            .show(ui);
             if !context.editor.query_history_search.is_empty()
-                && compact_button(ui, "Clear", context.theme).clicked()
+                && Button::new(context.theme)
+                    .text("Clear")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
             {
                 context.editor.query_history_search.clear();
             }
@@ -172,21 +195,21 @@ pub(super) fn draw_history_pane(
             .collect();
 
         if context.editor.query_history_entries.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::History,
                 "No query history",
                 "Executed queries will appear here with timing, status, and one-click replay into editor.",
                 context.theme,
-            );
+            )
+            .show(ui);
         } else if filtered_entries.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::Search,
                 "No matching queries",
                 "Try a different search keyword to find past query executions.",
                 context.theme,
-            );
+            )
+            .show(ui);
         } else {
             egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
                 for entry in filtered_entries {
@@ -197,18 +220,15 @@ pub(super) fn draw_history_pane(
                         .inner_margin(egui::Margin::same(8.0 as i8))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                let status_color = if entry.status == UiQueryHistoryStatus::Failed {
-                                    context.theme.danger
+                                let (badge_text, badge_variant) = if entry.status == UiQueryHistoryStatus::Failed {
+                                    ("✕ FAIL", BadgeVariant::Destructive)
                                 } else {
-                                    context.theme.success
+                                    ("✓ OK", BadgeVariant::Success)
                                 };
-                                ui.label(
-                                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                                    RichText::new(if entry.status == UiQueryHistoryStatus::Failed { "✕ FAIL" } else { "✓ OK" })
-                                        .small()
-                                        .strong()
-                                        .color(status_color),
-                                );
+                                Badge::new(badge_text, context.theme)
+                                    .variant(badge_variant)
+                                    .compact(true)
+                                    .show(ui);
                                 ui.label(
                                     RichText::new(format!("{}ms", entry.duration_ms))
                                         .small()

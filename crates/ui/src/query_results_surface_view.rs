@@ -32,7 +32,13 @@ where
 {
     let results_width = ui.max_rect().width();
     let mut action = None;
-    grid_frame(context.theme).show(ui, |ui| {
+    egui::Frame {
+        fill: context.theme.surface_editor,
+        inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
+        ..Default::default()
+    }
+    .show(ui, |ui| {
         ui.set_min_width(results_width.max(0.0));
         draw_result_selector(context, ui, &mut action);
         if let Some(result) = context.result {
@@ -55,11 +61,22 @@ where
                         .small()
                         .color(context.theme.text_muted),
                 );
-                if compact_button(ui, "Export", context.theme).clicked() {
+                if Button::new(context.theme)
+                    .text("Export")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     action = Some(QueryResultsSurfaceAction::OpenExport);
                 }
-                if compact_icon_button(ui, Icon::ExternalLink, context.theme)
-                    .on_hover_text("Open results in a workspace tab")
+                if Button::new(context.theme)
+                    .icon(Icon::ExternalLink)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Open results in a workspace tab")
+                    .access_label("Open results in a workspace tab")
+                    .show(ui)
                     .clicked()
                 {
                     action = Some(QueryResultsSurfaceAction::OpenInTab);
@@ -68,13 +85,13 @@ where
             draw_grid(ui, result);
         } else {
             ui.centered_and_justified(|ui| {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::Table2,
                     "No results yet",
                     "Run a query to populate this result grid.",
                     context.theme,
-                );
+                )
+                .show(ui);
             });
         }
     });
@@ -113,15 +130,40 @@ fn draw_result_selector(
             }
 
             btn.context_menu(|ui| {
-                if ui.button(if is_pinned { "Unpin Tab" } else { "Pin Tab" }).clicked() {
+                if Button::new(context.theme)
+                    .text(if is_pinned { "Unpin Tab" } else { "Pin Tab" })
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .full_width(true)
+                    .left_aligned()
+                    .show(ui)
+                    .clicked()
+                {
                     *action = Some(QueryResultsSurfaceAction::TogglePin(index));
                     ui.close();
                 }
-                if ui.button("Close Tab").clicked() {
+                if Button::new(context.theme)
+                    .text("Close Tab")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .full_width(true)
+                    .left_aligned()
+                    .show(ui)
+                    .clicked()
+                {
                     *action = Some(QueryResultsSurfaceAction::CloseResult(index));
                     ui.close();
                 }
-                if context.result_count > 1 && ui.button("Close Other Tabs").clicked() {
+                if context.result_count > 1
+                    && Button::new(context.theme)
+                        .text("Close Other Tabs")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .full_width(true)
+                        .left_aligned()
+                        .show(ui)
+                        .clicked()
+                {
                     *action = Some(QueryResultsSurfaceAction::CloseOtherResults(index));
                     ui.close();
                 }
