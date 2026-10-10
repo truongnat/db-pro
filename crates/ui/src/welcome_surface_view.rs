@@ -47,49 +47,121 @@ fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
     );
 }
 
+struct WelcomeItem {
+    icon: Icon,
+    title: &'static str,
+    desc: &'static str,
+    action: WelcomeAction,
+}
+
+fn welcome_items() -> [WelcomeItem; 4] {
+    [
+        WelcomeItem {
+            icon: Icon::Plus,
+            title: "New Connection",
+            desc: "Connect to PostgreSQL, SQLite or remote database",
+            action: WelcomeAction::NewConnection,
+        },
+        WelcomeItem {
+            icon: Icon::FileCode2,
+            title: "New SQL Query",
+            desc: "Open a blank scratchpad with auto-completion",
+            action: WelcomeAction::NewQuery,
+        },
+        WelcomeItem {
+            icon: Icon::Sparkles,
+            title: "AI Copilot Assistant",
+            desc: "Generate queries, explain schema or review SQL",
+            action: WelcomeAction::ToggleAgent,
+        },
+        WelcomeItem {
+            icon: Icon::Workflow,
+            title: "ER Diagram Canvas",
+            desc: "Visualize schema tables and relationships",
+            action: WelcomeAction::OpenDiagram,
+        },
+    ]
+}
+
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
-    let cards_width = 520.0_f32.min(ui.available_width() - 32.0);
-    ui.set_max_width(cards_width);
+    let avail_width = ui.available_width();
+    let is_wide = avail_width >= 660.0;
+    let container_width = if is_wide { 620.0 } else { 480.0_f32.min(avail_width - 32.0) };
+    let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
     let mut triggered = None;
-    for (icon, title, desc, action) in [
-        (
-            Icon::Plus,
-            "New Connection",
-            "Connect to PostgreSQL, SQLite or remote database",
-            WelcomeAction::NewConnection,
-        ),
-        (
-            Icon::FileCode2,
-            "New SQL Query",
-            "Open a blank scratchpad with auto-completion",
-            WelcomeAction::NewQuery,
-        ),
-        (
-            Icon::Sparkles,
-            "AI Copilot Assistant",
-            "Generate queries, explain schema or review SQL",
-            WelcomeAction::ToggleAgent,
-        ),
-        (
-            Icon::Workflow,
-            "ER Diagram Canvas",
-            "Visualize schema tables and relationships",
-            WelcomeAction::OpenDiagram,
-        ),
-    ] {
-        if draw_card_item(theme, ui, cards_width, icon, title, desc) {
-            triggered = Some(action);
+    ui.horizontal(|ui| {
+        ui.add_space(side_margin);
+        ui.vertical(|ui| {
+            ui.set_width(container_width);
+            ui.set_max_width(container_width);
+            let items = welcome_items();
+            if is_wide {
+                triggered = draw_wide_grid(theme, ui, container_width, &items);
+            } else {
+                triggered = draw_narrow_stack(theme, ui, container_width, &items);
+            }
+        });
+    });
+    triggered
+}
+
+fn draw_wide_grid(
+    theme: DbProTheme,
+    ui: &mut egui::Ui,
+    container_width: f32,
+    items: &[WelcomeItem; 4],
+) -> Option<WelcomeAction> {
+    let card_w = (container_width - SPACE_SM) * 0.5;
+    let mut action = None;
+
+    // Row 1
+    ui.horizontal(|ui| {
+        if draw_card_item(theme, ui, card_w, items[0].icon, items[0].title, items[0].desc) {
+            action = Some(items[0].action);
+        }
+        ui.add_space(SPACE_SM);
+        if draw_card_item(theme, ui, card_w, items[1].icon, items[1].title, items[1].desc) {
+            action = Some(items[1].action);
+        }
+    });
+
+    ui.add_space(SPACE_SM);
+
+    // Row 2
+    ui.horizontal(|ui| {
+        if draw_card_item(theme, ui, card_w, items[2].icon, items[2].title, items[2].desc) {
+            action = Some(items[2].action);
+        }
+        ui.add_space(SPACE_SM);
+        if draw_card_item(theme, ui, card_w, items[3].icon, items[3].title, items[3].desc) {
+            action = Some(items[3].action);
+        }
+    });
+
+    action
+}
+
+fn draw_narrow_stack(
+    theme: DbProTheme,
+    ui: &mut egui::Ui,
+    container_width: f32,
+    items: &[WelcomeItem; 4],
+) -> Option<WelcomeAction> {
+    let mut action = None;
+    for item in items {
+        if draw_card_item(theme, ui, container_width, item.icon, item.title, item.desc) {
+            action = Some(item.action);
         }
         ui.add_space(SPACE_XS);
     }
-    triggered
+    action
 }
 
 fn draw_card_item(
     theme: DbProTheme,
     ui: &mut egui::Ui,
-    cards_width: f32,
+    card_width: f32,
     icon: Icon,
     title: &str,
     desc: &str,
@@ -104,7 +176,7 @@ fn draw_card_item(
 
     let response = card_frame
         .show(ui, |ui| {
-            ui.set_min_width(cards_width - SPACE_MD * 2.0);
+            ui.set_width(card_width - SPACE_MD * 2.0);
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(icon).to_string())
