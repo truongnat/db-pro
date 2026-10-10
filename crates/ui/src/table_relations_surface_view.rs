@@ -25,7 +25,7 @@ pub(super) fn draw_loading(theme: DbProTheme, ui: &mut egui::Ui) {
 impl TableRelationsContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<TableRelationsAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_toolbar(ui);
             let filter = self.search.trim().to_lowercase();
@@ -36,13 +36,13 @@ impl TableRelationsContext<'_> {
                 .filter(|foreign_key| matches_filter(foreign_key, &filter))
                 .collect::<Vec<_>>();
             if matching.is_empty() {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::ArrowRightLeft,
                     "No foreign keys found",
                     "This table has no outgoing foreign keys or none match the search.",
                     self.theme,
-                );
+                )
+                .show(ui);
                 return;
             }
             actions.extend(self.draw_table(ui, matching));
@@ -100,7 +100,7 @@ impl TableRelationsContext<'_> {
         match column_idx {
             0 => {
                 ui.horizontal(|ui| {
-                    ui.label(icon_text(Icon::ArrowRightLeft, "", self.theme.accent));
+                    ui.label(RichText::new(char::from(Icon::ArrowRightLeft).to_string()).font(font_icon(ICON_DEFAULT)).color(self.theme.accent));
                     let display_name = crate::components::truncate_ellipsis(&relation.name, 26);
                     let resp = ui.label(RichText::new(&display_name).strong().color(self.theme.text_primary));
                     if relation.name.chars().count() > 26 {

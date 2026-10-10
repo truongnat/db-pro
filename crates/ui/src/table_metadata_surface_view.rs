@@ -24,7 +24,7 @@ pub(super) struct TableMetadataContext<'a> {
 impl TableMetadataContext<'_> {
     pub(super) fn draw_constraints(&mut self, ui: &mut egui::Ui) {
         let rows = self.constraint_rows();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_constraint_toolbar(ui);
             let filter = self.search.trim().to_lowercase();
@@ -33,13 +33,13 @@ impl TableMetadataContext<'_> {
                 .filter(|row| filter.is_empty() || row.matches(&filter))
                 .collect::<Vec<_>>();
             if rows.is_empty() {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::ShieldCheck,
                     "No constraints found",
                     "No table constraints match the selected category or search filter.",
                     self.theme,
-                );
+                )
+                .show(ui);
                 return;
             }
             let columns = [
@@ -67,7 +67,7 @@ impl TableMetadataContext<'_> {
 
     pub(super) fn draw_dependencies(&mut self, ui: &mut egui::Ui) -> Vec<TableMetadataAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_dependency_toolbar(ui);
             let filter = self.search.trim().to_lowercase();
@@ -81,13 +81,13 @@ impl TableMetadataContext<'_> {
                 })
                 .collect::<Vec<_>>();
             if dependencies.is_empty() {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::GitBranch,
                     "No dependencies found",
                     "No incoming or outgoing dependency relations match the filter.",
                     self.theme,
-                );
+                )
+                .show(ui);
                 return;
             }
             actions.extend(self.draw_dependency_table(ui, dependencies));
@@ -281,7 +281,7 @@ impl TableMetadataContext<'_> {
             0 => {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = SPACE_SM;
-                    ui.label(icon_text(row.icon, "", row.color));
+                    ui.label(RichText::new(char::from(row.icon).to_string()).font(font_icon(ICON_DEFAULT)).color(row.color));
                     Badge::new(row.kind, self.theme)
                         .variant(row.variant)
                         .compact(true)
@@ -356,14 +356,14 @@ fn draw_dependency_cell(
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
                 match dependency.direction {
                     UiDependencyDirection::DependsOn => {
-                        ui.label(icon_text(Icon::ArrowUpRight, "", theme.warning));
+                        ui.label(RichText::new(char::from(Icon::ArrowUpRight).to_string()).font(font_icon(ICON_DEFAULT)).color(theme.warning));
                         Badge::new("DEPENDS ON", theme)
                             .variant(BadgeVariant::Warning)
                             .compact(true)
                             .show(ui);
                     }
                     UiDependencyDirection::DependedBy => {
-                        ui.label(icon_text(Icon::ArrowDownLeft, "", theme.accent));
+                        ui.label(RichText::new(char::from(Icon::ArrowDownLeft).to_string()).font(font_icon(ICON_DEFAULT)).color(theme.accent));
                         Badge::new("DEPENDED BY", theme)
                             .variant(BadgeVariant::Default)
                             .compact(true)

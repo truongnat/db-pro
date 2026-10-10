@@ -16,19 +16,20 @@ pub(super) struct TableStructureContext<'a> {
 }
 
 pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut egui::Ui) {
-    grid_frame(theme).show(ui, |ui| {
+    egui::Frame {
+        fill: theme.surface_panel,
+        inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
+        stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
+        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+        ..Default::default()
+    }
+    .show(ui, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(28.0);
             let failed = error.is_some();
-            ui.label(icon_text(
-                if failed {
-                    Icon::TriangleAlert
-                } else {
-                    Icon::LoaderCircle
-                },
-                "",
-                if failed { theme.warning } else { theme.accent },
-            ));
+            let icon = if failed { Icon::TriangleAlert } else { Icon::LoaderCircle };
+            let color = if failed { theme.warning } else { theme.accent };
+            ui.label(RichText::new(char::from(icon).to_string()).font(font_icon(ICON_XL)).color(color));
             ui.add_space(8.0);
             ui.label(
                 RichText::new(if failed {
@@ -57,10 +58,17 @@ impl TableStructureContext<'_> {
     }
 
     fn draw_metrics(&self, ui: &mut egui::Ui) {
-        toolbar_frame(self.theme).show(ui, |ui| {
+        egui::Frame {
+            fill: self.theme.surface_panel,
+            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
-                section_label(ui, "METRICS", self.theme);
+                ui.label(RichText::new("METRICS").font(font_caption()).strong().color(self.theme.text_secondary));
                 Badge::new(format!("{} columns", self.info.columns.len()), self.theme)
                     .variant(BadgeVariant::Default)
                     .show(ui);
@@ -98,19 +106,19 @@ impl TableStructureContext<'_> {
     }
 
     fn draw_columns(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_columns_header(ui);
             ui.add_space(8.0);
             let matching_columns = self.matching_columns();
             if matching_columns.is_empty() {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::Columns3,
                     "No columns match search",
                     "Try entering a different column name or data type.",
                     self.theme,
-                );
+                )
+                .show(ui);
                 return;
             }
             self.draw_column_table(ui, &matching_columns);

@@ -18,19 +18,19 @@ pub(super) fn draw_loading(theme: DbProTheme, ui: &mut egui::Ui) {
 
 impl TableIndexesContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_header(ui);
             ui.add_space(8.0);
             let matching_indexes = self.matching_indexes();
             if matching_indexes.is_empty() {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::List,
                     "No indexes found",
                     "This table has no indexes defined or none match the search.",
                     self.theme,
-                );
+                )
+                .show(ui);
                 return;
             }
             self.draw_table(ui, &matching_indexes);
@@ -111,15 +111,9 @@ impl TableIndexesContext<'_> {
     fn draw_name_cell(&self, ui: &mut egui::Ui, index: &UiTableIndex) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = SPACE_SM;
-            ui.label(icon_text(
-                if index.unique { Icon::BadgeCheck } else { Icon::List },
-                "",
-                if index.unique {
-                    self.theme.accent
-                } else {
-                    self.theme.text_muted
-                },
-            ));
+            let icon = if index.unique { Icon::BadgeCheck } else { Icon::List };
+            let color = if index.unique { self.theme.accent } else { self.theme.text_muted };
+            ui.label(RichText::new(char::from(icon).to_string()).font(font_icon(ICON_DEFAULT)).color(color));
             index_name_label(ui, index, self.theme);
         });
     }
