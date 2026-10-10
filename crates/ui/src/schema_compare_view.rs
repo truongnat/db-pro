@@ -22,7 +22,7 @@ pub(super) fn draw_schema_compare_sidebar(
     context: &mut SchemaCompareViewContext<'_>,
     ui: &mut egui::Ui,
 ) -> Option<SchemaCompareAction> {
-    section_label(ui, "SCHEMA COMPARE", context.theme);
+    ui.label(RichText::new("SCHEMA COMPARE").font(font_caption()).strong().color(context.theme.text_secondary));
     ui.add_space(6.0);
     ui.label(
         RichText::new("Snapshot the loaded schema, then re-introspect and diff.")
@@ -30,13 +30,27 @@ pub(super) fn draw_schema_compare_sidebar(
             .color(context.theme.text_muted),
     );
     ui.add_space(8.0);
-    if compact_button_with_icon(ui, Icon::Camera, "Take snapshot", context.theme).clicked() {
+    if Button::new(context.theme)
+        .icon(Icon::Camera)
+        .text("Take snapshot")
+        .variant(ButtonVariant::Secondary)
+        .size(ButtonSize::Sm)
+        .show(ui)
+        .clicked()
+    {
         context
             .compare
             .take_snapshot(context.schema, context.connection_name, context.feedback);
     }
     let mut action = None;
-    if compact_button_with_icon(ui, Icon::GitCompare, "Diff vs snapshot", context.theme).clicked() {
+    if Button::new(context.theme)
+        .icon(Icon::GitCompare)
+        .text("Diff vs snapshot")
+        .variant(ButtonVariant::Secondary)
+        .size(ButtonSize::Sm)
+        .show(ui)
+        .clicked()
+    {
         context.compare.diff_against_snapshot(context.schema, context.feedback);
         action = Some(SchemaCompareAction::OpenWorkspace);
     }
@@ -76,10 +90,24 @@ pub(super) fn draw_schema_compare(
                 .color(context.theme.text_primary),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if secondary_button_with_icon(ui, Icon::GitCompare, "Diff now", context.theme).clicked() {
+            if Button::new(context.theme)
+                .icon(Icon::GitCompare)
+                .text("Diff now")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 context.compare.diff_against_snapshot(context.schema, context.feedback);
             }
-            if secondary_button_with_icon(ui, Icon::Camera, "Snapshot", context.theme).clicked() {
+            if Button::new(context.theme)
+                .icon(Icon::Camera)
+                .text("Snapshot")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 context
                     .compare
                     .take_snapshot(context.schema, context.connection_name, context.feedback);
@@ -88,15 +116,15 @@ pub(super) fn draw_schema_compare(
     });
     ui.add_space(SPACE_MD);
     let Some(diff) = context.compare.schema_diff.clone() else {
-        card_frame(context.theme).show(ui, |ui| {
+        Card::new(context.theme).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 8.0).max(0.0));
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::GitCompare,
                 "No schema diff yet",
                 "Take a snapshot, change or refresh the schema, then Diff now.",
                 context.theme,
-            );
+            )
+            .show(ui);
         });
         return None;
     };
@@ -313,34 +341,41 @@ pub(super) fn draw_schema_compare(
         }
         ui.separator();
         ui.add_space(8.0);
-        section_label(ui, "DATA COMPARE", context.theme);
+        ui.label(RichText::new("DATA COMPARE").font(font_caption()).strong().color(context.theme.text_secondary));
         ui.label(
             RichText::new("Key-aware sample compare across two active connections. Sync SQL is preview-only.")
                 .small()
                 .color(context.theme.text_muted),
         );
         ui.add_space(SPACE_XS);
-        input_full_width(
-            ui,
+        Input::new(
             &mut context.compare.data_diff_target_id,
             "target connection id",
             context.theme,
-        );
+        )
+        .show(ui);
         // The shell zeroes workspace item_spacing — form fields must breathe
         // explicitly or consecutive inputs render as one fused field.
         ui.add_space(SPACE_XS);
-        input_full_width(ui, &mut context.compare.data_diff_schema, "schema", context.theme);
+        Input::new(&mut context.compare.data_diff_schema, "schema", context.theme).show(ui);
         ui.add_space(SPACE_XS);
-        input_full_width(ui, &mut context.compare.data_diff_table, "table", context.theme);
+        Input::new(&mut context.compare.data_diff_table, "table", context.theme).show(ui);
         ui.add_space(SPACE_XS);
-        input_full_width(
-            ui,
+        Input::new(
             &mut context.compare.data_diff_keys,
             "key columns (comma)",
             context.theme,
-        );
+        )
+        .show(ui);
         ui.add_space(SPACE_XS);
-        if primary_button_with_icon(ui, Icon::GitCompare, "Compare rows", context.theme).clicked() {
+        if Button::new(context.theme)
+            .icon(Icon::GitCompare)
+            .text("Compare rows")
+            .variant(ButtonVariant::Default)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             action = Some(SchemaCompareAction::RequestDataDiff);
         }
         if let Some(diff) = &context.compare.data_diff_result {
@@ -408,7 +443,7 @@ pub(super) fn draw_schema_compare(
             }
             if !diff.sync_sql_preview.is_empty() {
                 ui.add_space(4.0);
-                section_label(ui, "DATA SYNC SQL PREVIEW", context.theme);
+                ui.label(RichText::new("DATA SYNC SQL PREVIEW").font(font_caption()).strong().color(context.theme.text_secondary));
                 for sql in &diff.sync_sql_preview {
                     ui.label(RichText::new(sql).small().monospace().color(context.theme.text_muted));
                 }
