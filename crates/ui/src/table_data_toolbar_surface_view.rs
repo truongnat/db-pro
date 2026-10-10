@@ -208,14 +208,15 @@ impl TableDataToolbarContext<'_> {
                     .corner_radius(egui::CornerRadius::same(2.0 as u8))
                     .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XXS as i8))
                     .show(ui, |ui| {
-                        ui.add(
-                            egui::Label::new(crate::components::icon_text(
-                                Icon::ListFilter,
-                                "WHERE",
-                                self.theme.text_primary,
-                            ))
-                            .sense(egui::Sense::hover()),
-                        );
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = SPACE_XXS;
+                            ui.label(
+                                RichText::new(char::from(Icon::ListFilter).to_string())
+                                    .font(font_icon(ICON_XS))
+                                    .color(self.theme.accent),
+                            );
+                            ui.label(RichText::new("WHERE").font(font_caption()).strong().color(self.theme.text_primary));
+                        });
                     });
                 let cond_edit = egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)
                     .hint_text(

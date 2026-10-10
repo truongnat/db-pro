@@ -18,33 +18,33 @@ pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult
     }
     .show(ui, |ui| {
         let Some(result) = result else {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::ChartColumn,
                 "No rows loaded",
                 "Open the Data tab or wait for the current page to load, then return to Profile.",
                 theme,
-            );
+            )
+            .show(ui);
             return;
         };
         if result.columns.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::ChartColumn,
                 "No columns",
                 "This result has no columns to profile.",
                 theme,
-            );
+            )
+            .show(ui);
             return;
         }
         if result.rows.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::ChartColumn,
                 "No rows in this sample",
                 "Load a page of rows in the Data tab to calculate column profiles.",
                 theme,
-            );
+            )
+            .show(ui);
             return;
         }
 

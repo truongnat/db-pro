@@ -30,10 +30,22 @@ pub(super) struct DdlToolbarContext {
 
 pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Option<DdlToolbarAction> {
     let mut action = None;
-    toolbar_frame(context.theme).show(ui, |ui| {
+    egui::Frame {
+        fill: context.theme.surface_panel,
+        inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
+        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+        ..Default::default()
+    }
+    .show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = SPACE_SM;
-            ui.label(icon_text(Icon::Code2, "DDL SCRIPT", context.theme.accent));
+            ui.label(
+                RichText::new(char::from(Icon::Code2).to_string())
+                    .font(font_icon(ICON_DEFAULT))
+                    .color(context.theme.accent),
+            );
+            ui.label(RichText::new("DDL SCRIPT").font(font_caption()).strong().color(context.theme.accent));
             Badge::new("CREATE TABLE", context.theme)
                 .variant(BadgeVariant::Default)
                 .compact(true)
@@ -85,19 +97,20 @@ pub(super) struct DdlPlaceholderContext<'a> {
 }
 
 pub(super) fn draw_placeholder(context: &DdlPlaceholderContext<'_>, ui: &mut egui::Ui) {
-    grid_frame(context.theme).show(ui, |ui| {
+    egui::Frame {
+        fill: context.theme.surface_panel,
+        inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
+        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
+        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+        ..Default::default()
+    }
+    .show(ui, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(28.0);
             let failed = context.error.is_some();
-            ui.label(icon_text(
-                if failed { Icon::TriangleAlert } else { Icon::Code2 },
-                "",
-                if failed {
-                    context.theme.warning
-                } else {
-                    context.theme.accent
-                },
-            ));
+            let icon = if failed { Icon::TriangleAlert } else { Icon::Code2 };
+            let color = if failed { context.theme.warning } else { context.theme.accent };
+            ui.label(RichText::new(char::from(icon).to_string()).font(font_icon(ICON_XL)).color(color));
             ui.add_space(8.0);
             ui.label(
                 RichText::new(if failed {
@@ -126,7 +139,7 @@ pub(super) struct DdlScriptContext<'a> {
 
 pub(super) fn draw_script_card(context: &mut DdlScriptContext<'_>, ui: &mut egui::Ui) -> Option<DdlScriptAction> {
     let mut action = draw_script_header(context, ui);
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).show(ui, |ui| {
         ui.add_space(8.0);
         draw_script_error(context, ui);
         if let Some(editor_action) = draw_script_editor(context, ui) {
@@ -140,7 +153,7 @@ fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Opti
     let mut action = None;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = SPACE_SM;
-        section_label(ui, "CREATE SCRIPT", context.theme);
+        ui.label(RichText::new("CREATE SCRIPT").font(font_caption()).strong().color(context.theme.text_secondary));
         ui.label(
             RichText::new(if context.writable {
                 "Editable preview · execute DDL in the query editor (Open in Query)"
