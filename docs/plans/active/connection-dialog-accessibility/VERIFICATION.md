@@ -1,8 +1,8 @@
 # Native UI Regression Repairs — Verification
 
 State: RUNTIME_VERIFY  
-Baseline source SHA: `c6a033da39dc1c1009201fe4c102a05fe17e3dfb`; all implementation edits remained
-uncommitted in the worktree during verification.
+Baseline source SHA: `c6a033da39dc1c1009201fe4c102a05fe17e3dfb`.  
+Implementation source SHA: `92746074431b60f2f96347c940293da10952b292` (`fix(ui): repair post-egui-upgrade regressions`).
 
 ## Commands actually executed
 
@@ -83,8 +83,8 @@ no provider path changed.
 
 ## Review
 
-Self-review complete: no P0/P1 findings; P2 presentation/accessibility regressions are addressed in
-the current worktree. Independent review and owner keyboard interaction remain pending. The
+Self-review complete against implementation SHA `92746074431b60f2f96347c940293da10952b292`: no
+P0/P1 findings; the addressed presentation/accessibility issues are P2. Independent review and owner keyboard interaction remain pending. The
 computer-use skill selected `orca`, but `orca skills get computer-use --json` returned
 `command not found: orca`; live keyboard interaction was not available through that route.
 
