@@ -1,6 +1,6 @@
 //! Native sidebar chrome: connection launcher and primary query action.
 use super::*;
-use egui::{vec2, Align2, Pos2, Rect, CornerRadius, Sense, Stroke};
+use egui::{vec2, Align2, CornerRadius, Pos2, Rect, Sense};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -136,24 +136,13 @@ impl SidebarChromeContext<'_> {
     fn paint_new_query_button(&self, ui: &mut egui::Ui, button_rect: Rect, hovered: bool) {
         ui.painter().rect_filled(
             button_rect,
-            CornerRadius::same(RADIUS_SM as u8),
+            CornerRadius::same(RADIUS_MD as u8),
             if hovered {
                 self.theme.surface_hover
             } else {
-                self.theme.surface_panel
+                self.theme.surface_elevated
             },
         );
-        ui.painter().rect_stroke(
-            button_rect,
-            CornerRadius::same(RADIUS_SM as u8),
-            Stroke::new(
-                STROKE_THIN,
-                if hovered {
-                    self.theme.border_default
-                } else {
-                    self.theme.border_subtle
-                },
-            ), egui::StrokeKind::Inside);
         let left_center = Pos2::new(button_rect.left() + SPACE_MD, button_rect.center().y);
         ui.painter().text(
             left_center,
@@ -209,8 +198,7 @@ impl SidebarChromeContext<'_> {
             let chip_w = galley.size().x + chip_pad_x * 2.0;
             let chip_h = galley.size().y + chip_pad_y * 2.0;
             let chip = Rect::from_min_size(Pos2::new(x, center_y - chip_h * 0.5), vec2(chip_w, chip_h));
-            painter.rect_filled(chip, CornerRadius::same(4.0 as u8), theme.surface_elevated);
-            painter.rect_stroke(chip, CornerRadius::same(4.0 as u8), Stroke::new(1.0, theme.border_subtle), egui::StrokeKind::Inside);
+            painter.rect_filled(chip, CornerRadius::same(4.0 as u8), theme.surface_hover);
             painter.galley(
                 Pos2::new(chip.left() + chip_pad_x, center_y - galley.size().y * 0.5),
                 std::sync::Arc::clone(galley),

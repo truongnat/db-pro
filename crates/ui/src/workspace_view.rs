@@ -46,7 +46,23 @@ impl DbProApp {
     }
 
     fn draw_welcome(&mut self, ui: &mut egui::Ui) {
-        welcome_surface_view::draw(self.theme, ui);
+        if let Some(action) = welcome_surface_view::draw(self.theme, ui) {
+            match action {
+                welcome_surface_view::WelcomeAction::NewConnection => {
+                    self.connection.open_new();
+                }
+                welcome_surface_view::WelcomeAction::NewQuery => {
+                    self.new_query_document();
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                }
+                welcome_surface_view::WelcomeAction::ToggleAgent => {
+                    self.workspace.shell.agent_open = !self.workspace.shell.agent_open;
+                }
+                welcome_surface_view::WelcomeAction::OpenDiagram => {
+                    self.workspace.active_tab = WorkspaceTab::Diagram;
+                }
+            }
+        }
     }
 
     // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass

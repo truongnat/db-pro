@@ -70,7 +70,7 @@ impl ShellStatusbarContext<'_> {
                 .font(font_caption())
                 .color(self.theme.text_secondary),
         );
-        ui.separator();
+        ui.add_space(SPACE_SM);
         if self.connected {
             ui.label(
                 RichText::new(self.connection_name)
@@ -104,7 +104,7 @@ impl ShellStatusbarContext<'_> {
 
     fn draw_runtime_status(&self, ui: &mut egui::Ui) {
         if let Some((message, message_color)) = &self.runtime_status {
-            ui.separator();
+            ui.add_space(SPACE_SM);
             ui.add_sized(
                 [260.0, 18.0],
                 egui::Label::new(RichText::new(message).font(font_caption()).color(*message_color)),

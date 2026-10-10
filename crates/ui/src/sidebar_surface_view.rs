@@ -100,9 +100,7 @@ where
         .into_iter()
         .map(SidebarSurfaceAction::Chrome)
         .collect::<Vec<_>>();
-    ui.add_space(SPACE_SM);
-    ui.separator();
-    ui.add_space(SPACE_XS);
+    ui.add_space(SPACE_MD);
     draw_activity(&mut ui);
     actions
 }

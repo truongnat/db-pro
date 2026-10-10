@@ -139,7 +139,7 @@ impl ExplorerToolbarContext<'_> {
             if Button::new(self.theme)
                 .icon(Icon::Plus)
                 .text(t!("explorer.new_connection"))
-                .variant(ButtonVariant::Secondary)
+                .variant(ButtonVariant::Default)
                 .size(ButtonSize::Sm)
                 .show(ui)
                 .clicked()
