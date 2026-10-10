@@ -60,7 +60,11 @@ impl ShellStatusbarContext<'_> {
 
     fn draw_identity(&self, ui: &mut egui::Ui) {
         ui.add_space(SPACE_SM);
-        ui.label(icon_text(self.icon, "", self.icon_color));
+        ui.label(
+            RichText::new(char::from(self.icon).to_string())
+                .font(font_icon(ICON_DEFAULT))
+                .color(self.icon_color),
+        );
         ui.label(
             RichText::new(self.label)
                 .font(font_caption())

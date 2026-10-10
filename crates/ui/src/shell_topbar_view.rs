@@ -231,7 +231,11 @@ impl ShellTopbarContext<'_> {
     fn draw_connection(&self, ui: &mut egui::Ui, ctx: &egui::Context) {
         if self.has_connection {
             ui.horizontal(|ui| {
-                ui.label(icon_text(self.connection_icon, "", self.connection_color));
+                ui.label(
+                    RichText::new(char::from(self.connection_icon).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(self.connection_color),
+                );
                 let display_name = crate::components::truncate_ellipsis(self.connection_name, 22);
                 let response = ui.label(
                     RichText::new(display_name)
@@ -255,7 +259,11 @@ impl ShellTopbarContext<'_> {
             });
         } else {
             ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::Database, "", self.theme.accent));
+                ui.label(
+                    RichText::new(char::from(Icon::Database).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(self.theme.accent),
+                );
                 let response = ui.label(
                     RichText::new("DB PRO")
                         .font(font_caption())
