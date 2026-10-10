@@ -62,7 +62,7 @@ where
                         .color(context.theme.text_muted),
                 );
                 if Button::new(context.theme)
-                    .text("Export")
+                    .text(t!("common.export"))
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)
@@ -87,8 +87,8 @@ where
             ui.centered_and_justified(|ui| {
                 EmptyState::new(
                     Icon::Table2,
-                    "No results yet",
-                    "Run a query to populate this result grid.",
+                    &*t!("query.no_results"),
+                    &*t!("query.no_results_desc"),
                     context.theme,
                 )
                 .show(ui);
@@ -143,7 +143,7 @@ fn draw_result_selector(
                     ui.close();
                 }
                 if Button::new(context.theme)
-                    .text("Close Tab")
+                    .text(t!("common.close"))
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .full_width(true)

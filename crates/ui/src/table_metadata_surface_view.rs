@@ -35,7 +35,7 @@ impl TableMetadataContext<'_> {
             if rows.is_empty() {
                 EmptyState::new(
                     Icon::ShieldCheck,
-                    "No constraints found",
+                    &*t!("table.no_constraints"),
                     "No table constraints match the selected category or search filter.",
                     self.theme,
                 )
@@ -83,7 +83,7 @@ impl TableMetadataContext<'_> {
             if dependencies.is_empty() {
                 EmptyState::new(
                     Icon::GitBranch,
-                    "No dependencies found",
+                    &*t!("table.no_dependencies"),
                     "No incoming or outgoing dependency relations match the filter.",
                     self.theme,
                 )
@@ -281,7 +281,11 @@ impl TableMetadataContext<'_> {
             0 => {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = SPACE_SM;
-                    ui.label(RichText::new(char::from(row.icon).to_string()).font(font_icon(ICON_DEFAULT)).color(row.color));
+                    ui.label(
+                        RichText::new(char::from(row.icon).to_string())
+                            .font(font_icon(ICON_DEFAULT))
+                            .color(row.color),
+                    );
                     Badge::new(row.kind, self.theme)
                         .variant(row.variant)
                         .compact(true)
@@ -356,14 +360,22 @@ fn draw_dependency_cell(
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
                 match dependency.direction {
                     UiDependencyDirection::DependsOn => {
-                        ui.label(RichText::new(char::from(Icon::ArrowUpRight).to_string()).font(font_icon(ICON_DEFAULT)).color(theme.warning));
+                        ui.label(
+                            RichText::new(char::from(Icon::ArrowUpRight).to_string())
+                                .font(font_icon(ICON_DEFAULT))
+                                .color(theme.warning),
+                        );
                         Badge::new("DEPENDS ON", theme)
                             .variant(BadgeVariant::Warning)
                             .compact(true)
                             .show(ui);
                     }
                     UiDependencyDirection::DependedBy => {
-                        ui.label(RichText::new(char::from(Icon::ArrowDownLeft).to_string()).font(font_icon(ICON_DEFAULT)).color(theme.accent));
+                        ui.label(
+                            RichText::new(char::from(Icon::ArrowDownLeft).to_string())
+                                .font(font_icon(ICON_DEFAULT))
+                                .color(theme.accent),
+                        );
                         Badge::new("DEPENDED BY", theme)
                             .variant(BadgeVariant::Default)
                             .compact(true)

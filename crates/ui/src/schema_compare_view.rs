@@ -32,7 +32,7 @@ pub(super) fn draw_schema_compare_sidebar(
     ui.add_space(8.0);
     if Button::new(context.theme)
         .icon(Icon::Camera)
-        .text("Take snapshot")
+        .text(t!("compare.take_snapshot"))
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
         .show(ui)
@@ -45,7 +45,7 @@ pub(super) fn draw_schema_compare_sidebar(
     let mut action = None;
     if Button::new(context.theme)
         .icon(Icon::GitCompare)
-        .text("Diff vs snapshot")
+        .text(t!("compare.diff_vs_snapshot"))
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
         .show(ui)
@@ -84,7 +84,7 @@ pub(super) fn draw_schema_compare(
     ui.add_space(SPACE_SM);
     ui.horizontal(|ui| {
         ui.label(
-            RichText::new("Schema Compare & Migration")
+            RichText::new(t!("compare.title"))
                 .font(font_subheading())
                 .strong()
                 .color(context.theme.text_primary),
@@ -92,7 +92,7 @@ pub(super) fn draw_schema_compare(
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if Button::new(context.theme)
                 .icon(Icon::GitCompare)
-                .text("Diff now")
+                .text(t!("compare.diff_now"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -102,7 +102,7 @@ pub(super) fn draw_schema_compare(
             }
             if Button::new(context.theme)
                 .icon(Icon::Camera)
-                .text("Snapshot")
+                .text(t!("compare.snapshot"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -120,8 +120,8 @@ pub(super) fn draw_schema_compare(
             ui.set_min_width((ui.available_width() - 8.0).max(0.0));
             EmptyState::new(
                 Icon::GitCompare,
-                "No schema diff yet",
-                "Take a snapshot, change or refresh the schema, then Diff now.",
+                &*t!("compare.no_diff_yet"),
+                &*t!("compare.no_diff_desc"),
                 context.theme,
             )
             .show(ui);
@@ -294,12 +294,20 @@ pub(super) fn draw_schema_compare(
         }
         if !context.compare.migration_preview_sql.is_empty() {
             ui.add_space(8.0);
-            card_frame(context.theme).show(ui, |ui| {
+            Card::new(context.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Generated Migration DDL").strong().color(context.theme.text_primary));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if compact_button_with_icon(ui, Icon::Copy, "Copy SQL", context.theme).clicked() {
-                            ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(context.compare.migration_preview_sql.clone())));
+                    ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+                        if Button::new(context.theme)
+                            .icon(Icon::Copy)
+                            .text("Copy SQL")
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
+                            let sql = context.compare.migration_preview_sql.clone();
+                            ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(sql)));
                             context.feedback.set_runtime_message("Copied migration SQL to clipboard");
                         }
                     });
@@ -331,7 +339,12 @@ pub(super) fn draw_schema_compare(
                 .is_some_and(|target| target != current_target.as_str());
             if ui
                 .add_enabled_ui(!target_mismatch, |ui| {
-                    primary_button_with_icon(ui, Icon::Play, "Apply migration SQL", context.theme)
+                    Button::new(context.theme)
+                        .icon(Icon::Play)
+                        .text("Apply migration SQL")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
                 })
                 .inner
                 .clicked()
@@ -341,7 +354,12 @@ pub(super) fn draw_schema_compare(
         }
         ui.separator();
         ui.add_space(8.0);
-        ui.label(RichText::new("DATA COMPARE").font(font_caption()).strong().color(context.theme.text_secondary));
+        ui.label(
+            RichText::new(t!("compare.data_compare"))
+                .font(font_caption())
+                .strong()
+                .color(context.theme.text_secondary),
+        );
         ui.label(
             RichText::new("Key-aware sample compare across two active connections. Sync SQL is preview-only.")
                 .small()
@@ -370,7 +388,7 @@ pub(super) fn draw_schema_compare(
         ui.add_space(SPACE_XS);
         if Button::new(context.theme)
             .icon(Icon::GitCompare)
-            .text("Compare rows")
+            .text(t!("compare.compare_rows"))
             .variant(ButtonVariant::Default)
             .size(ButtonSize::Sm)
             .show(ui)
@@ -443,7 +461,12 @@ pub(super) fn draw_schema_compare(
             }
             if !diff.sync_sql_preview.is_empty() {
                 ui.add_space(4.0);
-                ui.label(RichText::new("DATA SYNC SQL PREVIEW").font(font_caption()).strong().color(context.theme.text_secondary));
+                ui.label(
+                    RichText::new("DATA SYNC SQL PREVIEW")
+                        .font(font_caption())
+                        .strong()
+                        .color(context.theme.text_secondary),
+                );
                 for sql in &diff.sync_sql_preview {
                     ui.label(RichText::new(sql).small().monospace().color(context.theme.text_muted));
                 }

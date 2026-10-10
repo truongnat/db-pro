@@ -352,20 +352,20 @@ fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
     if diagram_search_mode(true, ctx.diagram.show_all) {
         draw_hop_toggles(ctx, ui);
         if Button::new(ctx.theme)
-            .text(format!("Show all {all_table_count}"))
+            .text(t!("diagram.show_all", count = all_table_count))
             .variant(ButtonVariant::Secondary)
             .size(ButtonSize::Sm)
-            .tooltip("Render every table — can be slow on very large schemas")
+            .tooltip(t!("diagram.show_all", count = all_table_count))
             .show(ui)
             .clicked()
         {
             ctx.diagram.show_all = true;
         }
     } else if Button::new(ctx.theme)
-        .text("Focus search")
+        .text(t!("diagram.focus_search"))
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
-        .tooltip("Back to the focused neighborhood map")
+        .tooltip(t!("diagram.focus_search"))
         .show(ui)
         .clicked()
     {
@@ -403,8 +403,8 @@ fn draw_diagram_toolbar_actions(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
             .icon(Icon::PencilRuler)
             .variant(design_variant)
             .size(ButtonSize::IconSm)
-            .tooltip("Design Mode — draft schema edits, never mutates the database until Apply")
-            .access_label("Design Mode")
+            .tooltip(t!("diagram.design_mode"))
+            .access_label(t!("diagram.design_mode"))
             .show(ui)
             .clicked()
         {
@@ -432,8 +432,8 @@ fn draw_diagram_toolbar_actions(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::IconSm)
             .enabled(has_manual_layout)
-            .tooltip("Reset layout — clear dragged positions and refit the map")
-            .access_label("Reset layout")
+            .tooltip(t!("diagram.reset_layout"))
+            .access_label(t!("diagram.reset_layout"))
             .show(ui)
             .clicked()
         {
@@ -991,7 +991,12 @@ pub(super) fn paint_er_node_lod(
                     theme.text_muted,
                 );
             }
-            painter.rect_stroke(screen_rect, egui::CornerRadius::same(radius as u8), border_stroke, egui::StrokeKind::Inside);
+            painter.rect_stroke(
+                screen_rect,
+                egui::CornerRadius::same(radius as u8),
+                border_stroke,
+                egui::StrokeKind::Inside,
+            );
         }
     }
 }
@@ -1023,8 +1028,8 @@ pub(super) fn draw_diagram_zoom_controls(
                     .icon(Icon::Minus)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("Zoom out")
-                    .access_label("Zoom out")
+                    .tooltip(t!("diagram.zoom_out"))
+                    .access_label(t!("diagram.zoom_out"))
                     .show(ui)
                     .clicked()
                 {
@@ -1048,8 +1053,8 @@ pub(super) fn draw_diagram_zoom_controls(
                     .icon(Icon::Plus)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("Zoom in")
-                    .access_label("Zoom in")
+                    .tooltip(t!("diagram.zoom_in"))
+                    .access_label(t!("diagram.zoom_in"))
                     .show(ui)
                     .clicked()
                 {
@@ -1059,8 +1064,8 @@ pub(super) fn draw_diagram_zoom_controls(
                     .icon(Icon::RotateCcw)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("Reset zoom (100%)")
-                    .access_label("Reset zoom")
+                    .tooltip(t!("diagram.reset_layout"))
+                    .access_label(t!("diagram.reset_layout"))
                     .show(ui)
                     .clicked()
                 {
@@ -1071,8 +1076,8 @@ pub(super) fn draw_diagram_zoom_controls(
                     .icon(Icon::Maximize2)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("Fit diagram to viewport")
-                    .access_label("Fit diagram to viewport")
+                    .tooltip(t!("diagram.fit_viewport"))
+                    .access_label(t!("diagram.fit_viewport"))
                     .show(ui)
                     .clicked()
                 {

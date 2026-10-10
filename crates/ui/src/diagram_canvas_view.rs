@@ -35,13 +35,13 @@ pub(super) fn draw_diagram_empty_state(
                 && !no_matches
                 && matches!(ctx.diagram.layout_state, crate::diagram::ErLayoutState::Computing { .. });
             let (icon, label) = if no_matches {
-                (Icon::Search, "No matching tables")
+                (Icon::Search, t!("diagram.no_matching_tables"))
             } else if arranging {
-                (Icon::Workflow, "Loading the schema map")
+                (Icon::Workflow, t!("explorer.loading_schema"))
             } else if search_mode {
-                (Icon::Workflow, "Focus the schema map")
+                (Icon::Workflow, t!("diagram.focus_search"))
             } else {
-                (Icon::Workflow, "No schema map yet")
+                (Icon::Workflow, t!("diagram.no_map_yet"))
             };
             ui.horizontal(|ui| {
                 ui.label(
@@ -69,7 +69,7 @@ pub(super) fn draw_diagram_empty_state(
             if no_matches {
                 ui.add_space(10.0);
                 if Button::new(ctx.theme)
-                    .text("Clear search")
+                    .text(t!("diagram.clear_search"))
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)

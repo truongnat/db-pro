@@ -25,14 +25,14 @@ impl ExplorerToolbarContext<'_> {
                     .icon(Icon::RotateCcw)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("Refresh active schema")
-                    .access_label("Refresh active schema")
+                    .tooltip(t!("explorer.refresh_schema"))
+                    .access_label(t!("explorer.refresh_schema"))
                     .show(ui);
                 refresh_button.context_menu(|ui| {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::RotateCcw),
-                        "Refresh Schema",
+                        &t!("explorer.refresh_schema"),
                         Some("F5"),
                         self.theme.text_primary,
                         self.theme,
@@ -47,7 +47,7 @@ impl ExplorerToolbarContext<'_> {
                     actions.push(ExplorerToolbarAction::RefreshSchema);
                 }
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    SearchInput::new(self.search, "Filter objects…", self.theme).show(ui);
+                    SearchInput::new(self.search, &*t!("explorer.filter_objects"), self.theme).show(ui);
                     self.draw_filter_workbench(ui);
                 });
             });
@@ -65,8 +65,8 @@ impl ExplorerToolbarContext<'_> {
             .icon(Icon::ListFilter)
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::IconSm)
-            .tooltip("Object filter options")
-            .access_label("Object filter options")
+            .tooltip(t!("explorer.filter_options"))
+            .access_label(t!("explorer.filter_options"))
             .show(ui);
         if filter_active {
             ui.painter().circle_filled(
@@ -128,17 +128,17 @@ impl ExplorerToolbarContext<'_> {
                     .color(self.theme.text_muted),
             );
             ui.add_space(8.0);
-            ui.label(RichText::new("No connections").strong().color(self.theme.text_primary));
+            ui.label(RichText::new(t!("explorer.no_connections")).strong().color(self.theme.text_primary));
             ui.add_space(3.0);
             ui.label(
-                RichText::new("Create a database connection to begin.")
+                RichText::new(t!("explorer.no_connections_desc"))
                     .small()
                     .color(self.theme.text_muted),
             );
             ui.add_space(12.0);
             if Button::new(self.theme)
                 .icon(Icon::Plus)
-                .text("New connection")
+                .text(t!("explorer.new_connection"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)

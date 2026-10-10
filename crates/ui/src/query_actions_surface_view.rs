@@ -91,40 +91,40 @@ impl QueryActionsSurfaceContext<'_> {
 
     fn draw_run_actions(&self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
         let run_label = if self.session.selected_text.is_empty() {
-            "Run query"
+            t!("query.run")
         } else {
-            "Run selection"
+            t!("query.run")
         };
-        if action_menu_button(ui, Icon::Play, run_label, self.theme).clicked() {
+        if action_menu_button(ui, Icon::Play, &run_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Run);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if action_menu_button(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
+        if action_menu_button(ui, Icon::WandSparkles, &t!("query.format_sql"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Format);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if action_menu_button(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
+        if action_menu_button(ui, Icon::ChartNoAxesCombined, &t!("query.explain"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Explain);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if action_menu_button(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Bot, &t!("query.ask_agent"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::AskAgent);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if action_menu_button(ui, Icon::Save, "Save query", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Save, &t!("query.save_query"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Save);
             actions.push(QueryActionsSurfaceAction::Close);
         }
-        if action_menu_button(ui, Icon::Save, "Save query as…", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Save, &t!("query.save_query_as"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::SaveAs);
             actions.push(QueryActionsSurfaceAction::Close);
         }
         let builder_label = if self.editor.visual_builder.open {
-            "Hide visual query builder"
+            t!("query.visual_builder")
         } else {
-            "Visual query builder"
+            t!("query.visual_builder")
         };
-        if action_menu_button(ui, Icon::LayoutTemplate, builder_label, self.theme).clicked() {
+        if action_menu_button(ui, Icon::LayoutTemplate, &builder_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleVisualBuilder);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -137,7 +137,7 @@ impl QueryActionsSurfaceContext<'_> {
     }
 
     fn draw_editor_controls(&self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
-        if action_menu_button(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
+        if action_menu_button(ui, Icon::Search, &t!("query.find_in_sql"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleSearch);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -194,7 +194,7 @@ impl QueryActionsSurfaceContext<'_> {
     }
 
     fn draw_folder_controls(&mut self, ui: &mut egui::Ui, actions: &mut Vec<QueryActionsSurfaceAction>) {
-        if action_menu_button(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
+        if action_menu_button(ui, Icon::FileCode2, &t!("query.sql_snippets"), self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::ToggleSnippets);
             actions.push(QueryActionsSurfaceAction::Close);
         }
@@ -207,7 +207,7 @@ impl QueryActionsSurfaceContext<'_> {
             .width(150.0)
             .show(ui);
             if Button::new(self.theme)
-                .text("New folder")
+                .text(t!("query.new_folder"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)

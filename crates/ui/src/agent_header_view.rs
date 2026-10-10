@@ -33,7 +33,15 @@ impl AgentHeaderContext<'_> {
         let Some(mode) = self.mode.as_deref_mut() else {
             return Vec::new();
         };
-        ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_XXS;
+            ui.label(
+                RichText::new(char::from(Icon::Sparkles).to_string())
+                    .font(font_icon(ICON_XS))
+                    .color(self.theme.accent),
+            );
+            ui.label(RichText::new("Agent").font(font_caption()).strong().color(self.theme.accent));
+        });
         ui.add_enabled_ui(!self.mode_disabled, |ui| {
             const MODES: [db_pro_core::domain::agent::AgentMode; 3] = [
                 db_pro_core::domain::agent::AgentMode::Ask,

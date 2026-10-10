@@ -53,7 +53,7 @@ pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Op
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if Button::new(context.theme)
                     .icon(Icon::RotateCcw)
-                    .text("Refresh DDL")
+                    .text(t!("table.refresh_ddl"))
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .tooltip("Re-generate DDL from latest database schema")
@@ -64,7 +64,7 @@ pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Op
                 }
                 if Button::new(context.theme)
                     .icon(Icon::Play)
-                    .text("Open in Query")
+                    .text(t!("table.open_in_query"))
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .tooltip("Open DDL in SQL query console")
@@ -75,7 +75,7 @@ pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Op
                 }
                 if Button::new(context.theme)
                     .icon(Icon::Copy)
-                    .text("Copy DDL")
+                    .text(t!("table.copy_ddl"))
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .tooltip("Copy DDL statement to clipboard")
@@ -168,7 +168,7 @@ fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Opti
                 && !context.executing
                 && Button::new(context.theme)
                     .icon(Icon::Play)
-                    .text("Apply DDL")
+                    .text(t!("table.apply_ddl"))
                     .variant(ButtonVariant::Default)
                     .size(ButtonSize::Sm)
                     .enabled(DDL_APPLY_ENABLED)

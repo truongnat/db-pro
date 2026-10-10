@@ -215,7 +215,12 @@ impl TableDataToolbarContext<'_> {
                                     .font(font_icon(ICON_XS))
                                     .color(self.theme.accent),
                             );
-                            ui.label(RichText::new("WHERE").font(font_caption()).strong().color(self.theme.text_primary));
+                            ui.label(
+                                RichText::new("WHERE")
+                                    .font(font_caption())
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            );
                         });
                     });
                 let cond_edit = egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)

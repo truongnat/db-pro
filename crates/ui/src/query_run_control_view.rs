@@ -26,7 +26,7 @@ pub(super) fn draw_run_control(
     let run_button = if context.active_request_id.is_some() {
         if context.cancel_supported {
             Button::new(context.theme)
-                .text("Stop")
+                .text(t!("query.stop"))
                 .icon(Icon::Square)
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
@@ -37,7 +37,7 @@ pub(super) fn draw_run_control(
                 .cancel_reason
                 .unwrap_or("Query running (cancellation is unsupported by this provider)");
             Button::new(context.theme)
-                .text("Running…")
+                .text(t!("query.running"))
                 .icon(Icon::Loader)
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
@@ -51,7 +51,7 @@ pub(super) fn draw_run_control(
             format!("Run query ({}↵)", context.modifier)
         };
         Button::new(context.theme)
-            .text("Run")
+            .text(t!("query.run"))
             .icon(Icon::Play)
             .variant(ButtonVariant::Default)
             .size(ButtonSize::Sm)

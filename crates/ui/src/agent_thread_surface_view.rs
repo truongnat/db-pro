@@ -66,7 +66,11 @@ impl AgentThreadSurfaceContext<'_> {
     fn draw_empty_state(&self, ui: &mut egui::Ui) -> Option<String> {
         ui.add_space(18.0);
         ui.vertical_centered(|ui| {
-            ui.label(icon_text(Icon::Bot, "", self.theme.accent));
+            ui.label(
+                RichText::new(char::from(Icon::Bot).to_string())
+                    .font(font_icon(ICON_XL))
+                    .color(self.theme.accent),
+            );
             ui.add_space(6.0);
             ui.label(RichText::new("Database Agent").strong().color(self.theme.text_primary));
             ui.label(
@@ -99,15 +103,37 @@ impl AgentThreadSurfaceContext<'_> {
         for message in &self.session.messages {
             let is_user = message.role == AgentRole::User;
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-                agent_message_frame(self.theme, is_user).show(ui, |ui| {
+                egui::Frame {
+                    fill: if is_user { self.theme.surface_elevated } else { self.theme.surface_panel },
+                    inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
+                    corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+                    stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+                    ..Default::default()
+                }
+                .show(ui, |ui| {
                     ui.label(RichText::new(message.content.clone()).color(self.theme.text_primary));
                 });
             });
             ui.add_space(SPACE_XS);
         }
         if !self.session.streaming_text.is_empty() {
-            agent_message_frame(self.theme, false).show(ui, |ui| {
-                ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
+            egui::Frame {
+                fill: self.theme.surface_panel,
+                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
+                corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+                ..Default::default()
+            }
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = SPACE_XXS;
+                    ui.label(
+                        RichText::new(char::from(Icon::Sparkles).to_string())
+                            .font(font_icon(ICON_XS))
+                            .color(self.theme.accent),
+                    );
+                    ui.label(RichText::new("Agent").font(font_caption()).strong().color(self.theme.accent));
+                });
                 ui.label(RichText::new(&self.session.streaming_text).color(self.theme.text_primary));
             });
         }

@@ -40,7 +40,7 @@ pub(super) fn draw_explain_pane(
         ui.set_min_width(output_width.max(0.0));
         ui.horizontal(|ui| {
             if Button::new(context.theme)
-                .text("Explain")
+                .text(t!("query.explain"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -49,7 +49,7 @@ pub(super) fn draw_explain_pane(
                 action = Some(QueryOutputAction::Explain);
             }
             if Button::new(context.theme)
-                .text("Explain ANALYZE…")
+                .text(t!("query.explain_analyze"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -156,18 +156,18 @@ pub(super) fn draw_history_pane(
     Card::new(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Recent Executions").font(font_subheading()).strong());
+            ui.label(RichText::new(t!("query.recent_executions")).font(font_subheading()).strong());
             ui.add_space(SPACE_MD);
             Input::new(
                 &mut context.editor.query_history_search,
-                "Filter history…",
+                &*t!("query.filter_history"),
                 context.theme,
             )
             .width(180.0)
             .show(ui);
             if !context.editor.query_history_search.is_empty()
                 && Button::new(context.theme)
-                    .text("Clear")
+                    .text(t!("common.clear"))
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .show(ui)
@@ -197,16 +197,16 @@ pub(super) fn draw_history_pane(
         if context.editor.query_history_entries.is_empty() {
             EmptyState::new(
                 Icon::History,
-                "No query history",
-                "Executed queries will appear here with timing, status, and one-click replay into editor.",
+                &*t!("query.no_history"),
+                &*t!("query.no_history_desc"),
                 context.theme,
             )
             .show(ui);
         } else if filtered_entries.is_empty() {
             EmptyState::new(
                 Icon::Search,
-                "No matching queries",
-                "Try a different search keyword to find past query executions.",
+                &*t!("query.no_matching_queries"),
+                &*t!("query.no_matching_queries_desc"),
                 context.theme,
             )
             .show(ui);

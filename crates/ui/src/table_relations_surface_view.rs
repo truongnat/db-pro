@@ -38,7 +38,7 @@ impl TableRelationsContext<'_> {
             if matching.is_empty() {
                 EmptyState::new(
                     Icon::ArrowRightLeft,
-                    "No foreign keys found",
+                    &*t!("table.no_foreign_keys"),
                     "This table has no outgoing foreign keys or none match the search.",
                     self.theme,
                 )
@@ -100,7 +100,11 @@ impl TableRelationsContext<'_> {
         match column_idx {
             0 => {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(char::from(Icon::ArrowRightLeft).to_string()).font(font_icon(ICON_DEFAULT)).color(self.theme.accent));
+                    ui.label(
+                        RichText::new(char::from(Icon::ArrowRightLeft).to_string())
+                            .font(font_icon(ICON_DEFAULT))
+                            .color(self.theme.accent),
+                    );
                     let display_name = crate::components::truncate_ellipsis(&relation.name, 26);
                     let resp = ui.label(RichText::new(&display_name).strong().color(self.theme.text_primary));
                     if relation.name.chars().count() > 26 {

@@ -34,19 +34,43 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
         ui.horizontal(|ui| {
             Input::new(&mut ctx.diagram.new_schema, "schema", ctx.theme).width(90.0).show(ui);
             Input::new(&mut ctx.diagram.new_table, "table", ctx.theme).width(110.0).show(ui);
-            if Button::new(ctx.theme).text("Add draft table").variant(ButtonVariant::Secondary).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Add draft table")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 ctx.diagram
                     .design
                     .add_draft_table(&ctx.diagram.new_schema, &ctx.diagram.new_table);
                 ctx.diagram.new_table.clear();
             }
-            if Button::new(ctx.theme).text("Undo").variant(ButtonVariant::Ghost).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Undo")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 ctx.diagram.design.undo();
             }
-            if Button::new(ctx.theme).text("Redo").variant(ButtonVariant::Ghost).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Redo")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 ctx.diagram.design.redo();
             }
-            if Button::new(ctx.theme).text("Discard").variant(ButtonVariant::Destructive).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Discard")
+                .variant(ButtonVariant::Destructive)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 ctx.diagram.design.discard();
             }
         });
@@ -77,7 +101,13 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             ui.horizontal(|ui| {
                 Input::new(&mut ctx.diagram.column_name, "col", ctx.theme).width(110.0).show(ui);
                 Input::new(&mut ctx.diagram.column_type, "type", ctx.theme).width(90.0).show(ui);
-                if Button::new(ctx.theme).text("Add col").variant(ButtonVariant::Ghost).size(ButtonSize::Sm).show(ui).clicked() {
+                if Button::new(ctx.theme)
+                    .text("Add col")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     ctx.diagram.design.add_column(
                         idx,
                         crate::diagram::design_mode::DraftColumn {
@@ -97,7 +127,13 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             Input::new(&mut ctx.diagram.foreign_key_name, "fk name", ctx.theme).width(110.0).show(ui);
             Input::new(&mut ctx.diagram.foreign_key_from, "from schema.table.col", ctx.theme).width(160.0).show(ui);
             Input::new(&mut ctx.diagram.foreign_key_to, "to schema.table.col", ctx.theme).width(160.0).show(ui);
-            if Button::new(ctx.theme).text("Add FK").variant(ButtonVariant::Secondary).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Add FK")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 er_design_add_fk(ctx);
             }
         });
@@ -118,10 +154,22 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             );
         }
         ui.horizontal(|ui| {
-            if Button::new(ctx.theme).text("Preview mutation plan").variant(ButtonVariant::Secondary).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Preview mutation plan")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 er_design_preview_plan(ctx);
             }
-            if Button::new(ctx.theme).text("Apply (confirm)").variant(ButtonVariant::Default).size(ButtonSize::Sm).show(ui).clicked() {
+            if Button::new(ctx.theme)
+                .text("Apply (confirm)")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 action = er_design_apply_plan(ctx);
             }
         });

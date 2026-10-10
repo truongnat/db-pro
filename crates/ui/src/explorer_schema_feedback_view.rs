@@ -43,12 +43,12 @@ impl ExplorerSchemaFeedbackContext<'_> {
                         .font(font_icon(ICON_DEFAULT))
                         .color(self.theme.danger),
                 );
-                ui.label(RichText::new("Schema load failed").strong().color(self.theme.danger));
+                ui.label(RichText::new(t!("explorer.schema_load_failed")).strong().color(self.theme.danger));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if self.has_active_connection
                         && Button::new(self.theme)
                             .icon(Icon::RotateCcw)
-                            .text("Refresh schema")
+                            .text(t!("explorer.refresh_schema"))
                             .variant(ButtonVariant::Secondary)
                             .size(ButtonSize::Sm)
                             .show(ui)
@@ -91,7 +91,7 @@ impl ExplorerSchemaFeedbackContext<'_> {
                 } else {
                     Spinner::new(self.theme).show(ui);
                 }
-                ui.label(RichText::new("Loading schema…").color(self.theme.accent));
+                ui.label(RichText::new(t!("explorer.loading_schema")).color(self.theme.accent));
                 ui.label(
                     RichText::new("Large databases may take a moment.")
                         .small()

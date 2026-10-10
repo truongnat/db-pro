@@ -49,13 +49,13 @@ impl ChartRenderer {
     pub fn draw(ui: &mut egui::Ui, points: &[ChartPoint], config: &ChartConfig, theme: &crate::theme::DbProTheme) {
         if points.is_empty() {
             ui.centered_and_justified(|ui| {
-                crate::components::empty_state(
-                    ui,
+                crate::components::EmptyState::new(
                     Icon::BarChart3,
                     "No data to chart",
                     "Select numeric columns and adjust chart settings.",
                     *theme,
-                );
+                )
+                .show(ui);
             });
             return;
         }

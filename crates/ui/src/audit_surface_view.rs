@@ -28,7 +28,12 @@ impl AuditSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<AuditSurfaceAction>) {
         ui.add_space(SPACE_MD);
-        ui.label(RichText::new("DATABASE AUDIT / ACTIVITY LOG").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new(t!("audit.title"))
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new(
@@ -41,7 +46,7 @@ impl AuditSurfaceContext<'_> {
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .icon(Icon::RefreshCw)
-                .text("Load audit page")
+                .text(t!("audit.load_page"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -51,7 +56,7 @@ impl AuditSurfaceContext<'_> {
             }
             if Button::new(self.theme)
                 .icon(Icon::Download)
-                .text("Export selected")
+                .text(t!("audit.export_selected"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -158,7 +163,7 @@ impl AuditSurfaceContext<'_> {
                 ui.label(RichText::new(preview).monospace().small().color(self.theme.text_muted));
                 if Button::new(self.theme)
                     .icon(Icon::FileCode2)
-                    .text("Open SQL")
+                    .text(t!("audit.open_sql"))
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .show(ui)
@@ -168,7 +173,7 @@ impl AuditSurfaceContext<'_> {
                 }
             }
             ui.horizontal(|ui| {
-                let label = if bookmarked { "Unbookmark" } else { "Bookmark" };
+                let label = if bookmarked { t!("audit.unbookmark") } else { t!("audit.bookmark") };
                 if Button::new(self.theme)
                     .icon(Icon::Bookmark)
                     .text(label)

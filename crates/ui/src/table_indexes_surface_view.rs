@@ -26,7 +26,7 @@ impl TableIndexesContext<'_> {
             if matching_indexes.is_empty() {
                 EmptyState::new(
                     Icon::List,
-                    "No indexes found",
+                    &*t!("table.no_indexes"),
                     "This table has no indexes defined or none match the search.",
                     self.theme,
                 )

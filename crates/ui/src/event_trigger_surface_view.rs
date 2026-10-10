@@ -48,6 +48,7 @@ impl EventTriggerSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new(
+                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "PostgreSQL-only · database-level DDL hooks · not table/row triggers · create requires existing function",
             )
             .small()

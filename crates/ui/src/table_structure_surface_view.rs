@@ -68,7 +68,12 @@ impl TableStructureContext<'_> {
         .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
-                ui.label(RichText::new("METRICS").font(font_caption()).strong().color(self.theme.text_secondary));
+                ui.label(
+                    RichText::new(t!("table.metrics"))
+                        .font(font_caption())
+                        .strong()
+                        .color(self.theme.text_secondary),
+                );
                 Badge::new(format!("{} columns", self.info.columns.len()), self.theme)
                     .variant(BadgeVariant::Default)
                     .show(ui);
@@ -114,7 +119,7 @@ impl TableStructureContext<'_> {
             if matching_columns.is_empty() {
                 EmptyState::new(
                     Icon::Columns3,
-                    "No columns match search",
+                    &*t!("table.no_columns"),
                     "Try entering a different column name or data type.",
                     self.theme,
                 )

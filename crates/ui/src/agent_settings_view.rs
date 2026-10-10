@@ -43,9 +43,24 @@ impl AgentSettingsContext<'_> {
         let mut actions = Vec::new();
         let theme = self.theme;
         ui.add_space(8.0);
-        toolbar_frame(theme).show(ui, |ui| {
+        egui::Frame {
+            fill: theme.surface_panel,
+            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
+            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::KeyRound, "API Key", theme.text_primary));
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = SPACE_XXS;
+                    ui.label(
+                        RichText::new(char::from(Icon::KeyRound).to_string())
+                            .font(font_icon(ICON_XS))
+                            .color(theme.text_primary),
+                    );
+                    ui.label(RichText::new("API Key").font(font_caption()).strong().color(theme.text_primary));
+                });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if Button::new(theme)
                         .icon(Icon::X)
