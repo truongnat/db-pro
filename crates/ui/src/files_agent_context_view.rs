@@ -2,6 +2,7 @@
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::*;
+use crate::components::agent_primitives::{ContextChip, ContextChipKind};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use egui::{vec2, Align, Layout, RichText};
 use lucide_icons::Icon;
@@ -41,12 +42,21 @@ impl<'a> FilesAgentContextView<'a> {
         }
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::Bot, "", self.theme.accent));
+                ui.label(
+                    RichText::new(char::from(Icon::Bot).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(self.theme.accent),
+                );
                 ui.label(RichText::new("AGENT CONTEXT").font(font_caption()).strong().color(self.theme.text_secondary));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let popup_id = ui.make_persistent_id("files_agent_context_actions");
-                    let more = compact_icon_button(ui, Icon::Ellipsis, self.theme)
-                        .on_hover_text("Context actions");
+                    let more = Button::new(self.theme)
+                        .icon(Icon::Ellipsis)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Context actions")
+                        .access_label("Context actions")
+                        .show(ui);
                     if more.clicked() {
                         egui::Popup::toggle_id(ui.ctx(), popup_id);
                     }
@@ -56,20 +66,53 @@ impl<'a> FilesAgentContextView<'a> {
                         .show(|ui| {
                             ui.set_min_width(180.0);
                             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                            if menu_button_with_icon(ui, Icon::GitCompare, "Check schema drift", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .icon(Icon::GitCompare)
+                                .text("Check schema drift")
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm)
+                                .full_width(true)
+                                .left_aligned()
+                                .show(ui)
+                                .clicked()
+                            {
                                 actions.push(FilesAgentContextAction::RefreshSchemaDrift);
                             }
-                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                            if menu_button_with_icon(ui, Icon::Camera, "Export schema snapshot", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .icon(Icon::Camera)
+                                .text("Export schema snapshot")
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm)
+                                .full_width(true)
+                                .left_aligned()
+                                .show(ui)
+                                .clicked()
+                            {
                                 actions.push(FilesAgentContextAction::ExportSchemaSnapshot);
                             }
-                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                            if menu_button_with_icon(ui, Icon::Columns2, "Toggle split editor", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .icon(Icon::Columns2)
+                                .text("Toggle split editor")
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm)
+                                .full_width(true)
+                                .left_aligned()
+                                .show(ui)
+                                .clicked()
+                            {
                                 actions.push(FilesAgentContextAction::ToggleSplitEditor);
                             }
                             ui.separator();
-                            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                            if menu_button_with_icon(ui, Icon::Trash2, "Clear context", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .icon(Icon::Trash2)
+                                .text("Clear context")
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm)
+                                .full_width(true)
+                                .left_aligned()
+                                .show(ui)
+                                .clicked()
+                            {
                                 actions.push(FilesAgentContextAction::Clear);
                             }
                         },
@@ -143,7 +186,11 @@ impl<'a> FilesAgentContextView<'a> {
                     ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XS);
                     for item in self.context_items.iter().cloned() {
                         let short = crate::components::truncate_ellipsis(&item, 28);
-                        if tag_chip(ui, &short, true, self.theme) {
+                        if ContextChip::new(ContextChipKind::File, &short, self.theme)
+                            .removable(true)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(FilesAgentContextAction::RemoveItem(item));
                         }
                     }
