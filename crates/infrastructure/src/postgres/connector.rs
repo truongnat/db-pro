@@ -555,6 +555,16 @@ impl DbConnector for PostgresConnector {
                     });
                 }
             };
+        if let Err(error) = super::search_path::set_local_search_path(&mut tx).await {
+            let _ = tx.rollback().await;
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::RolledBack,
+                results: Vec::new(),
+                error,
+            });
+        }
         let mut results = Vec::with_capacity(statements.len());
         for (index, statement) in statements.iter().enumerate() {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
@@ -849,5 +859,32 @@ mod tests {
             .expect_err("cancel on unknown handle should fail");
 
         assert!(matches!(error, DbError::ConnectionFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn execute_parameterized_transaction_reports_zero_statement_index_on_begin_failure() {
+        let connector = PostgresConnector::new();
+        let handle = ConnectionHandle::new(999); // Handle not connected
+        let statements = vec![db_pro_core::ports::ParameterizedTransactionStatement {
+            sql: "UPDATE items SET name = $1 WHERE id = $2".to_string(),
+            params: vec![
+                db_pro_core::domain::query::QueryParam::Text("new_name".into()),
+                db_pro_core::domain::query::QueryParam::Int64(1),
+            ],
+            expect_affected_rows: true,
+            max_affected_rows: Some(1),
+        }];
+
+        let failure = connector
+            .execute_parameterized_transaction(&handle, &statements)
+            .await
+            .expect_err("execute_parameterized_transaction on unknown handle must fail validation/connection lookup");
+
+        assert_eq!(failure.phase, db_pro_core::ports::TransactionFailurePhase::Validation);
+        assert_eq!(
+            failure.statement_index, 0,
+            "statement_index must be 0 for Validation phase failure"
+        );
+        assert_eq!(failure.outcome, db_pro_core::ports::TransactionFailureOutcome::NotStarted);
     }
 }
