@@ -34,6 +34,7 @@ pub(crate) enum ConnectionDialogAction {
     TestStarted {
         draft: UiConnectionDraft,
     },
+    TestCancelled,
     Close,
 }
 
@@ -153,6 +154,10 @@ impl ConnectionDialogState {
                 self.test_valid = false;
                 self.test_draft = Some(draft);
                 self.clear_error();
+            }
+            ConnectionDialogAction::TestCancelled => {
+                self.invalidate_test();
+                self.diagnostics = None;
             }
             ConnectionDialogAction::Close => {
                 self.open = false;

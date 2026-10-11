@@ -233,15 +233,29 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
             }
         }
     }
+    pub(crate) fn cancel_connection_test(&mut self) -> bool {
+        if self.lifecycle.pending_operation() != Some(PendingConnectionOperation::Test) {
+            return true;
+        }
+        let Some(request_id) = self.lifecycle.pending_request() else {
+            return false;
+        };
+        if !self.dispatch_command(UiCommand::CancelTestConnection { request_id }) {
+            return false;
+        }
+        self.lifecycle.clear_pending_request();
+        self.dialog
+            .transition(super::state::ConnectionDialogAction::TestCancelled);
+        self.feedback
+            .set_runtime_message(t!("status.connection_test_cancelled").to_string());
+        true
+    }
+
     pub(crate) fn close_connection_dialog(&mut self) {
-        if self.lifecycle.pending_operation() == Some(PendingConnectionOperation::Test) {
-            if let Some(request_id) = self.lifecycle.pending_request() {
-                if !self.dispatch_command(UiCommand::CancelTestConnection { request_id }) {
-                    return;
-                }
-                self.lifecycle.clear_pending_request();
-                self.feedback.set_runtime_message("Connection test cancelled");
-            }
+        if self.lifecycle.pending_operation() == Some(PendingConnectionOperation::Test)
+            && !self.cancel_connection_test()
+        {
+            return;
         }
 
         self.dialog
@@ -382,22 +396,42 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
 
     pub(crate) fn draw_connection_footer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let is_testing = self.lifecycle.pending_request().is_some();
-            let test_btn = Button::new(self.theme)
-                .text(t!("connection.test_connection"))
-                .variant(ButtonVariant::Secondary)
-                .icon(Icon::Zap)
-                .loading(is_testing)
-                .show(ui);
-
-            if test_btn.clicked() && !is_testing {
-                self.dispatch_connection_command(false);
-            }
+            let pending_operation = self.lifecycle.pending_operation();
+            let has_pending_request = self.lifecycle.pending_request().is_some();
+            let is_testing = pending_operation == Some(PendingConnectionOperation::Test);
+            let is_saving = pending_operation == Some(PendingConnectionOperation::Save);
+            let test_btn = if is_testing {
+                Button::new(self.theme)
+                    .text(t!("connection.cancel_test"))
+                    .variant(ButtonVariant::Secondary)
+                    .icon(Icon::X)
+                    .show(ui)
+            } else {
+                Button::new(self.theme)
+                    .text(t!("connection.test_connection"))
+                    .variant(ButtonVariant::Secondary)
+                    .icon(Icon::Zap)
+                    .enabled(!has_pending_request)
+                    .loading(is_saving)
+                    .show(ui)
+            };
 
             if is_testing {
+                if test_btn.clicked() {
+                    self.cancel_connection_test();
+                }
                 ui.add_space(SPACE_XS);
                 ui.label(
-                    RichText::new(t!("status.connecting"))
+                    RichText::new(t!("status.testing"))
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
+            } else if test_btn.clicked() && !has_pending_request {
+                self.dispatch_connection_command(false);
+            } else if is_saving {
+                ui.add_space(SPACE_XS);
+                ui.label(
+                    RichText::new(t!("status.saving"))
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );

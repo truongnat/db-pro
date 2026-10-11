@@ -253,6 +253,17 @@ impl DbProApp {
         self.open_connection_dialog_for_capture(None, false);
     }
 
+    /// Open the connection dialog with a pending test for loading-state captures.
+    pub fn open_connection_test_pending_for_capture(&mut self, light: bool) {
+        self.open_connection_dialog_for_capture(Some(light), false);
+        let request_id = self.next_request_id();
+        self.connection.lifecycle.set_pending_request(Some(request_id));
+        self.connection
+            .lifecycle
+            .set_pending_operation(Some(connection::PendingConnectionOperation::Test));
+        self.feedback.runtime_message = t!("status.testing").to_string();
+    }
+
     /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
     /// the password input + eye toggle can be documented (the affected surface for the
     /// input click-steal fix) without needing a real saved connection.

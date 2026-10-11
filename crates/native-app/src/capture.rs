@@ -27,6 +27,8 @@ const SETTLE_ENV: &str = "DB_PRO_CAPTURE_SETTLE_FRAMES";
 /// eye toggle — the affected surface for the input click-steal fix — instead of the
 /// default window. Inert for a normal launch.
 const NEW_CONNECTION_ENV: &str = "DB_PRO_CAPTURE_NEW_CONNECTION";
+/// Environment variable capturing the New Connection modal while Test Connection is pending.
+const CONNECTION_TEST_PENDING_ENV: &str = "DB_PRO_CAPTURE_CONNECTION_TEST_PENDING";
 
 /// Environment variable that opens the New Connection dialog with a stable
 /// validation error for the error-state acceptance capture.
@@ -350,7 +352,9 @@ impl CaptureApp {
     /// Connection-dialog captures: open the dialog surface, nothing else.
     fn open_dialog_capture(&mut self) -> bool {
         let inner = &mut self.inner;
-        if std::env::var_os(NEW_CONNECTION_ENV).is_some() {
+        if std::env::var_os(CONNECTION_TEST_PENDING_ENV).is_some() {
+            inner.open_connection_test_pending_for_capture(std::env::var_os(CONNECTION_LIGHT_ENV).is_some());
+        } else if std::env::var_os(NEW_CONNECTION_ENV).is_some() {
             inner.open_connection_dialog_for_capture(Some(std::env::var_os(CONNECTION_LIGHT_ENV).is_some()), false);
         } else if std::env::var_os(CONNECTION_ERROR_ENV).is_some() {
             inner.open_connection_dialog_for_capture(Some(std::env::var_os(CONNECTION_LIGHT_ENV).is_some()), true);

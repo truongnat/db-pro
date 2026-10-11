@@ -256,6 +256,40 @@ fn cancelling_connection_test_dispatches_cancel_for_the_active_request() {
     assert!(!app.connection.dialog.test_valid());
     assert_eq!(app.feedback.runtime_message, "Connection test cancelled");
 }
+
+#[test]
+fn cancel_test_request_keeps_connection_dialog_open() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connection.dialog.set_open(true);
+    app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.dispatch_connection_command(false);
+    let request_id = match command_rx.try_recv().expect("test command expected") {
+        UiCommand::TestConnection { request_id, .. } => request_id,
+        _ => panic!("expected TestConnection command"),
+    };
+
+    let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
+    ConnectionDialogView {
+        dialog: &mut app.connection.dialog,
+        lifecycle: &mut app.connection.lifecycle,
+        command_dispatcher: &mut command_dispatcher,
+        feedback: &mut app.feedback,
+        theme: app.theme,
+    }
+    .cancel_connection_test();
+
+    assert!(matches!(
+        command_rx.try_recv(),
+        Ok(UiCommand::CancelTestConnection { request_id: cancelled }) if cancelled == request_id
+    ));
+    assert!(app.connection.dialog.is_open());
+    assert!(app.connection.lifecycle.pending_request().is_none());
+    assert!(!app.connection.dialog.test_valid());
+    assert!(app.connection.dialog.test_draft().is_none());
+    assert_eq!(app.feedback.runtime_message, "Connection test cancelled");
+}
 #[test]
 fn failed_connection_test_cancel_dispatch_keeps_the_dialog_open() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
