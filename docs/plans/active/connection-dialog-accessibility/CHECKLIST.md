@@ -13,6 +13,8 @@
 - [x] Global noninteractive strokes, resting standard-input outlines, and dialog separators removed;
   intentional search/focus/error outlines retained
 - [x] Connection modal Cancel/window close sends cancellation for the active test request; failed dispatch keeps the dialog open.
+- [x] Pending connection tests show a separate Cancel Test button; the tested cancel path dispatches
+  cancellation and keeps the modal open; modal Cancel remains separate.
 - [x] Runtime worker drops the in-flight test future and removes cancellation state.
 - [x] SQLite connection test uses a standalone actor rather than a registered connector actor.
 

@@ -26,6 +26,15 @@ None identified.
   (`crates/runtime/src/worker.rs:1471-1519,2715-2720`). Failed dispatch leaves the dialog open.
   PostgreSQL uses the existing local pool path, SQLite uses a standalone actor, MySQL a local pool,
   and SQL Server a local client, avoiding persistent connector registration for temporary tests.
+- **No request-specific cancellation control while testing.** At source SHA
+  `551a35f7c159abc27cf97ac4d0f8bef86a002891`, `draw_connection_footer` kept the Test Connection
+  control in its loading state while the separate modal Cancel action closed the form
+  (`crates/ui/src/connection/view.rs:383-403, 435-442`). The owner reported no visible Cancel
+  action for the test request. Fixed at source SHA `c02ec5ac9ac42d2c4375f94269f6d773bc642a53`:
+  pending tests show a localized Cancel Test button; its handler dispatches the active request ID,
+  clears pending test UI state, and keeps the dialog open
+  (`crates/ui/src/connection/view.rs:236-263, 397-435`; `crates/ui/src/connection/tests.rs:261-292`).
+  Light/dark captures at all requested widths show the separate action.
 
 - **Theme mismatch in the legacy sidebar.** At baseline SHA
   `c6a033da39dc1c1009201fe4c102a05fe17e3dfb`, `crates/ui/src/components/legacy.rs::sidebar_item`

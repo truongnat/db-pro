@@ -37,6 +37,8 @@ should remain quiet.
 - Capture normal/error connection surfaces in light/dark themes at available viewport sizes.
 - Make the connection modal Cancel action cancel the active connection-test request through the runtime worker; keep the dialog open if cancellation dispatch fails.
 - Cancel the provider test future without leaving temporary provider resources registered.
+- While a test request is pending, show a dedicated localized Cancel Test action that cancels the
+  request while keeping the connection modal open; preserve the separate modal Cancel action.
 
 ## Non-goals
 
@@ -70,6 +72,8 @@ or provider layer is added.
 - [x] Resting standard inputs, global noninteractive widgets, and dialog contents no longer gain
   unintended strokes; explicit search/focus/error outlines remain.
 - [x] Modal Cancel and window close cancel the active test request; failed dispatch leaves the dialog open.
+- [x] Pending-test footer replaces its spinner-only test control with Cancel Test; cancellation
+  dispatch is covered by a UI regression test and the modal remains open, while modal Cancel closes.
 - [x] Runtime cancellation drops the test future, removes its request registration, and closes the in-flight provider-protocol socket in a worker smoke test.
 - [x] SQLite test uses a standalone actor, so cancellation cannot leave a connector-registered test actor.
 - [x] Final pinned Rust gates and complete app build pass.

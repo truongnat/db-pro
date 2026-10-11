@@ -162,3 +162,46 @@ fixture, so loading-state visuals were not captured.
 
 Remain RUNTIME_VERIFY. The Cancel request now reaches the runtime worker and demonstrably closes an
 in-flight provider-protocol socket; live provider behavior and the remaining UI/review gates are open.
+
+## Visible pending-test cancellation action — 2026-10-11
+
+Implementation source SHA: `c02ec5ac9ac42d2c4375f94269f6d773bc642a53`.
+
+### Commands and results
+
+- `cargo +1.95.0 fmt --all -- --check` — pass, exit 0.
+- `cargo +1.95.0 test --locked -p db-pro-ui --lib cancel_test_request_keeps_connection_dialog_open -- --nocapture` — 1 passed, 0 failed.
+- `cargo +1.95.0 test --locked -p db-pro-ui --lib cancel -- --nocapture` — 14 passed, 0 failed, 1,113 filtered.
+- `cargo +1.95.0 build --release --locked -p db-pro-native --features capture` — pass; existing capture-feature dead-code warnings for `AUDIT_TIMEOUT_FRAMES` and `CaptureApp::{audit, audit_done}`.
+
+### Native capture review
+
+The capture fixture sets the UI's pending-test state without contacting a provider. The UI regression
+test verifies cancellation dispatches the active request ID and leaves the modal open. Normal and
+pending-state screenshots were written and inspected for both themes at requested 1280×800,
+1440×900, and 1920×1080:
+
+- Pending: `/tmp/db-pro-test-cancel-pending-{light,dark}-{1280x800,1440x900,1920x1080}.png`.
+- Normal: `/tmp/db-pro-test-cancel-normal-{light,dark}-{1280x800,1440x900,1920x1080}.png`.
+
+The dedicated Cancel Test action is visible in all six pending-state captures. Normal captures keep
+Test Connection and the separate modal Cancel. The host caps the 1440×900 and 1920×1080 requests at
+838 logical pixels high (physical images 2880×1676 and 3840×1676).
+
+All 12 images were written; seven capture processes returned SIGABRT after the screenshot was
+written and five exited 0. The abort output records AppKit's `NSTouchBarFinderObservation` removing
+an unregistered `nextResponder` observer during shutdown, matching the existing capture limitation.
+This is a capture shutdown anomaly, not evidence about the normal app process.
+
+### Remaining gaps
+
+- No live provider test was run or cancelled; provider-specific behavior remains unverified.
+- The visible control was reviewed from native capture; live pointer interaction and independent
+  review remain pending. `orca` is unavailable in this environment.
+- Exact 1440×900 / 1920×1080 logical heights remain unavailable on this host.
+
+### Decision
+
+The request-specific Cancel Test affordance and its UI cancellation path are implemented at
+`c02ec5ac9ac42d2c4375f94269f6d773bc642a53`. Keep the feature in RUNTIME_VERIFY for remaining live
+provider, live interaction, viewport, and independent-review evidence.

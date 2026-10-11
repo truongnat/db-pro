@@ -84,6 +84,8 @@ been created — the recommended sequence is `v0.1.0-rc.1` first, then the host-
 - Cancelling a connection test now cancels its active runtime request and releases the temporary
   provider operation; the connection dialog remains open if the cancellation request cannot be
   dispatched.
+- The connection modal now shows a dedicated **Cancel Test** action while a test request is pending;
+  it cancels the request and keeps the dialog open, separate from modal **Cancel**.
 
 ### Security & Safety
 
