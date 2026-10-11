@@ -62,5 +62,8 @@ None identified.
   macOS host caps the latter viewport heights at 838 logical pixels.
 - Query workspace light/dark captures reviewed at 1280×800. Save Query As and Agent Settings were
   verified through source/build, not separate runtime captures.
+- Release capture build passes. In a 1280×800 light/dark normal/error run, all four screenshots
+  were written, but three processes returned `-6` after rendering. The available crash report points
+  to AppKit NSTouchBar/KVO invalidation during the run loop; root cause is not established.
 - Live keyboard interaction and independent review remain pending. The selected Orca CLI invocation
   failed with `command not found: orca`; automated Tab/Shift+Tab coverage passes.

@@ -68,6 +68,24 @@ connection captures and both Query themes were visually inspected. Inline name, 
 port-zero errors and required markers are visible; the light Query sidebar follows the shared
 theme. Error captures at the capped larger sizes clip some lower helper content.
 
+### Follow-up release capture run — 2026-10-11
+
+`cargo +1.95.0 build --release --locked -p db-pro-native --features capture` passed. The capture
+feature emitted two dead-code warnings: `AUDIT_TIMEOUT_FRAMES` and `CaptureApp::{audit, audit_done}`.
+Four release-binary captures were launched at 1280×800 and visually rendered:
+
+- Light normal: exit 0.
+- Light error, dark normal, dark error: process return `-6` (SIGABRT) after writing screenshots.
+  Images: `/tmp/db-pro-release-run-{normal,error}-{light,dark}-1280x800.png`.
+- The available crash report
+  `/Users/truongdq/Library/Logs/DiagnosticReports/db-pro-native-2026-10-11-073843.ips` records a
+  main-thread exception in AppKit's `NSTouchBarFinderObservation` / KVO invalidation path during
+  the NSApplication run loop. At implementation SHA
+  `92746074431b60f2f96347c940293da10952b292`, `capture.rs:521-525` writes the screenshot then
+  requests `ViewportCommand::Close`. The report points to AppKit during that close/run-loop path;
+  it is not evidence that the normal release binary exits cleanly. The release capture smoke is
+  therefore **partial**, not a four-state pass.
+
 ## UI lifecycle
 
 ```text
