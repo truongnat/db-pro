@@ -17,8 +17,8 @@
 - [x] SQLite connection test uses a standalone actor rather than a registered connector actor.
 
 ## Tests and quality gates
-- [x] Pinned Rust format, workspace check, Clippy, workspace tests, and native release build pass
-- [x] Clean-code diff scan has no errors; inherited/ratcheted warnings are recorded
+- [x] Pinned Rust format, workspace check, Clippy, workspace tests (1,793 passed / 41 ignored), and native release build pass.
+- [x] Clean-code diff scan reports 0 errors and 4 warning categories.
 - [x] Runtime worker cancellation closes a stalled local PostgreSQL-protocol socket and emits no completion event.
 - [x] SQLite uses an unregistered standalone actor; MySQL uses a local pool; SQL Server uses a local client instead of persistent connector registration.
 - [ ] Live cancellation against PostgreSQL, SQLite, MySQL, and SQL Server is pending independently for each provider.

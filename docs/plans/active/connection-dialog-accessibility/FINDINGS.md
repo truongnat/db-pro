@@ -2,8 +2,9 @@
 
 ## Evidence baseline
 
-- Baseline source SHA: `c6a033da39dc1c1009201fe4c102a05fe17e3dfb`.
-- Fixed implementation source SHA: `92746074431b60f2f96347c940293da10952b292`; source pointers below refer to that commit.
+- Baseline source SHA for the egui regression repairs: `c6a033da39dc1c1009201fe4c102a05fe17e3dfb`.
+- Original UI implementation SHA: `92746074431b60f2f96347c940293da10952b292`.
+- Connection-test cancellation implementation SHA: `551a35f7c159abc27cf97ac4d0f8bef86a002891`.
 
 ## P0
 
@@ -14,6 +15,17 @@ None identified.
 None identified.
 
 ## P2
+- **Connection-test Cancel only closed the modal.** At source SHA
+  `1888e812360c2acb59cdb9c7af88582ba0290725`, the footer's Cancel action closed the dialog and
+  cleared UI pending state, while `crates/runtime/src/worker.rs` ran `connection_api.test` in a
+  detached task with no cancellation command. Closing during a slow provider test left the request
+  running. At implementation SHA `551a35f7c159abc27cf97ac4d0f8bef86a002891`, Cancel and window
+  close dispatch `CancelTestConnection` with the active request ID
+  (`crates/ui/src/connection/view.rs:236-249`); the worker selects the test future against a
+  request-scoped oneshot and suppresses completion after cancellation
+  (`crates/runtime/src/worker.rs:1471-1519,2715-2720`). Failed dispatch leaves the dialog open.
+  PostgreSQL uses the existing local pool path, SQLite uses a standalone actor, MySQL a local pool,
+  and SQL Server a local client, avoiding persistent connector registration for temporary tests.
 
 - **Theme mismatch in the legacy sidebar.** At baseline SHA
   `c6a033da39dc1c1009201fe4c102a05fe17e3dfb`, `crates/ui/src/components/legacy.rs::sidebar_item`
@@ -56,8 +68,10 @@ None identified.
 
 ## Runtime gaps
 
-- PostgreSQL: N/A; no provider behavior changed.
-- SQLite: N/A; no provider behavior changed.
+- PostgreSQL: worker cancellation closes a stalled local PostgreSQL-protocol socket; no live database test.
+- SQLite: standalone actor; live provider cancellation not tested.
+- MySQL: local pool; live provider cancellation not tested.
+- SQL Server: local client; live provider cancellation not tested.
 - Connection light/dark normal/error captures reviewed at 1280×800, 1440×838, and 1920×838; the
   macOS host caps the latter viewport heights at 838 logical pixels.
 - Query workspace light/dark captures reviewed at 1280×800. Save Query As and Agent Settings were
