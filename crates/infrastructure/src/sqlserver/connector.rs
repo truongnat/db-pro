@@ -155,20 +155,24 @@ fn sql_server_config(config: &ConnectionConfig, password: &str) -> Result<Config
     Ok(server)
 }
 
+async fn connect_client(config: &ConnectionConfig, password: &str) -> Result<Client<Compat<TcpStream>>, DbError> {
+    let server = sql_server_config(config, password)?;
+    let tcp = timeout(Duration::from_secs(10), TcpStream::connect(server.get_addr()))
+        .await
+        .map_err(|_| DbError::ConnectionTimeout("SQL Server TCP connect timed out".into()))?
+        .map_err(|error| DbError::ConnectionRefused(format!("SQL Server TCP connect failed: {error}")))?;
+    tcp.set_nodelay(true)
+        .map_err(|error| DbError::Io(format!("SQL Server TCP setup failed: {error}")))?;
+    timeout(Duration::from_secs(10), Client::connect(server, tcp.compat_write()))
+        .await
+        .map_err(|_| DbError::ConnectionTimeout("SQL Server login timed out".into()))?
+        .map_err(|error| DbError::ConnectionFailed(format!("SQL Server login failed: {error}")))
+}
+
 #[async_trait]
 impl DbConnector for SqlServerConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
-        let server = sql_server_config(config, password)?;
-        let tcp = timeout(Duration::from_secs(10), TcpStream::connect(server.get_addr()))
-            .await
-            .map_err(|_| DbError::ConnectionTimeout("SQL Server TCP connect timed out".into()))?
-            .map_err(|error| DbError::ConnectionRefused(format!("SQL Server TCP connect failed: {error}")))?;
-        tcp.set_nodelay(true)
-            .map_err(|error| DbError::Io(format!("SQL Server TCP setup failed: {error}")))?;
-        let client = timeout(Duration::from_secs(10), Client::connect(server, tcp.compat_write()))
-            .await
-            .map_err(|_| DbError::ConnectionTimeout("SQL Server login timed out".into()))?
-            .map_err(|error| DbError::ConnectionFailed(format!("SQL Server login failed: {error}")))?;
+        let client = connect_client(config, password).await?;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         self.clients.write().await.insert(id, Arc::new(Mutex::new(client)));
         self.max_rows.write().await.insert(id, config.max_rows);
@@ -182,10 +186,10 @@ impl DbConnector for SqlServerConnector {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
-        let handle = self.connect(config, password).await?;
-        self.disconnect(&handle).await
+        let client = connect_client(config, password).await?;
+        drop(client);
+        Ok(())
     }
-
     async fn query(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
         self.query_with_params(handle, sql, params).await
     }

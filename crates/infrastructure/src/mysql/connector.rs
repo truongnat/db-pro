@@ -95,18 +95,19 @@ pub(crate) fn mysql_connection_url(config: &ConnectionConfig, password: &str) ->
     )
 }
 
+async fn open_pool(config: &ConnectionConfig, password: &str) -> Result<MySqlPool, DbError> {
+    MySqlPoolOptions::new()
+        .max_connections(5)
+        .acquire_timeout(Duration::from_secs(10))
+        .connect(&mysql_connection_url(config, password))
+        .await
+        .map_err(|error| DbError::ConnectionFailed(format!("MySQL connect failed: {error}")))
+}
+
 #[async_trait]
 impl DbConnector for MySqlConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
-        let url = mysql_connection_url(config, password);
-
-        let pool = MySqlPoolOptions::new()
-            .max_connections(5)
-            .acquire_timeout(Duration::from_secs(10))
-            .connect(&url)
-            .await
-            .map_err(|e| DbError::ConnectionFailed(format!("MySQL connect failed: {}", e)))?;
-
+        let pool = open_pool(config, password).await?;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         self.pools.write().await.insert(
             id,
@@ -127,8 +128,8 @@ impl DbConnector for MySqlConnector {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
-        let handle = self.connect(config, password).await?;
-        self.disconnect(&handle).await
+        open_pool(config, password).await?.close().await;
+        Ok(())
     }
 
     async fn query(

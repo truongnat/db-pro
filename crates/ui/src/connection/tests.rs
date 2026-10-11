@@ -2,7 +2,7 @@ use super::super::command_dispatch;
 use super::logic::*;
 use super::mapper::*;
 use super::view::*;
-use crate::{DbProApp, DbProTheme, UiConnectionDraft, UiDriver, UiSslMode};
+use crate::{DbProApp, DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiDriver, UiEvent, UiSslMode};
 
 fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
     fn collect(shape: &egui::Shape, texts: &mut Vec<String>) {
@@ -214,4 +214,73 @@ fn test_connection_layout_calculations() {
     let ssh = calculate_ssh_row_widths(800.0, 8.0);
     let total_ssh = ssh.host_w + ssh.port_w + ssh.user_w + ssh.key_w;
     assert!((total_ssh - (800.0 - 24.0)).abs() < 0.01);
+}
+#[test]
+fn cancelling_connection_test_dispatches_cancel_for_the_active_request() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connection.dialog.set_open(true);
+    app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.dispatch_connection_command(false);
+    let request_id = match command_rx.try_recv().expect("test command expected") {
+        UiCommand::TestConnection { request_id, .. } => request_id,
+        _ => panic!("expected TestConnection command"),
+    };
+
+    let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
+    ConnectionDialogView {
+        dialog: &mut app.connection.dialog,
+        lifecycle: &mut app.connection.lifecycle,
+        command_dispatcher: &mut command_dispatcher,
+        feedback: &mut app.feedback,
+        theme: app.theme,
+    }
+    .close_connection_dialog();
+
+    assert!(matches!(
+        command_rx.try_recv(),
+        Ok(UiCommand::CancelTestConnection { request_id: cancelled }) if cancelled == request_id
+    ));
+    assert!(!app.connection.dialog.is_open());
+    assert!(app.connection.lifecycle.pending_request().is_none());
+    assert_eq!(app.feedback.runtime_message, "Connection test cancelled");
+    event_tx
+        .send(UiEvent::OperationCompleted {
+            request_id,
+            operation: "connection.tested".to_owned(),
+        })
+        .expect("late test completion should be queued");
+    app.apply_runtime_events();
+
+    assert!(!app.connection.dialog.test_valid());
+    assert_eq!(app.feedback.runtime_message, "Connection test cancelled");
+}
+#[test]
+fn failed_connection_test_cancel_dispatch_keeps_the_dialog_open() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connection.dialog.set_open(true);
+    app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.dispatch_connection_command(false);
+    let request_id = match command_rx.try_recv().expect("test command expected") {
+        UiCommand::TestConnection { request_id, .. } => request_id,
+        _ => panic!("expected TestConnection command"),
+    };
+    drop(command_rx);
+
+    let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
+    ConnectionDialogView {
+        dialog: &mut app.connection.dialog,
+        lifecycle: &mut app.connection.lifecycle,
+        command_dispatcher: &mut command_dispatcher,
+        feedback: &mut app.feedback,
+        theme: app.theme,
+    }
+    .close_connection_dialog();
+
+    assert!(app.connection.dialog.is_open());
+    assert_eq!(app.connection.lifecycle.pending_request(), Some(request_id));
+    assert_eq!(app.feedback.runtime_message, "Runtime worker unavailable");
 }

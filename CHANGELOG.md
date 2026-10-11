@@ -81,6 +81,9 @@ been created — the recommended sequence is `v0.1.0-rc.1` first, then the host-
   first asynchronous layout result and failed on slow runners; the tests (not the worker) were
   rewritten to wait for the newest layout, with a negative control that still catches a worker
   losing the newest request (`1a0c186`).
+- Cancelling a connection test now cancels its active runtime request and releases the temporary
+  provider operation; the connection dialog remains open if the cancellation request cannot be
+  dispatched.
 
 ### Security & Safety
 

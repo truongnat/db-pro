@@ -76,21 +76,18 @@ impl DbConnector for SQLiteConnector {
         Ok(())
     }
 
-    async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
-        let handle = self.connect(config, password).await?;
-        let actors = self.actors.read().await;
-        let entry = actors
-            .get(&handle.0)
-            .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        entry
-            .handle
-            .execute("SELECT 1".into(), vec![], entry.max_rows, entry.query_timeout_ms)
+    async fn test_connection(&self, config: &ConnectionConfig, _password: &str) -> Result<(), DbError> {
+        let db_path = if config.database.is_empty() {
+            ":memory:"
+        } else {
+            &config.database
+        };
+        let actor = super::actor::SqliteActor::spawn(db_path)?;
+        actor
+            .execute("SELECT 1".into(), vec![], config.max_rows, config.query_timeout_ms)
             .await
-            .map(|_| ())?;
-        drop(actors);
-        self.disconnect(&handle).await
+            .map(|_| ())
     }
-
     async fn query(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
         let actors = self.actors.read().await;
         let entry = actors

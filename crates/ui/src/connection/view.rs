@@ -233,6 +233,21 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
             }
         }
     }
+    pub(crate) fn close_connection_dialog(&mut self) {
+        if self.lifecycle.pending_operation() == Some(PendingConnectionOperation::Test) {
+            if let Some(request_id) = self.lifecycle.pending_request() {
+                if !self.dispatch_command(UiCommand::CancelTestConnection { request_id }) {
+                    return;
+                }
+                self.lifecycle.clear_pending_request();
+                self.feedback.set_runtime_message("Connection test cancelled");
+            }
+        }
+
+        self.dialog
+            .transition(super::state::ConnectionDialogAction::Close);
+    }
+
 
     pub(crate) fn draw(&mut self, ctx: &egui::Context) {
         let mut open = self.dialog.open;
@@ -259,6 +274,12 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
                     self.draw_connection_footer(ui);
                 });
             });
+        if !open && self.dialog.open {
+            self.close_connection_dialog();
+            if self.dialog.open {
+                return;
+            }
+        }
         self.dialog.open = open && self.dialog.open;
         if self.dialog.draft != draft_before {
             self.dialog
@@ -417,7 +438,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
                     .show(ui)
                     .clicked()
                 {
-                    self.dialog.transition(super::state::ConnectionDialogAction::Close);
+                    self.close_connection_dialog();
                 }
             });
         });

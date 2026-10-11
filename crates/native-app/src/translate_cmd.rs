@@ -176,6 +176,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::CreateConnection { .. }
         | UiCommand::UpdateConnection { .. }
         | UiCommand::TestConnection { .. }
+        | UiCommand::CancelTestConnection { .. }
         | UiCommand::DeleteConnection { .. }
         | UiCommand::Connect { .. } => translate_connection_command(command),
         UiCommand::RunQuery { .. }
@@ -572,6 +573,9 @@ pub(crate) fn translate_connection_command(command: UiCommand) -> Option<Runtime
                 password,
             })
         }
+        UiCommand::CancelTestConnection { request_id } => Some(RuntimeCommand::CancelTestConnection {
+            request_id: runtime_request_id(request_id),
+        }),
         UiCommand::DeleteConnection {
             request_id,
             connection_id,

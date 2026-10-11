@@ -4169,6 +4169,7 @@ fn connection_test_success_is_invalidated_when_the_draft_changes() {
     );
 }
 
+
 #[test]
 fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();

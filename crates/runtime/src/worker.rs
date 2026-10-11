@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
@@ -162,6 +163,9 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         config: db_pro_core::domain::connection::ConnectionConfig,
         password: String,
+    },
+    CancelTestConnection {
+        request_id: RuntimeRequestId,
     },
     Connect {
         request_id: RuntimeRequestId,
@@ -640,6 +644,7 @@ struct QueryCancellation {
 }
 
 type QueryCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, QueryCancellation>>>;
+type ConnectionTestCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, oneshot::Sender<()>>>>;
 
 type PredictionCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, oneshot::Sender<()>>>>;
 type PredictionCooldown = Arc<Mutex<Option<std::time::Instant>>>;
@@ -669,6 +674,7 @@ pub fn spawn_worker(
     let prediction_cooldown: PredictionCooldown = Arc::new(Mutex::new(None));
     let agent_runs: AgentRunMap = Arc::new(Mutex::new(HashMap::new()));
     let agent_cancellations: AgentCancellationMap = Arc::new(Mutex::new(HashMap::new()));
+    let connection_test_cancellations: ConnectionTestCancelMap = Arc::new(Mutex::new(HashMap::new()));
     // Shared mutable cell: allows Agent key commands to hot-swap the provider
     // while the worker is running (no restart required).
     let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(None));
@@ -1467,28 +1473,50 @@ pub fn spawn_worker(
                     config,
                     password,
                 } => {
+                    let (cancel_tx, cancel_rx) = oneshot::channel();
+                    connection_test_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(request_id, cancel_tx);
                     let connection_api = runtime.connection_api();
                     let event_tx = event_tx.clone();
+                    let cancellations = Arc::clone(&connection_test_cancellations);
                     tokio::spawn(async move {
-                        let event = match connection_api.test(&config, &password).await {
-                            Ok(()) => RuntimeEvent::OperationCompleted {
-                                request_id,
-                                operation: "connection.tested",
-                            },
-                            Err(error) => {
-                                tracing::warn!(
-                                    request_id = request_id.0,
-                                    error = %error.message,
-                                    "test connection failed"
-                                );
-                                RuntimeEvent::Failed {
+                        let result = await_test_or_cancel(connection_api.test(&config, &password), cancel_rx).await;
+                        cancellations
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&request_id);
+                        if let Some(result) = result {
+                            let event = match result {
+                                Ok(()) => RuntimeEvent::OperationCompleted {
                                     request_id,
-                                    message: error.message,
+                                    operation: "connection.tested",
+                                },
+                                Err(error) => {
+                                    tracing::warn!(
+                                        request_id = request_id.0,
+                                        error = %error.message,
+                                        "test connection failed"
+                                    );
+                                    RuntimeEvent::Failed {
+                                        request_id,
+                                        message: error.message,
+                                    }
                                 }
-                            }
-                        };
-                        let _ = event_tx.send(event).await;
+                            };
+                            let _ = event_tx.send(event).await;
+                        }
                     });
+                }
+                RuntimeCommand::CancelTestConnection { request_id } => {
+                    if let Some(cancel) = connection_test_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .remove(&request_id)
+                    {
+                        let _ = cancel.send(());
+                    }
                 }
                 RuntimeCommand::Connect {
                     request_id,
@@ -2684,10 +2712,146 @@ fn prediction_backoff(error: &CodexProviderError) -> Option<std::time::Duration>
     }
 }
 
+async fn await_test_or_cancel<F: Future>(test: F, cancel_rx: oneshot::Receiver<()>) -> Option<F::Output> {
+    tokio::select! {
+        result = test => Some(result),
+        _ = cancel_rx => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn cancelling_connection_test_drops_the_active_future() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct DropFlag(Arc<AtomicBool>);
+
+        impl Drop for DropFlag {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let dropped = Arc::new(AtomicBool::new(false));
+        let test_dropped = Arc::clone(&dropped);
+        let test = async move {
+            let _drop_flag = DropFlag(test_dropped);
+            std::future::pending::<()>().await;
+            Some(())
+        };
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+        let task = tokio::spawn(await_test_or_cancel(test, cancel_rx));
+        tokio::task::yield_now().await;
+        cancel_tx.send(()).expect("test should still be waiting");
+
+        assert_eq!(task.await.expect("cancellation task should finish"), None);
+        assert!(dropped.load(Ordering::SeqCst));
+    }
+    #[tokio::test]
+    async fn cancel_test_connection_command_closes_the_pending_provider_socket() {
+        use std::time::Duration;
+        use tokio::io::AsyncReadExt;
+        use tokio::net::TcpListener;
+
+        let data_dir = std::env::temp_dir().join(format!("db-pro-cancel-test-{}", uuid::Uuid::new_v4()));
+        let runtime = DbProRuntime::new(&data_dir)
+            .await
+            .expect("test runtime should initialize");
+        let (command_tx, mut event_rx) = spawn_worker(runtime, 8);
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(3), event_rx.recv())
+                .await
+                .expect("worker should announce readiness"),
+            Some(RuntimeEvent::AgentProviderReady { .. })
+        ));
+
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .expect("local stalled provider should bind");
+        let port = listener.local_addr().expect("listener address").port();
+        let request_id = RuntimeRequestId(41);
+        let config = db_pro_core::domain::connection::ConnectionConfig {
+            name: "cancellation fixture".to_owned(),
+            host: "127.0.0.1".to_owned(),
+            port,
+            database: "fixture".to_owned(),
+            username: "fixture".to_owned(),
+            driver: db_pro_core::domain::connection::DriverType::Postgres,
+            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+            ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: Default::default(),
+            readonly: false,
+        };
+        command_tx
+            .send(RuntimeCommand::TestConnection {
+                request_id,
+                config,
+                password: String::new(),
+            })
+            .await
+            .expect("test command should reach worker");
+        let (mut provider_socket, _) = tokio::time::timeout(Duration::from_secs(3), listener.accept())
+            .await
+            .expect("test should connect to the stalled provider")
+            .expect("provider should accept the test socket");
+        let mut startup_message = [0; 1];
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(3), provider_socket.read(&mut startup_message))
+                .await
+                .expect("PostgreSQL startup message should arrive")
+                .expect("startup read should succeed"),
+            1
+        );
+
+        command_tx
+            .send(RuntimeCommand::CancelTestConnection { request_id })
+            .await
+            .expect("cancel command should reach worker");
+        assert!(
+            tokio::time::timeout(Duration::from_secs(3), async {
+                let mut remaining = [0; 256];
+                loop {
+                    if provider_socket
+                        .read(&mut remaining)
+                        .await
+                        .expect("socket close read should succeed")
+                        == 0
+                    {
+                        break;
+                    }
+                }
+            })
+            .await
+            .is_ok(),
+            "cancel should close the provider socket"
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), event_rx.recv())
+                .await
+                .is_err(),
+            "cancelled request must not emit a completion or failure event"
+        );
+
+        drop(command_tx);
+        assert!(tokio::time::timeout(Duration::from_secs(3), event_rx.recv())
+            .await
+            .expect("worker should stop after its command channel closes")
+            .is_none());
+        std::fs::remove_dir_all(&data_dir).expect("temporary runtime data should be removed");
+    }
     #[test]
     fn prediction_backoff_is_bounded_and_only_for_transient_provider_errors() {
         assert_eq!(

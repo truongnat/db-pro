@@ -27,6 +27,19 @@ fn schema_cache_refresh_preserves_invalidation_through_runtime_translation() {
 }
 
 #[test]
+fn connection_test_cancel_translates_with_the_original_request_id() {
+    let translated = translate_command(UiCommand::CancelTestConnection {
+        request_id: RequestId(31),
+    })
+    .expect("connection test cancellation must reach runtime");
+
+    match translated {
+        RuntimeCommand::CancelTestConnection { request_id } => assert_eq!(request_id, RuntimeRequestId(31)),
+        _ => panic!("unexpected runtime command"),
+    }
+}
+
+#[test]
 fn prediction_command_keeps_document_routing_metadata() {
     let command = UiCommand::RequestSqlPrediction {
         request_id: RequestId(7),

@@ -1,6 +1,6 @@
 # Native UI Regression Repairs — Plan
 
-State: RUNTIME_VERIFY  
+State: RUNTIME_VERIFY
 Branch: `main` (owner-mandated workspace workflow)
 
 ## Goal
@@ -35,10 +35,12 @@ should remain quiet.
   dialog separator rules; preserve focused, hovered, error, and intentionally outlined search
   states.
 - Capture normal/error connection surfaces in light/dark themes at available viewport sizes.
+- Make the connection modal Cancel action cancel the active connection-test request through the runtime worker; keep the dialog open if cancellation dispatch fails.
+- Cancel the provider test future without leaving temporary provider resources registered.
 
 ## Non-goals
 
-- Change provider behavior, credential policy, or database lifecycle behavior.
+- Do not change saved-connection lifecycle, credential policy, or mutation behavior; cancellation applies only to a connection test.
 - Redesign the product palette or introduce a parallel theme system.
 - Mark optional connection host, username, or password fields as required.
 - Remove intentional borders from focused/error controls, search inputs, or other explicitly framed
@@ -48,14 +50,16 @@ should remain quiet.
 
 | Provider | Supported | Required proof |
 |---|---|---|
-| PostgreSQL | N/A | UI-only changes; no provider operation changed |
-| SQLite | N/A | UI-only changes; no provider operation changed |
+| PostgreSQL | yes | Test future is dropped by request cancellation; live provider cancellation is not verified |
+| SQLite | yes | Test uses an unregistered actor; live provider cancellation is not verified |
+| MySQL | yes | Test uses a local pool rather than a registered connection; live provider cancellation is not verified |
+| SQL Server | yes | Test uses a local client rather than a registered connection; live provider cancellation is not verified |
 
-## Architecture
-
-The work stays in native egui presentation and existing form validation/state. `DbProTheme` remains
-the source of semantic visuals; no palette or provider layer is added. Capture mode selects
-deterministic UI state only.
+The native dialog sends a cancellation command using the active test's request ID. The runtime worker
+selects between the provider test future and a request-scoped cancellation signal. Provider test
+paths avoid persistent connector registration so dropping an in-flight future does not leave a
+registered test connection behind. `DbProTheme` remains the source of semantic visuals; no palette
+or provider layer is added.
 
 ## Acceptance criteria
 
@@ -65,7 +69,10 @@ deterministic UI state only.
   existing 1–65535 rule.
 - [x] Resting standard inputs, global noninteractive widgets, and dialog contents no longer gain
   unintended strokes; explicit search/focus/error outlines remain.
-- [ ] Final pinned Rust gates and complete app build pass.
-- [ ] Native screenshots reviewed at exact 1280×800, 1440×900, and 1920×1080 in light/dark normal
-  and error states. Current host caps large captures at 838 logical pixels high.
+- [x] Modal Cancel and window close cancel the active test request; failed dispatch leaves the dialog open.
+- [x] Runtime cancellation drops the test future, removes its request registration, and closes the in-flight provider-protocol socket in a worker smoke test.
+- [x] SQLite test uses a standalone actor, so cancellation cannot leave a connector-registered test actor.
+- [x] Final pinned Rust gates and complete app build pass.
+- [ ] Live cancellation is verified independently against PostgreSQL, SQLite, MySQL, and SQL Server.
+- [ ] Native screenshots reviewed at exact 1280×800, 1440×900, and 1920×1080 in light/dark normal and error states; current host caps large captures at 838 logical pixels high.
 - [ ] Live keyboard interaction and independent review recorded before COMPLETED.

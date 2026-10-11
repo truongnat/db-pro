@@ -146,6 +146,9 @@ pub enum UiCommand {
         request_id: RequestId,
         draft: UiConnectionDraft,
     },
+    CancelTestConnection {
+        request_id: RequestId,
+    },
     PickSqliteFile {
         request_id: RequestId,
     },
