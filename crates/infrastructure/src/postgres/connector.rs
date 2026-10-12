@@ -885,6 +885,9 @@ mod tests {
             failure.statement_index, 0,
             "statement_index must be 0 for Validation phase failure"
         );
-        assert_eq!(failure.outcome, db_pro_core::ports::TransactionFailureOutcome::NotStarted);
+        assert_eq!(
+            failure.outcome,
+            db_pro_core::ports::TransactionFailureOutcome::NotStarted
+        );
     }
 }
