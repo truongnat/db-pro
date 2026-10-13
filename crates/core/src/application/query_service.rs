@@ -267,6 +267,7 @@ impl QueryService {
         &self,
         connection_id: &ConnectionId,
         sql: &str,
+        params: &[QueryParam],
         analyze: bool,
         schema: Option<&str>,
     ) -> Result<serde_json::Value, DbError> {
@@ -286,7 +287,7 @@ impl QueryService {
         };
         validate_against_policy(&policy_sql, &policy).map_err(DbError::QueryFailed)?;
 
-        super::query_schema::with_query_schema(schema, self.connector.explain(&handle, sql, analyze)).await
+        super::query_schema::with_query_schema(schema, self.connector.explain(&handle, sql, params, analyze)).await
     }
 
     pub async fn get_history(&self, connection_id: &ConnectionId, limit: u32) -> Result<Vec<QueryHistory>, DbError> {
@@ -404,6 +405,9 @@ fn format_transaction_failure(
     match (phase, outcome) {
         (TransactionFailurePhase::Statement, TransactionFailureOutcome::RolledBack) => {
             format!("transaction rolled back: {error}")
+        }
+        (TransactionFailurePhase::Statement, TransactionFailureOutcome::LeftOpen) => {
+            format!("statement failed; the open transaction is still held: {error}")
         }
         (_, TransactionFailureOutcome::NotStarted) => format!("transaction did not start: {error}"),
         _ => format!("transaction failed; final outcome is unknown: {error}"),

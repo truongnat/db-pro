@@ -111,6 +111,7 @@ impl DbProApp {
     }
 
     fn draw_explain_pane(&mut self, ui: &mut egui::Ui) {
+        let analyze_executes = query_explain_actions::explain_analyze_executes(self.active_query_driver());
         let action = {
             let mut context = query_output_actions_view::QueryOutputActionsContext {
                 theme: self.theme,
@@ -118,6 +119,7 @@ impl DbProApp {
                 editor: &mut self.query.editor,
                 execution: &mut self.query.execution,
                 feedback: &mut self.feedback,
+                analyze_executes,
             };
             query_output_actions_view::draw_explain_pane(&mut context, ui)
         };
@@ -134,6 +136,7 @@ impl DbProApp {
                 editor: &mut self.query.editor,
                 execution: &mut self.query.execution,
                 feedback: &mut self.feedback,
+                analyze_executes: false,
             };
             query_output_actions_view::draw_history_pane(&mut context, ui)
         };

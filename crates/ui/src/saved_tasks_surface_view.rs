@@ -13,6 +13,8 @@ pub(super) enum SavedTasksSurfaceAction {
     DisableSchedule(Uuid),
     EnableSchedule(Uuid),
     DeleteTask(Uuid),
+    ConfirmDelete(Uuid),
+    CancelDelete,
 }
 
 pub(super) struct SavedTasksSurfaceContext<'a> {
@@ -25,6 +27,7 @@ impl SavedTasksSurfaceContext<'_> {
         let mut action = None;
         self.draw_header(ui, &mut action);
         self.draw_destructive_confirmation(ui, &mut action);
+        self.draw_delete_confirmation(ui, &mut action);
         if self.saved_tasks.draft.is_some() {
             self.draw_draft_form(ui, &mut action);
             ui.add_space(10.0);
@@ -60,6 +63,22 @@ impl SavedTasksSurfaceContext<'_> {
         if self.saved_tasks.confirm_destructive && primary_button(ui, "Run destructive task", self.theme).clicked() {
             *action = Some(SavedTasksSurfaceAction::RunTask(task_id));
         }
+        ui.add_space(8.0);
+    }
+
+    fn draw_delete_confirmation(&mut self, ui: &mut egui::Ui, action: &mut Option<SavedTasksSurfaceAction>) {
+        let Some(task_id) = self.saved_tasks.pending_delete_task_id else {
+            return;
+        };
+        ui.label("Delete this saved task?");
+        ui.horizontal(|ui| {
+            if danger_button(ui, "Delete task", self.theme).clicked() {
+                *action = Some(SavedTasksSurfaceAction::ConfirmDelete(task_id));
+            }
+            if secondary_button_with_icon(ui, Icon::X, "Keep task", self.theme).clicked() {
+                *action = Some(SavedTasksSurfaceAction::CancelDelete);
+            }
+        });
         ui.add_space(8.0);
     }
 

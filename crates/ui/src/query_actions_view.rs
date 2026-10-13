@@ -54,6 +54,9 @@ impl DbProApp {
                 Action::Run => {
                     self.dispatch_query();
                 }
+                Action::RunScript => {
+                    self.dispatch_query_all();
+                }
                 Action::Format => {
                     let capabilities = self.query_capabilities();
                     if let Some(request_id) = query_diagnostics_view::format_active_query(&mut self.query, capabilities)

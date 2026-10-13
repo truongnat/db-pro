@@ -634,6 +634,7 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                     auto_increment: false,
                     default_expr: "gen_random_uuid()".into(),
                     comment: "UUID Primary Key".into(),
+                    origin_name: String::new(),
                 },
             );
             context.workbench.sync_table_columns_to_csv();
@@ -653,6 +654,7 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                 auto_increment: false,
                 default_expr: "CURRENT_TIMESTAMP".into(),
                 comment: "Created timestamp".into(),
+                origin_name: String::new(),
             });
             context.workbench.table_columns.push(TableDesignerColumn {
                 name: "updated_at".into(),
@@ -662,6 +664,7 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                 auto_increment: false,
                 default_expr: "CURRENT_TIMESTAMP".into(),
                 comment: "Updated timestamp".into(),
+                origin_name: String::new(),
             });
             context.workbench.sync_table_columns_to_csv();
         }

@@ -47,6 +47,12 @@ impl ObjectMutationService {
             unsupported_reason: None,
         })
     }
+
+    /// Plan using the dialect of `request.driver`, not a fixed quote style.
+    pub fn plan_for_driver(request: &ObjectMutationRequest) -> Result<ObjectMutationPreview, MutationError> {
+        let dialect = crate::application::driver_dialect::DriverDialect::from_name(&request.driver);
+        Self::plan(request, &dialect)
+    }
 }
 
 fn unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
@@ -161,7 +167,9 @@ mod tests {
                     default: None,
                     is_pk: true,
                     new_name: None,
+                    origin_name: None,
                 }],
+                baseline: Vec::new(),
             }),
             options: MutationOptions::default(),
             driver: "postgresql".into(),
@@ -169,6 +177,110 @@ mod tests {
         let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
         assert!(preview.unsupported_reason.is_none());
         assert!(preview.statements[0].contains("CREATE TABLE"));
+        assert!(!preview.statements[0].to_ascii_uppercase().contains("IF NOT EXISTS"));
+    }
+
+    #[test]
+    fn editing_an_existing_table_emits_alter_not_create() {
+        let baseline = vec![
+            ColumnDefinition {
+                schema: "public".into(),
+                table: "orders".into(),
+                name: "id".into(),
+                data_type: "integer".into(),
+                nullable: false,
+                default: None,
+                is_pk: true,
+                new_name: None,
+                origin_name: None,
+            },
+            ColumnDefinition {
+                schema: "public".into(),
+                table: "orders".into(),
+                name: "label".into(),
+                data_type: "text".into(),
+                nullable: true,
+                default: None,
+                is_pk: false,
+                new_name: None,
+                origin_name: None,
+            },
+        ];
+        let req = ObjectMutationRequest {
+            action: ObjectAction::Alter,
+            target: None,
+            definition: ObjectDefinition::Table(TableDefinition {
+                schema: "public".into(),
+                name: "orders".into(),
+                columns: vec![
+                    ColumnDefinition {
+                        schema: "public".into(),
+                        table: "orders".into(),
+                        name: "id".into(),
+                        data_type: "bigint".into(),
+                        nullable: false,
+                        default: None,
+                        is_pk: true,
+                        new_name: None,
+                        origin_name: Some("id".into()),
+                    },
+                    ColumnDefinition {
+                        schema: "public".into(),
+                        table: "orders".into(),
+                        name: "title".into(),
+                        data_type: "text".into(),
+                        nullable: false,
+                        default: Some("'x'".into()),
+                        is_pk: false,
+                        new_name: None,
+                        origin_name: Some("label".into()),
+                    },
+                ],
+                baseline,
+            }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
+        let sql = preview.statements.join("\n");
+        let upper = sql.to_ascii_uppercase();
+        assert!(!upper.contains("CREATE TABLE"), "{sql}");
+        assert!(!upper.contains("IF NOT EXISTS"), "{sql}");
+        assert!(sql.contains("ALTER COLUMN \"id\" TYPE bigint"), "{sql}");
+        assert!(sql.contains("RENAME COLUMN \"label\" TO \"title\""), "{sql}");
+        assert!(sql.contains("ALTER COLUMN \"title\" SET NOT NULL"), "{sql}");
+        assert!(sql.contains("ALTER COLUMN \"title\" SET DEFAULT 'x'"), "{sql}");
+    }
+
+    #[test]
+    fn plan_for_driver_quotes_mysql_identifiers_with_backticks() {
+        let req = ObjectMutationRequest {
+            action: ObjectAction::Create,
+            target: None,
+            definition: ObjectDefinition::Table(TableDefinition {
+                schema: "app".into(),
+                name: "widgets".into(),
+                columns: vec![ColumnDefinition {
+                    schema: "app".into(),
+                    table: "widgets".into(),
+                    name: "id".into(),
+                    data_type: "int".into(),
+                    nullable: false,
+                    default: None,
+                    is_pk: true,
+                    new_name: None,
+                    origin_name: None,
+                }],
+                baseline: Vec::new(),
+            }),
+            options: MutationOptions::default(),
+            driver: "mysql".into(),
+        };
+        let preview = ObjectMutationService::plan_for_driver(&req).unwrap();
+        let sql = preview.statements.join("\n");
+        assert!(sql.contains("`app`.`widgets`"), "{sql}");
+        assert!(sql.contains("`id`"), "{sql}");
+        assert!(!sql.contains("\"widgets\""), "{sql}");
     }
 
     #[test]

@@ -58,6 +58,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_query_cancelled(&mut self, request_id: RequestId) {
+        self.query.execution.settle_transaction_request(request_id, false);
         if self.table.data_query.abandon_inline_query(request_id) {
             self.feedback.set_runtime_message("Query cancelled");
         }
@@ -70,6 +71,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
+        self.query.execution.settle_transaction_request(request_id, true);
         let mut context = query_result_events::QueryResultContext {
             query_session: &mut self.query.session,
             query_editor: &mut self.query.editor,
@@ -79,7 +81,8 @@ impl DbProApp {
             workspace: &mut self.workspace.shell,
             feedback: &mut self.feedback,
         };
-        query_result_events::on_query_completed(&mut context, request_id, result);
+        query_result_events::on_query_completed(&mut context, request_id, result.clone());
+        self.complete_saved_task_query(request_id, &result);
     }
 
     pub(super) fn on_query_multi_completed(&mut self, request_id: RequestId, output: UiQueryExecutionOutput) {
@@ -101,6 +104,21 @@ impl DbProApp {
         position: Option<usize>,
         code: Option<String>,
     ) {
+        if self
+            .connection
+            .lifecycle
+            .note_connections_list_failure(request_id, &message)
+        {
+            self.feedback
+                .set_runtime_message(format!("Could not load connections · {message}"));
+            return;
+        }
+        self.query.execution.settle_transaction_request(request_id, false);
+        self.finish_saved_task(request_id.0, Err(message.clone()));
+        if self.management.security.note_privilege_failure(request_id.0, &message) {
+            self.feedback.runtime_message = message;
+            return;
+        }
         if self.table.data_query.abandon_inline_query(request_id) {
             self.table.data_query.error = Some(message.clone());
         }
@@ -165,6 +183,7 @@ impl DbProApp {
     }
 
     pub(super) fn handle_table_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        let design_apply = self.schema.diagram.design.apply_request == Some(request_id.0);
         match table_events::handle_table_request_failure(
             &mut self.table.state,
             &mut self.table.data_query,
@@ -183,7 +202,13 @@ impl DbProApp {
                 });
                 true
             }
-            Some(table_events::TableFailureTransition::Handled) => true,
+            Some(table_events::TableFailureTransition::Handled) => {
+                if design_apply {
+                    self.schema.diagram.design.apply_request = None;
+                    self.schema.diagram.design.error = Some(message.to_owned());
+                }
+                true
+            }
             None => false,
         }
     }

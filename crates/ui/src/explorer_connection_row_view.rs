@@ -230,7 +230,7 @@ fn connection_context_menu(
         if ctx_menu_item(
             ui,
             Some(Icon::Plus),
-            "Create Table (DDL)…",
+            "Open sample CREATE TABLE SQL…",
             None,
             theme.text_primary,
             theme,

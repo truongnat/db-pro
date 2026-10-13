@@ -39,6 +39,9 @@ fn build_table_column_statements(
     dialect: &dyn SqlDialect,
 ) -> Result<Vec<String>, MutationError> {
     match (&request.definition, request.action) {
+        (ObjectDefinition::Table(def), ObjectAction::Create | ObjectAction::Alter) if !def.baseline.is_empty() => {
+            Ok(alter_existing_table(dialect, &request.driver, def))
+        }
         (ObjectDefinition::Table(def), ObjectAction::Create) => {
             let cols: Vec<ColumnDef> = def
                 .columns
@@ -93,6 +96,112 @@ fn build_table_column_statements(
         }
         _ => Err(unsupported(request)),
     }
+}
+
+fn alter_existing_table(dialect: &dyn SqlDialect, driver: &str, def: &TableDefinition) -> Vec<String> {
+    let qualified = if def.schema.is_empty() {
+        dialect.quote_identifier(&def.name).to_string()
+    } else {
+        format!(
+            "{}.{}",
+            dialect.quote_identifier(&def.schema),
+            dialect.quote_identifier(&def.name)
+        )
+    };
+    let mysql = {
+        let driver = driver.to_ascii_lowercase();
+        driver.contains("mysql") || driver.contains("maria")
+    };
+    let mut statements = Vec::new();
+    let mut kept_origins = Vec::new();
+    for column in &def.columns {
+        let Some(origin) = column.origin_name.as_deref().filter(|name| !name.is_empty()) else {
+            if let Ok(add) = ddl_builder::build_alter_table_add_column(
+                dialect,
+                &def.schema,
+                &def.name,
+                &ddl_builder::ColumnDef {
+                    name: column.name.clone(),
+                    data_type: column.data_type.clone(),
+                    nullable: column.nullable,
+                    default: column.default.clone(),
+                    is_pk: false,
+                },
+            ) {
+                statements.push(add);
+            }
+            continue;
+        };
+        kept_origins.push(origin.to_owned());
+        let current = dialect.quote_identifier(&column.name).to_string();
+        if origin != column.name {
+            statements.push(ddl_builder::build_alter_table_rename_column(
+                dialect,
+                &def.schema,
+                &def.name,
+                origin,
+                &column.name,
+            ));
+        }
+        let Some(baseline) = def.baseline.iter().find(|baseline| baseline.name == origin) else {
+            continue;
+        };
+        if mysql {
+            if baseline.data_type != column.data_type
+                || baseline.nullable != column.nullable
+                || baseline.default != column.default
+            {
+                let mut statement = format!("ALTER TABLE {qualified} MODIFY COLUMN {current} {}", column.data_type);
+                if !column.nullable {
+                    statement.push_str(" NOT NULL");
+                }
+                if let Some(default) = column.default.as_deref().filter(|default| !default.is_empty()) {
+                    statement.push_str(" DEFAULT ");
+                    statement.push_str(default);
+                }
+                statements.push(statement);
+            }
+            continue;
+        }
+        let column_sql = dialect.quote_identifier(&column.name);
+        if baseline.data_type != column.data_type {
+            statements.push(format!(
+                "ALTER TABLE {qualified} ALTER COLUMN {column_sql} TYPE {}",
+                column.data_type
+            ));
+        }
+        if baseline.nullable != column.nullable {
+            let nullability = if column.nullable {
+                "DROP NOT NULL"
+            } else {
+                "SET NOT NULL"
+            };
+            statements.push(format!(
+                "ALTER TABLE {qualified} ALTER COLUMN {column_sql} {nullability}"
+            ));
+        }
+        if baseline.default != column.default {
+            match column.default.as_deref().filter(|default| !default.is_empty()) {
+                Some(default) => statements.push(format!(
+                    "ALTER TABLE {qualified} ALTER COLUMN {column_sql} SET DEFAULT {default}"
+                )),
+                None => statements.push(format!(
+                    "ALTER TABLE {qualified} ALTER COLUMN {column_sql} DROP DEFAULT"
+                )),
+            }
+        }
+    }
+    for baseline in &def.baseline {
+        if !kept_origins.iter().any(|origin| origin == &baseline.name) {
+            statements.push(ddl_builder::build_alter_table_drop_column(
+                dialect,
+                &def.schema,
+                &def.name,
+                &baseline.name,
+            ));
+        }
+    }
+    statements
 }
 
 fn build_view_statements(

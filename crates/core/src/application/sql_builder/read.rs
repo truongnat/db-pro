@@ -91,7 +91,8 @@ fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Ve
                 params.push(cell_to_param(&filter.value));
             }
             FilterOp::Like => {
-                conditions.push(format!("CAST({column} AS TEXT) LIKE {}", pw.next()));
+                let placeholder = pw.next();
+                conditions.push(dialect.text_like(&column, &placeholder));
                 params.push(cell_to_param(&filter.value));
             }
         }

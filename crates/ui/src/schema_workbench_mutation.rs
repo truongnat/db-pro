@@ -26,6 +26,14 @@ impl SchemaWorkbenchState {
             return Err("Object name cannot be empty".to_owned());
         }
 
+        let mut action = action;
+        if self.mode == SchemaWorkbenchMode::Table
+            && !self.table_baseline.is_empty()
+            && action == ObjectAction::Create
+        {
+            action = ObjectAction::Alter;
+        }
+
         let (definition, kind, parent) = match self.mode {
             SchemaWorkbenchMode::Table => {
                 let columns = if !self.table_columns.is_empty() {
@@ -55,17 +63,38 @@ impl SchemaWorkbenchState {
                                 default: nonempty_opt(&col.default_expr),
                                 is_pk: col.is_pk,
                                 new_name: None,
+                                origin_name: nonempty_opt(&col.origin_name),
                             }
                         })
                         .collect()
                 } else {
                     parse_column_defs(&schema, &name, &self.columns_csv)?
                 };
+                let baseline = self
+                    .table_baseline
+                    .iter()
+                    .map(|col| ColumnDefinition {
+                        schema: schema.clone(),
+                        table: name.clone(),
+                        name: if col.origin_name.is_empty() {
+                            col.name.clone()
+                        } else {
+                            col.origin_name.clone()
+                        },
+                        data_type: col.data_type.clone(),
+                        nullable: col.nullable && !col.is_pk,
+                        default: nonempty_opt(&col.default_expr),
+                        is_pk: col.is_pk,
+                        new_name: None,
+                        origin_name: None,
+                    })
+                    .collect();
                 (
                     ObjectDefinition::Table(TableDefinition {
                         schema: schema.clone(),
                         name: name.clone(),
                         columns,
+                        baseline,
                     }),
                     ObjectKind::Table,
                     None,
@@ -81,6 +110,7 @@ impl SchemaWorkbenchState {
                     default: nonempty_opt(&self.default_expr),
                     is_pk: self.is_pk,
                     new_name: nonempty_opt(&self.new_name),
+                    origin_name: None,
                 }),
                 ObjectKind::Column,
                 Some(self.parent_table.clone()),
@@ -273,7 +303,7 @@ impl SchemaWorkbenchState {
             options: MutationOptions {
                 cascade: self.cascade,
                 if_exists: true,
-                if_not_exists: true,
+                if_not_exists: false,
                 dry_run: false,
             },
             driver: driver.to_owned(),

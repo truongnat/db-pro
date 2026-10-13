@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use crate::domain::cross_connection::{ColumnTypeMismatch, SchemaDiff, TableColumnDiff};
-use crate::domain::schema::IntrospectResult;
+use crate::domain::cross_connection::{ColumnTypeMismatch, SchemaDiff, TableColumnDiff, ViewBodyMismatch};
+use crate::domain::schema::{ForeignKey, Index, IntrospectResult};
 
 type QualifiedName = (String, String);
 
@@ -51,6 +51,10 @@ pub(super) fn compare_introspect_results(source: &IntrospectResult, target: &Int
     let source_indexes = qualified_index_names(source);
     let target_indexes = qualified_index_names(target);
     let (indexes_only_in_source, indexes_only_in_target) = diff_qualified_names(&source_indexes, &target_indexes);
+    let index_definition_mismatches = compare_index_definitions(source, target);
+    let (foreign_keys_only_in_source, foreign_keys_only_in_target) =
+        diff_qualified_names(&foreign_key_labels(source), &foreign_key_labels(target));
+    let (views_only_in_source, views_only_in_target, view_body_mismatches) = compare_views(source, target);
 
     SchemaDiff {
         tables_only_in_source,
@@ -58,6 +62,12 @@ pub(super) fn compare_introspect_results(source: &IntrospectResult, target: &Int
         column_diffs,
         indexes_only_in_source,
         indexes_only_in_target,
+        index_definition_mismatches,
+        foreign_keys_only_in_source,
+        foreign_keys_only_in_target,
+        views_only_in_source,
+        views_only_in_target,
+        view_body_mismatches,
     }
 }
 
@@ -162,6 +172,101 @@ struct ColumnLocation<'a> {
     schema: &'a str,
     table: &'a str,
     name: &'a str,
+}
+
+fn compare_index_definitions(source: &IntrospectResult, target: &IntrospectResult) -> Vec<String> {
+    let mut mismatches = Vec::new();
+    for source_index in &source.indexes {
+        let Some(target_index) = target.indexes.iter().find(|index| same_index(source_index, index)) else {
+            continue;
+        };
+        let source_body = index_body(source_index);
+        let target_body = index_body(target_index);
+        if source_body != target_body {
+            mismatches.push(format!(
+                "{}: {source_body} -> {target_body}",
+                display_qualified_name(&qualify_key(&source_index.schema, &source_index.name))
+            ));
+        }
+    }
+    mismatches.sort();
+    mismatches
+}
+
+fn same_index(left: &Index, right: &Index) -> bool {
+    left.schema == right.schema && left.name == right.name
+}
+
+fn index_body(index: &Index) -> String {
+    format!(
+        "unique={} columns={} definition={}",
+        index.unique,
+        index.columns.join(","),
+        index.definition.trim()
+    )
+}
+
+fn foreign_key_labels(result: &IntrospectResult) -> BTreeSet<QualifiedName> {
+    result
+        .foreign_keys
+        .iter()
+        .map(|foreign_key| qualify_key(&foreign_key.schema, &foreign_key_label(foreign_key)))
+        .collect()
+}
+
+fn foreign_key_label(foreign_key: &ForeignKey) -> String {
+    format!(
+        "{} ({}) -> {}.{} ({}) ON UPDATE {} ON DELETE {}",
+        foreign_key.name,
+        foreign_key.from_columns.join(","),
+        foreign_key.to_schema,
+        foreign_key.to_table,
+        foreign_key.to_columns.join(","),
+        foreign_key.on_update,
+        foreign_key.on_delete,
+    )
+}
+
+fn compare_views(
+    source: &IntrospectResult,
+    target: &IntrospectResult,
+) -> (Vec<String>, Vec<String>, Vec<ViewBodyMismatch>) {
+    let source_views = view_names(source);
+    let target_views = view_names(target);
+    let (views_only_in_source, views_only_in_target) = diff_qualified_names(&source_views, &target_views);
+    let mut view_body_mismatches = Vec::new();
+    for qualified in source_views.intersection(&target_views) {
+        let (schema, name) = (qualified.0.as_str(), qualified.1.as_str());
+        let source_body = view_body(source, schema, name);
+        let target_body = view_body(target, schema, name);
+        if source_body != target_body {
+            view_body_mismatches.push(ViewBodyMismatch {
+                schema: schema.to_owned(),
+                name: name.to_owned(),
+                source_body,
+                target_body,
+            });
+        }
+    }
+    view_body_mismatches.sort_by(|left, right| (&left.schema, &left.name).cmp(&(&right.schema, &right.name)));
+    (views_only_in_source, views_only_in_target, view_body_mismatches)
+}
+
+fn view_names(result: &IntrospectResult) -> BTreeSet<QualifiedName> {
+    result
+        .views
+        .iter()
+        .map(|view| qualify_key(&view.schema, &view.name))
+        .collect()
+}
+
+fn view_body(result: &IntrospectResult, schema: &str, name: &str) -> String {
+    result
+        .views
+        .iter()
+        .find(|view| view.schema == schema && view.name == name)
+        .map(|view| view.definition.trim().to_owned())
+        .unwrap_or_default()
 }
 
 fn find_column_type(result: &IntrospectResult, location: &ColumnLocation<'_>) -> Option<String> {

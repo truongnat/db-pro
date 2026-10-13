@@ -108,10 +108,12 @@ impl DbProApp {
         }
     }
     fn draw_tools_hub_activity(&mut self, ui: &mut egui::Ui) {
+        let driver = self.active_driver().to_owned();
         let mut context = tools_hub_surface_view::ToolsHubContext {
             theme: self.theme,
             active_activity: self.workspace.activity,
             search_query: &mut self.schema.explorer.explorer_search,
+            driver: &driver,
         };
         for action in context.draw(ui) {
             match action {
@@ -241,7 +243,12 @@ impl DbProApp {
             feedback: &mut self.feedback,
         }
         .draw(ui);
-        if let Some(action) = maintenance_activity_view::draw_maintenance_activity(ui, self.theme) {
+        if let Some(action) = maintenance_activity_view::draw_maintenance_activity(
+            ui,
+            self.theme,
+            &mut self.management.monitoring.monitoring_maintenance_schema,
+            &mut self.management.monitoring.monitoring_maintenance_table,
+        ) {
             self.management.monitoring.monitoring_maintenance_confirm = Some(action);
         }
     }

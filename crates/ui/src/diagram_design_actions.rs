@@ -26,17 +26,7 @@ pub(super) fn er_design_add_fk(ctx: &mut DiagramViewContext<'_>) {
 }
 
 pub(super) fn er_design_preview_plan(ctx: &mut DiagramViewContext<'_>) {
-    struct QuoteDialect;
-    impl db_pro_core::ports::SqlDialect for QuoteDialect {
-        fn placeholder(&self, index: usize) -> String {
-            format!("${index}")
-        }
-        fn quote_identifier(&self, name: &str) -> String {
-            format!("\"{}\"", name.replace('"', "\"\""))
-        }
-    }
-
-    match crate::diagram::design_mode::plan_design_draft(&ctx.diagram.design.draft, ctx.active_driver, &QuoteDialect) {
+    match crate::diagram::design_mode::plan_design_draft(&ctx.diagram.design.draft, ctx.active_driver) {
         Ok(previews) => {
             let (sql, fingerprint, effects) = crate::diagram::design_mode::merge_preview_sql(&previews);
             ctx.diagram.design.preview_sql = sql;
@@ -78,9 +68,10 @@ pub(super) fn er_design_apply_plan(ctx: &mut DiagramViewContext<'_>) -> Option<D
         return None;
     }
 
+    // Leave the draft on the canvas until ExecuteDdl reports success.
+    // The query path rejects a multi-statement design script.
     let sql = ctx.diagram.design.preview_sql.clone();
-    ctx.diagram.design.discard();
-    Some(DiagramAction::ExecuteQuery(sql))
+    Some(DiagramAction::ApplyDesign(sql))
 }
 
 fn split_three(raw: &str) -> Option<(String, String, String)> {

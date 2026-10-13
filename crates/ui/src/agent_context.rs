@@ -19,7 +19,7 @@ pub(super) fn document_snapshot(document: &QueryDocument) -> AgentDocumentSnapsh
         selection,
         current_statement: document
             .analysis
-            .current_statement_at(document.cursor.offset)
+            .statement_for_caret(document.cursor.offset)
             .map(|statement| statement.text.clone()),
     }
 }

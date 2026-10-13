@@ -6,6 +6,8 @@ use super::*;
 pub(super) enum MonitoringConfirmationAction {
     ConfirmTerminate(i64),
     CancelTerminate,
+    ConfirmCancelBackend(i64),
+    DismissCancelBackend,
     ConfirmMaintenance(db_pro_core::domain::monitoring::MaintenanceAction),
     CancelMaintenance,
     ConfirmResetStatistics,
@@ -15,6 +17,7 @@ pub(super) enum MonitoringConfirmationAction {
 pub(super) struct MonitoringConfirmationContext {
     pub(super) theme: DbProTheme,
     pub(super) terminate_backend_id: Option<i64>,
+    pub(super) cancel_backend_id: Option<i64>,
     pub(super) maintenance_action: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
     pub(super) reset_statistics: bool,
 }
@@ -24,6 +27,9 @@ impl MonitoringConfirmationContext {
         let mut actions = Vec::new();
         if let Some(backend_id) = self.terminate_backend_id {
             actions.extend(self.draw_terminate(ctx, backend_id));
+        }
+        if let Some(backend_id) = self.cancel_backend_id {
+            actions.extend(self.draw_cancel_backend(ctx, backend_id));
         }
         if let Some(action) = self.maintenance_action {
             actions.extend(self.draw_maintenance(ctx, action));
@@ -57,6 +63,31 @@ impl MonitoringConfirmationContext {
             });
         if !open {
             actions.push(MonitoringConfirmationAction::CancelTerminate);
+        }
+        actions
+    }
+
+    fn draw_cancel_backend(&self, ctx: &egui::Context, backend_id: i64) -> Vec<MonitoringConfirmationAction> {
+        let mut actions = Vec::new();
+        let mut open = true;
+        Dialog::new(&mut open, "Cancel backend?", self.theme)
+            .width(460.0)
+            .id_salt("monitoring_cancel_backend_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(format!("Cancel backend pid {backend_id}?"));
+                });
+                frame.footer(|ui| {
+                    if danger_button(ui, "Cancel backend", self.theme).clicked() {
+                        actions.push(MonitoringConfirmationAction::ConfirmCancelBackend(backend_id));
+                    }
+                    if secondary_button_with_icon(ui, Icon::X, "Keep running", self.theme).clicked() {
+                        actions.push(MonitoringConfirmationAction::DismissCancelBackend);
+                    }
+                });
+            });
+        if !open {
+            actions.push(MonitoringConfirmationAction::DismissCancelBackend);
         }
         actions
     }

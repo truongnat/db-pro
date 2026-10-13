@@ -4,6 +4,8 @@ use super::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum FilesTasksAction {
     RunTask,
+    ConfirmShell,
+    CancelShell,
     RunBenchmark,
 }
 
@@ -11,6 +13,7 @@ pub(super) struct FilesTasksContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) command: &'a mut String,
     pub(super) last_task: Option<&'a TaskRunResult>,
+    pub(super) pending_shell: bool,
 }
 
 impl FilesTasksContext<'_> {
@@ -39,6 +42,27 @@ impl FilesTasksContext<'_> {
             .clicked()
         {
             actions.push(FilesTasksAction::RunTask);
+        }
+        if self.pending_shell {
+            ui.label("Run this command with sh -lc?");
+            if Button::new(self.theme)
+                .text("Confirm shell")
+                .variant(ButtonVariant::Destructive)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                actions.push(FilesTasksAction::ConfirmShell);
+            }
+            if Button::new(self.theme)
+                .text("Do not run")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                actions.push(FilesTasksAction::CancelShell);
+            }
         }
         actions
     }

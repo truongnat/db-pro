@@ -14,6 +14,8 @@ pub(super) struct DataDiffRequest {
 /// State owned by the schema-comparison workspace and its migration preview.
 pub(super) struct SchemaCompareState {
     pub(super) schema_snapshot: Option<UiSchemaSnapshot>,
+    /// Live schema captured with the diff. Planning reads its columns instead of a name-only diff.
+    pub(super) schema_diff_current: Option<UiSchemaSnapshot>,
     pub(super) schema_diff: Option<UiSchemaDiffResult>,
     pub(super) migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
     pub(super) migration_preview_sql: String,
@@ -34,6 +36,7 @@ impl Default for SchemaCompareState {
     fn default() -> Self {
         Self {
             schema_snapshot: None,
+            schema_diff_current: None,
             schema_diff: None,
             migration_plan: None,
             migration_preview_sql: String::new(),
@@ -69,6 +72,7 @@ impl SchemaCompareState {
         };
         let current = UiSchemaSnapshot::from_summary("current", schema);
         self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.schema_diff_current = Some(current);
         self.migration_plan = None;
         self.migration_preview_sql.clear();
         self.migration_confirm_destructive = false;
@@ -85,12 +89,17 @@ impl SchemaCompareState {
     ) {
         use db_pro_core::application::MigrationPlanner;
 
-        let Some(diff) = self.schema_diff.clone() else {
+        let (Some(source_snapshot), Some(target_snapshot)) =
+            (self.schema_snapshot.clone(), self.schema_diff_current.clone())
+        else {
             feedback.set_runtime_message("Diff a schema snapshot before planning a migration");
             return;
         };
-        let core_diff = schema_compare::to_core_schema_diff(&diff);
-        let plan = MigrationPlanner::plan_from_schema_diff(&core_diff, driver);
+        let plan = MigrationPlanner::plan_from_introspection(
+            &schema_compare::snapshot_to_introspect(&source_snapshot),
+            &schema_compare::snapshot_to_introspect(&target_snapshot),
+            driver,
+        );
         self.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
         self.migration_fingerprint_at_preview = plan.fingerprint.clone();
         self.migration_confirm_destructive = false;
@@ -155,13 +164,18 @@ impl SchemaCompareState {
         if sql.trim().is_empty() {
             return Err("No supported SQL operations to apply".to_owned());
         }
+        if db_pro_core::application::placeholder_remains(&sql) {
+            return Err(
+                "Migration SQL still contains a placeholder; expand it from introspection before apply".to_owned(),
+            );
+        }
         Ok(sql)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SchemaCompareState;
+    use super::{FeedbackState, SchemaCompareState};
 
     #[test]
     fn defaults_are_safe_for_schema_change_operations() {
@@ -258,5 +272,63 @@ mod tests {
                     .to_owned()
             )
         );
+    }
+
+    #[test]
+    fn plan_migration_uses_introspected_columns() {
+        use crate::runtime::{UiSchemaColumn, UiSchemaSummary, UiTableSummary};
+
+        let source = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".into(),
+                name: "widgets".into(),
+                row_count: None,
+                columns: vec![UiSchemaColumn {
+                    name: "id".into(),
+                    data_type: "integer".into(),
+                    nullable: false,
+                    is_primary_key: true,
+                }],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+        let mut state = SchemaCompareState::default();
+        let mut feedback = FeedbackState::default();
+        state.take_snapshot(&source, "src", &mut feedback);
+        state.diff_against_snapshot(&UiSchemaSummary::default(), &mut feedback);
+        state.plan_migration("postgresql", "src · public", &mut feedback);
+
+        assert!(state.migration_preview_sql.contains("\"id\" integer NOT NULL"));
+        assert!(state.migration_preview_sql.contains("PRIMARY KEY (\"id\")"));
+        assert!(!db_pro_core::application::placeholder_remains(&state.migration_preview_sql));
+    }
+
+    #[test]
+    fn migration_apply_refuses_a_placeholder() {
+        use db_pro_core::domain::migration::{MigrationOpKind, MigrationOperation, MigrationRisk};
+
+        let mut plan = empty_plan();
+        plan.operations.push(MigrationOperation {
+            id: "op-0001".into(),
+            kind: MigrationOpKind::CreateTable,
+            schema: "public".into(),
+            object: "t".into(),
+            sql: "CREATE TABLE t (id int /* placeholder */)".into(),
+            risk: MigrationRisk::Mutating,
+            dependencies: Vec::new(),
+            provider_supported: true,
+            unsupported_reason: None,
+        });
+        let state = SchemaCompareState {
+            migration_plan: Some(plan),
+            migration_fingerprint_at_preview: "fp".into(),
+            migration_plan_target: Some("prod-pg · public".into()),
+            ..Default::default()
+        };
+        let error = state
+            .prepare_migration_sql("prod-pg · public")
+            .expect_err("placeholder");
+        assert!(error.to_ascii_lowercase().contains("placeholder"));
     }
 }

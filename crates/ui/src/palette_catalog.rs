@@ -26,7 +26,7 @@ fn quick_open_navigation_items() -> Vec<PaletteItem> {
             Icon::FileCode2,
             "Query",
             "Open the SQL editor",
-            Some(format!("{}K", primary_modifier_label())),
+            None,
             PaletteAction::Query,
         ),
         catalog_item(
@@ -139,7 +139,7 @@ fn query_command_items() -> Vec<PaletteItem> {
             Icon::Play,
             "Run query",
             "Execute the current SQL or selection",
-            Some(format!("{}↵", primary_modifier_label())),
+            None,
             PaletteAction::RunQuery,
         ),
         catalog_item(
@@ -199,7 +199,7 @@ fn workspace_navigation_items() -> Vec<PaletteItem> {
             Icon::PanelLeft,
             "Toggle explorer",
             "Show or hide the connection sidebar",
-            Some(format!("{}B", primary_modifier_label())),
+            None,
             PaletteAction::ToggleExplorer,
         ),
         catalog_item(
@@ -278,17 +278,11 @@ pub(super) fn agent_action_items() -> Vec<(SearchKind, PaletteItem)> {
             PaletteItem {
                 icon: Icon::Sparkles,
                 title: "Explain current query".to_owned(),
-                subtitle: "Agent action · explain plan".to_owned(),
+                subtitle: "Read-only query plan".to_owned(),
                 shortcut: None,
                 action: PaletteAction::ExplainQuery,
             },
         ),
     ]
 }
-fn primary_modifier_label() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "⌘"
-    } else {
-        "Ctrl"
-    }
-}
+

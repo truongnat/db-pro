@@ -9,20 +9,18 @@ pub(super) enum QueryTransactionAction {
 pub(super) struct QueryTransactionSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) execution: &'a mut QueryExecutionPolicyState,
+    pub(super) document_id: Option<&'a str>,
 }
 
 impl QueryTransactionSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<QueryTransactionAction> {
         let mut actions = Vec::new();
-        if self.execution.query_txn_bar_open || self.execution.query_in_transaction {
+        let in_transaction = self.execution.in_transaction(self.document_id);
+        if self.execution.query_txn_bar_open || in_transaction {
             ui.add_space(4.0);
-            if let Some(action) = TransactionBar::new(
-                self.execution.query_in_transaction,
-                self.execution.query_txn_pending,
-                self.theme,
-            )
-            .auto_commit(self.execution.query_auto_commit)
-            .show(ui)
+            if let Some(action) = TransactionBar::new(in_transaction, self.execution.txn_pending(self.document_id), self.theme)
+                .auto_commit(self.execution.auto_commit(self.document_id))
+                .show(ui)
             {
                 actions.push(QueryTransactionAction::Transaction(action));
             }

@@ -5,6 +5,7 @@ use super::AI_PREDICTION_EGRESS_NOTE;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum QueryActionsSurfaceAction {
     Run,
+    RunScript,
     Format,
     Explain,
     AskAgent,
@@ -97,6 +98,10 @@ impl QueryActionsSurfaceContext<'_> {
         };
         if action_menu_button(ui, Icon::Play, &run_label, self.theme).clicked() {
             actions.push(QueryActionsSurfaceAction::Run);
+            actions.push(QueryActionsSurfaceAction::Close);
+        }
+        if action_menu_button(ui, Icon::List, &t!("query.run_script"), self.theme).clicked() {
+            actions.push(QueryActionsSurfaceAction::RunScript);
             actions.push(QueryActionsSurfaceAction::Close);
         }
         if action_menu_button(ui, Icon::WandSparkles, &t!("query.format_sql"), self.theme).clicked() {

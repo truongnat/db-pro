@@ -6,10 +6,12 @@ pub(super) struct QueryParametersContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) session: &'a mut QuerySessionState,
     pub(super) supports_parameters: bool,
+    /// Active connection driver. Discovery follows it (`?` is not a placeholder on PostgreSQL or SQL Server).
+    pub(super) driver: &'a str,
 }
 
 pub(super) fn draw_parameters_panel(context: &mut QueryParametersContext<'_>, ui: &mut egui::Ui) {
-    let params = crate::query::discover_sql_parameters(context.session.active_text());
+    let params = crate::query::discover_sql_parameters_for_driver(context.session.active_text(), context.driver);
     if params.is_empty() {
         return;
     }
@@ -55,6 +57,8 @@ fn draw_parameter_row(
         .documents
         .get(document_index)
         .is_some_and(|document| document.parameter_secrets.contains(&parameter.name));
+    let mut value_changed = false;
+    let mut secret_changed = false;
     ui.horizontal(|ui| {
         let kind = match parameter.kind {
             crate::query::ParameterKind::Numbered => "numbered",
@@ -72,6 +76,7 @@ fn draw_parameter_row(
             egui::TextEdit::singleline(&mut value)
         };
         let response = ui.add(edit.desired_width(180.0));
+        value_changed = response.changed();
         response.widget_info(|| {
             egui::WidgetInfo::labeled(
                 egui::WidgetType::TextEdit,
@@ -79,14 +84,50 @@ fn draw_parameter_row(
                 format!("Value for {}", parameter.name),
             )
         });
-        ui.checkbox(&mut is_secret, "secret");
+        secret_changed = ui.checkbox(&mut is_secret, "secret").changed();
     });
     if let Some(document) = session.documents.get_mut(document_index) {
-        document.parameter_values.insert(parameter.name.clone(), value);
-        if is_secret {
-            document.parameter_secrets.insert(parameter.name.clone());
-        } else {
-            document.parameter_secrets.remove(&parameter.name);
+        // An untouched field must stay absent. A present key is filled, so writing
+        // "" here would bind an empty string instead of failing closed.
+        if value_changed {
+            document.parameter_values.insert(parameter.name.clone(), value);
         }
+        if secret_changed {
+            if is_secret {
+                document.parameter_secrets.insert(parameter.name.clone());
+            } else {
+                document.parameter_secrets.remove(&parameter.name);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::query::QueryDocument;
+
+    #[test]
+    fn opening_the_panel_does_not_store_an_empty_parameter_value() {
+        let mut session = QuerySessionState::default();
+        session.add_document(QueryDocument::new("doc-1", "Query 1", "SELECT :id"));
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ui| {
+            let mut context = QueryParametersContext {
+                theme: DbProTheme::default(),
+                session: &mut session,
+                supports_parameters: true,
+                driver: "PostgreSQL",
+            };
+            draw_parameters_panel(&mut context, ui);
+        });
+        let document = session.active_document().expect("document");
+        assert!(
+            document.parameter_values.is_empty(),
+            "opening the panel must not insert an empty value, got {:?}",
+            document.parameter_values
+        );
+        assert!(document.parameter_secrets.is_empty());
     }
 }

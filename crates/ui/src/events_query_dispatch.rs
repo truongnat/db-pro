@@ -13,17 +13,13 @@ impl DbProApp {
             return;
         }
         let text_input_has_focus = ctx.egui_wants_keyboard_input();
-        if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
+        // Catalog chords win over the editor, including while it holds the keyboard.
+        // Run-all is checked before run so a shifted chord is not also a plain run.
+        if self.handle_catalog_shortcuts(ctx) {
             return;
         }
-        if ctx.input(|i| {
-            self.shortcut_pressed(i, "query.run")
-                || (self.query.editor.query_editor_focused
-                    && !self.workspace.agent_open
-                    && i.key_pressed(egui::Key::Enter)
-                    && Self::primary_modifier_pressed(i))
-        }) {
-            self.dispatch_query();
+        if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
+            return;
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.handle_escape(ctx);
@@ -79,15 +75,110 @@ impl DbProApp {
             self.connection.open_new();
             return true;
         }
-        if ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
+        false
+    }
+
+    /// Commands the catalog owns. They run while the editor is focused, and a
+    /// rebinding replaces the old chord instead of leaving a hardcoded one behind.
+    fn handle_catalog_shortcuts(&mut self, ctx: &egui::Context) -> bool {
+        if self.press_catalog(ctx, "query.run_all") {
+            self.dispatch_query_all();
+            return true;
+        }
+        if self.press_catalog(ctx, "query.format") {
+            self.format_focused_query();
+            return true;
+        }
+        if self.press_catalog(ctx, "query.run") {
+            self.dispatch_query();
+            return true;
+        }
+        if self.press_catalog(ctx, "query.new") {
             self.new_query_document();
             self.workspace.active_tab = WorkspaceTab::Query;
             return true;
         }
-        if ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
+        if self.press_catalog(ctx, "editor.find") {
             self.query.editor.editor_search_open = true;
+            return true;
+        }
+        if self.press_catalog(ctx, "table.open") {
+            self.open_catalog_table();
+            return true;
+        }
+        if self.press_catalog(ctx, "result.focus") {
+            self.focus_result_grid(ctx);
+            return true;
+        }
+        if self.press_catalog(ctx, "editor.comment") {
+            self.toggle_focused_comment();
+            return true;
         }
         false
+    }
+
+    fn toggle_focused_comment(&mut self) {
+        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
+            crate::editor::SqlDialect::Postgres
+        } else {
+            crate::editor::SqlDialect::SQLite
+        };
+        let index = self.query.session.active_document_index;
+        if let Some(document) = self.query.session.documents.get_mut(index) {
+            query_view::toggle_query_comment(document, dialect);
+        }
+    }
+
+    /// Opens the query output dock and moves keyboard focus onto the result grid.
+    fn focus_result_grid(&mut self, ctx: &egui::Context) {
+        self.workspace.bottom_panel_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        let document_id = self
+            .query
+            .session
+            .active_document()
+            .map(|document| document.id.clone());
+        self.query
+            .output
+            .set_active_for_optional_document(document_id.as_deref(), OutputTab::Results);
+        self.query.editor.query_editor_focused = false;
+        ctx.memory_mut(|memory| memory.request_focus(result_grid_keyboard_view::result_grid_focus_id()));
+    }
+
+    /// Opens the explorer's selected table through the palette Open Table path.
+    /// With nothing selected, quick open is limited to schema objects so the
+    /// chosen row is still that path.
+    fn open_catalog_table(&mut self) {
+        if let Some(table) = self.schema.explorer.selected_table.clone() {
+            self.open_table_from_palette(table);
+            return;
+        }
+        self.palette
+            .open_with_scope(PaletteMode::QuickOpen, SearchScope::Schema);
+    }
+
+    fn press_catalog(&self, ctx: &egui::Context, command_id: &str) -> bool {
+        let token = self.preferences.settings.keybindings.resolved(command_id);
+        let pressed = ctx.input(|input| settings_model::match_shortcut_token(input, &token));
+        if !pressed {
+            return false;
+        }
+        ctx.input_mut(|input| {
+            input.events.retain(|event| !settings_model::event_matches_shortcut(event, &token));
+        });
+        true
+    }
+
+    fn format_focused_query(&mut self) {
+        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
+            crate::editor::SqlDialect::Postgres
+        } else {
+            crate::editor::SqlDialect::SQLite
+        };
+        let index = self.query.session.active_document_index;
+        if let Some(document) = self.query.session.documents.get_mut(index) {
+            query_view::format_query_document(document, dialect);
+        }
     }
 
     fn handle_escape(&mut self, ctx: &egui::Context) {
@@ -159,6 +250,7 @@ impl DbProApp {
             return false;
         }
         self.send_query_run(connection_id, sql, execution_range, version, false)
+            .is_some()
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
@@ -265,21 +357,27 @@ impl DbProApp {
         execution_range: (usize, usize),
         version: u64,
         all_statements: bool,
-    ) -> bool {
+    ) -> Option<crate::RequestId> {
         let request_id = self.next_request_id();
-        let Some(command) =
+        let Some(mut command) =
             self.query_execution_context()
                 .prepare_query_run(request_id, connection_id, sql, all_statements)
         else {
-            return false;
+            return None;
         };
+        command.session_id = self.query.session.active_document().map(|document| document.id.clone());
         let runtime_command = query_run_command(&command);
         if self.dispatch_command(runtime_command) {
             self.query_execution_context()
                 .commit_dispatched(&command, execution_range, version);
-            true
+            if let Some(document_id) = command.session_id.clone() {
+                self.query
+                    .execution
+                    .note_transaction_dispatch(&document_id, request_id, &command.sql);
+            }
+            Some(request_id)
         } else {
-            false
+            None
         }
     }
 
@@ -322,6 +420,7 @@ fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> Ui
             connection_id: prepared.connection_id.clone(),
             sql: prepared.sql.clone(),
             schema: prepared.schema.clone(),
+            session_id: prepared.session_id.clone(),
         }
     } else {
         UiCommand::RunQuery {
@@ -330,6 +429,7 @@ fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> Ui
             sql: prepared.sql.clone(),
             params: prepared.params.clone(),
             schema: prepared.schema.clone(),
+            session_id: prepared.session_id.clone(),
         }
     }
 }

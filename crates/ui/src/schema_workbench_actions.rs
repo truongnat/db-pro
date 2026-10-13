@@ -1,6 +1,6 @@
 //! Schema Workbench — action handling and mutation dispatch.
 
-use super::schema_workbench::{QuoteDialect, SchemaWorkbenchMode};
+use super::schema_workbench::SchemaWorkbenchMode;
 use super::schema_workbench_form::SchemaWorkbenchFormAction;
 use super::*;
 use db_pro_core::application::ObjectMutationService;
@@ -92,7 +92,7 @@ impl DbProApp {
     }
 
     pub(crate) fn run_plan(&mut self, request: ObjectMutationRequest) {
-        match ObjectMutationService::plan(&request, &QuoteDialect) {
+        match ObjectMutationService::plan_for_driver(&request) {
             Ok(preview) => {
                 if let Some(reason) = preview.unsupported_reason {
                     self.schema.workbench.preview_error = Some(reason);

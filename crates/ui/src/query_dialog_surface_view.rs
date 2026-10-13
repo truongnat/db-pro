@@ -153,6 +153,7 @@ impl ExportDialogContext<'_> {
                 ("MD", "Markdown"),
                 ("SQL", "INSERT"),
                 ("COPY", "COPY"),
+                ("Excel", "Excel"),
             ] {
                 let selected = self.overlay.export_format == value;
                 if Button::new(self.theme)

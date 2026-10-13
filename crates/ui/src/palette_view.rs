@@ -1,6 +1,17 @@
 use super::palette_search_view::PaletteSearchContext;
 use super::*;
 
+fn palette_shortcut_command(action: &PaletteAction) -> Option<&'static str> {
+    match action {
+        PaletteAction::NewQuery => Some("query.new"),
+        PaletteAction::RunQuery => Some("query.run"),
+        PaletteAction::FormatSql => Some("query.format"),
+        PaletteAction::NewConnection => Some("connection.new"),
+        PaletteAction::ToggleExplorer => Some("view.toggle_sidebar"),
+        _ => None,
+    }
+}
+
 impl DbProApp {
     fn palette_entries(&self, mode: PaletteMode) -> Vec<(SearchKind, PaletteItem)> {
         let active_schema = self.active_schema().to_owned();
@@ -58,7 +69,20 @@ impl DbProApp {
         } else {
             self.palette_entries(mode)
         };
-        SearchService::filter_rank(&entries, &self.palette.query, self.palette.scope, 120)
+        let mut items = SearchService::filter_rank(&entries, &self.palette.query, self.palette.scope, 120);
+        self.stamp_resolved_shortcuts(&mut items);
+        items
+    }
+
+    /// Palette rows that name a catalog command show that command's resolved chord.
+    fn stamp_resolved_shortcuts(&self, items: &mut [PaletteItem]) {
+        for item in items {
+            let Some(command_id) = palette_shortcut_command(&item.action) else {
+                continue;
+            };
+            let token = self.preferences.settings.keybindings.resolved(command_id);
+            item.shortcut = (!token.is_empty()).then_some(token);
+        }
     }
 
     /// Rebuild + rank for mutable callers (palette draw path).
@@ -161,6 +185,10 @@ impl DbProApp {
     }
 
     pub(super) fn export_results_from_palette(&mut self) {
+        if self.table_data_export_visible() {
+            self.overlay.export_open = true;
+            return;
+        }
         if self.query.session.active_result().is_some() {
             self.query.output.set_active_for_optional_document(
                 self.query
@@ -174,6 +202,15 @@ impl DbProApp {
         } else {
             self.feedback.runtime_message = "Run a query before exporting results".to_owned();
         }
+    }
+
+    fn table_data_export_visible(&self) -> bool {
+        self.table.state.table_view == TableView::Data
+            && self.table.data_query.result.is_some()
+            && matches!(
+                self.workspace.active_tab,
+                WorkspaceTab::Table | WorkspaceTab::SchemaObject
+            )
     }
 
     pub(super) fn switch_connection_from_palette(&mut self, connection_id: String) {

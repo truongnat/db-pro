@@ -147,6 +147,7 @@ explorer:
 query:
   run: "実行"
   run_selection: "選択範囲を実行"
+  run_script: "スクリプトを実行"
   stop: "停止"
   running: "実行中…"
   explain: "Explain"

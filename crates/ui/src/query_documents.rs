@@ -18,6 +18,7 @@ pub(crate) struct QueryDocumentContext<'state, 'bridge> {
     pub(super) schema_explorer: &'state mut SchemaExplorerState,
     pub(super) command_dispatcher: command_dispatch::RuntimeCommandDispatcher<'bridge>,
     pub(super) feedback: &'state mut FeedbackState,
+    pub(super) execution: &'state mut QueryExecutionPolicyState,
     active_connection_id: Option<String>,
     active_schema: String,
 }
@@ -109,9 +110,15 @@ impl QueryDocumentContext<'_, '_> {
         if index >= self.query_session.documents.len() {
             return;
         }
+        if self.execution.document_is_busy(&self.query_session.documents[index].id) {
+            self.feedback
+                .set_runtime_message("Commit or rollback the open transaction before closing this query");
+            return;
+        }
 
         self.cancel_prediction(index);
         let closed = self.query_session.documents[index].clone();
+        self.execution.forget_document(&closed.id);
         self.cancel_agent_run(&closed.id);
         self.query_session.remove_document(index);
         self.query_output.tabs_by_document.remove(&closed.id);
@@ -167,12 +174,30 @@ impl QueryDocumentContext<'_, '_> {
         if keep_index >= self.query_session.documents.len() {
             return;
         }
+        if self.query_session.documents.iter().enumerate().any(|(index, document)| {
+            index != keep_index && self.execution.document_is_busy(&document.id)
+        }) {
+            self.feedback
+                .set_runtime_message("Commit or rollback the open transaction before closing this query");
+            return;
+        }
+        let removed: Vec<String> = self
+            .query_session
+            .documents
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != keep_index)
+            .map(|(_, document)| document.id.clone())
+            .collect();
         for index in 0..self.query_session.documents.len() {
             if index != keep_index {
                 self.cancel_prediction(index);
             }
         }
         self.query_session.keep_document(keep_index);
+        for document_id in removed {
+            self.execution.forget_document(&document_id);
+        }
         self.feedback.set_runtime_message("Closed other queries");
     }
 
@@ -180,14 +205,46 @@ impl QueryDocumentContext<'_, '_> {
         if index >= self.query_session.documents.len() {
             return;
         }
+        if self
+            .query_session
+            .documents
+            .iter()
+            .skip(index + 1)
+            .any(|document| self.execution.document_is_busy(&document.id))
+        {
+            self.feedback
+                .set_runtime_message("Commit or rollback the open transaction before closing this query");
+            return;
+        }
+        let removed: Vec<String> = self
+            .query_session
+            .documents
+            .iter()
+            .skip(index + 1)
+            .map(|document| document.id.clone())
+            .collect();
         for query_index in index + 1..self.query_session.documents.len() {
             self.cancel_prediction(query_index);
         }
         self.query_session.close_documents_to_right(index);
+        for document_id in removed {
+            self.execution.forget_document(&document_id);
+        }
         self.feedback.set_runtime_message("Closed queries to the right");
     }
 
     pub(crate) fn close_all_tabs(&mut self) {
+        if self.execution.any_transaction_busy() {
+            self.feedback
+                .set_runtime_message("Commit or rollback the open transaction before closing this query");
+            return;
+        }
+        let removed: Vec<String> = self
+            .query_session
+            .documents
+            .iter()
+            .map(|document| document.id.clone())
+            .collect();
         for index in 0..self.query_session.documents.len() {
             self.cancel_prediction(index);
         }
@@ -199,6 +256,9 @@ impl QueryDocumentContext<'_, '_> {
         self.schema_explorer.selected_table = None;
         self.schema_explorer.selected_schema_object = None;
         self.workspace.active_tab = WorkspaceTab::Welcome;
+        for document_id in removed {
+            self.execution.forget_document(&document_id);
+        }
         self.feedback.set_runtime_message("Closed all tabs");
     }
 
@@ -306,6 +366,7 @@ impl DbProApp {
             schema_explorer: &mut self.schema.explorer,
             command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge),
             feedback: &mut self.feedback,
+            execution: &mut self.query.execution,
             active_connection_id,
             active_schema,
         }
@@ -432,6 +493,7 @@ mod tests {
         let mut schema_explorer = SchemaExplorerState::default();
         let mut task_bridge = TaskBridge::default();
         let mut feedback = FeedbackState::default();
+        let mut execution = QueryExecutionPolicyState::default();
 
         QueryDocumentContext {
             query_session: &mut query_session,
@@ -442,6 +504,7 @@ mod tests {
             schema_explorer: &mut schema_explorer,
             command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
             feedback: &mut feedback,
+            execution: &mut execution,
             active_connection_id: Some("connection-1".to_owned()),
             active_schema: "analytics".to_owned(),
         }
@@ -470,6 +533,7 @@ mod tests {
         let mut schema_explorer = SchemaExplorerState::default();
         let mut task_bridge = TaskBridge::default();
         let mut feedback = FeedbackState::default();
+        let mut execution = QueryExecutionPolicyState::default();
 
         QueryDocumentContext {
             query_session: &mut query_session,
@@ -480,6 +544,7 @@ mod tests {
             schema_explorer: &mut schema_explorer,
             command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
             feedback: &mut feedback,
+            execution: &mut execution,
             active_connection_id: None,
             active_schema: "public".to_owned(),
         }
@@ -492,5 +557,40 @@ mod tests {
         );
         assert!(!query_output.tabs_by_document.contains_key("query-1"));
         assert_eq!(workspace.active_tab, WorkspaceTab::Welcome);
+    }
+
+    #[test]
+    fn closing_a_tab_with_an_open_transaction_is_refused() {
+        let mut query_session = QuerySessionState::default();
+        query_session.add_document(QueryDocument::new("query-1", "Query 1", "select 1"));
+        let mut query_editor = QueryEditorState::default();
+        let mut workspace = WorkspaceFeatureState::default();
+        let mut agent = AgentState::default();
+        let mut query_output = QueryOutputState::default();
+        let mut schema_explorer = SchemaExplorerState::default();
+        let mut task_bridge = TaskBridge::default();
+        let mut feedback = FeedbackState::default();
+        let mut execution = QueryExecutionPolicyState::default();
+        execution.note_transaction_dispatch("query-1", crate::RequestId(1), "BEGIN");
+        execution.settle_transaction_request(crate::RequestId(1), true);
+
+        QueryDocumentContext {
+            query_session: &mut query_session,
+            query_editor: &mut query_editor,
+            workspace: &mut workspace,
+            agent: &mut agent,
+            query_output: &mut query_output,
+            schema_explorer: &mut schema_explorer,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
+            feedback: &mut feedback,
+            execution: &mut execution,
+            active_connection_id: None,
+            active_schema: "public".to_owned(),
+        }
+        .close_document(0);
+
+        assert_eq!(query_session.documents.len(), 1);
+        assert!(execution.document_is_busy("query-1"));
+        assert!(feedback.runtime_message.contains("Commit or rollback"));
     }
 }

@@ -1057,25 +1057,21 @@ impl<'a> SqlEditor<'a> {
         match key {
             Key::Enter => {
                 // Completion owns Enter/Tab while open — do not insert a newline.
+                // Run and run-all are catalog chords. The app consumes those key
+                // events before the editor sees them, so Enter that arrives here
+                // is a newline, including Ctrl/Cmd+Enter when it is not bound.
                 if self.completion_open {
                     return;
                 }
                 self.buffer.break_typing_group();
-                if is_cmd && shift {
-                    response.wants_execute_all = true;
-                } else if is_cmd {
-                    response.wants_execute_statement = true;
-                } else {
-                    // Auto-indent matching current line
-                    let current_line_text = self.buffer.line_at(self.cursor.line).unwrap_or("");
-                    let leading_spaces: String = current_line_text
-                        .chars()
-                        .take_while(|c| *c == ' ' || *c == '\t')
-                        .collect();
-                    let insert_text = format!("\n{leading_spaces}");
-                    self.insert_text(&insert_text);
-                    response.changed = true;
-                }
+                let current_line_text = self.buffer.line_at(self.cursor.line).unwrap_or("");
+                let leading_spaces: String = current_line_text
+                    .chars()
+                    .take_while(|c| *c == ' ' || *c == '\t')
+                    .collect();
+                let insert_text = format!("\n{leading_spaces}");
+                self.insert_text(&insert_text);
+                response.changed = true;
             }
             Key::Backspace => {
                 self.buffer.break_typing_group();
@@ -1259,9 +1255,6 @@ impl<'a> SqlEditor<'a> {
             }
             Key::Space if is_cmd && event_mods.alt => {
                 response.wants_manual_prediction = true;
-            }
-            Key::F if is_cmd && shift => {
-                response.wants_format = true;
             }
             Key::S if is_cmd => {
                 response.wants_save = true;

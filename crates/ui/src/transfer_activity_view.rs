@@ -45,7 +45,11 @@ impl DbProApp {
             TransferActivityAction::RunJsonlExport => self.transfer_harness_context().run_jsonl_export_harness(),
             TransferActivityAction::RunExcelExport => self.transfer_harness_context().run_excel_export_harness(),
             TransferActivityAction::RunDbToDbTransfer => {
-                self.transfer_harness_context().run_db_to_db_transfer_harness();
+                let Some(connector) = self.table_copy.clone() else {
+                    self.feedback.runtime_message = "open the source and target connections before copying".into();
+                    return;
+                };
+                self.transfer_harness_context().run_chosen_copy(connector.as_ref());
             }
             TransferActivityAction::ClearJobs => self.management.transfer.transfer_jobs.clear(),
         }

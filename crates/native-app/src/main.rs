@@ -20,6 +20,7 @@ use tokio::runtime::Builder;
 mod app_menu;
 #[cfg(feature = "capture")]
 mod capture;
+mod table_copy_port;
 mod translate;
 #[cfg(test)]
 mod translate_tests;
@@ -37,10 +38,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let data_dir = resolve_data_dir();
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
 
-    let (runtime_tx, runtime_rx) = tokio_runtime.block_on(async {
+    let (copy_runtime, runtime_tx, runtime_rx) = tokio_runtime.block_on(async {
         let runtime = DbProRuntime::new(data_dir).await?;
         seed_default_connection(&runtime).await;
-        Ok::<_, Box<dyn Error>>(spawn_worker(runtime, 64))
+        let copy_runtime = std::sync::Arc::clone(&runtime);
+        let (runtime_tx, runtime_rx) = spawn_worker(runtime, 64);
+        Ok::<_, Box<dyn Error>>((copy_runtime, runtime_tx, runtime_rx))
     })?;
 
     spawn_command_picker(
@@ -52,7 +55,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     spawn_event_pump(runtime_rx, event_tx, tokio_runtime.handle().clone());
 
-    run_native_app(bridge)
+    run_native_app(
+        bridge,
+        table_copy_port::live(copy_runtime, tokio_runtime.handle().clone()),
+    )
 }
 
 /// Bridges file-picker commands (rfd, blocking) onto a dedicated thread so
@@ -437,7 +443,10 @@ fn parse_window_size(raw: &str) -> Option<[f32; 2]> {
 }
 
 // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
-fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
+fn run_native_app(
+    bridge: TaskBridge,
+    table_copy: std::sync::Arc<dyn db_pro_core::application::TableCopyConnector>,
+) -> Result<(), Box<dyn Error>> {
     let pinned_size = capture_window_size();
     tracing::info!(?pinned_size, "capture: resolved window size override");
     // The same RGBA PNG feeds winit's window/taskbar icon on macOS, Windows, and Linux.
@@ -479,7 +488,8 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
             }
             DbProTheme::install_fonts(&creation_context.egui_ctx);
             creation_context.egui_ctx.enable_accesskit();
-            let app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
+            let mut app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
+            app.set_table_copy_connector(table_copy);
             #[cfg(target_os = "macos")]
             {
                 let app_menu = app_menu::AppMenu::install()?;

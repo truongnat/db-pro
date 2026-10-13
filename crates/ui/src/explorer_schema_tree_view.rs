@@ -10,7 +10,7 @@ use super::{is_user_visible_schema, DbProTheme, SchemaExplorerState, UiTableInfo
 use eframe::egui;
 
 pub(super) enum ExplorerSchemaTreeAction {
-    RefreshSchema,
+    RefreshSchema { schema: Option<String> },
     ActivateSchema(String),
     OpenErDiagram,
     CopySchemaName(String),
@@ -56,7 +56,7 @@ impl<'a> ExplorerSchemaTreeView<'a> {
 
         for action in database_render.actions {
             actions.push(match action {
-                DatabaseNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema,
+                DatabaseNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema { schema: None },
                 DatabaseNodeAction::CopyName => ExplorerSchemaTreeAction::CopySchemaName(self.model.database.clone()),
             });
         }
@@ -78,7 +78,7 @@ impl<'a> ExplorerSchemaTreeView<'a> {
         .draw(ui)
         .into_iter()
         .map(|action| match action {
-            ExplorerSchemaFeedbackAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema,
+            ExplorerSchemaFeedbackAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema { schema: None },
         })
         .collect()
     }
@@ -134,7 +134,9 @@ impl<'a> ExplorerSchemaTreeView<'a> {
             actions.push(match action {
                 SchemaNodeAction::Activate => ExplorerSchemaTreeAction::ActivateSchema(schema.to_owned()),
                 SchemaNodeAction::OpenErDiagram => ExplorerSchemaTreeAction::OpenErDiagram,
-                SchemaNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema,
+                SchemaNodeAction::RefreshSchema => ExplorerSchemaTreeAction::RefreshSchema {
+                    schema: Some(schema.to_owned()),
+                },
                 SchemaNodeAction::CopyName => ExplorerSchemaTreeAction::CopySchemaName(schema.to_owned()),
                 SchemaNodeAction::DropSchema => ExplorerSchemaTreeAction::DropSchema(schema.to_owned()),
             });

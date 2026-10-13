@@ -14,6 +14,9 @@ pub(crate) struct PreparedQueryRun {
     pub(crate) params: Vec<String>,
     pub(crate) all_statements: bool,
     pub(crate) schema: Option<String>,
+    /// Query tab that owns this run. Table-grid reads leave it empty so they
+    /// do not join the editor transaction.
+    pub(crate) session_id: Option<String>,
 }
 
 /// Coordinates query execution policy with the query document/session state.
@@ -86,7 +89,7 @@ impl<'a> QueryExecutionContext<'a> {
         sql: String,
         all_statements: bool,
     ) -> Option<PreparedQueryRun> {
-        let discovered = crate::query::discover_sql_parameters(&sql);
+        let discovered = crate::query::discover_sql_parameters_for_driver(&sql, &self.driver);
         if all_statements && !discovered.is_empty() {
             self.feedback.set_runtime_message(
                 "Parameterized scripts are not supported yet — run a single statement with bindings",
@@ -94,11 +97,7 @@ impl<'a> QueryExecutionContext<'a> {
             return None;
         }
 
-        let style = if self.driver.eq_ignore_ascii_case("postgresql") || self.driver.eq_ignore_ascii_case("postgres") {
-            crate::query::PlaceholderStyle::NumberedDollar
-        } else {
-            crate::query::PlaceholderStyle::QuestionMark
-        };
+        let style = crate::query::placeholder_style_for_driver(&self.driver);
         let values = self
             .session
             .active_document()
@@ -125,6 +124,7 @@ impl<'a> QueryExecutionContext<'a> {
             sql,
             params,
             all_statements,
+            session_id: None,
         })
     }
 
@@ -246,6 +246,7 @@ mod tests {
                 params: vec!["7".to_owned()],
                 all_statements: false,
                 schema: None,
+                session_id: None,
             }
         );
         assert_eq!(session.active_running_request(), Some(RequestId(9)));
@@ -271,5 +272,98 @@ mod tests {
             .is_none());
         assert!(session.active_running_request().is_none());
         assert!(feedback.runtime_message.contains("Parameterized scripts"));
+    }
+
+    #[test]
+    fn postgres_jsonb_question_mark_script_is_not_rejected_or_rewritten() {
+        let mut session = QuerySessionState::default();
+        session.add_document(QueryDocument::new("doc-1", "Query 1", "SELECT data ? 'x'; SELECT 1"));
+        let mut editor = QueryEditorState::default();
+        let mut policy = QueryExecutionPolicyState::default();
+        let mut feedback = FeedbackState::default();
+        let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "PostgreSQL");
+
+        let prepared = context
+            .prepare_query_run(
+                RequestId(9),
+                "conn-1".to_owned(),
+                "SELECT data ? 'x'; SELECT 1".to_owned(),
+                true,
+            )
+            .expect("jsonb ? is not a placeholder");
+        assert_eq!(prepared.sql, "SELECT data ? 'x'; SELECT 1");
+        assert!(prepared.params.is_empty());
+        assert!(prepared.all_statements);
+    }
+
+    #[test]
+    fn sql_server_rewrites_placeholders_to_at_params_in_order() {
+        let mut session = QuerySessionState::default();
+        let mut document = QueryDocument::new("doc-1", "Query 1", "SELECT :id, $1");
+        document.parameter_values.insert(":id".to_owned(), "7".to_owned());
+        document.parameter_values.insert("$1".to_owned(), "8".to_owned());
+        session.add_document(document);
+        let mut editor = QueryEditorState::default();
+        let mut policy = QueryExecutionPolicyState::default();
+        let mut feedback = FeedbackState::default();
+        let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "sql server");
+
+        let prepared = context
+            .prepare_query_run(RequestId(4), "conn-1".to_owned(), "SELECT :id, $1".to_owned(), false)
+            .expect("sql server query should be prepared");
+        assert_eq!(prepared.sql, "SELECT @p1, @p2");
+        assert_eq!(prepared.params, vec!["7".to_owned(), "8".to_owned()]);
+    }
+
+    #[test]
+    fn mysql_question_mark_still_binds() {
+        let mut session = QuerySessionState::default();
+        let mut document = QueryDocument::new("doc-1", "Query 1", "SELECT ?");
+        document.parameter_values.insert("?1".to_owned(), "9".to_owned());
+        session.add_document(document);
+        let mut editor = QueryEditorState::default();
+        let mut policy = QueryExecutionPolicyState::default();
+        let mut feedback = FeedbackState::default();
+        let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "MySQL");
+
+        let prepared = context
+            .prepare_query_run(RequestId(5), "conn-1".to_owned(), "SELECT ?".to_owned(), false)
+            .expect("mysql query should be prepared");
+        assert_eq!(prepared.sql, "SELECT ?");
+        assert_eq!(prepared.params, vec!["9".to_owned()]);
+    }
+
+    #[test]
+    fn sqlite_question_mark_still_binds() {
+        let mut session = QuerySessionState::default();
+        let mut document = QueryDocument::new("doc-1", "Query 1", "SELECT ?");
+        document.parameter_values.insert("?1".to_owned(), "9".to_owned());
+        session.add_document(document);
+        let mut editor = QueryEditorState::default();
+        let mut policy = QueryExecutionPolicyState::default();
+        let mut feedback = FeedbackState::default();
+        let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "SQLite");
+
+        let prepared = context
+            .prepare_query_run(RequestId(6), "conn-1".to_owned(), "SELECT ?".to_owned(), false)
+            .expect("sqlite query should be prepared");
+        assert_eq!(prepared.sql, "SELECT ?");
+        assert_eq!(prepared.params, vec!["9".to_owned()]);
+    }
+
+    #[test]
+    fn missing_parameter_value_fails_closed() {
+        let mut session = QuerySessionState::default();
+        session.add_document(QueryDocument::new("doc-1", "Query 1", "SELECT :id"));
+        let mut editor = QueryEditorState::default();
+        let mut policy = QueryExecutionPolicyState::default();
+        let mut feedback = FeedbackState::default();
+        let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "PostgreSQL");
+
+        assert!(context
+            .prepare_query_run(RequestId(9), "conn-1".to_owned(), "SELECT :id".to_owned(), false)
+            .is_none());
+        assert!(session.active_running_request().is_none());
+        assert!(feedback.runtime_message.contains("Fill parameter :id"));
     }
 }

@@ -294,6 +294,7 @@ mod tests {
             driver: "Postgres".into(),
             sessions: Vec::new(),
             locks: Vec::new(),
+            lock_error: None,
             relation_sizes: Vec::new(),
             server: None,
             local: None,

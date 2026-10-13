@@ -20,6 +20,8 @@ pub(crate) struct TableEditingState {
     pub(super) insert_row_open: bool,
     pub(super) insert_row_values: Vec<String>,
     pub(super) insert_row_error: String,
+    pub(super) fk_lookup_column: Option<String>,
+    pub(super) fk_lookup_options: Vec<String>,
 }
 
 impl Default for TableEditingState {
@@ -37,6 +39,8 @@ impl Default for TableEditingState {
             insert_row_open: false,
             insert_row_values: Vec::new(),
             insert_row_error: String::new(),
+            fk_lookup_column: None,
+            fk_lookup_options: Vec::new(),
         }
     }
 }

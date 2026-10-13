@@ -50,6 +50,7 @@ pub(super) fn on_connections_loaded(
     connections: Vec<UiConnectionSummary>,
 ) -> Option<UiConnectionSummary> {
     lifecycle.set_connections_request_pending(false);
+    lifecycle.clear_connections_error();
     catalog.replace(connections);
     if lifecycle.active_connection_id().is_none() {
         lifecycle.set_active_connection_id(catalog.get(0).map(|connection| connection.id.clone()));

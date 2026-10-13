@@ -12,6 +12,7 @@ pub(super) struct TableDataMutationToolbarContext<'a> {
     pub(super) can_mutate: bool,
     pub(super) connected: bool,
     pub(super) has_primary_key: bool,
+    pub(super) read_only_notice: Option<&'a str>,
     pub(super) staged_changes: &'a ChangeSet,
     pub(super) staged_apply_pending: bool,
     pub(super) has_data_edit_error: bool,
@@ -54,8 +55,15 @@ pub(super) fn draw_mutation_controls(
     if add_row.clicked() {
         action = Some(TableDataMutationToolbarAction::AddRow);
     }
+    if let Some(notice) = context.read_only_notice {
+        ui.label(
+            RichText::new(notice)
+                .font(font_caption())
+                .color(context.theme.warning),
+        );
+    }
     if context.can_mutate {
-        if !context.has_primary_key {
+        if context.read_only_notice.is_none() && !context.has_primary_key {
             ui.label(
                 RichText::new("Table has no primary key; safe row editing is unavailable.")
                     .font(font_caption())
@@ -65,7 +73,7 @@ pub(super) fn draw_mutation_controls(
         }
 
         draw_pending_change_summary(context, ui, &mut action);
-    } else if context.connected {
+    } else if context.connected && context.read_only_notice.is_none() {
         ui.separator();
         ui.label(
             RichText::new(if context.has_primary_key {

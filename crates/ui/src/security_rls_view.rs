@@ -161,6 +161,7 @@ impl SecurityRlsContext<'_> {
             "roles (comma; empty=PUBLIC)",
             self.theme,
         ).show(ui);
+        ui.checkbox(&mut self.state.security_rls_restrictive, "Restrictive");
         Input::new(&mut self.state.security_rls_using, "USING expression", self.theme).show(ui);
         Input::new(
             &mut self.state.security_rls_with_check,

@@ -39,6 +39,41 @@ pub(super) fn build_maintenance_query(
     }
 }
 
+pub(super) struct MaintenanceRequest {
+    pub schema: Option<String>,
+    pub table: Option<String>,
+    pub action: db_pro_core::domain::monitoring::MaintenanceAction,
+}
+
+/// Validate the driver and operation, then name the table maintenance will run on.
+pub(super) fn plan_maintenance(
+    driver_label: &str,
+    operation: &str,
+    target: Option<&str>,
+) -> Result<MaintenanceRequest, String> {
+    let _validated = build_maintenance_query(driver_label, operation, target)?;
+    let action = match operation.trim().to_ascii_lowercase().as_str() {
+        "vacuum" => db_pro_core::domain::monitoring::MaintenanceAction::Vacuum,
+        "analyze" => db_pro_core::domain::monitoring::MaintenanceAction::Analyze,
+        _ => return Err(format!("unsupported maintenance operation: {}", operation.trim())),
+    };
+    let (schema, table) = split_maintenance_target(target)?;
+    Ok(MaintenanceRequest { schema, table, action })
+}
+
+fn split_maintenance_target(target: Option<&str>) -> Result<(Option<String>, Option<String>), String> {
+    let Some(value) = target.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok((None, None));
+    };
+    let parts: Vec<&str> = value.split('.').map(str::trim).collect();
+    match *parts.as_slice() {
+        [table] => Ok((None, Some(table.to_owned()))),
+        [schema, table] => Ok((Some(schema.to_owned()), Some(table.to_owned()))),
+        [catalog, schema, table] => Ok((Some(format!("{catalog}.{schema}")), Some(table.to_owned()))),
+        _ => Err("identifier may contain at most three qualified parts".to_owned()),
+    }
+}
+
 pub(super) fn validate_export_format(format: &str) -> Result<&'static str, String> {
     match format.trim().to_ascii_lowercase().as_str() {
         "csv" => Ok("csv"),

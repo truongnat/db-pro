@@ -430,6 +430,9 @@ pub(super) fn draw_schema_compare(
                     }
                 }
             });
+            if let Some(window) = db_pro_core::application::describe_sample_window(diff.sample_limit, diff.truncated) {
+                ui.label(RichText::new(window).small().color(context.theme.text_secondary));
+            }
             for row in &diff.row_diffs {
                 let include = match context.compare.data_diff_filter.as_str() {
                     "added" => row.state == db_pro_core::domain::cross_connection::DataRowState::Added,

@@ -367,103 +367,109 @@ impl TransferHarnessContext<'_> {
         }
     }
 
-    pub(crate) fn run_db_to_db_transfer_harness(&mut self) {
-        use db_pro_core::application::{
-            assert_endpoint_capabilities, build_conversion_plan, DbColumnSpec, GeneratorTableSource, MemoryTableTarget,
-            TransferService,
-        };
-        use db_pro_core::domain::connection::DriverType;
+    pub(crate) fn run_chosen_copy(&mut self, connector: &dyn db_pro_core::application::TableCopyConnector) {
+        use db_pro_core::application::{copy_tables, CopyFormat, TableCopyRequest};
         use db_pro_core::domain::transfer::{
-            DbTableEndpoint, DbTransferOptions, TransferCancellation, TransferConflictPolicy, TransferJob,
-            TransferMapping, TransferStatus, TransferTransactionPolicy,
+            DbTableEndpoint, DbTransferOptions, TransferJob, TransferStatus, TransferTransactionPolicy,
         };
 
-        let source_cols = vec![
-            DbColumnSpec {
-                name: "id".into(),
-                type_name: "uuid".into(),
-            },
-            DbColumnSpec {
-                name: "payload".into(),
-                type_name: "jsonb".into(),
-            },
-        ];
-        let target_cols = vec![
-            DbColumnSpec {
-                name: "id".into(),
-                type_name: "text".into(),
-            },
-            DbColumnSpec {
-                name: "payload".into(),
-                type_name: "text".into(),
-            },
-        ];
-        let plan = match build_conversion_plan(
-            DriverType::Postgres,
-            DriverType::SQLite,
-            &source_cols,
-            &target_cols,
-            &TransferMapping::default(),
-        ) {
-            Ok(plan) => plan,
-            Err(err) => {
-                self.feedback.runtime_message = format!("DB→DB plan failed: {err}");
+        let transfer = &self.management.transfer;
+        let format = match CopyFormat::parse(&transfer.copy_format) {
+            Ok(format) => format,
+            Err(error) => {
+                self.feedback.runtime_message = error;
                 return;
             }
         };
-        if let Err(err) = plan.ensure_runnable() {
-            self.feedback.runtime_message = format!("DB→DB blocked: {err}");
-            return;
-        }
-        if let Err(err) = assert_endpoint_capabilities(true, true, false, false) {
-            self.feedback.runtime_message = format!("DB→DB capability gate: {err}");
-            return;
-        }
-
-        let mut job = TransferJob::new_db_table_copy(
-            format!("dbdb-{}", self.management.transfer.transfer_jobs.len() + 1),
-            DbTableEndpoint {
-                connection_id: "src-conn".into(),
-                schema: "public".into(),
-                table: "events".into(),
-            },
-            DbTableEndpoint {
-                connection_id: "dst-conn".into(),
-                schema: "main".into(),
-                table: "events".into(),
-            },
-            100,
-            DbTransferOptions {
-                conflict: TransferConflictPolicy::Skip,
-                transaction: TransferTransactionPolicy::PerBatch,
-                create_target_if_missing: false,
-            },
-        );
-        job.label = format!(
-            "DB→DB PG→SQLite preview ({} cols, {} warnings)",
-            plan.columns.len(),
-            plan.warnings.len()
-        );
-        let mut source = GeneratorTableSource::new(1_500);
-        let mut target = MemoryTableTarget::new(TransferConflictPolicy::Skip, TransferTransactionPolicy::PerBatch);
-        let cancel = TransferCancellation::new();
-        let result = TransferService::run(&mut job, &mut source, &mut target, &cancel);
-        job.progress.bytes_written = target.bytes_written;
-        if result.status == TransferStatus::Succeeded || result.status == TransferStatus::Partial {
-            self.feedback.runtime_message = format!(
-                "DB→DB {} · {:?} · committed_batches={} · warnings={}",
-                job.id,
-                result.status,
-                result.progress.committed_batches,
-                plan.warnings.len()
+        let conflict = match parse_copy_conflict(&transfer.copy_conflict) {
+            Ok(conflict) => conflict,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        let request = TableCopyRequest {
+            source_connection_id: transfer.source_connection_id.clone(),
+            target_connection_id: transfer.target_connection_id.clone(),
+            tables: split_list(&transfer.copy_tables),
+            format,
+            conflict,
+            columns: split_list(&transfer.copy_columns),
+        };
+        let output = match copy_tables(connector, &request) {
+            Ok(output) => output,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.management.transfer.last_copy_body = output.body.clone();
+        let mut next_id = self.management.transfer.transfer_jobs.len();
+        for qualified in output.tables.iter().rev() {
+            next_id += 1;
+            let (schema, table) = split_schema_table(qualified);
+            let mut job = TransferJob::new_db_table_copy(
+                format!("copy-{next_id}"),
+                DbTableEndpoint {
+                    connection_id: output.source_connection_id.clone(),
+                    schema: schema.clone(),
+                    table: table.clone(),
+                },
+                DbTableEndpoint {
+                    connection_id: output.target_connection_id.clone(),
+                    schema,
+                    table,
+                },
+                100,
+                DbTransferOptions {
+                    conflict: output.conflict,
+                    transaction: TransferTransactionPolicy::PerBatch,
+                    create_target_if_missing: false,
+                },
             );
-        } else {
-            self.feedback.runtime_message = format!("DB→DB {} · {:?} · {:?}", job.id, result.status, job.error);
+            job.status = TransferStatus::Succeeded;
+            job.progress.rows_read = output.rows_written + output.rows_skipped;
+            job.progress.rows_written = output.rows_written;
+            job.progress.error_rows = output.rows_skipped;
+            self.management.transfer.transfer_jobs.insert(0, job);
         }
-        self.management.transfer.transfer_jobs.insert(0, job);
         if self.management.transfer.transfer_jobs.len() > 20 {
             self.management.transfer.transfer_jobs.truncate(20);
         }
+        let format_name = match output.format {
+            CopyFormat::Csv => "csv",
+            CopyFormat::Json => "json",
+        };
+        self.feedback.runtime_message = format!(
+            "Copied {} → {} · {format_name} · wrote {} skipped {}",
+            output.source_connection_id, output.target_connection_id, output.rows_written, output.rows_skipped
+        );
+    }
+}
+
+fn parse_copy_conflict(value: &str) -> Result<db_pro_core::domain::transfer::TransferConflictPolicy, String> {
+    use db_pro_core::domain::transfer::TransferConflictPolicy;
+    match value.trim().to_ascii_lowercase().as_str() {
+        "abort" => Ok(TransferConflictPolicy::Abort),
+        "skip" => Ok(TransferConflictPolicy::Skip),
+        "replace" => Ok(TransferConflictPolicy::Replace),
+        _ => Err("choose abort, skip, or replace".into()),
+    }
+}
+
+fn split_list(value: &str) -> Vec<String> {
+    value
+        .split([',', '\n'])
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn split_schema_table(qualified: &str) -> (String, String) {
+    match qualified.rsplit_once('.') {
+        Some((schema, table)) if !schema.is_empty() && !table.is_empty() => (schema.to_owned(), table.to_owned()),
+        _ => (String::new(), qualified.to_owned()),
     }
 }
 
@@ -502,5 +508,204 @@ mod tests {
 
         assert_eq!(count, 2);
         assert!(sql.contains("INSERT INTO \"public\".\"users\""));
+    }
+
+    struct OrdersCopy {
+        queries: std::sync::Mutex<Vec<(String, String)>>,
+        executes: std::sync::Mutex<Vec<(String, Vec<String>)>>,
+    }
+
+    impl OrdersCopy {
+        fn new() -> Self {
+            Self {
+                queries: std::sync::Mutex::new(Vec::new()),
+                executes: std::sync::Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl db_pro_core::application::TableCopyConnector for OrdersCopy {
+        fn quote(&self, _connection_id: &str, identifier: &str) -> Result<String, String> {
+            Ok(format!("\"{}\"", identifier.replace('"', "\"\"")))
+        }
+
+        fn placeholder(&self, _connection_id: &str, index: usize) -> Result<String, String> {
+            Ok(format!("${index}"))
+        }
+
+        fn query(&self, connection_id: &str, sql: &str) -> Result<db_pro_core::domain::query::QueryResult, String> {
+            use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
+            self.queries
+                .lock()
+                .expect("query log")
+                .push((connection_id.to_owned(), sql.to_owned()));
+            let (columns, rows) = if connection_id == "prod" {
+                (
+                    vec![("id", false), ("name", true)],
+                    vec![
+                        vec![CellValue::Text("1".into()), CellValue::Text("Alice".into())],
+                        vec![CellValue::Text("2".into()), CellValue::Text("Bob".into())],
+                    ],
+                )
+            } else if connection_id == "stage" {
+                (vec![("id", false)], vec![vec![CellValue::Text("1".into())]])
+            } else {
+                return Err(format!("connection {connection_id} is not open"));
+            };
+            let row_count = rows.len() as u64;
+            Ok(QueryResult {
+                columns: columns
+                    .into_iter()
+                    .map(|(name, nullable)| ColumnMeta {
+                        name: name.into(),
+                        data_type: "text".into(),
+                        nullable,
+                    })
+                    .collect(),
+                rows: rows.into_iter().map(Row).collect(),
+                row_count,
+                duration_ms: 0,
+            })
+        }
+
+        fn execute(
+            &self,
+            connection_id: &str,
+            sql: &str,
+            params: &[db_pro_core::domain::query::QueryParam],
+        ) -> Result<u64, String> {
+            let values = params
+                .iter()
+                .filter_map(|param| match param {
+                    db_pro_core::domain::query::QueryParam::Text(value) => Some(value.clone()),
+                    _ => None,
+                })
+                .collect();
+            self.executes
+                .lock()
+                .expect("execute log")
+                .push((format!("{connection_id} {sql}"), values));
+            Ok(1)
+        }
+    }
+
+    fn choose_orders(management: &mut DatabaseManagementState, format: &str, conflict: &str) {
+        management.transfer.source_connection_id = "prod".into();
+        management.transfer.target_connection_id = "stage".into();
+        management.transfer.copy_tables = "public.orders".into();
+        management.transfer.copy_format = format.into();
+        management.transfer.copy_conflict = conflict.into();
+    }
+
+    fn run_copy(management: &mut DatabaseManagementState, connector: &OrdersCopy) -> String {
+        let mut feedback = FeedbackState::default();
+        let table_details = Vec::new();
+        TransferHarnessContext {
+            management,
+            feedback: &mut feedback,
+            table_details: &table_details,
+        }
+        .run_chosen_copy(connector);
+        feedback.runtime_message
+    }
+
+    #[test]
+    fn chosen_copy_reads_tables_from_empty_form() {
+        use db_pro_core::domain::transfer::{
+            TransferConflictPolicy, TransferSourceKind, TransferStatus, TransferTargetKind,
+        };
+
+        let mut management = DatabaseManagementState::default();
+        assert!(management.transfer.copy_columns.is_empty());
+        choose_orders(&mut management, "csv", "skip");
+        let connector = OrdersCopy::new();
+        let message = run_copy(&mut management, &connector);
+        assert!(message.contains("prod"), "{message}");
+        assert!(message.contains("stage"), "{message}");
+        assert!(!message.contains("src-conn"), "{message}");
+
+        let job = &management.transfer.transfer_jobs[0];
+        match &job.source {
+            TransferSourceKind::Table {
+                connection_id,
+                schema,
+                table,
+            } => {
+                assert_eq!(connection_id, "prod");
+                assert_eq!(schema, "public");
+                assert_eq!(table, "orders");
+            }
+            other => panic!("source {other:?}"),
+        }
+        match &job.target {
+            TransferTargetKind::Table {
+                connection_id,
+                schema,
+                table,
+            } => {
+                assert_eq!(connection_id, "stage");
+                assert_eq!(schema, "public");
+                assert_eq!(table, "orders");
+            }
+            other => panic!("target {other:?}"),
+        }
+        assert_eq!(job.options.conflict, TransferConflictPolicy::Skip);
+        assert_eq!(job.status, TransferStatus::Succeeded);
+        let body = management.transfer.last_copy_body.clone();
+        assert!(body.starts_with("id,name\n"), "{body}");
+        assert!(body.contains("2,Bob"), "{body}");
+        assert!(!body.contains("1,Alice"), "{body}");
+        assert!(!body.contains("src-conn"), "{body}");
+        assert!(!body.contains("row-"), "{body}");
+        let queries = connector.queries.lock().expect("query log");
+        assert!(
+            queries
+                .iter()
+                .any(|(id, sql)| id == "prod" && sql.contains("SELECT * FROM \"public\".\"orders\"")),
+            "{queries:?}"
+        );
+        assert!(
+            queries
+                .iter()
+                .any(|(id, sql)| id == "stage" && sql.contains("SELECT \"id\" FROM \"public\".\"orders\"")),
+            "{queries:?}"
+        );
+        drop(queries);
+        let executes = connector.executes.lock().expect("execute log");
+        assert_eq!(executes.len(), 1, "{executes:?}");
+        assert_eq!(executes[0].1, vec!["2".to_owned(), "Bob".to_owned()]);
+        drop(executes);
+
+        choose_orders(&mut management, "csv", "abort");
+        let before = management.transfer.transfer_jobs.len();
+        let abort = OrdersCopy::new();
+        let message = run_copy(&mut management, &abort);
+        assert!(message.contains("conflict on key 1"), "{message}");
+        assert_eq!(management.transfer.transfer_jobs.len(), before);
+        assert_eq!(management.transfer.last_copy_body, body);
+        assert!(abort.executes.lock().expect("execute log").is_empty());
+
+        choose_orders(&mut management, "json", "replace");
+        let replace = OrdersCopy::new();
+        let message = run_copy(&mut management, &replace);
+        assert!(message.contains("json"), "{message}");
+        let json = &management.transfer.last_copy_body;
+        assert!(json.starts_with("[{"), "{json}");
+        assert!(json.contains("\"name\":\"Alice\""), "{json}");
+        assert!(json.contains("\"name\":\"Bob\""), "{json}");
+        assert_eq!(
+            management.transfer.transfer_jobs[0].options.conflict,
+            TransferConflictPolicy::Replace
+        );
+        assert_eq!(management.transfer.transfer_jobs[0].status, TransferStatus::Succeeded);
+        let writes = replace.executes.lock().expect("execute log");
+        assert!(writes.iter().any(|(sql, _)| sql.contains("DELETE FROM")), "{writes:?}");
+        assert!(writes.iter().any(|(_, params)| params == &["1".to_owned(), "Alice".to_owned()]));
+        assert!(writes.iter().any(|(_, params)| params == &["2".to_owned(), "Bob".to_owned()]));
+        drop(writes);
+
+        let hub = include_str!("tools_hub_surface_view.rs");
+        assert!(!hub.contains("Cross-connection streaming"));
+        assert!(hub.contains("Copy chosen tables between connections as CSV or JSON"));
     }
 }

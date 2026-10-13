@@ -12,6 +12,8 @@ pub(super) struct QueryOutputActionsContext<'a> {
     pub(super) editor: &'a mut QueryEditorState,
     pub(super) execution: &'a mut QueryExecutionPolicyState,
     pub(super) feedback: &'a mut FeedbackState,
+    /// False for drivers that drop ANALYZE (SQLite, SQL Server).
+    pub(super) analyze_executes: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,7 +74,7 @@ pub(super) fn draw_explain_pane(
                 }
             }
         });
-        if context.execution.pending_explain_analyze {
+        if context.execution.pending_explain_analyze && context.analyze_executes {
             ui.add_space(8.0);
             ui.label(
                 RichText::new(

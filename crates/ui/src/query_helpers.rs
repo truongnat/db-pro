@@ -168,6 +168,79 @@ pub(crate) fn format_query_document(doc: &mut QueryDocument, dialect: SqlDialect
     doc.dirty = true;
 }
 
+/// Toggles `-- ` line comments on the caret line, or on every line the selection touches.
+pub(crate) fn toggle_query_comment(doc: &mut QueryDocument, dialect: SqlDialect) {
+    let (selection_start, selection_end) = doc.selection.normalized();
+    let start_line = doc.buffer.offset_to_line_col(selection_start).0;
+    let (end_line, end_col) = doc.buffer.offset_to_line_col(selection_end);
+    let end_line = if selection_start != selection_end && end_col == 0 && end_line > start_line {
+        end_line - 1
+    } else {
+        end_line
+    };
+    let range_start = doc.buffer.line_start_offset(start_line);
+    let range_end = doc.buffer.line_end_offset(end_line);
+    let original = doc.buffer.slice(range_start, range_end).to_owned();
+    let toggled = toggle_sql_line_comments(&original);
+    if toggled == original {
+        return;
+    }
+    let cursor_after = range_start + toggled.len();
+    doc.buffer.replace_with_snapshot(
+        range_start,
+        range_end,
+        &toggled,
+        EditorSnapshot {
+            cursor_offset: doc.cursor.offset,
+            anchor_offset: doc.selection.anchor,
+        },
+        EditorSnapshot {
+            cursor_offset: cursor_after,
+            anchor_offset: cursor_after,
+        },
+    );
+    doc.cursor.set_offset(&doc.buffer, cursor_after);
+    doc.selection = SelectionRange::new(cursor_after, cursor_after);
+    doc.completion.clear();
+    doc.invalidate_prediction();
+    doc.reanalyze(dialect);
+    doc.search.update_matches(doc.buffer.text());
+    doc.dirty = true;
+}
+
+fn toggle_sql_line_comments(source: &str) -> String {
+    let uncomment = source.lines().any(|line| !line.trim().is_empty())
+        && source
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .all(|line| line.trim_start().starts_with("--"));
+    source
+        .split('\n')
+        .map(|line| {
+            if line.trim().is_empty() {
+                line.to_owned()
+            } else if uncomment {
+                uncomment_sql_line(line)
+            } else {
+                comment_sql_line(line)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn comment_sql_line(line: &str) -> String {
+    let indent = line.len() - line.trim_start().len();
+    format!("{}-- {}", &line[..indent], &line[indent..])
+}
+
+fn uncomment_sql_line(line: &str) -> String {
+    let indent = line.len() - line.trim_start().len();
+    let rest = line[indent..].strip_prefix("--").unwrap_or(&line[indent..]);
+    let rest = rest.strip_prefix(' ').unwrap_or(rest);
+    format!("{}{rest}", &line[..indent])
+}
+
 pub(crate) fn prediction_replacement_range(
     buffer: &crate::editor::buffer::TextBuffer,
     anchor: usize,

@@ -1,8 +1,19 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use db_pro_core::domain::saved_task::{
     SavedTask, SavedTaskPayload, SavedTaskRun, SavedTaskRunStatus, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule,
 };
 use uuid::Uuid;
+
+#[derive(Debug)]
+pub(super) struct PendingTaskRun {
+    pub task_id: Uuid,
+    pub trigger: SavedTaskRunTrigger,
+    pub started_at: DateTime<Utc>,
+    pub export_path: Option<String>,
+    pub export_format: Option<String>,
+}
 
 /// UI state for saved-task editing, scheduling, and confirmation flows.
 #[derive(Debug)]
@@ -12,6 +23,8 @@ pub(crate) struct SavedTaskState {
     pub(super) dirty: bool,
     pub(super) confirm_destructive: bool,
     pub(super) pending_destructive_task_id: Option<Uuid>,
+    pub(super) pending_delete_task_id: Option<Uuid>,
+    pub(super) pending_runs: HashMap<u64, PendingTaskRun>,
 }
 
 pub(crate) enum SavedTaskRunPreparation {
@@ -29,6 +42,8 @@ impl Default for SavedTaskState {
             dirty: false,
             confirm_destructive: false,
             pending_destructive_task_id: None,
+            pending_delete_task_id: None,
+            pending_runs: HashMap::new(),
         }
     }
 }
@@ -126,6 +141,17 @@ impl SavedTaskState {
             .collect()
     }
 
+    pub(super) fn request_delete(&mut self, task_id: Uuid) {
+        self.pending_delete_task_id = Some(task_id);
+    }
+
+    pub(super) fn confirm_delete(&mut self) -> bool {
+        let Some(task_id) = self.pending_delete_task_id.take() else {
+            return false;
+        };
+        self.delete_task(task_id)
+    }
+
     pub(crate) fn delete_task(&mut self, task_id: Uuid) -> bool {
         let removed = self.store.remove(&task_id);
         if removed {
@@ -190,6 +216,14 @@ impl SavedTaskState {
         });
         self.dirty = true;
         (status, message)
+    }
+
+    pub(super) fn note_pending(&mut self, request_id: u64, pending: PendingTaskRun) {
+        self.pending_runs.insert(request_id, pending);
+    }
+
+    pub(super) fn take_pending(&mut self, request_id: u64) -> Option<PendingTaskRun> {
+        self.pending_runs.remove(&request_id)
     }
 }
 

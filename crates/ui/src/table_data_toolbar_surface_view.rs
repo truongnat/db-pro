@@ -4,6 +4,7 @@
 //! Unified table-data toolbar composition and typed intents.
 
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::UiTableColumn;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,6 +35,7 @@ pub(super) enum TableDataToolbarAction {
     RemoveFilter(usize),
     ClearFilters,
     ResetPage,
+    Export,
 }
 
 pub(super) struct TableDataToolbarContext<'a> {
@@ -44,6 +46,7 @@ pub(super) struct TableDataToolbarContext<'a> {
     pub(super) can_mutate: bool,
     pub(super) connected: bool,
     pub(super) has_primary_key: bool,
+    pub(super) read_only_notice: Option<&'a str>,
     pub(super) staged_changes: &'a ChangeSet,
     pub(super) staged_apply_pending: bool,
     pub(super) has_data_edit_error: bool,
@@ -62,6 +65,16 @@ pub(super) fn draw_toolbar(
         ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
                 action = context.draw_mutation_controls(ui);
+                let export_clicked = Button::new(context.theme)
+                    .text("Export")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .tooltip("Export the visible rows")
+                    .show(ui)
+                    .clicked();
+                if action.is_none() && export_clicked {
+                    action = Some(TableDataToolbarAction::Export);
+                }
                 let query_action = context.draw_sql_query_input(ui);
                 if action.is_none() {
                     action = query_action;
@@ -103,6 +116,7 @@ impl TableDataToolbarContext<'_> {
             can_mutate: self.can_mutate,
             connected: self.connected,
             has_primary_key: self.has_primary_key,
+            read_only_notice: self.read_only_notice,
             staged_changes: self.staged_changes,
             staged_apply_pending: self.staged_apply_pending,
             has_data_edit_error: self.has_data_edit_error,
@@ -118,6 +132,7 @@ impl TableDataToolbarContext<'_> {
             can_mutate: self.can_mutate,
             connected: self.connected,
             has_primary_key: self.has_primary_key,
+            read_only_notice: None,
             staged_changes: self.staged_changes,
             staged_apply_pending: self.staged_apply_pending,
             has_data_edit_error: self.has_data_edit_error,

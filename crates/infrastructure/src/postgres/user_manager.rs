@@ -123,8 +123,8 @@ impl PostgresUserManager {
             .collect())
     }
 
-    async fn usage_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Vec<Privilege> {
-        let Ok(usage) = self
+    async fn usage_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
+        let usage = self
             .connector
             .query(
                 handle,
@@ -134,11 +134,8 @@ impl PostgresUserManager {
                  ORDER BY object_type, object_schema, object_name, privilege_type",
                 &[QueryParam::Text(role_name.to_owned())],
             )
-            .await
-        else {
-            return Vec::new();
-        };
-        usage
+            .await?;
+        Ok(usage
             .rows
             .into_iter()
             .filter_map(|row| {
@@ -163,11 +160,11 @@ impl PostgresUserManager {
                     privilege_type,
                 })
             })
-            .collect()
+            .collect())
     }
 
-    async fn database_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Vec<Privilege> {
-        let Ok(database) = self
+    async fn database_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
+        let database = self
             .connector
             .query(
                 handle,
@@ -179,11 +176,8 @@ impl PostgresUserManager {
                  ORDER BY d.datname, p.priv",
                 &[QueryParam::Text(role_name.to_owned())],
             )
-            .await
-        else {
-            return Vec::new();
-        };
-        database
+            .await?;
+        Ok(database
             .rows
             .into_iter()
             .filter_map(|row| {
@@ -195,7 +189,7 @@ impl PostgresUserManager {
                     privilege_type: cells.get(1).and_then(cell_text)?,
                 })
             })
-            .collect()
+            .collect())
     }
 }
 
@@ -337,11 +331,8 @@ impl UserManager for PostgresUserManager {
 
     async fn list_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
         let mut privileges = self.table_privileges(handle, role_name).await?;
-        // usage_privileges/database_privileges are best-effort: some servers
-        // revoke information_schema or pg_database reads, and a partial list is
-        // still useful — a hard error there must not hide the table grants.
-        privileges.extend(self.usage_privileges(handle, role_name).await);
-        privileges.extend(self.database_privileges(handle, role_name).await);
+        privileges.extend(self.usage_privileges(handle, role_name).await?);
+        privileges.extend(self.database_privileges(handle, role_name).await?);
         Ok(privileges)
     }
 

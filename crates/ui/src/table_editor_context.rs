@@ -26,6 +26,58 @@ pub(crate) fn can_edit_table_rows(
     can_mutate_active_connection(catalog, lifecycle) && table_state.has_primary_key()
 }
 
+pub(crate) const VIEW_ROWS_READ_ONLY: &str = "Views are read-only. Open the base table to edit rows.";
+pub(crate) const INLINE_SQL_READ_ONLY: &str = "Inline SQL results are read-only.";
+
+/// Which grid is on screen. Foreign keys are not part of this decision.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RowEditSurface {
+    Table,
+    Query,
+    View,
+    InlineSql,
+}
+
+pub(crate) fn surface_read_only_notice(surface: RowEditSurface) -> Option<&'static str> {
+    match surface {
+        RowEditSurface::View => Some(VIEW_ROWS_READ_ONLY),
+        RowEditSurface::InlineSql => Some(INLINE_SQL_READ_ONLY),
+        RowEditSurface::Table | RowEditSurface::Query => None,
+    }
+}
+
+/// `None` when this result can be edited. A NULL primary-key value is refused per row.
+pub(crate) fn result_edit_reason(
+    surface: RowEditSurface,
+    writable: bool,
+    table_known: bool,
+    primary_key: Option<&[String]>,
+    result_columns: &[crate::UiColumn],
+) -> Option<String> {
+    if let Some(notice) = surface_read_only_notice(surface) {
+        return Some(notice.to_owned());
+    }
+    if !writable {
+        return Some("Connect with write access to edit rows".to_owned());
+    }
+    if !table_known {
+        return Some(if surface == RowEditSurface::Query {
+            "Open the table so its primary key can identify these rows.".to_owned()
+        } else {
+            "Table structure is still loading".to_owned()
+        });
+    }
+    let Some(identity_columns) = primary_key.filter(|columns| !columns.is_empty()) else {
+        return Some("Table has no primary key; safe row editing is unavailable.".to_owned());
+    };
+    for column in identity_columns {
+        if !result_columns.iter().any(|item| item.name == *column) {
+            return Some(format!("The key column {column} is not present in this result"));
+        }
+    }
+    None
+}
+
 pub(crate) struct TableMutationContext<'a> {
     table_state: &'a mut TableState,
     table_data_query: &'a mut TableDataQueryState,
@@ -124,7 +176,8 @@ impl<'a> TableMutationContext<'a> {
             self.table_editing.data_edit_error = Some(error);
             return false;
         }
-        let identity = match TableDataState::row_identity(result, &info, row_index) {
+        let manual = self.table_data.manual_row_identity.clone();
+        let identity = match TableDataState::row_identity(result, &info, manual.as_deref(), row_index) {
             Ok(identity) => identity,
             Err(error) => {
                 self.feedback.runtime_message = error;
@@ -305,7 +358,8 @@ impl<'a> TableMutationContext<'a> {
         ) {
             return Ok(());
         }
-        let identity = TableDataState::row_identity(result, info, row_index)?;
+        let manual = self.table_data.manual_row_identity.clone();
+        let identity = TableDataState::row_identity(result, info, manual.as_deref(), row_index)?;
         self.table_mutation.staged_changes.stage_delete(StagedChange::Delete {
             identity,
             current_row_index: Some(row_index),

@@ -147,6 +147,7 @@ explorer:
 query:
   run: "Chạy"
   run_selection: "Chạy đoạn chọn"
+  run_script: "Chạy script"
   stop: "Dừng"
   running: "Đang chạy…"
   explain: "Giải thích"

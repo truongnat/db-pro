@@ -45,12 +45,29 @@ impl DbProApp {
     pub(crate) fn apply_diagram_action(&mut self, action: diagram_view::DiagramAction) {
         match action {
             diagram_view::DiagramAction::OpenTable(table) => self.open_table(table),
-            diagram_view::DiagramAction::ExecuteQuery(sql) => {
-                self.set_active_query_text(sql);
-                self.workspace.active_tab = WorkspaceTab::Query;
-                self.dispatch_query();
-                self.feedback.runtime_message = "Design Mode mutation plan applied via query runtime".into();
-            }
+            diagram_view::DiagramAction::ApplyDesign(sql) => self.dispatch_design_ddl(sql),
+        }
+    }
+
+    fn dispatch_design_ddl(&mut self, sql: String) {
+        if self.table.state.ddl_execution_request.is_some() {
+            self.schema.diagram.design.error = Some("a DDL statement is already running".into());
+            return;
+        }
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            self.schema.diagram.design.error = Some("connect before applying design plan".into());
+            return;
+        };
+        let request_id = self.next_request_id();
+        let command = UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql,
+        };
+        if self.dispatch_command(command) {
+            self.table.state.ddl_execution_request = Some(request_id);
+            self.schema.diagram.design.apply_request = Some(request_id.0);
+            self.feedback.runtime_message = "Applying design plan…".into();
         }
     }
 

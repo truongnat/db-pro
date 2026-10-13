@@ -1,0 +1,219 @@
+use super::*;
+use crate::app::table_mutation_state::TableApplyPlan;
+use crate::{UiCell, UiColumn, UiQueryResult, UiSslMode, UiTableColumn, UiTableForeignKey, UiTableInfo};
+
+fn column(name: &str, data_type: &str, nullable: bool) -> UiTableColumn {
+    UiTableColumn {
+        name: name.to_owned(),
+        data_type: data_type.to_owned(),
+        nullable,
+        is_primary_key: name == "id",
+        ..UiTableColumn::default()
+    }
+}
+
+fn orders_info() -> UiTableInfo {
+    UiTableInfo {
+        schema: "public".to_owned(),
+        name: "orders".to_owned(),
+        row_count: Some(1),
+        columns: vec![
+            column("id", "int4", false),
+            column("customer_id", "int4", true),
+            column("note", "text", true),
+        ],
+        primary_key: Some(vec!["id".to_owned()]),
+        indexes: Vec::new(),
+        foreign_keys: vec![UiTableForeignKey {
+            name: "orders_customer_id_fkey".to_owned(),
+            from_columns: vec!["customer_id".to_owned()],
+            to_schema: "public".to_owned(),
+            to_table: "customers".to_owned(),
+            to_columns: vec!["id".to_owned()],
+            on_update: "NO ACTION".to_owned(),
+            on_delete: "NO ACTION".to_owned(),
+            match_option: "SIMPLE".to_owned(),
+            deferrable: false,
+            initially_deferred: false,
+        }],
+        check_constraints: Vec::new(),
+        dependencies: Vec::new(),
+    }
+}
+
+fn orders_result(customer_id: UiCell) -> UiQueryResult {
+    UiQueryResult {
+        columns: vec![
+            UiColumn {
+                name: "id".to_owned(),
+                data_type: "int4".to_owned(),
+                nullable: false,
+            },
+            UiColumn {
+                name: "customer_id".to_owned(),
+                data_type: "int4".to_owned(),
+                nullable: true,
+            },
+            UiColumn {
+                name: "note".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            },
+        ],
+        rows: vec![vec![
+            UiCell::Number("10".to_owned()),
+            customer_id,
+            UiCell::Text("ship".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 1,
+    }
+}
+
+fn customer_ids() -> UiQueryResult {
+    UiQueryResult {
+        columns: vec![UiColumn {
+            name: "id".to_owned(),
+            data_type: "int4".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![
+            vec![UiCell::Number("1".to_owned())],
+            vec![UiCell::Number("2".to_owned())],
+            vec![UiCell::Number("3".to_owned())],
+        ],
+        row_count: 3,
+        duration_ms: 1,
+    }
+}
+
+fn orders_app() -> DbProApp {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp {
+        task_bridge: bridge,
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+            dialog: ConnectionDialogState::default(),
+        },
+        table: TableEditorState {
+            state: TableState {
+                table_info: Some(orders_info()),
+                table_view: TableView::Data,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    app.workspace.active_tab = WorkspaceTab::Table;
+    app.schema.explorer.selected_schema = Some("app".to_owned());
+    app.schema.explorer.selected_table = Some("orders".to_owned());
+    app
+}
+
+fn staged_customer_id(plan: &TableApplyPlan) -> Option<UiCell> {
+    plan.changes.iter().find_map(|change| match change {
+        UiTableMutation::Update { columns, values, .. } => columns
+            .iter()
+            .position(|column| column == "customer_id")
+            .and_then(|index| values.get(index).cloned()),
+        _ => None,
+    })
+}
+
+/// An FK column stays editable, offers destination values, and opens that row.
+#[test]
+fn foreign_key_lookup_edits_and_opens_referenced_row() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = orders_app();
+    app.task_bridge = bridge;
+    let result = orders_result(UiCell::Number("2".to_owned()));
+
+    assert_eq!(app.result_edit_reason(&result), None);
+    app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
+    assert_eq!(app.table.editing.data_editing_cell, Some((0, 1)));
+    assert_eq!(app.table.editing.fk_lookup_column.as_deref(), Some("customer_id"));
+    assert!(app.foreign_key_value_choices(&result, 1).is_none());
+
+    app.apply_foreign_key_lookup("customer_id", &customer_ids());
+    assert_eq!(
+        app.foreign_key_value_choices(&result, 1).as_deref(),
+        Some(["1".to_owned(), "2".to_owned(), "3".to_owned()].as_slice())
+    );
+    assert!(app.foreign_key_value_choices(&result, 2).is_none());
+
+    app.table.editing.data_edit_value = "9".to_owned();
+    assert!(
+        app.submit_data_cell_edit(&result, 0, 1),
+        "{}",
+        app.feedback.runtime_message
+    );
+    let plan = app.table.mutation.build_apply_plan();
+    assert_eq!(staged_customer_id(&plan), Some(UiCell::Number("9".to_owned())));
+
+    let sql = app.foreign_key_lookup_sql("customer_id").expect("lookup sql");
+    assert!(sql.contains(r#""customers""#), "{sql}");
+    assert!(sql.contains(r#""id""#), "{sql}");
+    assert!(app.foreign_key_lookup_sql("note").is_none());
+
+    assert!(!app.open_referenced_row(&result, 0, 2));
+    assert_eq!(app.feedback.runtime_message, "This column is not a foreign key");
+    assert_eq!(app.schema.explorer.selected_table.as_deref(), Some("orders"));
+
+    let missing = orders_result(UiCell::Null);
+    assert!(!app.open_referenced_row(&missing, 0, 1));
+    assert_eq!(app.feedback.runtime_message, "The referenced value is missing");
+    assert_eq!(app.schema.explorer.selected_table.as_deref(), Some("orders"));
+
+    app.workspace.active_tab = WorkspaceTab::Query;
+    app.table.state.table_view = TableView::Structure;
+    assert!(app.open_referenced_row(&result, 0, 1));
+    assert_eq!(app.schema.explorer.selected_schema.as_deref(), Some("public"));
+    assert_eq!(app.schema.explorer.selected_table.as_deref(), Some("customers"));
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Table);
+    assert_eq!(app.table.state.table_view, TableView::Data);
+
+    let UiCommand::LoadTableData {
+        connection_id,
+        schema,
+        table,
+        limit,
+        offset,
+        filters,
+        ..
+    } = command_rx.try_recv().expect("LoadTableData")
+    else {
+        panic!("expected LoadTableData");
+    };
+    assert_eq!(connection_id, "conn-1");
+    assert_eq!(schema, "public");
+    assert_eq!(table, "customers");
+    assert_eq!(limit, 1);
+    assert_eq!(offset, 0);
+    assert_eq!(filters.len(), 1);
+    assert_eq!(filters[0].column, "id");
+    assert_eq!(filters[0].operator, UiTableFilterOperator::Equals);
+    assert_eq!(filters[0].value, "2");
+    assert_eq!(filters[0].data_type, "int4");
+}

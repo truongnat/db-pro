@@ -6,7 +6,7 @@ use crate::RequestId;
 fn is_authoritative_connection_completion(operation: &str, pending: bool) -> bool {
     !matches!(
         operation,
-        "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested"
+        "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested" | "connection.disconnected"
     ) || pending
 }
 
@@ -15,8 +15,12 @@ impl DbProApp {
         management_events::on_operation_progress(&mut self.feedback, operation, status);
     }
 
-    pub(super) fn on_backup_completed(&mut self, output_path: String, size_bytes: u64) {
-        management_events::on_backup_completed(&mut self.feedback, output_path, size_bytes);
+    pub(super) fn on_backup_completed(&mut self, request_id: RequestId, output_path: String, size_bytes: u64) {
+        management_events::on_backup_completed(&mut self.feedback, output_path.clone(), size_bytes);
+        self.finish_saved_task(
+            request_id.0,
+            Ok(format!("Backup finished · {output_path} ({size_bytes} bytes)")),
+        );
     }
 
     pub(super) fn on_monitoring_snapshot_loaded(
@@ -126,7 +130,19 @@ impl DbProApp {
         }
     }
 
-    pub(super) fn on_monitoring_action_completed(&mut self, action: String, backend_id: i64, succeeded: bool) {
+    pub(super) fn on_monitoring_action_completed(
+        &mut self,
+        request_id: RequestId,
+        action: String,
+        backend_id: i64,
+        succeeded: bool,
+    ) {
+        let task_request = request_id.0;
+        let task_outcome = if succeeded {
+            Ok(format!("Maintenance finished · {action}"))
+        } else {
+            Err(format!("Maintenance did not finish · {action}"))
+        };
         management_events::on_monitoring_action_completed(
             &mut self.management.monitoring,
             &mut self.feedback,
@@ -135,12 +151,15 @@ impl DbProApp {
             succeeded,
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.next_request_id();
+            let snapshot_request = self.next_request_id();
+            let sort = self.management.monitoring.monitoring_stat_sort;
             self.dispatch_command(super::monitoring_activity_view::snapshot_command(
-                request_id,
+                snapshot_request,
                 connection_id,
+                sort,
             ));
         }
+        self.finish_saved_task(task_request, task_outcome);
     }
 
     pub(super) fn on_users_loaded(&mut self, users: Vec<db_pro_core::domain::user::DatabaseUser>) {
@@ -186,6 +205,7 @@ impl DbProApp {
 
     /// DDL applied; re-introspect so the tree and table view pick up the change.
     pub(super) fn on_ddl_completed(&mut self, request_id: RequestId, affected_rows: u64) {
+        let design_apply = self.schema.diagram.design.apply_request == Some(request_id.0);
         if let Some(transition) = ddl_events::on_ddl_completed(
             &mut self.table.state,
             &mut self.management.security,
@@ -194,6 +214,9 @@ impl DbProApp {
             affected_rows,
             self.schema.explorer.selected_table.is_some(),
         ) {
+            if design_apply {
+                self.schema.diagram.design.discard();
+            }
             if transition.refresh_schema {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     self.request_schema_introspection(connection_id, true);
@@ -219,6 +242,7 @@ impl DbProApp {
         let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
         security_activity_view::request_security_role_details(
+            &mut self.management.security,
             connection_id.as_deref(),
             role_name,
             &mut command_dispatcher,

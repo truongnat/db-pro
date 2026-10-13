@@ -186,6 +186,7 @@ impl DbConnector for SQLiteConnector {
         &self,
         handle: &ConnectionHandle,
         sql: &str,
+        params: &[QueryParam],
         _analyze: bool,
     ) -> Result<serde_json::Value, DbError> {
         let actors = self.actors.read().await;
@@ -193,7 +194,10 @@ impl DbConnector for SQLiteConnector {
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
         // SQLite EXPLAIN QUERY PLAN has no ANALYZE equivalent that executes the query.
-        entry.handle.explain(sql.into(), entry.query_timeout_ms).await
+        entry
+            .handle
+            .explain(sql.into(), params.to_vec(), entry.query_timeout_ms)
+            .await
     }
 
     fn dialect(&self, _handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {

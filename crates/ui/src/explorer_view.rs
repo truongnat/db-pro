@@ -35,7 +35,9 @@ impl DbProApp {
             ExplorerSurfaceAction::NewConnection => self.connection.open_new(),
             ExplorerSurfaceAction::RefreshSchema => {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                    self.request_schema_introspection(connection_id, true);
+                    let schema = self.schema.explorer.selected_schema.clone();
+                    let table = self.schema.explorer.selected_table.clone();
+                    self.refresh_explorer_node(&connection_id, schema.as_deref(), table.as_deref());
                 }
             }
             ExplorerSurfaceAction::Connection {
@@ -49,9 +51,27 @@ impl DbProApp {
         }
     }
 
-    /// Clears the connected state after an explicit disconnect.
+    /// Refreshes the node the user has selected. A table loads that table; a schema reloads its connection.
+    pub(super) fn refresh_explorer_node(&mut self, connection_id: &str, schema: Option<&str>, table: Option<&str>) {
+        if self.connection.lifecycle.active_connection_id() != Some(connection_id) {
+            self.connection
+                .lifecycle
+                .set_active_connection_id(Some(connection_id.to_owned()));
+        }
+        if let Some(schema) = schema {
+            self.schema.explorer.selected_schema = Some(schema.to_owned());
+        }
+        if let Some(table) = table {
+            self.schema.explorer.selected_table = Some(table.to_owned());
+            self.request_table_info();
+            return;
+        }
+        self.request_schema_introspection(connection_id.to_owned(), true);
+    }
+
+    /// Clears the connected state and closes the runtime handle.
     pub(crate) fn disconnect_from_connection(&mut self, connection: &UiConnectionSummary) {
-        explorer_navigation::ExplorerConnectionContext::new(
+        let closed = explorer_navigation::ExplorerConnectionContext::new(
             &mut self.connection.lifecycle,
             &mut self.schema.explorer,
             &mut self.table,
@@ -61,6 +81,15 @@ impl DbProApp {
             &mut self.feedback,
         )
         .disconnect(connection);
+        if !closed {
+            return;
+        }
+        let request_id = self.next_request_id();
+        let command = UiCommand::Disconnect {
+            request_id,
+            connection_id: connection.id.clone(),
+        };
+        let _ = self.dispatch_command(command);
     }
 
     /// Helper to initiate connection logic.

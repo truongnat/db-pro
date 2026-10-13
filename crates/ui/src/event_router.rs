@@ -34,10 +34,10 @@ impl DbProApp {
             UiEvent::FilePicked { kind, path, .. } => self.on_file_picked(&kind, path),
             UiEvent::OperationProgress { operation, status, .. } => self.on_operation_progress(operation, status),
             UiEvent::BackupCompleted {
+                request_id,
                 output_path,
                 size_bytes,
-                ..
-            } => self.on_backup_completed(output_path, size_bytes),
+            } => self.on_backup_completed(request_id, output_path, size_bytes),
             UiEvent::MonitoringSnapshotLoaded { snapshot, .. } => self.on_monitoring_snapshot_loaded(snapshot),
             UiEvent::MonitoringWorkloadLoaded { workload, .. } => self.on_monitoring_workload_loaded(workload),
             UiEvent::AuditPageLoaded { page, .. } => self.on_audit_page_loaded(page),
@@ -54,11 +54,11 @@ impl DbProApp {
                 self.on_event_trigger_action_completed(action, name)
             }
             UiEvent::MonitoringActionCompleted {
+                request_id,
                 action,
                 backend_id,
                 succeeded,
-                ..
-            } => self.on_monitoring_action_completed(action, backend_id, succeeded),
+            } => self.on_monitoring_action_completed(request_id, action, backend_id, succeeded),
             UiEvent::UsersLoaded { users, .. } => self.on_users_loaded(users),
             UiEvent::PrivilegesLoaded {
                 role_name, privileges, ..

@@ -80,7 +80,9 @@ impl DbProApp {
             inline_query_result: self.table.data_query.inline_query_result,
         };
 
-        self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging);
+        let edit_reason = self.result_edit_reason(&result);
+        let read_only_notice = self.result_read_only_notice(edit_reason.as_deref());
+        self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging, read_only_notice);
         let context = table_data_surface_view::TableDataSurfaceContext {
             theme: self.theme,
             record_view_open: self.table.editing.record_view_open,
@@ -105,6 +107,7 @@ impl DbProApp {
         self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
         self.draw_pending_changes_dialog(ui);
         self.draw_conflict_dialog(ui, &result);
+        self.draw_export_dialog(ui, Some(&result));
         if self.table.data_query.result.is_none() {
             self.table.data_query.result = Some(result);
         }
@@ -157,6 +160,7 @@ impl DbProApp {
         sql_prefix: &str,
         can_mutate: bool,
         paging: &table_data_toolbar_surface_view::TableDataPaging,
+        read_only_notice: Option<&str>,
     ) {
         let action = {
             let mut context = table_data_toolbar_surface_view::TableDataToolbarContext {
@@ -171,7 +175,8 @@ impl DbProApp {
                     .map_or(&[], |info| info.columns.as_slice()),
                 can_mutate,
                 connected: self.connection.lifecycle.is_connected(),
-                has_primary_key: self.table.state.has_primary_key(),
+                has_primary_key: self.has_row_identity(),
+                read_only_notice,
                 staged_changes: &self.table.mutation.staged_changes,
                 staged_apply_pending: self.table.mutation.staged_apply_request.is_some(),
                 has_data_edit_error: self.table.editing.data_edit_error.is_some(),
@@ -208,7 +213,8 @@ impl DbProApp {
                     .map_or(&[], |info| info.columns.as_slice()),
                 can_mutate,
                 connected: self.connection.lifecycle.is_connected(),
-                has_primary_key: self.table.state.has_primary_key(),
+                has_primary_key: self.has_row_identity(),
+                read_only_notice: None,
                 staged_changes: &self.table.mutation.staged_changes,
                 staged_apply_pending: self.table.mutation.staged_apply_request.is_some(),
                 has_data_edit_error: self.table.editing.data_edit_error.is_some(),
@@ -237,7 +243,7 @@ impl DbProApp {
                 "Wait for the current query to finish before running another query".to_owned();
             return;
         }
-        if !crate::query::discover_sql_parameters(&sql).is_empty() {
+        if !crate::query::discover_sql_parameters_for_driver(&sql, self.active_driver()).is_empty() {
             self.feedback.runtime_message = "Inline SQL does not support named parameters".to_owned();
             return;
         }
@@ -276,7 +282,16 @@ impl DbProApp {
             Action::RemoveFilter(index) => self.remove_table_filter(index),
             Action::ClearFilters => self.clear_table_filters(),
             Action::ResetPage => self.reset_table_data_page(),
+            Action::Export => self.open_table_data_export(),
         }
+    }
+
+    pub(crate) fn open_table_data_export(&mut self) {
+        if self.table.data_query.result.is_none() {
+            self.feedback.runtime_message = "Load table data before exporting".to_owned();
+            return;
+        }
+        self.overlay.export_open = true;
     }
 }
 

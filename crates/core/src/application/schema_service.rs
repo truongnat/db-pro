@@ -7,7 +7,7 @@ use crate::domain::schema::{IntrospectResult, TableInfo};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
-use super::sql_policy::reject_multi_statement;
+use super::sql_policy::{placeholder_remains, split_statements};
 use schema_ddl::{build_create_table_ddl, format_trigger_ddl};
 use schema_table_info::build_table_info;
 
@@ -215,39 +215,36 @@ impl SchemaService {
     }
 
     pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<u64, DbError> {
-        reject_multi_statement(sql)?;
-
-        // Enforce safety policy: readonly connections cannot execute DDL.
-        let policy = self.safety_policy_for(connection_id).await?;
-        validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
-
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
-
-        let affected = self.connector.execute(&handle, sql, &[]).await?;
-
-        if let Err(e) = self.cache.invalidate(connection_id).await {
-            tracing::warn!("failed to invalidate cache after DDL: {e}");
+        reject_unexpanded_placeholder(sql)?;
+        let statements = split_statements(sql);
+        if statements.is_empty() {
+            return Err(DbError::QueryFailed("empty SQL statement".into()));
         }
-
-        Ok(affected)
+        self.execute_ddl_batch(connection_id, &statements).await
     }
 
     pub async fn execute_ddl_batch(&self, connection_id: &ConnectionId, statements: &[String]) -> Result<u64, DbError> {
         let policy = self.safety_policy_for(connection_id).await?;
+        let mut flat = Vec::new();
         for sql in statements {
-            reject_multi_statement(sql)?;
-            validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
+            reject_unexpanded_placeholder(sql)?;
+            let parts = split_statements(sql);
+            if parts.is_empty() {
+                return Err(DbError::QueryFailed("empty SQL statement".into()));
+            }
+            for part in &parts {
+                validate_against_policy(part, &policy).map_err(DbError::QueryFailed)?;
+            }
+            flat.extend(parts);
         }
+        let statements = flat;
 
         let handle = self
             .registry
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
 
-        let affected = self.connector.execute_batch(&handle, statements).await?;
+        let affected = self.connector.execute_batch(&handle, &statements).await?;
 
         if let Err(e) = self.cache.invalidate(connection_id).await {
             tracing::warn!("failed to invalidate cache after batch DDL: {e}");
@@ -274,6 +271,15 @@ fn is_concrete_sqlite_path(database: &str) -> bool {
                 "sqlite" | "sqlite3" | "db" | "db3"
             )
         })
+}
+
+fn reject_unexpanded_placeholder(sql: &str) -> Result<(), DbError> {
+    if placeholder_remains(sql) {
+        return Err(DbError::QueryFailed(
+            "migration SQL still contains a placeholder; expand it from introspection before apply".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn cached_schema_is_empty(cached: &IntrospectResult) -> bool {

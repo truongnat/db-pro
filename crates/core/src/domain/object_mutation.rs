@@ -94,6 +94,9 @@ pub struct TableDefinition {
     pub schema: String,
     pub name: String,
     pub columns: Vec<ColumnDefinition>,
+    /// Columns as loaded from the existing table. Empty means this is a new table.
+    #[serde(default)]
+    pub baseline: Vec<ColumnDefinition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +109,9 @@ pub struct ColumnDefinition {
     pub default: Option<String>,
     pub is_pk: bool,
     pub new_name: Option<String>,
+    /// Name this column had when the table was loaded. `None` means the column is new.
+    #[serde(default)]
+    pub origin_name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

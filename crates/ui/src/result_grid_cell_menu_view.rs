@@ -29,6 +29,8 @@ pub(super) enum GridCellMenuAction {
     RevertRow,
     DuplicateRow,
     DeleteRow,
+    UseColumnAsRowId,
+    OpenReferencedRow,
     FilterThisValue,
     SortAscending,
     SortDescending,
@@ -155,6 +157,18 @@ pub(super) fn draw_menu(
         }
 
         ui.separator();
+        menu_item!(
+            Icon::Key,
+            "Use column as row id",
+            None,
+            GridCellMenuAction::UseColumnAsRowId,
+        );
+        menu_item!(
+            Icon::ArrowUpRight,
+            "Open referenced row",
+            None,
+            GridCellMenuAction::OpenReferencedRow,
+        );
         menu_item!(
             Icon::Filter,
             "Filter by this value",

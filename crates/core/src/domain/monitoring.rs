@@ -163,6 +163,9 @@ pub struct MonitoringSnapshot {
     pub driver: String,
     pub sessions: Vec<MonitorSession>,
     pub locks: Vec<MonitorLock>,
+    /// Set when the lock query fails. An empty lock list alone is not a failure.
+    #[serde(default)]
+    pub lock_error: Option<String>,
     pub relation_sizes: Vec<RelationSizeStat>,
     pub server: Option<ServerSummary>,
     pub local: Option<LocalMonitorState>,

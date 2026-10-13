@@ -20,6 +20,8 @@ struct MySqlEntry {
     max_rows: u64,
     /// `CONNECTION_ID()` of queries running on this handle. Cancel issues `KILL QUERY`.
     active_connections: Mutex<Vec<u64>>,
+    /// Connection held from a successful `BEGIN` until `COMMIT` or `ROLLBACK`.
+    open_session: crate::transaction_session::SessionSlot<sqlx::pool::PoolConnection<sqlx::MySql>>,
 }
 
 pub struct MySqlConnector {
@@ -53,6 +55,89 @@ impl MySqlConnector {
             .push(connection_id);
     }
 
+    fn track_guard(&self, handle_id: u64, connection_id: u64) -> ActiveMySql<'_> {
+        self.track_connection(handle_id, connection_id);
+        ActiveMySql {
+            connector: self,
+            handle_id,
+            connection_id,
+        }
+    }
+
+    async fn execute_transaction_joined(
+        &self,
+        handle: &ConnectionHandle,
+        mut lease: crate::transaction_session::SessionLease<sqlx::pool::PoolConnection<sqlx::MySql>>,
+        statements: &[String],
+        read_statements: &[bool],
+    ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
+        use db_pro_core::ports::{TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase};
+
+        let result = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            let connection_id = match sqlx::query_scalar::<_, u64>("SELECT CONNECTION_ID()")
+                .fetch_one(&mut *conn)
+                .await
+            {
+                Ok(connection_id) => connection_id,
+                Err(error) => {
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: 0,
+                        outcome: TransactionFailureOutcome::LeftOpen,
+                        results: Vec::new(),
+                        error: DbError::QueryFailed(format!("MySQL connection id failed: {error}")),
+                    });
+                }
+            };
+            let _active = self.track_guard(handle.0, connection_id);
+            let mut results = Vec::with_capacity(statements.len());
+            let mut failure = None;
+            for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
+                let started = std::time::Instant::now();
+                let statement_result = if *is_read {
+                    match sqlx::query(statement).fetch_all(&mut *conn).await {
+                        Ok(rows) => match MySqlQueryMapper::map_rows(rows) {
+                            Ok(mut query_result) => {
+                                query_result.duration_ms = started.elapsed().as_millis() as u64;
+                                Ok(db_pro_core::ports::TransactionStatementResult::Query(query_result))
+                            }
+                            Err(error) => Err(error),
+                        },
+                        Err(error) => Err(DbError::QueryFailed(format!("MySQL statement {index} failed: {error}"))),
+                    }
+                } else {
+                    match sqlx::query(statement).execute(&mut *conn).await {
+                        Ok(result) => Ok(db_pro_core::ports::TransactionStatementResult::Affected {
+                            row_count: result.rows_affected(),
+                            duration_ms: started.elapsed().as_millis() as u64,
+                        }),
+                        Err(error) => Err(DbError::QueryFailed(format!("MySQL statement {index} failed: {error}"))),
+                    }
+                };
+                match statement_result {
+                    Ok(result) => results.push(result),
+                    Err(error) => {
+                        failure = Some(TransactionFailure {
+                            phase: TransactionFailurePhase::Statement,
+                            statement_index: index,
+                            outcome: TransactionFailureOutcome::LeftOpen,
+                            results: std::mem::take(&mut results),
+                            error,
+                        });
+                        break;
+                    }
+                }
+            }
+            match failure {
+                Some(failure) => Err(failure),
+                None => Ok(results),
+            }
+        };
+        lease.succeed();
+        result
+    }
+
     fn untrack_connection(&self, handle_id: u64, connection_id: u64) {
         let Ok(pools) = self.pools.try_read() else {
             return;
@@ -67,6 +152,19 @@ impl MySqlConnector {
         if let Some(index) = active.iter().position(|id| *id == connection_id) {
             active.swap_remove(index);
         }
+    }
+}
+
+/// Removes a `CONNECTION_ID()` when the statement future ends, including on error.
+struct ActiveMySql<'a> {
+    connector: &'a MySqlConnector,
+    handle_id: u64,
+    connection_id: u64,
+}
+
+impl Drop for ActiveMySql<'_> {
+    fn drop(&mut self) {
+        self.connector.untrack_connection(self.handle_id, self.connection_id);
     }
 }
 
@@ -115,6 +213,7 @@ impl DbConnector for MySqlConnector {
                 pool,
                 max_rows: config.max_rows,
                 active_connections: Mutex::new(Vec::new()),
+                open_session: crate::transaction_session::SessionSlot::default(),
             },
         );
         Ok(ConnectionHandle::new(id))
@@ -144,55 +243,96 @@ impl DbConnector for MySqlConnector {
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
         let max_rows = entry.max_rows;
         let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
         drop(pools);
 
         let mut args = sqlx::mysql::MySqlArguments::default();
         super::query_mapper::bind_params(params, &mut args)?;
 
-        let mut conn = pool
-            .acquire()
-            .await
-            .map_err(|error| DbError::QueryFailed(format!("MySQL acquire failed: {error}")))?;
-        let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
-            .fetch_one(&mut *conn)
-            .await
-            .map_err(|error| DbError::QueryFailed(format!("MySQL connection id failed: {error}")))?;
-        self.track_connection(handle.0, connection_id);
+        let control = db_pro_core::domain::transaction_control::transaction_control(sql);
+        let mut lease = crate::transaction_session::checkout(
+            session,
+            || async {
+                pool.acquire()
+                    .await
+                    .map_err(|error| DbError::QueryFailed(format!("MySQL acquire failed: {error}")))
+            },
+            control,
+        )
+        .await?;
+        let (connection_id, result) = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|error| DbError::QueryFailed(format!("MySQL connection id failed: {error}")))?;
+            self.track_connection(handle.0, connection_id);
 
-        use futures_util::StreamExt;
-        let mut stream = sqlx::query_with(sql, args).fetch(&mut *conn);
-        let mut rows = Vec::new();
-        let result = loop {
-            if rows.len() as u64 >= max_rows {
-                break MySqlQueryMapper::map_rows(rows);
-            }
-            match stream.next().await {
-                Some(Ok(row)) => rows.push(row),
-                Some(Err(error)) => {
-                    break Err(DbError::QueryFailed(format!("MySQL query failed: {error}")));
+            use futures_util::StreamExt;
+            let mut stream = sqlx::query_with(sql, args).fetch(&mut *conn);
+            let mut rows = Vec::new();
+            let result = loop {
+                if rows.len() as u64 >= max_rows {
+                    break MySqlQueryMapper::map_rows(rows);
                 }
-                None => break MySqlQueryMapper::map_rows(rows),
-            }
+                match stream.next().await {
+                    Some(Ok(row)) => rows.push(row),
+                    Some(Err(error)) => {
+                        break Err(DbError::QueryFailed(format!("MySQL query failed: {error}")));
+                    }
+                    None => break MySqlQueryMapper::map_rows(rows),
+                }
+            };
+            drop(stream);
+            (connection_id, result)
         };
         self.untrack_connection(handle.0, connection_id);
+        if result.is_ok() {
+            lease.succeed();
+        }
         result
     }
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
-        let pool = self
-            .get_pool(handle)
-            .await
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+        let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
+        drop(pools);
 
         let mut args = sqlx::mysql::MySqlArguments::default();
         super::query_mapper::bind_params(params, &mut args)?;
 
-        let result = sqlx::query_with(sql, args)
-            .execute(&pool)
-            .await
-            .map_err(|e| DbError::QueryFailed(format!("MySQL execute failed: {}", e)))?;
-
-        Ok(result.rows_affected())
+        let control = db_pro_core::domain::transaction_control::transaction_control(sql);
+        let mut lease = crate::transaction_session::checkout(
+            session,
+            || async {
+                pool.acquire()
+                    .await
+                    .map_err(|error| DbError::QueryFailed(format!("MySQL acquire failed: {error}")))
+            },
+            control,
+        )
+        .await?;
+        let result = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|error| DbError::QueryFailed(format!("MySQL connection id failed: {error}")))?;
+            let _active = self.track_guard(handle.0, connection_id);
+            sqlx::query_with(sql, args)
+                .execute(&mut *conn)
+                .await
+                .map(|result| result.rows_affected())
+                .map_err(|e| DbError::QueryFailed(format!("MySQL execute failed: {}", e)))
+        };
+        if result.is_ok() {
+            lease.succeed();
+        }
+        result
     }
 
     async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
@@ -253,9 +393,9 @@ impl DbConnector for MySqlConnector {
             });
         }
 
-        let pool = self
-            .get_pool(handle)
-            .await
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
             .ok_or_else(|| db_pro_core::ports::TransactionFailure {
                 phase: db_pro_core::ports::TransactionFailurePhase::Validation,
                 statement_index: 0,
@@ -263,6 +403,33 @@ impl DbConnector for MySqlConnector {
                 results: Vec::new(),
                 error: DbError::ConnectionFailed("no MySQL pool for handle".into()),
             })?;
+        let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
+        drop(pools);
+
+        let joined = match crate::transaction_session::checkout_if_held(session, || async {
+            pool.acquire()
+                .await
+                .map_err(|error| DbError::ConnectionFailed(format!("MySQL acquire failed: {error}")))
+        })
+        .await
+        {
+            Ok(joined) => joined,
+            Err(error) => {
+                return Err(db_pro_core::ports::TransactionFailure {
+                    phase: db_pro_core::ports::TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: db_pro_core::ports::TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                });
+            }
+        };
+        if let Some(lease) = joined {
+            return self
+                .execute_transaction_joined(handle, lease, statements, read_statements)
+                .await;
+        }
 
         let mut tx = pool.begin().await.map_err(|e| db_pro_core::ports::TransactionFailure {
             phase: db_pro_core::ports::TransactionFailurePhase::Begin,
@@ -271,6 +438,13 @@ impl DbConnector for MySqlConnector {
             results: Vec::new(),
             error: DbError::QueryFailed(format!("MySQL transaction begin failed: {}", e)),
         })?;
+        let _active = match sqlx::query_scalar::<_, u64>("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *tx)
+            .await
+        {
+            Ok(connection_id) => Some(self.track_guard(handle.0, connection_id)),
+            Err(_) => None,
+        };
 
         let mut results = Vec::with_capacity(statements.len());
         for (idx, (stmt, is_read)) in statements.iter().zip(read_statements).enumerate() {
@@ -479,21 +653,43 @@ impl DbConnector for MySqlConnector {
         MySqlIntrospect::introspect(&pool).await
     }
 
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str, analyze: bool) -> Result<serde_json::Value, DbError> {
-        let pool = self
-            .get_pool(handle)
-            .await
+    async fn explain(
+        &self,
+        handle: &ConnectionHandle,
+        sql: &str,
+        params: &[QueryParam],
+        analyze: bool,
+    ) -> Result<serde_json::Value, DbError> {
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+        let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
+        drop(pools);
 
         let explain_sql = if analyze {
             format!("EXPLAIN ANALYZE {}", sql)
         } else {
             format!("EXPLAIN {}", sql)
         };
-        let rows = sqlx::query(&explain_sql)
-            .fetch_all(&pool)
+        let mut lease = crate::transaction_session::checkout(
+            session,
+            || async {
+                pool.acquire()
+                    .await
+                    .map_err(|error| DbError::QueryFailed(format!("MySQL acquire failed: {error}")))
+            },
+            None,
+        )
+        .await?;
+        let mut args = sqlx::mysql::MySqlArguments::default();
+        super::query_mapper::bind_params(params, &mut args)?;
+        let rows = sqlx::query_with(&explain_sql, args)
+            .fetch_all(std::ops::DerefMut::deref_mut(lease.conn()))
             .await
             .map_err(|e| DbError::QueryFailed(format!("MySQL EXPLAIN failed: {}", e)))?;
+        lease.succeed();
 
         let json_rows: Vec<serde_json::Value> = rows
             .iter()
@@ -525,6 +721,9 @@ impl db_pro_core::ports::SqlDialect for MySqlDialect {
     }
     fn quote_identifier(&self, name: &str) -> String {
         format!("`{}`", name.replace('`', "``"))
+    }
+    fn text_like(&self, column: &str, placeholder: &str) -> String {
+        format!("CAST({column} AS CHAR) LIKE {placeholder}")
     }
 }
 
@@ -578,6 +777,106 @@ mod tests {
             "statement_index must be 0 for Validation phase failure"
         );
         assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    /// Schema `execute_batch` delegates to `execute_transaction`, which publishes
+    /// `CONNECTION_ID()` before the statements. No live server is required for this check.
+    fn batch_publishes_connection_before_statements() {
+        let source = include_str!("connector.rs");
+        let batch_at = source.find("async fn execute_batch(").expect("execute_batch");
+        let tx_at = source[batch_at..]
+            .find("async fn execute_transaction(")
+            .expect("execute_transaction");
+        let batch = &source[batch_at..batch_at + tx_at];
+        assert!(
+            batch.contains("self\n            .execute_transaction(") || batch.contains("self.execute_transaction("),
+            "schema apply must run on the transaction that records the connection id"
+        );
+        let tx_start = batch_at + tx_at;
+        let param_at = source[tx_start..]
+            .find("async fn execute_parameterized_transaction(")
+            .expect("parameterized transaction follows");
+        let body = &source[tx_start..tx_start + param_at];
+        let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
+        let track = body.find("self.track_guard(").expect("id is published for Stop");
+        let statements = body
+            .find("for (idx, (stmt, is_read))")
+            .expect("statements follow the publish");
+        assert!(id < track && track < statements);
+    }
+
+    #[tokio::test]
+    async fn recorded_batch_connection_is_what_cancel_targets() {
+        batch_publishes_connection_before_statements();
+        let connector = MySqlConnector::new();
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(std::time::Duration::from_millis(200))
+            .connect_lazy("mysql://127.0.0.1:1/none")
+            .expect("lazy pool does not connect");
+        let handle_id = 7;
+        connector.pools.write().await.insert(
+            handle_id,
+            MySqlEntry {
+                pool,
+                max_rows: 10,
+                active_connections: std::sync::Mutex::new(Vec::new()),
+                open_session: crate::transaction_session::SessionSlot::default(),
+            },
+        );
+        let handle = ConnectionHandle::new(handle_id);
+        connector
+            .cancel(&handle)
+            .await
+            .expect("an idle batch has nothing to cancel");
+
+        let guard = connector.track_guard(handle_id, 4242);
+        let error = connector
+            .cancel(&handle)
+            .await
+            .expect_err("Stop must send KILL QUERY for the published connection");
+        assert!(
+            matches!(error, DbError::QueryFailed(_)),
+            "cancel reached KILL QUERY instead of treating the batch as idle: {error:?}"
+        );
+        drop(guard);
+        connector
+            .cancel(&handle)
+            .await
+            .expect("the connection id is dropped when the batch ends");
+    }
+
+    #[tokio::test]
+    async fn execute_batch_that_never_starts_does_not_leave_a_connection_published() {
+        let connector = MySqlConnector::new();
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(std::time::Duration::from_millis(200))
+            .connect_lazy("mysql://127.0.0.1:1/none")
+            .expect("lazy pool does not connect");
+        let handle_id = 8;
+        connector.pools.write().await.insert(
+            handle_id,
+            MySqlEntry {
+                pool,
+                max_rows: 10,
+                active_connections: std::sync::Mutex::new(Vec::new()),
+                open_session: crate::transaction_session::SessionSlot::default(),
+            },
+        );
+        let handle = ConnectionHandle::new(handle_id);
+        let error = connector
+            .execute_batch(&handle, &["CREATE TABLE batch_pid (id int)".to_owned()])
+            .await
+            .expect_err("begin cannot reach a server");
+        assert!(matches!(
+            error,
+            DbError::QueryFailed(_) | DbError::ConnectionFailed(_) | DbError::QueryTimeout { .. }
+        ));
+        connector
+            .cancel(&handle)
+            .await
+            .expect("a batch that never started must not leave a connection for Stop");
     }
 
     #[tokio::test]

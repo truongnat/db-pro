@@ -149,6 +149,13 @@ fn draw_blocking_locks(
     theme: DbProTheme,
     snapshot: &db_pro_core::domain::monitoring::MonitoringSnapshot,
 ) {
+    if let Some(error) = &snapshot.lock_error {
+        ui.add_space(SPACE_MD);
+        section_label(ui, "LOCKS / BLOCKERS", theme);
+        ui.add_space(SPACE_SM);
+        ui.colored_label(theme.warning, error);
+        return;
+    }
     let blocking = snapshot.blocking_locks();
     if blocking.is_empty() {
         return;

@@ -31,5 +31,6 @@ pub mod saved_task;
 pub mod schema;
 pub mod secret;
 pub mod synthetic_data;
+pub mod transaction_control;
 pub mod transfer;
 pub mod user;

@@ -340,12 +340,13 @@ impl QueryApi {
         &self,
         connection_id: &str,
         sql: &str,
+        params: &[db_pro_core::domain::query::QueryParam],
         analyze: bool,
         schema: Option<&str>,
     ) -> Result<serde_json::Value, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
-            .explain(&connection_id, sql, analyze, schema)
+            .explain(&connection_id, sql, params, analyze, schema)
             .await
             .map_err(Into::into)
     }
@@ -1131,9 +1132,13 @@ impl MonitoringApi {
         Self { service }
     }
 
-    pub async fn snapshot(&self, connection_id: &str) -> Result<MonitoringSnapshot, DbErrorDto> {
+    pub async fn snapshot(
+        &self,
+        connection_id: &str,
+        sort: db_pro_core::domain::monitoring::StatStatementSort,
+    ) -> Result<MonitoringSnapshot, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.snapshot(&connection_id).await.map_err(Into::into)
+        self.service.snapshot(&connection_id, sort).await.map_err(Into::into)
     }
 
     pub async fn cancel_backend(&self, connection_id: &str, backend_id: i64) -> Result<bool, DbErrorDto> {

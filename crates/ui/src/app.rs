@@ -38,6 +38,8 @@ pub struct DbProApp {
     schema: SchemaWorkspaceState,
     management: DatabaseManagementState,
     saved_tasks: SavedTaskState,
+    /// Installed by the native shell. Copy refuses to run when this is absent.
+    table_copy: Option<std::sync::Arc<dyn db_pro_core::application::TableCopyConnector>>,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
     gallery_state: component_gallery_view::ComponentGalleryState,
@@ -372,7 +374,7 @@ impl DbProApp {
         self.connection.lifecycle.mark_connections_requested();
         let request_id = self.task_bridge.next_request_id();
         if self.dispatch_command(connection::logic::build_list_connections_command(request_id)) {
-            self.connection.lifecycle.set_connections_request_pending(true);
+            self.connection.lifecycle.note_connections_list_started(request_id);
         }
     }
 

@@ -18,6 +18,14 @@ pub(crate) fn reject_multi_statement(sql: &str) -> Result<(), DbError> {
 // implementation instead of two drifting copies.
 pub use crate::domain::safety::split_statements;
 
+/// Leftover migration markers. Apply must refuse these instead of creating a fake table.
+pub fn placeholder_remains(sql: &str) -> bool {
+    let lower = sql.to_ascii_lowercase();
+    lower.contains("/* placeholder")
+        || lower.contains("/* type from source")
+        || lower.contains("/* columns from source")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -8,6 +8,8 @@ pub(super) enum FilesSearchAction {
     Find,
     PreviewReplace,
     ReplaceAll,
+    ConfirmReplaceAll,
+    CancelReplaceAll,
     Refactor,
     OpenSql(String),
 }
@@ -17,6 +19,7 @@ pub(super) struct FilesSearchContext<'a> {
     pub(super) draft: WorkspaceSearchDraft,
     pub(super) replace_previews: &'a [ReplacePreview],
     pub(super) search_hits: &'a [SearchHit],
+    pub(super) pending_replace: bool,
 }
 
 impl FilesSearchContext<'_> {
@@ -79,6 +82,29 @@ impl FilesSearchContext<'_> {
                 actions.push(FilesSearchAction::ReplaceAll);
             }
         });
+        if self.pending_replace {
+            ui.label("Replace all matches in the workspace?");
+            ui.horizontal(|ui| {
+                if Button::new(self.theme)
+                    .text("Confirm replace")
+                    .variant(ButtonVariant::Destructive)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    actions.push(FilesSearchAction::ConfirmReplaceAll);
+                }
+                if Button::new(self.theme)
+                    .text("Keep files")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    actions.push(FilesSearchAction::CancelReplaceAll);
+                }
+            });
+        }
         actions
     }
 

@@ -31,6 +31,7 @@ impl TransferActivityContext<'_> {
         self.draw_backup_card(ui, &mut action);
         self.draw_synthetic_card(ui, &mut action);
         self.draw_masking_card(ui, &mut action);
+        self.draw_copy_choices(ui);
         self.draw_harness_toolbar(ui, &mut action);
         self.draw_jobs(ui);
         action
@@ -247,6 +248,29 @@ impl TransferActivityContext<'_> {
         }
     }
 
+    fn draw_copy_choices(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            RichText::new("Source, target, tables, csv or json, abort / skip / replace")
+                .small()
+                .color(self.theme.text_muted),
+        );
+        ui.horizontal(|ui| {
+            ui.label("Source");
+            ui.text_edit_singleline(&mut self.management.transfer.source_connection_id);
+            ui.label("Target");
+            ui.text_edit_singleline(&mut self.management.transfer.target_connection_id);
+        });
+        ui.horizontal(|ui| {
+            ui.label("Tables");
+            ui.text_edit_singleline(&mut self.management.transfer.copy_tables);
+            ui.label("Format");
+            ui.text_edit_singleline(&mut self.management.transfer.copy_format);
+            ui.label("Conflict");
+            ui.text_edit_singleline(&mut self.management.transfer.copy_conflict);
+        });
+        ui.add_space(SPACE_SM);
+    }
+
     fn draw_harness_toolbar(&self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
         ui.horizontal_wrapped(|ui| {
             if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
@@ -267,7 +291,7 @@ impl TransferActivityContext<'_> {
             if secondary_button_with_icon(ui, Icon::Sheet, "Excel export harness", self.theme).clicked() {
                 *action = Some(TransferActivityAction::RunExcelExport);
             }
-            if secondary_button_with_icon(ui, Icon::DatabaseBackup, "DB→DB harness", self.theme).clicked() {
+            if secondary_button_with_icon(ui, Icon::DatabaseBackup, "Copy tables", self.theme).clicked() {
                 *action = Some(TransferActivityAction::RunDbToDbTransfer);
             }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {

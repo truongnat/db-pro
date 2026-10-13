@@ -116,17 +116,14 @@ impl SettingsKeybindingsContext<'_> {
                 .show(ui)
                 .clicked()
         {
-            let draft = self.preferences.keybinding_edit_draft.trim().to_ascii_lowercase();
-            if draft.is_empty() || draft == command.default_shortcut {
-                self.preferences.settings.keybindings.reset_one(command.id);
-            } else {
-                self.preferences
-                    .settings
-                    .keybindings
-                    .overrides
-                    .insert(command.id.to_owned(), draft);
+            let draft = self.preferences.keybinding_edit_draft.clone();
+            if self.preferences.settings.keybindings.save_override(
+                command.id,
+                command.default_shortcut,
+                &draft,
+            ) {
+                self.preferences.keybinding_edit_id = None;
             }
-            self.preferences.keybinding_edit_id = None;
         }
         if Button::new(self.theme)
             .text(t!("common.cancel"))

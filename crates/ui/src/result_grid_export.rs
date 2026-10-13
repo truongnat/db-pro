@@ -53,6 +53,77 @@ pub(super) fn format_cell_csv(cell: &UiCell) -> String {
     format_cell_delimited(cell, ',')
 }
 
+/// Workbook of the visible grid. Integers outside the 53-bit exact range stay text.
+pub(super) fn format_result_excel(result: &UiQueryResult) -> Result<Vec<u8>, String> {
+    let mut workbook = rust_xlsxwriter::Workbook::new();
+    let worksheet = workbook.add_worksheet();
+    let header = rust_xlsxwriter::Format::new().set_bold();
+    for (index, column) in result.columns.iter().enumerate() {
+        let index = excel_column_index(index)?;
+        worksheet
+            .write_string_with_format(0, index, &column.name, &header)
+            .map_err(|error| format!("excel header write failed: {error}"))?;
+    }
+    for (row_index, row) in result.rows.iter().enumerate() {
+        let row_index = excel_row_index(row_index)?;
+        for (column_index, cell) in row.iter().enumerate() {
+            write_excel_cell(worksheet, row_index, excel_column_index(column_index)?, cell)?;
+        }
+    }
+    workbook
+        .save_to_buffer()
+        .map_err(|error| format!("excel save failed: {error}"))
+}
+
+fn excel_column_index(index: usize) -> Result<u16, String> {
+    u16::try_from(index).map_err(|_| "Excel export has too many columns".to_owned())
+}
+
+fn excel_row_index(index: usize) -> Result<u32, String> {
+    index
+        .checked_add(1)
+        .and_then(|index| u32::try_from(index).ok())
+        .ok_or_else(|| "Excel export has too many rows".to_owned())
+}
+
+fn write_excel_cell(
+    worksheet: &mut rust_xlsxwriter::Worksheet,
+    row: u32,
+    column: u16,
+    cell: &UiCell,
+) -> Result<(), String> {
+    let written = match cell {
+        UiCell::Null => return Ok(()),
+        UiCell::Boolean(value) => worksheet.write_boolean(row, column, *value).map(|_| ()),
+        UiCell::Number(value) => write_excel_number(worksheet, row, column, value),
+        UiCell::Text(value) | UiCell::Json(value) | UiCell::Bytes(value) => {
+            worksheet.write_string(row, column, value).map(|_| ())
+        }
+    };
+    written.map_err(|error| format!("excel cell write failed: {error}"))
+}
+
+fn write_excel_number(
+    worksheet: &mut rust_xlsxwriter::Worksheet,
+    row: u32,
+    column: u16,
+    value: &str,
+) -> Result<(), rust_xlsxwriter::XlsxError> {
+    const EXACT_LIMIT: i64 = 1_i64 << 53;
+    if let Ok(integer) = value.parse::<i64>() {
+        if (-EXACT_LIMIT..=EXACT_LIMIT).contains(&integer) {
+            return worksheet.write_number(row, column, integer as f64).map(|_| ());
+        }
+        return worksheet.write_string(row, column, value).map(|_| ());
+    }
+    if let Ok(number) = value.parse::<f64>() {
+        if number.is_finite() {
+            return worksheet.write_number(row, column, number).map(|_| ());
+        }
+    }
+    worksheet.write_string(row, column, value).map(|_| ())
+}
+
 pub(super) fn format_result_delimited(result: &UiQueryResult, delimiter: &str) -> String {
     let separator = delimiter.chars().next().unwrap_or(',');
     let mut output = result

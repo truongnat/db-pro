@@ -7,6 +7,26 @@ pub struct SchemaDiff {
     pub column_diffs: Vec<TableColumnDiff>,
     pub indexes_only_in_source: Vec<String>,
     pub indexes_only_in_target: Vec<String>,
+    #[serde(default)]
+    pub index_definition_mismatches: Vec<String>,
+    #[serde(default)]
+    pub foreign_keys_only_in_source: Vec<String>,
+    #[serde(default)]
+    pub foreign_keys_only_in_target: Vec<String>,
+    #[serde(default)]
+    pub views_only_in_source: Vec<String>,
+    #[serde(default)]
+    pub views_only_in_target: Vec<String>,
+    #[serde(default)]
+    pub view_body_mismatches: Vec<ViewBodyMismatch>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ViewBodyMismatch {
+    pub schema: String,
+    pub name: String,
+    pub source_body: String,
+    pub target_body: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

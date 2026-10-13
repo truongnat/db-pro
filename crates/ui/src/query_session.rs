@@ -84,10 +84,14 @@ impl DbProApp {
     }
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
+        let Some(document_id) = self.query.session.active_document().map(|document| document.id.clone()) else {
+            self.feedback.runtime_message = "Open a query tab before using transaction controls".into();
+            return;
+        };
         if let Some(sql) = self
             .query
             .execution
-            .apply_transaction_action(action, &mut self.feedback)
+            .apply_transaction_action(&document_id, action, &mut self.feedback)
         {
             self.dispatch_transaction_sql(sql);
         }

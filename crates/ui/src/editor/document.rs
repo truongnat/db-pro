@@ -79,6 +79,26 @@ impl SqlDocumentAnalysis {
             .find(|stmt| offset >= stmt.range.0 && offset <= stmt.range.1)
     }
 
+    /// Statement Run should execute for a caret that is not inside a selection.
+    ///
+    /// A blank line or comment after `;` still belongs to the statement that just
+    /// ended, until the next statement starts. A caret sitting in leading
+    /// whitespace belongs to the first statement. The full buffer is only used
+    /// when this returns `None`.
+    pub fn statement_for_caret(&self, offset: usize) -> Option<&SqlStatement> {
+        if let Some(statement) = self.current_statement_at(offset) {
+            return Some(statement);
+        }
+        let mut previous = None;
+        for statement in &self.statements {
+            if offset < statement.range.0 {
+                return previous.or(Some(statement));
+            }
+            previous = Some(statement);
+        }
+        previous
+    }
+
     pub fn all_statements(&self) -> &[SqlStatement] {
         &self.statements
     }
@@ -105,6 +125,34 @@ mod tests {
 
         let stmt2 = analysis.current_statement_at(40).unwrap();
         assert_eq!(stmt2.text, "SELECT id FROM users WHERE status = 'active';");
+    }
+
+    #[test]
+    fn caret_in_the_gap_after_a_semicolon_belongs_to_that_statement() {
+        let sql = "SELECT 1;\n\nSELECT 2;";
+        let buf = TextBuffer::from_string(sql);
+        let analysis = SqlDocumentAnalysis::analyze(&buf, SqlDialect::Postgres);
+
+        let gap = analysis.statement_for_caret(10).unwrap();
+        assert_eq!(gap.text, "SELECT 1;");
+
+        let before = analysis.statement_for_caret(0).unwrap();
+        assert_eq!(before.text, "SELECT 1;");
+
+        let second = analysis.statement_for_caret(sql.find("SELECT 2").unwrap()).unwrap();
+        assert_eq!(second.text, "SELECT 2;");
+
+        let after_last = analysis.statement_for_caret(sql.len()).unwrap();
+        assert_eq!(after_last.text, "SELECT 2;");
+    }
+
+    #[test]
+    fn caret_before_the_first_statement_belongs_to_it() {
+        let sql = "\n\nSELECT 1;";
+        let buf = TextBuffer::from_string(sql);
+        let analysis = SqlDocumentAnalysis::analyze(&buf, SqlDialect::Postgres);
+        let statement = analysis.statement_for_caret(0).unwrap();
+        assert_eq!(statement.text, "SELECT 1;");
     }
 
     #[test]

@@ -225,7 +225,7 @@ impl AgentToolExecutor {
         let plan = self
             .runtime
             .query_api()
-            .explain(connection_id, sql, false, None)
+            .explain(connection_id, sql, &[], false, None)
             .await
             .map_err(query_error)?;
         let plan = serde_json::to_string_pretty(&plan).map_err(|error| AgentToolError::QueryFailed {
@@ -294,7 +294,10 @@ impl AgentToolExecutor {
         let snapshot = self
             .runtime
             .monitoring_api()
-            .snapshot(connection_id)
+            .snapshot(
+                connection_id,
+                db_pro_core::domain::monitoring::StatStatementSort::TotalTime,
+            )
             .await
             .map_err(query_error)?;
         let active = snapshot.active_queries();

@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::UiSchemaColumn;
 pub use crate::diagram::*;
 
 pub(crate) struct DiagramViewContext<'a> {
@@ -14,7 +15,9 @@ pub(crate) struct DiagramViewContext<'a> {
 
 pub(crate) enum DiagramAction {
     OpenTable(String),
-    ExecuteQuery(String),
+    /// Full design script. The caller sends it through `ExecuteDdl` and
+    /// discards the draft only after that request succeeds.
+    ApplyDesign(String),
 }
 
 /// Per-frame measurements for the diagram page — table counts, search state,
@@ -44,7 +47,7 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
 
     accept_layout_result(ctx);
 
-    if ctx.explorer.schema.table_details.is_empty() {
+    if design_canvas_len(&ctx.explorer.schema.table_details, &ctx.diagram.design) == 0 {
         super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, 0, false, false);
         return None;
     }
@@ -72,7 +75,7 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
 /// One frame's counts and search state, shared by the toolbar, subset
 /// resolution, and layout dispatch.
 fn measure_diagram_frame<'a>(ctx: &DiagramViewContext<'_>, search_query: &'a str) -> ErDiagramFrame<'a> {
-    let all_table_count = ctx.explorer.schema.table_details.len();
+    let all_table_count = design_canvas_len(&ctx.explorer.schema.table_details, &ctx.diagram.design);
     let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
     let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
     let render_limit = if !large_schema || ctx.diagram.show_all {
@@ -194,8 +197,72 @@ fn resolve_active_subset(
     ErSubsetResolution::All
 }
 
+fn design_canvas_len(live: &[UiTableSummary], design: &crate::diagram::design_mode::DesignModeState) -> usize {
+    if !design.enabled {
+        return live.len();
+    }
+    let extra = design
+        .draft
+        .tables
+        .iter()
+        .filter(|draft| {
+            live.iter()
+                .all(|table| table.schema != draft.schema || table.name != draft.name)
+        })
+        .count();
+    live.len() + extra
+}
+
+fn design_canvas_tables(
+    live: &[UiTableSummary],
+    design: &crate::diagram::design_mode::DesignModeState,
+) -> Vec<UiTableSummary> {
+    if !design.enabled {
+        return live.to_vec();
+    }
+    let mut tables = live.to_vec();
+    for draft in &design.draft.tables {
+        if tables
+            .iter()
+            .any(|table| table.schema == draft.schema && table.name == draft.name)
+        {
+            continue;
+        }
+        let foreign_keys = design
+            .draft
+            .foreign_keys
+            .iter()
+            .filter(|fk| fk.from_schema == draft.schema && fk.from_table == draft.name)
+            .map(|fk| UiSchemaForeignKey {
+                name: fk.name.clone(),
+                from_columns: fk.from_columns.clone(),
+                to_schema: fk.to_schema.clone(),
+                to_table: fk.to_table.clone(),
+                to_columns: fk.to_columns.clone(),
+            })
+            .collect();
+        tables.push(UiTableSummary {
+            schema: draft.schema.clone(),
+            name: draft.name.clone(),
+            row_count: None,
+            columns: draft
+                .columns
+                .iter()
+                .map(|column| UiSchemaColumn {
+                    name: column.name.clone(),
+                    data_type: column.data_type.clone(),
+                    nullable: column.nullable,
+                    is_primary_key: column.is_pk,
+                })
+                .collect(),
+            foreign_keys,
+        });
+    }
+    tables
+}
+
 fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid: ErGridSpec) {
-    let current_count = ctx.explorer.schema.table_details.len();
+    let current_count = design_canvas_len(&ctx.explorer.schema.table_details, &ctx.diagram.design);
     let built_height = ctx
         .diagram
         .graph
@@ -217,28 +284,25 @@ fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid: ErGridSpec) {
         return;
     }
     let large_schema = current_count > ER_LARGE_SCHEMA_THRESHOLD;
+    let canvas = design_canvas_tables(&ctx.explorer.schema.table_details, &ctx.diagram.design);
     if !large_schema && ctx.diagram.graph.nodes.is_empty() {
         // First load: build immediately so canvas starts populated without blank frame
-        let graph = ErGraph::build(&ctx.explorer.schema.table_details, ctx.diagram.schema_version, grid);
+        let graph = ErGraph::build(&canvas, ctx.diagram.schema_version, grid);
         commit_graph(ctx, graph, None);
     } else {
-        dispatch_layout_request(ctx, grid);
+        dispatch_layout_request(ctx, canvas, grid);
     }
 }
 
 /// Sends the table list to the background worker and moves the layout state to
 /// Computing — or Failed when the worker is in degraded mode (spawn failure),
 /// where requests are silently dropped and the UI keeps the last valid graph.
-fn dispatch_layout_request(ctx: &mut DiagramViewContext<'_>, grid: ErGridSpec) {
+fn dispatch_layout_request(ctx: &mut DiagramViewContext<'_>, tables: Vec<UiTableSummary>, grid: ErGridSpec) {
     // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
     // all produce the same version but the graph node count check (graph_dirty)
     // prevents re-dispatch unless the actual table list changes.
     ctx.diagram.schema_version = ctx.diagram.schema_version.saturating_add(1);
-    let request_id = ctx.diagram.layout_worker.request_layout(
-        ctx.diagram.schema_version,
-        ctx.explorer.schema.table_details.clone(),
-        grid,
-    );
+    let request_id = ctx.diagram.layout_worker.request_layout(ctx.diagram.schema_version, tables, grid);
     ctx.diagram.latest_layout_request = request_id;
 
     ctx.diagram.layout_state = if ctx.diagram.layout_worker.dispatch_succeeded() {
@@ -1143,5 +1207,183 @@ mod viewport_tests {
         assert!(fitted.top() >= viewport_rect.top() - 1.0);
         assert!(fitted.bottom() <= viewport_rect.bottom() + 1.0);
         assert!(zoom < 0.5, "large diagram should be allowed to zoom out to fit: {zoom}");
+    }
+}
+
+#[cfg(test)]
+mod design_apply_tests {
+    use super::super::diagram_design_actions::er_design_apply_plan;
+    use super::{accept_layout_result, ensure_diagram_graph, DiagramAction, DiagramViewContext};
+    use crate::runtime::UiSchemaColumn;
+    use crate::{DbProApp, DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent, UiSslMode, UiTableSummary};
+    use std::time::{Duration, Instant};
+
+    fn connected_app() -> (
+        DbProApp,
+        std::sync::mpsc::Receiver<UiCommand>,
+        std::sync::mpsc::SyncSender<UiEvent>,
+    ) {
+        let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+        let mut app = DbProApp::with_task_bridge(bridge);
+        *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
+            id: "active".to_owned(),
+            name: "Active".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "active".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }];
+        *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+        app.connection.lifecycle.set_connected(true);
+        app.schema.explorer.schema.table_details.push(UiTableSummary {
+            schema: "public".to_owned(),
+            name: "customers".to_owned(),
+            row_count: None,
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![],
+        });
+        (app, command_rx, event_tx)
+    }
+
+    fn view<'a>(app: &'a mut DbProApp) -> DiagramViewContext<'a> {
+        DiagramViewContext {
+            theme: DbProTheme::light(),
+            diagram: &mut app.schema.diagram,
+            explorer: &app.schema.explorer,
+            active_driver: "PostgreSQL",
+            connected: true,
+            connection_id: Some("active".to_owned()),
+        }
+    }
+
+    fn node_names(app: &DbProApp) -> Vec<String> {
+        app.schema
+            .diagram
+            .graph
+            .nodes
+            .iter()
+            .map(|node| node.table.name.clone())
+            .collect()
+    }
+
+    fn wait_for_nodes(app: &mut DbProApp, predicate: impl Fn(&[String]) -> bool) {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(2) {
+            {
+                let mut ctx = view(app);
+                accept_layout_result(&mut ctx);
+            }
+            if predicate(&node_names(app)) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn design_draft_shows_on_canvas_and_apply_runs_after_ddl_succeeds() {
+        let (mut app, command_rx, event_tx) = connected_app();
+        {
+            let mut ctx = view(&mut app);
+            ensure_diagram_graph(&mut ctx, (2, 120.0).into());
+        }
+        assert_eq!(node_names(&app), vec!["customers".to_owned()]);
+
+        app.schema.diagram.design.enabled = true;
+        app.schema.diagram.design.add_draft_table("public", "draft_orders");
+        app.schema.diagram.design.add_draft_table("public", "draft_items");
+        {
+            let mut ctx = view(&mut app);
+            ensure_diagram_graph(&mut ctx, (2, 120.0).into());
+        }
+        wait_for_nodes(&mut app, |names| {
+            names.iter().any(|name| name == "draft_orders") && names.iter().any(|name| name == "draft_items")
+        });
+        let names = node_names(&app);
+        assert!(names.iter().any(|name| name == "customers"), "{names:?}");
+        assert!(names.iter().any(|name| name == "draft_orders"), "{names:?}");
+        assert!(names.iter().any(|name| name == "draft_items"), "{names:?}");
+
+        let action = {
+            let mut ctx = view(&mut app);
+            er_design_apply_plan(&mut ctx).expect("design apply")
+        };
+        assert_eq!(app.schema.diagram.design.draft.tables.len(), 2);
+        let DiagramAction::ApplyDesign(sql) = action else {
+            panic!("design apply must send the full script through DDL");
+        };
+        let statements = db_pro_core::domain::safety::split_statements(&sql);
+        assert!(statements.len() >= 2, "{sql}");
+        assert!(sql.contains("draft_orders"), "{sql}");
+        assert!(sql.contains("draft_items"), "{sql}");
+
+        app.apply_diagram_action(DiagramAction::ApplyDesign(sql));
+        assert_eq!(app.schema.diagram.design.draft.tables.len(), 2);
+        let UiCommand::ExecuteDdl { connection_id, sql, request_id } =
+            command_rx.try_recv().expect("DDL command")
+        else {
+            panic!("expected ExecuteDdl, not the query runtime");
+        };
+        assert_eq!(connection_id, "active");
+        assert!(db_pro_core::domain::safety::split_statements(&sql).len() >= 2, "{sql}");
+        assert!(command_rx.try_recv().is_err());
+
+        event_tx
+            .send(UiEvent::QueryFailed {
+                request_id,
+                message: "syntax error".to_owned(),
+            })
+            .unwrap();
+        app.apply_runtime_events();
+        assert_eq!(app.schema.diagram.design.draft.tables.len(), 2);
+        assert!(app
+            .schema
+            .diagram
+            .design
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("syntax error")));
+
+        let action = {
+            let mut ctx = view(&mut app);
+            er_design_apply_plan(&mut ctx).expect("design apply after failure")
+        };
+        app.apply_diagram_action(action);
+        assert_eq!(app.schema.diagram.design.draft.tables.len(), 2);
+        let UiCommand::ExecuteDdl { request_id, sql, .. } = command_rx.try_recv().expect("second DDL command") else {
+            panic!("expected ExecuteDdl");
+        };
+        assert!(sql.contains("draft_orders") && sql.contains("draft_items"), "{sql}");
+
+        event_tx
+            .send(UiEvent::DdlCompleted {
+                request_id,
+                affected_rows: 0,
+            })
+            .unwrap();
+        app.apply_runtime_events();
+        assert!(app.schema.diagram.design.draft.tables.is_empty());
+
+        {
+            let mut ctx = view(&mut app);
+            ensure_diagram_graph(&mut ctx, (2, 120.0).into());
+        }
+        wait_for_nodes(&mut app, |names| !names.iter().any(|name| name == "draft_orders"));
+        let names = node_names(&app);
+        assert!(names.iter().any(|name| name == "customers"), "{names:?}");
+        assert!(!names.iter().any(|name| name == "draft_orders"), "{names:?}");
+        assert!(!names.iter().any(|name| name == "draft_items"), "{names:?}");
     }
 }

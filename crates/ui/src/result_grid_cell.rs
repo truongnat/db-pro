@@ -273,6 +273,14 @@ impl DbProApp {
                 self.ensure_selected_row(row_index);
                 self.request_delete_selected_data_rows(result);
             }
+            Action::UseColumnAsRowId => {
+                if let Some(column) = result.columns.get(column_index) {
+                    self.choose_row_identity_column(column.name.clone());
+                }
+            }
+            Action::OpenReferencedRow => {
+                self.open_referenced_row(result, row_index, column_index);
+            }
             Action::FilterThisValue => self.apply_cell_filter(result, column_index, display_cell),
             Action::SortAscending => self.set_table_or_grid_sort(result, column_index, Some(false)),
             Action::SortDescending => self.set_table_or_grid_sort(result, column_index, Some(true)),

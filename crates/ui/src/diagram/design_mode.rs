@@ -5,7 +5,7 @@ use db_pro_core::domain::object_mutation::{
     ColumnDefinition, ForeignKeyDefinition, MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationPreview,
     ObjectMutationRequest, ObjectRef, TableDefinition,
 };
-use db_pro_core::ports::SqlDialect;
+
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -55,6 +55,8 @@ pub struct DesignModeState {
     pub preview_effects: Vec<String>,
     pub error: Option<String>,
     pub apply_confirm: bool,
+    /// In-flight design Apply. The draft stays until this DDL request succeeds.
+    pub apply_request: Option<u64>,
 }
 
 impl DesignModeState {
@@ -91,6 +93,8 @@ impl DesignModeState {
     }
 
     pub fn discard(&mut self) {
+        // A manual discard is not waiting on the in-flight DDL.
+        self.apply_request = None;
         self.push_undo();
         let fp = self.draft.schema_fingerprint.clone();
         self.draft = DesignDraft {
@@ -152,11 +156,7 @@ pub fn schema_fingerprint_from_names(names: &[String]) -> String {
     format!("{:016x}", hasher.finish())
 }
 
-pub fn plan_design_draft(
-    draft: &DesignDraft,
-    driver: &str,
-    dialect: &dyn SqlDialect,
-) -> Result<Vec<ObjectMutationPreview>, String> {
+pub fn plan_design_draft(draft: &DesignDraft, driver: &str) -> Result<Vec<ObjectMutationPreview>, String> {
     if draft.tables.is_empty() && draft.foreign_keys.is_empty() {
         return Err("draft is empty".into());
     }
@@ -174,6 +174,7 @@ pub fn plan_design_draft(
                 default: None,
                 is_pk: c.is_pk,
                 new_name: None,
+                origin_name: None,
             })
             .collect();
         let request = ObjectMutationRequest {
@@ -188,6 +189,7 @@ pub fn plan_design_draft(
                 schema: table.schema.clone(),
                 name: table.name.clone(),
                 columns,
+                baseline: Vec::new(),
             }),
             options: MutationOptions {
                 if_not_exists: true,
@@ -195,7 +197,7 @@ pub fn plan_design_draft(
             },
             driver: driver.to_owned(),
         };
-        let preview = ObjectMutationService::plan(&request, dialect).map_err(|e| e.to_string())?;
+        let preview = ObjectMutationService::plan_for_driver(&request).map_err(|e| e.to_string())?;
         if let Some(reason) = preview.unsupported_reason {
             return Err(reason);
         }
@@ -224,7 +226,7 @@ pub fn plan_design_draft(
             options: MutationOptions::default(),
             driver: driver.to_owned(),
         };
-        let preview = ObjectMutationService::plan(&request, dialect).map_err(|e| e.to_string())?;
+        let preview = ObjectMutationService::plan_for_driver(&request).map_err(|e| e.to_string())?;
         if let Some(reason) = preview.unsupported_reason {
             return Err(reason);
         }
@@ -254,16 +256,6 @@ pub fn merge_preview_sql(previews: &[ObjectMutationPreview]) -> (String, String,
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    struct QuoteDialect;
-    impl SqlDialect for QuoteDialect {
-        fn quote_identifier(&self, name: &str) -> String {
-            format!("\"{name}\"")
-        }
-        fn placeholder(&self, n: usize) -> String {
-            format!("${n}")
-        }
-    }
 
     #[test]
     fn undo_redo_is_deterministic() {
@@ -302,11 +294,32 @@ mod tests {
                 },
             ],
         });
-        let previews = plan_design_draft(&draft, "PostgreSQL", &QuoteDialect).unwrap();
+        let previews = plan_design_draft(&draft, "PostgreSQL").unwrap();
         let (sql, fp, _) = merge_preview_sql(&previews);
         assert!(sql.to_ascii_lowercase().contains("create table"));
         assert!(sql.contains("draft_items"));
         assert!(!fp.is_empty());
+    }
+
+    #[test]
+    fn design_draft_quotes_identifiers_for_the_driver() {
+        let mut draft = DesignDraft::default();
+        draft.tables.push(DraftTable {
+            schema: "app".into(),
+            name: "widgets".into(),
+            columns: vec![DraftColumn {
+                name: "id".into(),
+                data_type: "int".into(),
+                nullable: false,
+                is_pk: true,
+                is_unique: false,
+            }],
+        });
+        let previews = plan_design_draft(&draft, "mysql").unwrap();
+        let (sql, _, _) = merge_preview_sql(&previews);
+        assert!(sql.contains("`app`.`widgets`"), "{sql}");
+        assert!(sql.contains("`id`"), "{sql}");
+        assert!(!sql.contains("\"widgets\""), "{sql}");
     }
 
     #[test]

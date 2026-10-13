@@ -466,6 +466,8 @@ mod table_editing_state;
 mod table_editor_state;
 #[path = "table_events.rs"]
 mod table_events;
+#[path = "table_fk_lookup.rs"]
+mod table_fk_lookup;
 #[path = "table_mutation_actions.rs"]
 mod table_mutation_actions;
 #[path = "table_mutation_dialog_surface.rs"]
@@ -600,6 +602,21 @@ mod table_workspace_surface_view;
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "table_row_edit_tests.rs"]
+mod table_row_edit_tests;
+#[cfg(test)]
+#[path = "table_row_identity_tests.rs"]
+mod table_row_identity_tests;
+#[cfg(test)]
+#[path = "table_fk_lookup_tests.rs"]
+mod table_fk_lookup_tests;
+#[cfg(test)]
+#[path = "table_data_export_tests.rs"]
+mod table_data_export_tests;
+#[cfg(test)]
+#[path = "shortcut_catalog_tests.rs"]
+mod shortcut_catalog_tests;
 #[path = "transfer_activity_view.rs"]
 mod transfer_activity_view;
 #[path = "workspace_feature_state.rs"]

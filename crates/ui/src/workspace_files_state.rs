@@ -23,6 +23,8 @@ pub(crate) struct WorkspaceFilesState {
     pub(super) workspace_refactor_to: String,
     pub(super) workspace_context_items: Vec<String>,
     pub(super) panel_tab: FilesPanelTab,
+    pub(super) pending_replace_all: bool,
+    pub(super) pending_shell: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -133,6 +135,19 @@ impl WorkspaceFilesState {
         feedback.set_runtime_message(format!("{} files would change", self.workspace_replace_previews.len()));
     }
 
+    pub(super) fn request_replace_all(&mut self, feedback: &mut FeedbackState) {
+        self.pending_replace_all = true;
+        feedback.set_runtime_message("Confirm before replacing all");
+    }
+
+    pub(super) fn confirm_replace_all(&mut self, feedback: &mut FeedbackState) {
+        if !self.pending_replace_all {
+            return;
+        }
+        self.pending_replace_all = false;
+        self.apply_replace(feedback);
+    }
+
     pub(super) fn apply_replace(&mut self, feedback: &mut FeedbackState) {
         match self
             .ide_workspace
@@ -171,6 +186,19 @@ impl WorkspaceFilesState {
             Ok(path) => feedback.set_runtime_message(format!("Wrote schema snapshot {}", path.display())),
             Err(error) => feedback.set_runtime_message(error),
         }
+    }
+
+    pub(super) fn request_shell(&mut self, feedback: &mut FeedbackState) {
+        self.pending_shell = true;
+        feedback.set_runtime_message("Confirm before running the shell command");
+    }
+
+    pub(super) fn confirm_shell(&mut self, feedback: &mut FeedbackState) {
+        if !self.pending_shell {
+            return;
+        }
+        self.pending_shell = false;
+        self.run_task(feedback);
     }
 
     pub(super) fn run_task(&mut self, feedback: &mut FeedbackState) {

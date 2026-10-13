@@ -118,6 +118,17 @@ impl SqlServerConnector {
         self.execute_one(handle, sql, &[]).await.map(|_| ())
     }
 
+    async fn open_transaction_count(&self, handle: &ConnectionHandle) -> Result<i64, DbError> {
+        let result = self.query(handle, "SELECT CAST(@@TRANCOUNT AS bigint)", &[]).await?;
+        match result.rows.first().and_then(|row| row.0.first()) {
+            Some(db_pro_core::domain::query::CellValue::Int64(value)) => Ok(*value),
+            Some(db_pro_core::domain::query::CellValue::Text(value)) => value
+                .parse()
+                .map_err(|_| DbError::Internal("SQL Server transaction count was not a number".into())),
+            _ => Err(DbError::Internal("SQL Server transaction count was missing".into())),
+        }
+    }
+
     async fn rollback(&self, handle: &ConnectionHandle) -> TransactionFailureOutcome {
         match self.execute_control(handle, "ROLLBACK TRANSACTION").await {
             Ok(()) => TransactionFailureOutcome::RolledBack,
@@ -233,15 +244,29 @@ impl DbConnector for SqlServerConnector {
                 error: DbError::Validation("SQL Server transaction statement metadata length mismatch".into()),
             });
         }
-        self.execute_control(handle, "BEGIN TRANSACTION")
-            .await
-            .map_err(|error| TransactionFailure {
-                phase: TransactionFailurePhase::Begin,
-                statement_index: 0,
-                outcome: TransactionFailureOutcome::NotStarted,
-                results: Vec::new(),
-                error,
-            })?;
+        let already_open = match self.open_transaction_count(handle).await {
+            Ok(count) => count > 0,
+            Err(error) => {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                });
+            }
+        };
+        if !already_open {
+            self.execute_control(handle, "BEGIN TRANSACTION")
+                .await
+                .map_err(|error| TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                })?;
+        }
         let mut results = Vec::with_capacity(statements.len());
         for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
             let outcome = if *is_read {
@@ -260,6 +285,15 @@ impl DbConnector for SqlServerConnector {
                 Ok(result) => results.push(result),
                 // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
                 Err(error) => {
+                    if already_open {
+                        return Err(TransactionFailure {
+                            phase: TransactionFailurePhase::Statement,
+                            statement_index: index,
+                            outcome: TransactionFailureOutcome::LeftOpen,
+                            results,
+                            error,
+                        });
+                    }
                     let rollback = self.rollback(handle).await;
                     // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate
                     return Err(TransactionFailure {
@@ -272,14 +306,16 @@ impl DbConnector for SqlServerConnector {
                 }
             }
         }
-        if let Err(error) = self.execute_control(handle, "COMMIT TRANSACTION").await {
-            return Err(TransactionFailure {
-                phase: TransactionFailurePhase::Commit,
-                statement_index: statements.len(),
-                outcome: TransactionFailureOutcome::Unknown,
-                results,
-                error,
-            });
+        if !already_open {
+            if let Err(error) = self.execute_control(handle, "COMMIT TRANSACTION").await {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Commit,
+                    statement_index: statements.len(),
+                    outcome: TransactionFailureOutcome::Unknown,
+                    results,
+                    error,
+                });
+            }
         }
         Ok(results)
     }
@@ -361,13 +397,15 @@ impl DbConnector for SqlServerConnector {
         &self,
         handle: &ConnectionHandle,
         sql: &str,
+        params: &[QueryParam],
         _analyze: bool,
     ) -> Result<serde_json::Value, DbError> {
+        // SHOWPLAN_TEXT does not execute the statement. Parameters bind on the user SQL.
         let result = self
             .query(
                 handle,
                 &format!("SET SHOWPLAN_TEXT ON; {sql}; SET SHOWPLAN_TEXT OFF"),
-                &[],
+                params,
             )
             .await?;
         Ok(serde_json::to_value(result.rows)
@@ -396,6 +434,10 @@ impl SqlDialect for SqlServerDialect {
 
     fn pagination_requires_order_by(&self) -> bool {
         true
+    }
+
+    fn text_like(&self, column: &str, placeholder: &str) -> String {
+        format!("CAST({column} AS NVARCHAR(MAX)) LIKE {placeholder}")
     }
 }
 

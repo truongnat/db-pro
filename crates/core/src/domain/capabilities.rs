@@ -198,7 +198,7 @@ mod tests {
         let caps = DatabaseCapabilities::postgres();
         assert!(caps.query.multi_statement);
         assert!(caps.query.explain);
-        assert!(!caps.query.cancel);
+        assert!(caps.query.cancel);
         assert!(caps.schema.schemas);
         assert!(caps.schema.transactional_ddl);
         assert!(caps.schema.functions);
@@ -281,10 +281,7 @@ mod tests {
     #[test]
     fn limitation_explains_why_a_false_flag_is_unavailable() {
         let pg = DatabaseCapabilities::postgres();
-        assert_eq!(
-            pg.limitation(CapabilityFeature::Cancel),
-            Some("PostgreSQL wire-level query cancellation is not exposed by the connector yet")
-        );
+        assert!(pg.limitation(CapabilityFeature::Cancel).is_none());
         assert!(pg.limitation(CapabilityFeature::Parameters).is_none());
         assert!(pg.supports(CapabilityFeature::Parameters));
 
@@ -323,7 +320,7 @@ mod tests {
         let caps = DatabaseCapabilities::mysql();
         assert!(caps.query.explain);
         assert!(caps.query.multi_statement);
-        assert!(!caps.query.cancel, "MySQL cancel returns Unsupported");
+        assert!(caps.query.cancel);
         assert!(caps.schema.schemas);
         assert!(caps.schema.functions);
         assert!(caps.schema.views);

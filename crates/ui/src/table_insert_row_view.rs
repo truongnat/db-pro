@@ -2,6 +2,10 @@ use super::*;
 
 impl DbProApp {
     pub(crate) fn open_duplicate_row(&mut self, result: &UiQueryResult, row_index: usize) {
+        if let Some(notice) = table_editor_context::surface_read_only_notice(self.edit_surface()) {
+            self.feedback.runtime_message = notice.to_owned();
+            return;
+        }
         if !self.can_mutate_active_connection() {
             self.feedback.runtime_message = "Connect with write access to insert rows".to_owned();
             return;
@@ -19,6 +23,10 @@ impl DbProApp {
     }
 
     pub(crate) fn open_insert_row(&mut self) {
+        if let Some(notice) = table_editor_context::surface_read_only_notice(self.edit_surface()) {
+            self.feedback.runtime_message = notice.to_owned();
+            return;
+        }
         if !self.can_mutate_active_connection() {
             self.feedback.runtime_message = "Connect with write access to insert rows".to_owned();
             return;

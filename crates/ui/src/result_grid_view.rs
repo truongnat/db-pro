@@ -62,12 +62,15 @@ impl DbProApp {
             return;
         }
 
+        self.claim_result_grid_focus(ui);
         let is_table_data =
             self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
         if is_table_data {
             self.apply_capture_cell_edit_env();
         }
-        let editable = is_table_data && self.can_edit_table_rows();
+        let edit_reason = self.result_edit_reason(result);
+        let editable = edit_reason.is_none();
+        let read_only_notice = self.result_read_only_notice(edit_reason.as_deref());
         let (projection_key, indexes, order, selection_lookup) = self.prepare_grid_cache(result, is_table_data);
 
         if is_table_data && self.table.editing.record_view_open {
@@ -84,7 +87,10 @@ impl DbProApp {
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
         if !is_table_data {
-            self.draw_result_grid_toolbar(ui, result, &indexes, editable);
+            let query_notice = (self.edit_surface() == table_editor_context::RowEditSurface::Query)
+                .then_some(read_only_notice)
+                .flatten();
+            self.draw_result_grid_toolbar(ui, result, &indexes, editable, query_notice);
         }
 
         let inspector_open = self.table.editing.record_inspector_open;
@@ -149,6 +155,7 @@ impl DbProApp {
         result: &UiQueryResult,
         indexes: &[usize],
         editable: bool,
+        read_only_notice: Option<&str>,
     ) {
         let action = {
             let mut context = result_grid_toolbar_view::ResultGridToolbarContext {
@@ -157,6 +164,7 @@ impl DbProApp {
                 editing: &mut self.table.editing,
                 feedback: &self.feedback,
                 editable,
+                read_only_notice,
                 matching_rows: indexes.len(),
             };
             result_grid_toolbar_view::draw_toolbar(&mut context, ui)
@@ -274,6 +282,13 @@ impl DbProApp {
         self.table.data.grid_sort_column = None;
         self.table.data.grid_sort_desc = false;
         self.reload_table_data_from_start();
+    }
+
+    /// Registers the grid's focus id so a focus command survives the next frame.
+    fn claim_result_grid_focus(&self, ui: &mut egui::Ui) {
+        let id = result_grid_keyboard_view::result_grid_focus_id();
+        let rect = egui::Rect::from_min_size(ui.cursor().min, egui::Vec2::ZERO);
+        let _ = ui.interact(rect, id, egui::Sense::focusable_noninteractive());
     }
 
     /// Copy, paste-to-edit, staged-changes, and keyboard navigation for the result grid.

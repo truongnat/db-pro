@@ -178,7 +178,8 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::TestConnection { .. }
         | UiCommand::CancelTestConnection { .. }
         | UiCommand::DeleteConnection { .. }
-        | UiCommand::Connect { .. } => translate_connection_command(command),
+        | UiCommand::Connect { .. }
+        | UiCommand::Disconnect { .. } => translate_connection_command(command),
         UiCommand::RunQuery { .. }
         | UiCommand::RunQueryMulti { .. }
         | UiCommand::ExplainQuery { .. }
@@ -590,6 +591,13 @@ pub(crate) fn translate_connection_command(command: UiCommand) -> Option<Runtime
             request_id: runtime_request_id(request_id),
             connection_id,
         }),
+        UiCommand::Disconnect {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::Disconnect {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
         _ => None,
     }
 }
@@ -649,36 +657,44 @@ fn map_query_exec_command(command: UiCommand) -> Option<RuntimeCommand> {
             sql,
             params,
             schema,
+            session_id,
         } => Some(RuntimeCommand::ExecuteQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
             params,
             schema,
+            session_id,
         }),
         UiCommand::RunQueryMulti {
             request_id,
             connection_id,
             sql,
             schema,
+            session_id,
         } => Some(RuntimeCommand::ExecuteQueryMulti {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
             schema,
+            session_id,
         }),
         UiCommand::ExplainQuery {
             request_id,
             connection_id,
             sql,
+            params,
             analyze,
             schema,
+            session_id,
         } => Some(RuntimeCommand::ExplainQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
+            params,
             analyze,
             schema,
+            session_id,
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),
@@ -764,9 +780,11 @@ fn map_monitoring_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::MonitoringSnapshot {
             request_id,
             connection_id,
+            sort,
         } => Some(RuntimeCommand::MonitoringSnapshot {
             request_id: runtime_request_id(request_id),
             connection_id,
+            sort,
         }),
         UiCommand::MonitoringCancelBackend {
             request_id,

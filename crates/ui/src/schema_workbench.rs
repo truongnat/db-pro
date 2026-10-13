@@ -34,6 +34,8 @@ pub(super) struct TableDesignerColumn {
     pub(super) auto_increment: bool,
     pub(super) default_expr: String,
     pub(super) comment: String,
+    /// Name from the loaded table. Empty when the column was added in this form.
+    pub(super) origin_name: String,
 }
 
 impl Default for TableDesignerColumn {
@@ -46,6 +48,7 @@ impl Default for TableDesignerColumn {
             auto_increment: true,
             default_expr: String::new(),
             comment: String::new(),
+            origin_name: String::new(),
         }
     }
 }
@@ -67,6 +70,8 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) name: String,
     pub(super) parent_table: String,
     pub(super) table_columns: Vec<TableDesignerColumn>,
+    /// Snapshot taken by Modify Table. Empty when the form is designing a new table.
+    pub(super) table_baseline: Vec<TableDesignerColumn>,
     pub(super) data_type: String,
     pub(super) select_sql: String,
     pub(super) columns_csv: String,
@@ -133,6 +138,7 @@ impl Default for SchemaWorkbenchState {
                     auto_increment: true,
                     default_expr: String::new(),
                     comment: "Primary Key".into(),
+                    origin_name: String::new(),
                 },
                 TableDesignerColumn {
                     name: "created_at".into(),
@@ -142,8 +148,10 @@ impl Default for SchemaWorkbenchState {
                     auto_increment: false,
                     default_expr: "CURRENT_TIMESTAMP".into(),
                     comment: "Created timestamp".into(),
+                    origin_name: String::new(),
                 },
             ],
+            table_baseline: Vec::new(),
             data_type: "INTEGER".into(),
             select_sql: "SELECT 1".into(),
             columns_csv: "id:INTEGER:pk,name:TEXT".into(),
@@ -223,6 +231,7 @@ impl SchemaWorkbenchState {
             auto_increment: false,
             default_expr: String::new(),
             comment: String::new(),
+            origin_name: String::new(),
         });
         self.sync_table_columns_to_csv();
     }
@@ -280,8 +289,10 @@ impl SchemaWorkbenchState {
                 auto_increment: false,
                 default_expr: String::new(),
                 comment: String::new(),
+                origin_name: col.name.clone(),
             })
             .collect();
+        self.table_baseline = self.table_columns.clone();
         self.sync_table_columns_to_csv();
     }
 }
@@ -526,6 +537,7 @@ pub(super) fn parse_column_defs(schema: &str, table: &str, csv: &str) -> Result<
             default: None,
             is_pk,
             new_name: None,
+            origin_name: None,
         });
     }
     if cols.is_empty() {
@@ -537,6 +549,52 @@ pub(super) fn parse_column_defs(schema: &str, table: &str, csv: &str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn editing_a_loaded_table_plans_alter_not_create() {
+        use crate::runtime::{UiSchemaColumn, UiTableSummary};
+        use db_pro_core::application::ObjectMutationService;
+        use db_pro_core::domain::object_mutation::ObjectAction;
+
+        let mut state = SchemaWorkbenchState::default();
+        state.load_from_table_details(&UiTableSummary {
+            schema: "public".into(),
+            name: "orders".into(),
+            row_count: None,
+            columns: vec![
+                UiSchemaColumn {
+                    name: "id".into(),
+                    data_type: "integer".into(),
+                    nullable: false,
+                    is_primary_key: true,
+                },
+                UiSchemaColumn {
+                    name: "label".into(),
+                    data_type: "text".into(),
+                    nullable: true,
+                    is_primary_key: false,
+                },
+            ],
+            foreign_keys: vec![],
+        });
+        state.table_columns[0].data_type = "bigint".into();
+        state.table_columns[1].name = "title".into();
+        state.table_columns[1].nullable = false;
+        state.table_columns[1].default_expr = "'x'".into();
+
+        let request = state
+            .build_mutation_request(ObjectAction::Create, "postgresql")
+            .expect("request");
+        let preview = ObjectMutationService::plan(&request, &QuoteDialect).expect("plan");
+        let sql = preview.statements.join("\n");
+        let upper = sql.to_ascii_uppercase();
+        assert!(!upper.contains("CREATE TABLE"), "{sql}");
+        assert!(!upper.contains("IF NOT EXISTS"), "{sql}");
+        assert!(sql.contains("ALTER COLUMN \"id\" TYPE bigint"), "{sql}");
+        assert!(sql.contains("RENAME COLUMN \"label\" TO \"title\""), "{sql}");
+        assert!(sql.contains("ALTER COLUMN \"title\" SET NOT NULL"), "{sql}");
+        assert!(sql.contains("ALTER COLUMN \"title\" SET DEFAULT 'x'"), "{sql}");
+    }
 
     #[test]
     fn parse_columns_with_pk_flag() {

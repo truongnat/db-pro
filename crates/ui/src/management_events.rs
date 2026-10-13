@@ -190,5 +190,6 @@ pub(super) fn on_monitoring_action_completed(
         if succeeded { "ok" } else { "no-op" }
     ));
     monitoring.monitoring_terminate_confirm = None;
+    monitoring.monitoring_cancel_confirm = None;
     monitoring.monitoring_reset_stats_confirm = false;
 }

@@ -167,7 +167,7 @@ impl<'a> ExplorerConnectionContext<'a> {
     }
 
     pub(crate) fn disconnect(&mut self, connection: &UiConnectionSummary) -> bool {
-        if self.execution.query_in_transaction {
+        if self.execution.any_transaction_busy() {
             self.execution.disconnect_txn_guard = true;
             self.feedback
                 .set_runtime_message("Open transaction detected — commit or rollback before disconnecting");
@@ -194,7 +194,7 @@ impl<'a> ExplorerConnectionContext<'a> {
                 .set_runtime_message("Apply or discard staged changes before changing connection");
             return None;
         }
-        if self.execution.query_in_transaction {
+        if self.execution.any_transaction_busy() {
             self.execution.disconnect_txn_guard = true;
             self.feedback
                 .set_runtime_message("Commit or rollback the open transaction before changing connection");

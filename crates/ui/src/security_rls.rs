@@ -64,6 +64,7 @@ pub(super) fn plan_policy(request: PolicyPreviewRequest<'_>) -> Result<String, S
         roles_csv,
         using_expr,
         with_check_expr,
+        restrictive,
     } = request;
     let schema = schema.trim();
     let table = table.trim();
@@ -84,7 +85,7 @@ pub(super) fn plan_policy(request: PolicyPreviewRequest<'_>) -> Result<String, S
             schema: schema.to_owned(),
             table: table.to_owned(),
             name: name.to_owned(),
-            permissive: true,
+            permissive: !restrictive,
             command: command.to_owned(),
             roles,
             using_expr: Some(using_expr.to_owned()).filter(|value| !value.trim().is_empty()),
@@ -105,6 +106,7 @@ pub(super) struct PolicyPreviewRequest<'a> {
     pub(super) roles_csv: &'a str,
     pub(super) using_expr: &'a str,
     pub(super) with_check_expr: &'a str,
+    pub(super) restrictive: bool,
 }
 
 pub(super) fn plan_drop_policy(schema: &str, table: &str, name: &str) -> Result<String, String> {
@@ -170,6 +172,7 @@ mod tests {
             roles_csv: "app_user, reporting",
             using_expr: "tenant_id = current_setting('app.tenant')::int",
             with_check_expr: "",
+            restrictive: false,
         })
         .expect("preview");
 

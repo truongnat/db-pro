@@ -7,4 +7,10 @@ pub trait SqlDialect: Send + Sync {
     fn pagination_requires_order_by(&self) -> bool {
         false
     }
+
+    /// Text comparison for contains / starts with / ends with.
+    /// Postgres and SQLite accept `CAST AS TEXT`. MySQL and SQL Server do not.
+    fn text_like(&self, column: &str, placeholder: &str) -> String {
+        format!("CAST({column} AS TEXT) LIKE {placeholder}")
+    }
 }

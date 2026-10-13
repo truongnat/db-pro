@@ -27,6 +27,26 @@ fn schema_cache_refresh_preserves_invalidation_through_runtime_translation() {
 }
 
 #[test]
+fn disconnect_translates_to_runtime_disconnect() {
+    let translated = translate_command(UiCommand::Disconnect {
+        request_id: RequestId(17),
+        connection_id: "clicked-conn".to_owned(),
+    })
+    .expect("disconnect must reach the runtime");
+
+    match translated {
+        RuntimeCommand::Disconnect {
+            request_id,
+            connection_id,
+        } => {
+            assert_eq!(request_id, RuntimeRequestId(17));
+            assert_eq!(connection_id, "clicked-conn");
+        }
+        _ => panic!("unexpected runtime command"),
+    }
+}
+
+#[test]
 fn connection_test_cancel_translates_with_the_original_request_id() {
     let translated = translate_command(UiCommand::CancelTestConnection {
         request_id: RequestId(31),
@@ -210,6 +230,7 @@ fn multi_query_command_routes_to_runtime() {
         connection_id: "connection-1".to_owned(),
         sql: "SELECT 1; SELECT 2;".to_owned(),
         schema: Some("tenant1".to_owned()),
+        session_id: Some("query-1".to_owned()),
     })
     .expect("multi-query command must reach runtime");
 

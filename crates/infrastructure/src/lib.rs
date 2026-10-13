@@ -8,3 +8,4 @@ pub mod secret;
 pub mod sqlite;
 pub mod sqlserver;
 pub mod ssh;
+pub(crate) mod transaction_session;

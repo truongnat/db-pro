@@ -7,6 +7,7 @@ use super::{now_ms, MonitoringService};
 pub(super) async fn execute(
     service: &MonitoringService,
     connection_id: &ConnectionId,
+    sort: crate::domain::monitoring::StatStatementSort,
 ) -> Result<MonitoringSnapshot, DbError> {
     let driver = service.driver(connection_id).await?;
     let port = service.port_for(driver)?;
@@ -27,17 +28,15 @@ pub(super) async fn execute(
         DriverType::Mysql => None,
         DriverType::SqlServer => None,
     };
-    let (locks, relation_sizes, server) = match driver {
+    let (locks, lock_error, relation_sizes, server) = match driver {
         DriverType::Postgres => {
-            // The monitoring panel must still render when a section query fails, so
-            // each section falls back to empty values; the error is logged with the connection
-            // instead of being silently swallowed (error-handling.md §3).
-            let locks = match port.list_locks(&handle).await {
-                Ok(locks) => locks,
+            // A failed lock query must stay visible. An empty list is only a successful read.
+            let (locks, lock_error) = match port.list_locks(&handle).await {
+                Ok(locks) => (locks, None),
                 Err(error) => {
                     // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                    tracing::warn!(connection_id = %connection_id, %error, "monitoring: list_locks failed — panel renders without lock data");
-                    Vec::new()
+                    tracing::warn!(connection_id = %connection_id, %error, "monitoring: list_locks failed");
+                    (Vec::new(), Some(error.to_string()))
                 }
             };
             let relation_sizes = match port.relation_sizes(&handle, 40).await {
@@ -49,26 +48,24 @@ pub(super) async fn execute(
                 }
             };
             let server = port.server_summary(&handle).await.unwrap_or(None);
-            (locks, relation_sizes, server)
+            (locks, lock_error, relation_sizes, server)
         }
-        DriverType::SQLite => (Vec::new(), Vec::new(), None),
+        DriverType::SQLite => (Vec::new(), None, Vec::new(), None),
         DriverType::Mysql => unreachable!("port_for rejects mysql"),
         DriverType::SqlServer => unreachable!("port_for rejects sql server"),
     };
 
     let workload = match driver {
-        DriverType::Postgres => Some(
-            port.stat_statements(&handle, crate::domain::monitoring::StatStatementSort::TotalTime, 100)
-                .await
-                .unwrap_or_else(|err| crate::domain::monitoring::StatStatementsSnapshot {
-                    extension_present: false,
-                    extension_version: None,
-                    message: format!("Could not load pg_stat_statements: {err}"),
-                    statements: Vec::new(),
-                    sort: crate::domain::monitoring::StatStatementSort::TotalTime,
-                    fetched_at_ms: now_ms(),
-                }),
-        ),
+        DriverType::Postgres => Some(port.stat_statements(&handle, sort, 100).await.unwrap_or_else(|err| {
+            crate::domain::monitoring::StatStatementsSnapshot {
+                extension_present: false,
+                extension_version: None,
+                message: format!("Could not load pg_stat_statements: {err}"),
+                statements: Vec::new(),
+                sort,
+                fetched_at_ms: now_ms(),
+            }
+        })),
         DriverType::SQLite | DriverType::Mysql => None,
         DriverType::SqlServer => None,
     };
@@ -100,6 +97,7 @@ pub(super) async fn execute(
         driver: format!("{driver:?}"),
         sessions,
         locks,
+        lock_error,
         relation_sizes,
         server,
         local,

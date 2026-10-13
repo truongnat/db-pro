@@ -63,6 +63,17 @@ impl DbProApp {
     /// For the table data view, enum labels come from the introspected table
     /// metadata; for other enum-typed results the select falls back to the
     /// distinct values already present in the result.
+    pub(crate) fn foreign_key_value_choices(
+        &self,
+        result: &UiQueryResult,
+        column_index: usize,
+    ) -> Option<Vec<String>> {
+        match self.classify_cell_editor(result, column_index) {
+            result_grid_cell_editor_surface_view::CellEditorKind::Select(values) => Some(values),
+            _ => None,
+        }
+    }
+
     fn classify_cell_editor(
         &self,
         result: &UiQueryResult,
@@ -72,6 +83,11 @@ impl DbProApp {
         let Some(column) = result.columns.get(column_index) else {
             return CellEditorKind::Text;
         };
+        if self.table.editing.fk_lookup_column.as_deref() == Some(column.name.as_str())
+            && !self.table.editing.fk_lookup_options.is_empty()
+        {
+            return CellEditorKind::Select(self.table.editing.fk_lookup_options.clone());
+        }
         let data_type = column.data_type.to_ascii_lowercase();
         if data_type.contains("bool") {
             return CellEditorKind::Boolean {

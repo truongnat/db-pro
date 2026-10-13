@@ -1,6 +1,7 @@
 use crate::domain::connection::ConnectionId;
 use crate::domain::cross_connection::SchemaDiff;
 use crate::domain::error::DbError;
+use crate::domain::schema::IntrospectResult;
 
 use super::SchemaService;
 use schema_diff_compare::compare_introspect_results;
@@ -9,9 +10,11 @@ use schema_diff_compare::compare_introspect_results;
 mod schema_diff_compare;
 
 #[cfg(test)]
-use crate::domain::schema::IntrospectResult;
-#[cfg(test)]
 use schema_diff_compare::{display_qualified_name, qualify_key};
+
+pub fn compare_schemas(source: &IntrospectResult, target: &IntrospectResult) -> SchemaDiff {
+    compare_introspect_results(source, target)
+}
 
 impl SchemaService {
     pub async fn diff_schemas(
@@ -137,5 +140,90 @@ mod tests {
             diff.indexes_only_in_source,
             vec!["public.users_a_idx", "public.users_z_idx"]
         );
+    }
+
+    #[test]
+    fn live_schema_compare_includes_indexes_foreign_keys_and_view_bodies() {
+        let source_code = include_str!("schema_diff.rs");
+        let start = source_code
+            .find("pub async fn diff_schemas")
+            .expect("live compare entry");
+        let body = &source_code[start..];
+        let end = body.find("\n}\n").expect("end of diff_schemas");
+        let body = &body[..end];
+        assert!(body.contains("self.introspect(source_id"));
+        assert!(body.contains("self.introspect(target_id"));
+        assert!(body.contains("compare_introspect_results"));
+
+        let mut source = IntrospectResult::empty();
+        source.indexes.push(Index {
+            name: "orders_customer_idx".into(),
+            columns: vec!["customer_id".into()],
+            unique: false,
+            definition: "CREATE INDEX orders_customer_idx ON orders (customer_id)".into(),
+            origin: IndexOrigin::User,
+            table_name: "orders".into(),
+            schema: "public".into(),
+            ..Default::default()
+        });
+        source.foreign_keys.push(crate::domain::schema::ForeignKey {
+            name: "orders_customer_fk".into(),
+            from_table: "orders".into(),
+            from_columns: vec!["customer_id".into()],
+            to_table: "customers".into(),
+            schema: "public".into(),
+            to_schema: "public".into(),
+            to_columns: vec!["id".into()],
+            on_update: "NO ACTION".into(),
+            on_delete: "CASCADE".into(),
+            ..Default::default()
+        });
+        source.views.push(crate::domain::schema::View {
+            name: "open_orders".into(),
+            schema: "public".into(),
+            definition: "SELECT id FROM orders WHERE open".into(),
+        });
+
+        let mut target = IntrospectResult::empty();
+        target.indexes.push(Index {
+            name: "orders_customer_idx".into(),
+            columns: vec!["customer_id".into(), "created_at".into()],
+            unique: false,
+            definition: "CREATE INDEX orders_customer_idx ON orders (customer_id, created_at)".into(),
+            origin: IndexOrigin::User,
+            table_name: "orders".into(),
+            schema: "public".into(),
+            ..Default::default()
+        });
+        target.views.push(crate::domain::schema::View {
+            name: "open_orders".into(),
+            schema: "public".into(),
+            definition: "SELECT id, created_at FROM orders WHERE open".into(),
+        });
+
+        let diff = compare_schemas(&source, &target);
+        assert!(
+            diff.index_definition_mismatches
+                .iter()
+                .any(|line| line.contains("orders_customer_idx") && line.contains("created_at")),
+            "{:?}",
+            diff.index_definition_mismatches
+        );
+        assert!(
+            diff.foreign_keys_only_in_source
+                .iter()
+                .any(|line| line.contains("orders_customer_fk")
+                    && line.contains("customer_id")
+                    && line.contains("CASCADE")),
+            "{:?}",
+            diff.foreign_keys_only_in_source
+        );
+        assert!(diff.foreign_keys_only_in_target.is_empty());
+        assert_eq!(diff.view_body_mismatches.len(), 1);
+        assert_eq!(diff.view_body_mismatches[0].name, "open_orders");
+        assert!(diff.view_body_mismatches[0]
+            .source_body
+            .contains("SELECT id FROM orders"));
+        assert!(diff.view_body_mismatches[0].target_body.contains("created_at"));
     }
 }

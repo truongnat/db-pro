@@ -23,7 +23,7 @@ pub(super) const AI_PREDICTION_EGRESS_NOTE: &str =
 mod query_helpers;
 pub(crate) use query_helpers::{
     database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, format_query_document,
-    prediction_replacement_range, write_file_atomically,
+    prediction_replacement_range, toggle_query_comment, write_file_atomically,
 };
 
 impl DbProApp {
@@ -161,9 +161,15 @@ impl DbProApp {
     }
 
     fn draw_query_transaction_chrome(&mut self, ui: &mut egui::Ui) {
+        let document_id = self
+            .query
+            .session
+            .active_document()
+            .map(|document| document.id.clone());
         let actions = query_transaction_surface_view::QueryTransactionSurfaceContext {
             theme: self.theme,
             execution: &mut self.query.execution,
+            document_id: document_id.as_deref(),
         }
         .draw(ui);
         for action in actions {
@@ -281,14 +287,18 @@ impl DbProApp {
     }
 
     fn refresh_query_parameter_count(&mut self) {
+        let driver = self.active_driver().to_owned();
         let param_key = (
             self.query.session.active_document_index,
             self.query.session.active_buffer_version(),
         );
-        if self.query.editor.param_count_cache_key != Some(param_key) {
+        if self.query.editor.param_count_cache_key != Some(param_key)
+            || self.query.editor.param_count_cache_driver != driver
+        {
             self.query.editor.param_count_cache_key = Some(param_key);
             self.query.editor.param_count_cache =
-                crate::query::discover_sql_parameters(self.query.session.active_text()).len();
+                crate::query::discover_sql_parameters_for_driver(self.query.session.active_text(), &driver).len();
+            self.query.editor.param_count_cache_driver = driver;
         }
     }
 
@@ -296,13 +306,14 @@ impl DbProApp {
         &self,
         ui: &mut egui::Ui,
     ) -> Option<query_status_bar_surface_view::QueryStatusBarAction> {
+        let document_id = self.query.session.active_document().map(|document| document.id.as_str());
         query_status_bar_surface_view::draw_status_bar(
             &query_status_bar_surface_view::QueryStatusBarContext {
                 theme: self.theme,
                 bottom_panel_open: self.workspace.bottom_panel_open,
-                in_transaction: self.query.execution.query_in_transaction,
-                transaction_pending: self.query.execution.query_txn_pending,
-                auto_commit: self.query.execution.query_auto_commit,
+                in_transaction: self.query.execution.in_transaction(document_id),
+                transaction_pending: self.query.execution.txn_pending(document_id),
+                auto_commit: self.query.execution.auto_commit(document_id),
                 cursor_line: self.query.editor.query_cursor_line,
                 cursor_column: self.query.editor.query_cursor_column,
                 selected_line_range: self
@@ -422,10 +433,12 @@ impl DbProApp {
     /// Discovered bind placeholders for the active document (#225 discovery slice).
     fn draw_sql_parameters_panel(&mut self, ui: &mut egui::Ui) {
         let supports_parameters = self.query_capabilities().allows(|caps| caps.query.parameters);
+        let driver = self.active_driver().to_owned();
         let mut context = query_parameters_view::QueryParametersContext {
             theme: self.theme,
             session: &mut self.query.session,
             supports_parameters,
+            driver: &driver,
         };
         query_parameters_view::draw_parameters_panel(&mut context, ui);
     }

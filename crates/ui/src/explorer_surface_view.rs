@@ -21,6 +21,28 @@ use crate::tokens::{SPACE_SM, SPACE_XS};
 
 const EXPLORER_SCROLL_ID: &str = "codex_navigator_scroll";
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum CatalogSurface {
+    Loading,
+    Failed,
+    Empty,
+    Ready,
+}
+
+/// Empty catalog is not the same as a list that has not arrived or has failed.
+pub(super) fn catalog_surface(pending: bool, error: Option<&str>, is_empty: bool) -> CatalogSurface {
+    if !is_empty {
+        return CatalogSurface::Ready;
+    }
+    if pending {
+        return CatalogSurface::Loading;
+    }
+    if error.is_some() {
+        return CatalogSurface::Failed;
+    }
+    CatalogSurface::Empty
+}
+
 pub(super) enum ExplorerSurfaceAction {
     NewConnection,
     RefreshSchema,
@@ -80,10 +102,18 @@ impl ExplorerSurfaceContext<'_> {
                 ui.set_max_width(tree_width);
                 ui.expand_to_include_x(ui.max_rect().left() + tree_width);
                 ui.allocate_exact_size(egui::vec2(tree_width, 0.0), egui::Sense::hover());
-                if self.catalog.is_empty() {
-                    actions.extend(self.draw_empty_state(ui));
-                } else {
-                    actions.extend(self.draw_connections(ui));
+                let pending = self.lifecycle.connections_request_pending();
+                let error = self.lifecycle.connections_error().map(str::to_owned);
+                match catalog_surface(pending, error.as_deref(), self.catalog.is_empty()) {
+                    CatalogSurface::Ready => actions.extend(self.draw_connections(ui)),
+                    CatalogSurface::Loading => {
+                        ui.label(egui::RichText::new("Loading connections…").color(self.theme.text_secondary));
+                    }
+                    CatalogSurface::Failed => {
+                        let message = error.as_deref().unwrap_or("Could not load connections");
+                        ui.label(egui::RichText::new(message).color(self.theme.danger));
+                    }
+                    CatalogSurface::Empty => actions.extend(self.draw_empty_state(ui)),
                 }
             });
         actions

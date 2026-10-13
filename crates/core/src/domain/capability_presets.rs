@@ -26,10 +26,9 @@ impl DatabaseCapabilities {
         QueryCapabilities {
             multi_statement: true,
             explain: true,
-            // The connector does not yet expose PostgreSQL's wire-level
-            // cancellation primitive; do not advertise best-effort task
-            // cancellation as provider cancellation.
-            cancel: false,
+            // `PostgresConnector::query` records `pg_backend_pid()` for the
+            // fetch, and `cancel` calls `pg_cancel_backend` while that guard lives.
+            cancel: true,
             parameters: true,
             numbered_parameters: true,
             positional_parameters: false,
@@ -180,7 +179,9 @@ impl DatabaseCapabilities {
         QueryCapabilities {
             multi_statement: true,
             explain: true,
-            cancel: false,
+            // `MySqlConnector::query` records `CONNECTION_ID()` for the fetch,
+            // and `cancel` runs `KILL QUERY` while that id is tracked.
+            cancel: true,
             // Positional `?` binding is served by `mysql/query_mapper::bind_params`
             // through `MySqlConnector::query`/`execute`.
             parameters: true,

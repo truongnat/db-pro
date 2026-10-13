@@ -135,6 +135,7 @@ impl DbProApp {
                 draft: self.workspace.files.search_draft(),
                 replace_previews: &self.workspace.files.workspace_replace_previews,
                 search_hits: &self.workspace.files.workspace_search_hits,
+                pending_replace: self.workspace.files.pending_replace_all,
             };
             context.draw(ui)
         };
@@ -143,7 +144,9 @@ impl DbProApp {
                 FilesSearchAction::UpdateDraft(draft) => self.workspace.files.apply_search_draft(draft),
                 FilesSearchAction::Find => self.workspace.files.run_search(&mut self.feedback),
                 FilesSearchAction::PreviewReplace => self.workspace.files.preview_replace(&mut self.feedback),
-                FilesSearchAction::ReplaceAll => self.workspace.files.apply_replace(&mut self.feedback),
+                FilesSearchAction::ReplaceAll => self.workspace.files.request_replace_all(&mut self.feedback),
+                FilesSearchAction::ConfirmReplaceAll => self.workspace.files.confirm_replace_all(&mut self.feedback),
+                FilesSearchAction::CancelReplaceAll => self.workspace.files.pending_replace_all = false,
                 FilesSearchAction::Refactor => self.workspace.files.apply_refactor(&mut self.feedback),
                 FilesSearchAction::OpenSql(path) => self.open_workspace_sql_file(path),
             }
@@ -164,12 +167,15 @@ impl DbProApp {
                 theme: self.theme,
                 command: &mut self.workspace.files.workspace_task_command,
                 last_task: self.workspace.files.ide_workspace.last_task.as_ref(),
+                pending_shell: self.workspace.files.pending_shell,
             };
             context.draw(ui)
         };
         for action in actions {
             match action {
-                FilesTasksAction::RunTask => self.workspace.files.run_task(&mut self.feedback),
+                FilesTasksAction::RunTask => self.workspace.files.request_shell(&mut self.feedback),
+                FilesTasksAction::ConfirmShell => self.workspace.files.confirm_shell(&mut self.feedback),
+                FilesTasksAction::CancelShell => self.workspace.files.pending_shell = false,
                 FilesTasksAction::RunBenchmark => {
                     let cases = vec![
                         ide_workspace::BenchmarkCase {

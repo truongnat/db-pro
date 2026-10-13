@@ -147,6 +147,7 @@ explorer:
 query:
   run: "Run"
   run_selection: "Run selection"
+  run_script: "Run script"
   stop: "Stop"
   running: "Running…"
   explain: "Explain"

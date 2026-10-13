@@ -24,8 +24,49 @@ pub(super) struct SecurityState {
     pub(super) security_rls_with_check: String,
     pub(super) security_rls_preview_sql: String,
     pub(super) security_rls_confirm_apply: bool,
+    pub(super) security_rls_restrictive: bool,
     pub(super) security_drop_confirm: Option<String>,
+    pub(super) security_pending: Option<PendingSecurityAction>,
+    pub(super) security_privilege_request: Option<u64>,
     pub(super) security_error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum PendingSecurityAction {
+    EnableAttribute {
+        role: String,
+        attributes: db_pro_core::domain::user::RoleAttributes,
+    },
+    RevokeMembership {
+        role: String,
+        member_role: String,
+    },
+    RevokePrivilege {
+        role: String,
+        privilege: db_pro_core::domain::user::Privilege,
+    },
+}
+
+impl PendingSecurityAction {
+    pub(super) fn prompt(&self) -> String {
+        match self {
+            Self::EnableAttribute { role, attributes } => {
+                let flag = if attributes.createdb == Some(true) {
+                    "CREATEDB"
+                } else {
+                    "CREATEROLE"
+                };
+                format!("Enable {flag} for `{role}`?")
+            }
+            Self::RevokeMembership { role, member_role } => {
+                format!("Revoke membership of `{member_role}` from `{role}`?")
+            }
+            Self::RevokePrivilege { role, privilege } => format!(
+                "Revoke {} on {} from `{role}`?",
+                privilege.privilege_type, privilege.object_name
+            ),
+        }
+    }
 }
 
 impl Default for SecurityState {
@@ -54,9 +95,24 @@ impl Default for SecurityState {
             security_rls_with_check: String::new(),
             security_rls_preview_sql: String::new(),
             security_rls_confirm_apply: false,
+            security_rls_restrictive: false,
             security_drop_confirm: None,
+            security_pending: None,
+            security_privilege_request: None,
             security_error: None,
         }
+    }
+}
+
+impl SecurityState {
+    pub(super) fn note_privilege_failure(&mut self, request_id: u64, message: &str) -> bool {
+        if self.security_privilege_request != Some(request_id) {
+            return false;
+        }
+        self.security_privilege_request = None;
+        self.security_error = Some(message.to_owned());
+        self.security_privileges.clear();
+        true
     }
 }
 

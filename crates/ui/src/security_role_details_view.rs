@@ -78,6 +78,22 @@ impl SecurityRoleDetailsContext<'_> {
                         ..Default::default()
                     },
                 ),
+                (
+                    Icon::Database,
+                    "NOCREATEDB",
+                    db_pro_core::domain::user::RoleAttributes {
+                        createdb: Some(false),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    Icon::Users,
+                    "NOCREATEROLE",
+                    db_pro_core::domain::user::RoleAttributes {
+                        createrole: Some(false),
+                        ..Default::default()
+                    },
+                ),
             ] {
                 if Button::new(self.theme)
                     .icon(icon)
@@ -196,7 +212,9 @@ impl SecurityRoleDetailsContext<'_> {
         ui.add_space(SPACE_MD);
         section_label(ui, format!("PRIVILEGES · {}", self.role), self.theme);
         ui.add_space(SPACE_SM);
-        if self.state.security_privileges.is_empty() {
+        if let Some(error) = &self.state.security_error {
+            ui.colored_label(self.theme.warning, error);
+        } else if self.state.security_privileges.is_empty() {
             ui.label(
                 RichText::new("No privileges listed for this role.")
                     .small()

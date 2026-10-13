@@ -273,7 +273,9 @@ impl QueryDocument {
     }
 
     // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-    /// Resolves the executable SQL: selected text if non-empty, otherwise the current statement at cursor, otherwise full buffer.
+    /// Resolves the executable SQL: selected text if non-empty, otherwise the
+    /// statement that owns the caret (including the blank line after `;`),
+    /// otherwise the full buffer when the document has no statement.
     pub fn resolve_executable_sql(&self) -> (String, (usize, usize)) {
         if !self.selection.is_empty() {
             let (start, end) = self.selection.normalized();
@@ -281,7 +283,7 @@ impl QueryDocument {
             return (sql, (start, end));
         }
 
-        if let Some(stmt) = self.analysis.current_statement_at(self.cursor.offset) {
+        if let Some(stmt) = self.analysis.statement_for_caret(self.cursor.offset) {
             return (stmt.text.clone(), stmt.range);
         }
 
@@ -500,6 +502,14 @@ mod tests {
         doc.selection.active = 19;
         let (sql, _) = doc.resolve_executable_sql();
         assert_eq!(sql, "SELECT 1;\nSELECT 2;");
+    }
+
+    #[test]
+    fn blank_line_after_a_semicolon_runs_that_statement() {
+        let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT 1;\n\nSELECT 2;");
+        doc.cursor.set_offset(&doc.buffer, 10);
+        let (sql, _) = doc.resolve_executable_sql();
+        assert_eq!(sql, "SELECT 1;");
     }
 
     #[test]

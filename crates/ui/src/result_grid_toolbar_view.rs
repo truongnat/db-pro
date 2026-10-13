@@ -9,6 +9,7 @@ pub(super) struct ResultGridToolbarContext<'a> {
     pub(super) editing: &'a mut TableEditingState,
     pub(super) feedback: &'a FeedbackState,
     pub(super) editable: bool,
+    pub(super) read_only_notice: Option<&'a str>,
     pub(super) matching_rows: usize,
 }
 
@@ -30,6 +31,14 @@ pub(super) fn draw_toolbar(
     let mut action = None;
     toolbar_frame(context.theme).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
+            if let Some(notice) = context.read_only_notice {
+                ui.label(
+                    egui::RichText::new(notice)
+                        .font(font_caption())
+                        .color(context.theme.warning),
+                );
+                ui.separator();
+            }
             draw_filter_controls(context, ui);
             ui.separator();
             draw_copy_actions(context, ui, &mut action);

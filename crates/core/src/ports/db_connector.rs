@@ -37,6 +37,9 @@ pub enum TransactionFailureOutcome {
     NotStarted,
     RolledBack,
     Unknown,
+    /// The statement failed on a transaction the caller already holds.
+    /// Nothing was committed or rolled back, and the connection stays checked out.
+    LeftOpen,
 }
 
 #[derive(Debug)]
@@ -107,7 +110,13 @@ pub trait DbConnector: Send + Sync {
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError>;
 
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str, analyze: bool) -> Result<serde_json::Value, DbError>;
+    async fn explain(
+        &self,
+        handle: &ConnectionHandle,
+        sql: &str,
+        params: &[QueryParam],
+        analyze: bool,
+    ) -> Result<serde_json::Value, DbError>;
 
     fn dialect(&self, handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError>;
 }
@@ -167,8 +176,14 @@ impl<T: DbConnector + ?Sized> DbConnector for Arc<T> {
         self.as_ref().introspect(handle).await
     }
 
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str, analyze: bool) -> Result<serde_json::Value, DbError> {
-        self.as_ref().explain(handle, sql, analyze).await
+    async fn explain(
+        &self,
+        handle: &ConnectionHandle,
+        sql: &str,
+        params: &[QueryParam],
+        analyze: bool,
+    ) -> Result<serde_json::Value, DbError> {
+        self.as_ref().explain(handle, sql, params, analyze).await
     }
 
     fn dialect(&self, handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {

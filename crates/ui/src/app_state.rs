@@ -4,6 +4,10 @@ use super::*;
 const DEFAULT_QUERY: &str = "select\n  id, first_name, last_name, email\nfrom customers\nlimit 100;";
 
 impl DbProApp {
+    pub fn set_table_copy_connector(&mut self, connector: std::sync::Arc<dyn db_pro_core::application::TableCopyConnector>) {
+        self.table_copy = Some(connector);
+    }
+
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
         Self::with_task_bridge_and_storage(task_bridge, None)
     }
@@ -91,6 +95,7 @@ impl Default for DbProApp {
             schema: SchemaWorkspaceState::default(),
             management: DatabaseManagementState::default(),
             saved_tasks: SavedTaskState::default(),
+            table_copy: None,
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),
             #[cfg(debug_assertions)]

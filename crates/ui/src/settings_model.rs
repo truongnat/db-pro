@@ -317,6 +317,16 @@ pub(crate) fn default_keybinding_catalog() -> &'static [KeybindingCommand] {
             default_shortcut: "f5",
         },
         KeybindingCommand {
+            id: "query.run_all",
+            title: "Run Script",
+            default_shortcut: "mod+shift+enter",
+        },
+        KeybindingCommand {
+            id: "query.format",
+            title: "Format Query",
+            default_shortcut: "mod+shift+f",
+        },
+        KeybindingCommand {
             id: "connection.new",
             title: "New Connection",
             default_shortcut: "mod+n",
@@ -325,6 +335,21 @@ pub(crate) fn default_keybinding_catalog() -> &'static [KeybindingCommand] {
             id: "query.new",
             title: "New Query",
             default_shortcut: "mod+t",
+        },
+        KeybindingCommand {
+            id: "table.open",
+            title: "Open Table",
+            default_shortcut: "mod+o",
+        },
+        KeybindingCommand {
+            id: "result.focus",
+            title: "Focus Results",
+            default_shortcut: "mod+shift+r",
+        },
+        KeybindingCommand {
+            id: "editor.comment",
+            title: "Toggle Comment",
+            default_shortcut: "mod+/",
         },
     ]
 }
@@ -349,6 +374,21 @@ impl KeybindingSettings {
         self.overrides.remove(command_id);
     }
 
+    /// Saves one override. An empty draft or the catalog default clears it.
+    /// A token the matcher cannot parse is refused and left unchanged.
+    pub(crate) fn save_override(&mut self, command_id: &str, default_shortcut: &str, draft: &str) -> bool {
+        let draft = draft.trim().to_ascii_lowercase();
+        if draft.is_empty() || draft == default_shortcut {
+            self.reset_one(command_id);
+            return true;
+        }
+        if shortcut_parts(&draft).is_none() {
+            return false;
+        }
+        self.overrides.insert(command_id.to_owned(), draft);
+        true
+    }
+
     /// Returns shortcut tokens that map to more than one command.
     pub(crate) fn conflicts(&self) -> Vec<(String, Vec<String>)> {
         let mut by_shortcut: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -367,37 +407,66 @@ impl KeybindingSettings {
     }
 }
 
-/// Match a compact shortcut token (`mod+k`, `mod+shift+p`, `f5`) against egui input.
-pub(crate) fn match_shortcut_token(input: &egui::InputState, token: &str) -> bool {
+struct ShortcutParts {
+    key: egui::Key,
+    want_mod: bool,
+    want_shift: bool,
+    want_alt: bool,
+}
+
+fn shortcut_parts(token: &str) -> Option<ShortcutParts> {
     let token = token.trim().to_ascii_lowercase();
     if token.is_empty() {
-        return false;
+        return None;
     }
     let parts: Vec<&str> = token.split('+').map(str::trim).collect();
     let mut want_mod = false;
     let mut want_shift = false;
+    let mut want_alt = false;
     let mut key_name = "";
     for part in parts {
         match part {
             "mod" | "cmd" | "ctrl" | "command" => want_mod = true,
             "shift" => want_shift = true,
+            "alt" => want_alt = true,
             other => key_name = other,
         }
     }
-    let Some(key) = parse_key_name(key_name) else {
+    Some(ShortcutParts {
+        key: parse_key_name(key_name)?,
+        want_mod,
+        want_shift,
+        want_alt,
+    })
+}
+
+fn modifiers_match(modifiers: egui::Modifiers, parts: &ShortcutParts) -> bool {
+    let primary = modifiers.command || modifiers.ctrl;
+    parts.want_mod == primary && parts.want_shift == modifiers.shift && parts.want_alt == modifiers.alt
+}
+
+/// Match a compact shortcut token (`mod+k`, `mod+shift+p`, `f5`) against egui input.
+pub(crate) fn match_shortcut_token(input: &egui::InputState, token: &str) -> bool {
+    let Some(parts) = shortcut_parts(token) else {
         return false;
     };
-    if !input.key_pressed(key) {
+    input.key_pressed(parts.key) && modifiers_match(input.modifiers, &parts)
+}
+
+pub(crate) fn event_matches_shortcut(event: &egui::Event, token: &str) -> bool {
+    let egui::Event::Key {
+        key,
+        pressed: true,
+        modifiers,
+        ..
+    } = event
+    else {
         return false;
-    }
-    let primary = input.modifiers.command || input.modifiers.ctrl;
-    if want_mod != primary {
+    };
+    let Some(parts) = shortcut_parts(token) else {
         return false;
-    }
-    if want_shift != input.modifiers.shift {
-        return false;
-    }
-    true
+    };
+    *key == parts.key && modifiers_match(*modifiers, &parts)
 }
 
 fn parse_key_name(name: &str) -> Option<egui::Key> {
@@ -428,8 +497,29 @@ fn parse_key_name(name: &str) -> Option<egui::Key> {
         "x" => egui::Key::X,
         "y" => egui::Key::Y,
         "z" => egui::Key::Z,
-        "f5" => egui::Key::F5,
+        "/" | "slash" => egui::Key::Slash,
+        "0" => egui::Key::Num0,
+        "1" => egui::Key::Num1,
+        "2" => egui::Key::Num2,
+        "3" => egui::Key::Num3,
+        "4" => egui::Key::Num4,
+        "5" => egui::Key::Num5,
+        "6" => egui::Key::Num6,
+        "7" => egui::Key::Num7,
+        "8" => egui::Key::Num8,
+        "9" => egui::Key::Num9,
+        "f1" => egui::Key::F1,
+        "f2" => egui::Key::F2,
+        "f3" => egui::Key::F3,
         "f4" => egui::Key::F4,
+        "f5" => egui::Key::F5,
+        "f6" => egui::Key::F6,
+        "f7" => egui::Key::F7,
+        "f8" => egui::Key::F8,
+        "f9" => egui::Key::F9,
+        "f10" => egui::Key::F10,
+        "f11" => egui::Key::F11,
+        "f12" => egui::Key::F12,
         "delete" | "del" => egui::Key::Delete,
         "enter" | "return" => egui::Key::Enter,
         "escape" | "esc" => egui::Key::Escape,

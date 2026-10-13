@@ -119,7 +119,7 @@ impl DataDiffService {
         let all_keys: BTreeSet<_> = source_map.keys().chain(target_map.keys()).cloned().collect();
         for key in all_keys {
             match (source_map.get(&key), target_map.get(&key)) {
-                (Some(_src), None) => {
+                (Some(src), None) => {
                     added += 1;
                     if row_diffs.len() < MAX_ROW_DIFF_SAMPLES {
                         row_diffs.push(DataRowDiff {
@@ -129,9 +129,7 @@ impl DataDiffService {
                         });
                     }
                     if sync_sql_preview.len() < 50 {
-                        sync_sql_preview.push(format!(
-                            "-- preview only: INSERT into target for key {key} (values omitted)"
-                        ));
+                        sync_sql_preview.push(sync_insert(&*target_dialect, &target_qualified, src));
                     }
                 }
                 (None, Some(_)) => {
@@ -144,15 +142,7 @@ impl DataDiffService {
                         });
                     }
                     if sync_sql_preview.len() < 50 {
-                        let predicates = key_columns
-                            .iter()
-                            .zip(key.split('\u{1f}'))
-                            .map(|(col, val)| format!("{} = {}", quote_raw(col), sql_literal(val)))
-                            .collect::<Vec<_>>()
-                            .join(" AND ");
-                        sync_sql_preview.push(format!(
-                            "-- preview only: DELETE FROM {target_qualified} WHERE {predicates};"
-                        ));
+                        sync_sql_preview.push(sync_delete(&*target_dialect, &target_qualified, key_columns, &key));
                     }
                 }
                 (Some(src), Some(tgt)) => {
@@ -165,13 +155,15 @@ impl DataDiffService {
                             row_diffs.push(DataRowDiff {
                                 state: DataRowState::Changed,
                                 key: key.clone(),
-                                column_changes: changes,
+                                column_changes: changes.clone(),
                             });
                         }
                         if sync_sql_preview.len() < 50 {
-                            sync_sql_preview.push(format!(
-                                "-- preview only: UPDATE {target_qualified} SET … WHERE key={key};"
-                            ));
+                            if let Some(sql) =
+                                sync_update(&*target_dialect, &target_qualified, key_columns, &key, &changes)
+                            {
+                                sync_sql_preview.push(sql);
+                            }
                         }
                     }
                 }
@@ -212,8 +204,72 @@ fn qualify(dialect: &dyn crate::ports::SqlDialect, schema: &str, table: &str) ->
     }
 }
 
-fn quote_raw(name: &str) -> String {
-    format!("\"{}\"", name.replace('"', "\"\""))
+pub fn describe_sample_window(sample_limit: Option<u64>, truncated: bool) -> Option<String> {
+    sample_limit.map(|limit| {
+        if truncated {
+            format!("Sample window: first {limit} rows ordered by key. Later rows were not compared.")
+        } else {
+            format!("Sample window: first {limit} rows ordered by key.")
+        }
+    })
+}
+
+fn sync_insert(dialect: &dyn crate::ports::SqlDialect, qualified: &str, row: &BTreeMap<String, String>) -> String {
+    let columns = row
+        .keys()
+        .map(|column| dialect.quote_identifier(column))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let values = row
+        .values()
+        .map(|value| sql_literal(value))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("INSERT INTO {qualified} ({columns}) VALUES ({values});")
+}
+
+fn sync_delete(dialect: &dyn crate::ports::SqlDialect, qualified: &str, key_columns: &[String], key: &str) -> String {
+    format!(
+        "DELETE FROM {qualified} WHERE {};",
+        key_predicate(dialect, key_columns, key)
+    )
+}
+
+fn sync_update(
+    dialect: &dyn crate::ports::SqlDialect,
+    qualified: &str,
+    key_columns: &[String],
+    key: &str,
+    changes: &[DataColumnChange],
+) -> Option<String> {
+    let assignments = changes
+        .iter()
+        .filter(|change| !key_columns.iter().any(|column| column == &change.column))
+        .map(|change| {
+            format!(
+                "{} = {}",
+                dialect.quote_identifier(&change.column),
+                sql_literal(change.source_value.as_deref().unwrap_or("∅"))
+            )
+        })
+        .collect::<Vec<_>>();
+    if assignments.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "UPDATE {qualified} SET {} WHERE {};",
+        assignments.join(", "),
+        key_predicate(dialect, key_columns, key)
+    ))
+}
+
+fn key_predicate(dialect: &dyn crate::ports::SqlDialect, key_columns: &[String], key: &str) -> String {
+    key_columns
+        .iter()
+        .zip(key.split('\u{1f}'))
+        .map(|(column, value)| format!("{} = {}", dialect.quote_identifier(column), sql_literal(value)))
+        .collect::<Vec<_>>()
+        .join(" AND ")
 }
 
 fn sql_literal(value: &str) -> String {
@@ -389,5 +445,91 @@ mod tests {
     fn row_count_difference_handles_both_directions() {
         assert_eq!(row_count_difference(10, 3).unwrap(), 7);
         assert_eq!(row_count_difference(3, 10).unwrap(), -7);
+    }
+
+    fn count_result(count: i64) -> QueryResult {
+        QueryResult {
+            columns: vec![ColumnMeta {
+                name: "count".into(),
+                data_type: "bigint".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(vec![CellValue::Int64(count)])],
+            row_count: 1,
+            duration_ms: 0,
+        }
+    }
+
+    fn table_result(rows: Vec<(i64, &str)>) -> QueryResult {
+        QueryResult {
+            columns: vec![
+                ColumnMeta {
+                    name: "id".into(),
+                    data_type: "bigint".into(),
+                    nullable: false,
+                },
+                ColumnMeta {
+                    name: "name".into(),
+                    data_type: "text".into(),
+                    nullable: false,
+                },
+            ],
+            row_count: rows.len() as u64,
+            rows: rows
+                .into_iter()
+                .map(|(id, name)| Row(vec![CellValue::Int64(id), CellValue::Text(name.to_owned())]))
+                .collect(),
+            duration_ms: 0,
+        }
+    }
+
+    #[tokio::test]
+    async fn keyed_sample_states_its_window_and_sync_sql_runs() {
+        use crate::application::driver_dialect::DriverDialect;
+        use crate::domain::connection::{ConnectionHandle, ConnectionId};
+        use crate::ports::MockDbConnector;
+
+        let source_id = ConnectionId::new();
+        let target_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(source_id, ConnectionHandle(1));
+        registry.register(target_id, ConnectionHandle(2));
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(DriverDialect::from_name("postgresql"))));
+        connector.expect_query().returning(|handle, sql, _| {
+            if sql.contains("COUNT(*)") {
+                Ok(count_result(2))
+            } else if handle.0 == 1 {
+                Ok(table_result(vec![(1, "Alice"), (2, "Bob")]))
+            } else {
+                Ok(table_result(vec![(1, "Ann"), (3, "Cara")]))
+            }
+        });
+
+        let service = DataDiffService::new(Box::new(connector), registry);
+        let diff = service
+            .diff_table_data_keyed(&source_id, &target_id, "public", "orders", &["id".into()], Some(1_000))
+            .await
+            .expect("diff");
+
+        let window = describe_sample_window(diff.sample_limit, diff.truncated).expect("window");
+        assert!(window.contains("Sample window"), "{window}");
+        assert!(window.contains("1000"), "{window}");
+        assert!(!diff.truncated);
+        assert!(!diff.sync_sql_preview.is_empty());
+        for sql in &diff.sync_sql_preview {
+            assert!(!sql.trim_start().starts_with("--"), "{sql}");
+            let statements = crate::domain::safety::split_statements(sql);
+            assert_eq!(statements.len(), 1, "{sql}");
+            let verb = statements[0].split_whitespace().next().unwrap().to_ascii_uppercase();
+            assert!(verb == "INSERT" || verb == "UPDATE" || verb == "DELETE", "{sql}");
+        }
+        let joined = diff.sync_sql_preview.join("\n");
+        assert!(joined.contains("INSERT INTO") && joined.contains("Bob"), "{joined}");
+        assert!(joined.contains("UPDATE") && joined.contains("Alice"), "{joined}");
+        assert!(joined.contains("DELETE FROM"), "{joined}");
     }
 }

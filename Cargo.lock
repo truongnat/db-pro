@@ -1278,6 +1278,7 @@ dependencies = [
  "lucide-icons",
  "rand 0.8.7",
  "rust-i18n",
+ "rust_xlsxwriter",
  "serde",
  "serde_json",
  "sqlparser",

@@ -55,6 +55,14 @@ pub(crate) struct ConnectionLifecycleState {
     pub(in crate::app) connections_request_pending: bool,
     #[cfg(not(test))]
     connections_request_pending: bool,
+    #[cfg(test)]
+    pub(in crate::app) connections_list_request: Option<RequestId>,
+    #[cfg(not(test))]
+    connections_list_request: Option<RequestId>,
+    #[cfg(test)]
+    pub(in crate::app) connections_error: Option<String>,
+    #[cfg(not(test))]
+    connections_error: Option<String>,
 }
 
 impl ConnectionLifecycleState {
@@ -108,6 +116,32 @@ impl ConnectionLifecycleState {
 
     pub(crate) fn set_connections_request_pending(&mut self, pending: bool) {
         self.connections_request_pending = pending;
+    }
+
+    pub(crate) fn note_connections_list_started(&mut self, request_id: RequestId) {
+        self.connections_list_request = Some(request_id);
+        self.connections_request_pending = true;
+        self.connections_error = None;
+    }
+
+    pub(crate) fn connections_error(&self) -> Option<&str> {
+        self.connections_error.as_deref()
+    }
+
+    pub(crate) fn clear_connections_error(&mut self) {
+        self.connections_error = None;
+        self.connections_list_request = None;
+    }
+
+    /// Records a catalog-list failure for this request. Other request ids are ignored.
+    pub(crate) fn note_connections_list_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        if self.connections_list_request != Some(request_id) {
+            return false;
+        }
+        self.connections_list_request = None;
+        self.connections_request_pending = false;
+        self.connections_error = Some(message.to_owned());
+        true
     }
 
     pub(crate) fn clear_pending_request(&mut self) {

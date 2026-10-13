@@ -133,6 +133,10 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
     },
+    Disconnect {
+        request_id: RequestId,
+        connection_id: String,
+    },
     CreateConnection {
         request_id: RequestId,
         draft: UiConnectionDraft,
@@ -176,19 +180,27 @@ pub enum UiCommand {
         params: Vec<String>,
         /// Schema chosen for this editor. Unqualified names resolve there.
         schema: Option<String>,
+        /// Query tab. Empty means this run does not join a tab transaction.
+        session_id: Option<String>,
     },
     RunQueryMulti {
         request_id: RequestId,
         connection_id: String,
         sql: String,
         schema: Option<String>,
+        /// Query tab. Empty means this script does not join a tab transaction.
+        session_id: Option<String>,
     },
     ExplainQuery {
         request_id: RequestId,
         connection_id: String,
         sql: String,
+        /// Bound parameter values in placeholder order. Mapped to `QueryParam::Text`.
+        params: Vec<String>,
         analyze: bool,
         schema: Option<String>,
+        /// Query tab. Explain reuses that tab's open transaction.
+        session_id: Option<String>,
     },
     Backup {
         request_id: RequestId,
@@ -205,6 +217,7 @@ pub enum UiCommand {
     MonitoringSnapshot {
         request_id: RequestId,
         connection_id: String,
+        sort: db_pro_core::domain::monitoring::StatStatementSort,
     },
     MonitoringCancelBackend {
         request_id: RequestId,

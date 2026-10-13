@@ -253,7 +253,7 @@ fn composite_primary_key_identity_preserves_each_cell_type() {
         dependencies: Vec::new(),
     };
 
-    let identity = TableDataState::row_identity(&result, &info, 0).expect("row identity expected");
+    let identity = TableDataState::row_identity(&result, &info, None, 0).expect("row identity expected");
 
     assert_eq!(identity.original_pk_columns, vec!["tenant_id", "item_id"]);
     assert_eq!(
@@ -1766,7 +1766,7 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
     assert!(lookup.allows(|caps| caps.schema.functions));
     assert!(!lookup.allows(|caps| caps.features.backup));
     assert!(!lookup.allows(|caps| caps.features.partitions));
-    assert!(!lookup.allows(|caps| caps.query.cancel));
+    assert!(lookup.allows(|caps| caps.query.cancel));
     assert!(lookup.allows(|caps| caps.query.parameters));
     assert!(lookup.allows(|caps| caps.query.positional_parameters));
 }
@@ -4802,8 +4802,7 @@ fn test_query_cancellation_capability_gate() {
         ..Default::default()
     };
 
-    // PostgreSQL does not support query cancellation in capabilities
-    assert!(!app.active_capabilities().allows(|caps| caps.query.cancel));
+    assert!(app.active_capabilities().allows(|caps| caps.query.cancel));
 
     // Switching to SQLite enables query cancellation
     *app.connection.lifecycle.active_connection_id_mut() = Some("sqlite".to_owned());
@@ -6669,6 +6668,82 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     );
 }
 
+fn connect_postgres(app: &mut DbProApp) {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
+        id: "active".to_owned(),
+        name: "Active".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "active".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
+    }];
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
+    app.query.execution.query_row_limit = None;
+}
+
+#[test]
+fn caret_on_the_blank_line_after_a_semicolon_runs_that_statement() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect_postgres(&mut app);
+    app.set_active_query_text("SELECT 1;\n\nSELECT 2;");
+    let document = &mut app.query.session.documents[0];
+    document.cursor.set_offset(&document.buffer, 10);
+
+    app.dispatch_query();
+
+    let UiCommand::RunQuery { sql, .. } = command_rx.try_recv().expect("statement must dispatch") else {
+        panic!("expected RunQuery for the statement before the caret");
+    };
+    assert_eq!(sql, "SELECT 1;");
+}
+
+#[test]
+fn mod_shift_enter_runs_the_script() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect_postgres(&mut app);
+    app.query.editor.query_editor_focused = true;
+    app.set_active_query_text("SELECT 1;\nSELECT 2;");
+    let ctx = egui::Context::default();
+    let modifiers = egui::Modifiers {
+        ctrl: true,
+        shift: true,
+        ..Default::default()
+    };
+    let _ = crate::test_frame::frame(
+        &ctx,
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+            events: vec![
+                egui::Event::ModifiersChanged(modifiers),
+                egui::Event::Key {
+                    key: egui::Key::Enter,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                },
+            ],
+            ..Default::default()
+        },
+        |ui| app.handle_shortcuts(ui.ctx()),
+    );
+
+    let UiCommand::RunQueryMulti { sql, .. } = command_rx.try_recv().expect("script must dispatch") else {
+        panic!("expected RunQueryMulti");
+    };
+    assert_eq!(sql, "SELECT 1;\nSELECT 2;");
+}
+
 #[test]
 fn pinned_tables_toggle_appears_in_quick_open() {
     let mut app = DbProApp {
@@ -6878,13 +6953,13 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
     app.saved_tasks.confirm_destructive = true;
     app.run_saved_task(id, SavedTaskRunTrigger::Manual);
     assert!(command_rx.try_recv().is_ok());
-    assert!(app.saved_tasks.store.tasks.iter().any(|t| t.last_run.is_some()));
+    assert!(app.saved_tasks.store.tasks.iter().all(|task| task.last_run.is_none()));
 }
 
 #[test]
 fn scheduled_task_tick_dispatches_once_while_app_active() {
     use db_pro_core::domain::saved_task::{
-        SavedTask, SavedTaskPayload, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule,
+        SavedTask, SavedTaskPayload, SavedTaskStore, TaskSchedule,
     };
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
@@ -6929,10 +7004,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
         panic!("expected RunQuery");
     };
     assert_eq!(sql, "SELECT 1");
-    assert_eq!(
-        app.saved_tasks.store.tasks[0].last_run.as_ref().unwrap().trigger,
-        SavedTaskRunTrigger::Scheduled
-    );
+    assert!(app.saved_tasks.store.tasks[0].last_run.is_none());
     app.tick_saved_task_scheduler();
     assert!(command_rx.try_recv().is_err(), "no duplicate fire");
 }

@@ -24,10 +24,19 @@ struct ToolCardItem<'a> {
     is_active: bool,
 }
 
+pub(super) fn monitor_card_description(driver: &str) -> &'static str {
+    match driver {
+        "MySQL" => "MySQL has no sessions",
+        "SQL Server" => "SQL Server has no sessions",
+        _ => "Active sessions, query locks, storage and server health",
+    }
+}
+
 pub(super) struct ToolsHubContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) active_activity: Activity,
     pub(super) search_query: &'a mut String,
+    pub(super) driver: &'a str,
 }
 
 impl ToolsHubContext<'_> {
@@ -106,7 +115,7 @@ impl ToolsHubContext<'_> {
                 action: ToolsHubAction::Monitor,
                 icon: Icon::Gauge,
                 title: "Server Monitor",
-                description: "Active sessions, query locks, storage and server health",
+                description: monitor_card_description(self.driver),
                 is_active: self.active_activity == Activity::Monitor,
             },
         );
@@ -144,7 +153,7 @@ impl ToolsHubContext<'_> {
                 action: ToolsHubAction::Transfers,
                 icon: Icon::Upload,
                 title: "Data Transfer & Migration",
-                description: "Cross-connection streaming, batch insert and export",
+                description: "Copy chosen tables between connections as CSV or JSON",
                 is_active: self.active_activity == Activity::Transfers,
             },
         );

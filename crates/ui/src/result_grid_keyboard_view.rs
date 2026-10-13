@@ -26,14 +26,27 @@ pub(super) struct GridKeyboardInputContext {
     pub(super) connection_dialog_open: bool,
 }
 
+pub(super) fn result_grid_focus_id() -> egui::Id {
+    egui::Id::new("db-pro-result-grid")
+}
+
+/// The grid handles keys when nothing else is focused, and when the focus command
+/// has moved focus onto the grid itself. A text field still wins.
+pub(super) fn grid_accepts_keyboard(ctx: &egui::Context) -> bool {
+    match ctx.memory(|memory| memory.focused()) {
+        None => true,
+        Some(id) => id == result_grid_focus_id(),
+    }
+}
+
 pub(super) fn read_keyboard_intent(ui: &egui::Ui, context: GridKeyboardInputContext) -> GridKeyboardIntent {
-    if !ui.ctx().egui_wants_keyboard_input()
+    if grid_accepts_keyboard(ui.ctx())
         && ui.input(|input| input.key_pressed(egui::Key::A) && primary_modifier_pressed(input))
     {
         return GridKeyboardIntent::SelectAll;
     }
 
-    if !ui.ctx().egui_wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if grid_accepts_keyboard(ui.ctx()) && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
         return GridKeyboardIntent::ClearSelection;
     }
 
@@ -49,7 +62,7 @@ pub(super) fn read_keyboard_intent(ui: &egui::Ui, context: GridKeyboardInputCont
         commands.commit_edit_and_navigate = true;
         return GridKeyboardIntent::Commands(commands);
     }
-    commands.navigate = !ui.ctx().egui_wants_keyboard_input();
+    commands.navigate = grid_accepts_keyboard(ui.ctx());
     GridKeyboardIntent::Commands(commands)
 }
 
@@ -58,25 +71,25 @@ fn read_grid_commands(ui: &egui::Ui, context: GridKeyboardInputContext) -> GridK
     let modifier = ui.input(primary_modifier_pressed);
     let shift = ui.input(|input| input.modifiers.shift);
     GridKeyboardCommands {
-        copy_selected_rows: !ui.ctx().egui_wants_keyboard_input()
+        copy_selected_rows: grid_accepts_keyboard(ui.ctx())
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::C))
             && modifier
             && shift,
-        copy_selected_cell: !ui.ctx().egui_wants_keyboard_input()
+        copy_selected_cell: grid_accepts_keyboard(ui.ctx())
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::C))
             && modifier
             && !shift,
-        apply_staged_changes: !ui.ctx().egui_wants_keyboard_input()
+        apply_staged_changes: grid_accepts_keyboard(ui.ctx())
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::S) && primary_modifier_pressed(input)),
-        discard_staged_changes: !ui.ctx().egui_wants_keyboard_input()
+        discard_staged_changes: grid_accepts_keyboard(ui.ctx())
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::Z) && primary_modifier_pressed(input)),
         delete_selected_rows: context.editable
             && !context.editing_cell
-            && !ui.ctx().egui_wants_keyboard_input()
+            && grid_accepts_keyboard(ui.ctx())
             && !context.connection_dialog_open
             && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace)),
         ..Default::default()

@@ -153,7 +153,7 @@ impl DbProApp {
             ),
             TableRowAction::RefreshSchema => {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                    self.request_schema_introspection(connection_id, true);
+                    self.refresh_explorer_node(&connection_id, Some(schema), Some(table));
                 }
             }
         }

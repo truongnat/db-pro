@@ -61,9 +61,10 @@ impl DbProApp {
     fn dispatch_explain_query(&mut self, analyze: bool) {
         let capabilities = self.query_capabilities();
         let connection_id = self.active_query_connection_id().map(str::to_owned);
+        let driver = self.active_query_driver().to_owned();
         let Some(request) = self
             .query_explain_context()
-            .prepare(connection_id, &capabilities, analyze)
+            .prepare(connection_id, &capabilities, analyze, &driver)
         else {
             return;
         };
@@ -72,8 +73,10 @@ impl DbProApp {
             request_id,
             connection_id: request.connection_id.clone(),
             sql: request.sql.clone(),
+            params: request.params.clone(),
             analyze: request.analyze,
             schema: self.query.session.active_schema().map(str::to_owned),
+            session_id: self.query.session.active_document().map(|document| document.id.clone()),
         };
         if self.dispatch_command(command) {
             self.query_explain_context().commit_dispatched(request_id, &request);
@@ -116,15 +119,28 @@ impl DbProApp {
         }
 
         let delimiter = if self.overlay.export_format == "CSV" { "," } else { "\t" };
-        let output = match self.overlay.export_format.as_str() {
-            "SQL" => result_grid_export::format_result_sql_insert(result, "exported_rows"),
-            "COPY" => result_grid_export::format_result_copy(result, "exported_rows"),
-            "JSON" => result_grid_export::format_result_json(result),
-            "MD" | "Markdown" => result_grid_export::format_result_markdown(result),
-            _ => result_grid_export::format_result_delimited(result, delimiter),
+        let output = if self.overlay.export_format == "Excel" {
+            match result_grid_export::format_result_excel(result) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    self.feedback.runtime_message = format!("Export failed: {error} (no file was written)");
+                    self.overlay.export_overwrite_pending = false;
+                    self.overlay.export_open = false;
+                    return;
+                }
+            }
+        } else {
+            match self.overlay.export_format.as_str() {
+                "SQL" => result_grid_export::format_result_sql_insert(result, "exported_rows"),
+                "COPY" => result_grid_export::format_result_copy(result, "exported_rows"),
+                "JSON" => result_grid_export::format_result_json(result),
+                "MD" | "Markdown" => result_grid_export::format_result_markdown(result),
+                _ => result_grid_export::format_result_delimited(result, delimiter),
+            }
+            .into_bytes()
         };
         let exported_rows = result.rows.len();
-        match write_file_atomically(&path, output.as_bytes()) {
+        match write_file_atomically(&path, &output) {
             Ok(()) => {
                 // Truthful row count: a capped result exports the rows it holds, not the rows the
                 // query matched, and the message has to say which one it is.

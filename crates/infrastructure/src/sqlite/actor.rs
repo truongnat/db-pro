@@ -32,6 +32,7 @@ pub enum SqliteCommand {
     },
     Explain {
         sql: String,
+        params: Vec<QueryParam>,
         responder: oneshot::Sender<Result<serde_json::Value, DbError>>,
     },
     RawQuery {
@@ -137,9 +138,18 @@ impl SqliteHandle {
     }
 
     /// Return an `EXPLAIN QUERY PLAN` result as JSON.
-    pub async fn explain(&self, sql: String, timeout_ms: u64) -> Result<serde_json::Value, DbError> {
+    pub async fn explain(
+        &self,
+        sql: String,
+        params: Vec<QueryParam>,
+        timeout_ms: u64,
+    ) -> Result<serde_json::Value, DbError> {
         let (tx, rx) = oneshot::channel();
-        let cmd = SqliteCommand::Explain { sql, responder: tx };
+        let cmd = SqliteCommand::Explain {
+            sql,
+            params,
+            responder: tx,
+        };
         let sender = self.sender.clone();
         tokio::task::spawn_blocking(move || {
             let _ = sender.send(cmd);
@@ -447,8 +457,8 @@ impl SqliteActor {
                 SqliteCommand::Introspect { responder } => {
                     let _ = responder.send(self.handle_introspect());
                 }
-                SqliteCommand::Explain { sql, responder } => {
-                    let _ = responder.send(self.handle_explain(&sql));
+                SqliteCommand::Explain { sql, params, responder } => {
+                    let _ = responder.send(self.handle_explain(&sql, &params));
                 }
                 SqliteCommand::RawQuery { sql, params, responder } => {
                     let _ = responder.send(self.handle_raw_query(&sql, &params));
@@ -600,6 +610,10 @@ impl SqliteActor {
             });
         }
 
+        if !self.conn.is_autocommit() {
+            return self.execute_on_open_sqlite_transaction(statements, read_statements, max_rows);
+        }
+
         let tx = self.conn.unchecked_transaction().map_err(|error| TransactionFailure {
             phase: TransactionFailurePhase::Begin,
             statement_index: 0,
@@ -655,6 +669,42 @@ impl SqliteActor {
         Ok(results)
     }
 
+    fn execute_on_open_sqlite_transaction(
+        &self,
+        statements: &[String],
+        read_statements: &[bool],
+        max_rows: u64,
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let mut results = Vec::with_capacity(statements.len());
+        for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
+            let started = Instant::now();
+            let result = if *is_read {
+                query_transaction(&self.conn, statement, max_rows, started)
+            } else {
+                self.conn
+                    .execute_batch(statement)
+                    .map(|_| TransactionStatementResult::Affected {
+                        row_count: self.conn.changes(),
+                        duration_ms: started.elapsed().as_millis() as u64,
+                    })
+                    .map_err(crate::error::from_rusqlite)
+            };
+            match result {
+                Ok(result) => results.push(result),
+                Err(error) => {
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome: TransactionFailureOutcome::LeftOpen,
+                        results,
+                        error,
+                    });
+                }
+            }
+        }
+        Ok(results)
+    }
+
     fn handle_execute(&self, sql: &str, params: &[QueryParam], max_rows: u64) -> Result<QueryResult, DbError> {
         let start = Instant::now();
 
@@ -691,13 +741,15 @@ impl SqliteActor {
         super::introspect::run_introspection(&self.conn)
     }
 
-    fn handle_explain(&self, sql: &str) -> Result<serde_json::Value, DbError> {
+    fn handle_explain(&self, sql: &str, params: &[QueryParam]) -> Result<serde_json::Value, DbError> {
         let explain_sql = format!("EXPLAIN QUERY PLAN {sql}");
         let mut stmt = self.conn.prepare(&explain_sql).map_err(crate::error::from_rusqlite)?;
 
         let col_names: Vec<String> = stmt.column_names().iter().map(|n| n.to_string()).collect();
 
-        let mut raw_rows = stmt.query([]).map_err(crate::error::from_rusqlite)?;
+        let rusqlite_params = to_rusqlite_params(params);
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|param| param.as_ref()).collect();
+        let mut raw_rows = stmt.query(param_refs.as_slice()).map_err(crate::error::from_rusqlite)?;
 
         let mut result = Vec::new();
         while let Some(row) = raw_rows.next().map_err(crate::error::from_rusqlite)? {
@@ -805,7 +857,7 @@ impl SqliteActor {
 }
 
 fn query_transaction(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     sql: &str,
     max_rows: u64,
     started: Instant,

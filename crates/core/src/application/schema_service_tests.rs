@@ -703,3 +703,58 @@ async fn test_dependency_deduplication() {
         "Duplicate table dependency should be deduplicated"
     );
 }
+
+fn ddl_service(connector: MockDbConnector, registry: Arc<ConnectionRegistry>) -> SchemaService {
+    let mut cache = MockIntrospectionCache::new();
+    cache.expect_invalidate().returning(|_| Ok(()));
+    SchemaService::new(
+        Box::new(connector),
+        Box::new(cache),
+        registry,
+        Box::new(mock_connections()),
+    )
+}
+
+#[tokio::test]
+async fn execute_ddl_refuses_placeholder() {
+    let conn_id = ConnectionId::new();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(conn_id, ConnectionHandle(1));
+    let svc = ddl_service(MockDbConnector::new(), registry);
+
+    let error = svc
+        .execute_ddl(
+            &conn_id,
+            "CREATE TABLE t (id INTEGER PRIMARY KEY /* placeholder — expand from introspection */)",
+        )
+        .await
+        .expect_err("a placeholder must not be applied");
+
+    assert!(matches!(error, DbError::QueryFailed(_)));
+    assert!(error.to_string().to_ascii_lowercase().contains("placeholder"));
+}
+
+#[tokio::test]
+async fn execute_ddl_runs_multiple_statements() {
+    let conn_id = ConnectionId::new();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(conn_id, ConnectionHandle(1));
+
+    let mut connector = MockDbConnector::new();
+    connector
+        .expect_execute_batch()
+        .withf(|handle, statements| {
+            handle.0 == 1
+                && statements.len() == 2
+                && statements[0] == "CREATE TABLE a (id int)"
+                && statements[1] == "CREATE TABLE b (id int)"
+        })
+        .returning(|_, _| Ok(0));
+    let svc = ddl_service(connector, registry);
+
+    let affected = svc
+        .execute_ddl(&conn_id, "CREATE TABLE a (id int); CREATE TABLE b (id int);")
+        .await
+        .expect("multi-statement apply runs");
+    assert_eq!(affected, 0);
+}

@@ -89,6 +89,7 @@ impl SecuritySurfaceContext<'_> {
         security_confirmation_view::SecurityConfirmationContext {
             theme: self.theme,
             drop_role,
+            pending: self.state.security_pending.as_ref(),
         }
         .draw(ctx)
         .into_iter()

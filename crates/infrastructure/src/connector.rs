@@ -129,6 +129,9 @@ impl db_pro_core::ports::SqlDialect for MySqlDialect {
     fn quote_identifier(&self, name: &str) -> String {
         format!("`{}`", name.replace('`', "``"))
     }
+    fn text_like(&self, column: &str, placeholder: &str) -> String {
+        format!("CAST({column} AS CHAR) LIKE {placeholder}")
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -376,10 +379,11 @@ impl DbConnector for CompositeConnector {
         &self,
         handle: &db_pro_core::domain::connection::ConnectionHandle,
         sql: &str,
+        params: &[db_pro_core::domain::query::QueryParam],
         analyze: bool,
     ) -> Result<serde_json::Value, DbError> {
         let (connector, inner) = self.clone_connection(handle)?;
-        connector.explain(&inner, sql, analyze).await
+        connector.explain(&inner, sql, params, analyze).await
     }
 
     fn dialect(
@@ -390,11 +394,91 @@ impl DbConnector for CompositeConnector {
         let conn = guard
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
-        Ok(match conn.driver {
-            db_pro_core::domain::connection::DriverType::Postgres => Box::new(PostgresDialect),
-            db_pro_core::domain::connection::DriverType::SQLite => Box::new(SqliteDialect),
-            db_pro_core::domain::connection::DriverType::Mysql => Box::new(MySqlDialect),
-            db_pro_core::domain::connection::DriverType::SqlServer => Box::new(SqlServerDialect),
-        })
+        Ok(dialect_for(conn.driver))
+    }
+}
+
+fn dialect_for(driver: db_pro_core::domain::connection::DriverType) -> Box<dyn db_pro_core::ports::SqlDialect> {
+    use db_pro_core::domain::connection::DriverType;
+    match driver {
+        DriverType::Postgres => Box::new(PostgresDialect),
+        DriverType::SQLite => Box::new(SqliteDialect),
+        DriverType::Mysql => Box::new(MySqlDialect),
+        DriverType::SqlServer => Box::new(SqlServerDialect),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dialect_for;
+    use db_pro_core::application::sql_builder::{build_select, FilterOp, SortClause, SortDir, TableFilter};
+    use db_pro_core::domain::connection::DriverType;
+    use db_pro_core::domain::query::CellValue;
+
+    fn like_name() -> Vec<TableFilter> {
+        vec![TableFilter {
+            column: "name".into(),
+            op: FilterOp::Like,
+            value: CellValue::Text("%ada%".into()),
+        }]
+    }
+
+    /// Contains, starts-with, and ends-with all become `FilterOp::Like` before this builder.
+    #[test]
+    fn like_filter_uses_the_connection_dialect() {
+        let filters = like_name();
+        let (mysql, _) = build_select(
+            dialect_for(DriverType::Mysql).as_ref(),
+            "app",
+            "users",
+            &filters,
+            &[],
+            10,
+            0,
+        )
+        .expect("mysql select");
+        assert!(mysql.contains("CAST(`name` AS CHAR) LIKE ?"), "{mysql}");
+        assert!(!mysql.contains("AS TEXT"), "{mysql}");
+
+        let sorts = vec![SortClause {
+            column: "id".into(),
+            direction: SortDir::Asc,
+        }];
+        let (server, _) = build_select(
+            dialect_for(DriverType::SqlServer).as_ref(),
+            "dbo",
+            "users",
+            &filters,
+            &sorts,
+            10,
+            0,
+        )
+        .expect("sql server select");
+        assert!(server.contains("CAST([name] AS NVARCHAR(MAX)) LIKE @p1"), "{server}");
+        assert!(!server.contains("AS TEXT"), "{server}");
+
+        let (postgres, _) = build_select(
+            dialect_for(DriverType::Postgres).as_ref(),
+            "public",
+            "users",
+            &filters,
+            &[],
+            10,
+            0,
+        )
+        .expect("postgres select");
+        assert!(postgres.contains(r#"CAST("name" AS TEXT) LIKE $1"#), "{postgres}");
+
+        let (sqlite, _) = build_select(
+            dialect_for(DriverType::SQLite).as_ref(),
+            "main",
+            "users",
+            &filters,
+            &[],
+            10,
+            0,
+        )
+        .expect("sqlite select");
+        assert!(sqlite.contains(r#"CAST("name" AS TEXT) LIKE ?"#), "{sqlite}");
     }
 }

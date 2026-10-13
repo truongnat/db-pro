@@ -25,6 +25,133 @@ impl DbProApp {
         )
     }
 
+    pub(crate) fn edit_surface(&self) -> table_editor_context::RowEditSurface {
+        if self.workspace.active_tab == WorkspaceTab::SchemaObject
+            && matches!(
+                self.schema.explorer.selected_schema_object,
+                Some(SchemaObjectSelection::View(_))
+            )
+        {
+            return table_editor_context::RowEditSurface::View;
+        }
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+            if self.table.data_query.inline_query_result || self.table.data_query.inline_query_request.is_some() {
+                return table_editor_context::RowEditSurface::InlineSql;
+            }
+            return table_editor_context::RowEditSurface::Table;
+        }
+        table_editor_context::RowEditSurface::Query
+    }
+
+    pub(crate) fn result_edit_reason(&self, result: &UiQueryResult) -> Option<String> {
+        let info = self.table.state.table_info.as_ref();
+        let identity = info.and_then(|info| {
+            TableDataState::identity_key(info, self.table.data.manual_row_identity.as_deref())
+                .map(|key| key.columns)
+        });
+        table_editor_context::result_edit_reason(
+            self.edit_surface(),
+            self.can_mutate_active_connection(),
+            info.is_some(),
+            identity.as_deref(),
+            &result.columns,
+        )
+    }
+
+    pub(crate) fn has_row_identity(&self) -> bool {
+        self.table.state.table_info.as_ref().is_some_and(|info| {
+            TableDataState::identity_key(info, self.table.data.manual_row_identity.as_deref()).is_some()
+        })
+    }
+
+    pub(crate) fn foreign_key_lookup_sql(&self, column: &str) -> Option<String> {
+        let info = self.table.state.table_info.as_ref()?;
+        let fk = table_fk_lookup::foreign_key_for_column(info, column)?;
+        let driver = self
+            .connection
+            .lifecycle
+            .active_connection_id()
+            .and_then(|id| self.connection.catalog.find(id))
+            .map(|connection| connection.driver.clone())
+            .unwrap_or_else(|| "PostgreSQL".to_owned());
+        let dialect = db_pro_core::application::DriverDialect::from_name(&driver);
+        Some(table_fk_lookup::lookup_sql(&dialect, fk))
+    }
+
+    pub(crate) fn apply_foreign_key_lookup(&mut self, column: &str, result: &UiQueryResult) {
+        self.table.editing.fk_lookup_column = Some(column.to_owned());
+        self.table.editing.fk_lookup_options = table_fk_lookup::options_from_result(result);
+    }
+
+    pub(crate) fn open_referenced_row(
+        &mut self,
+        result: &UiQueryResult,
+        row_index: usize,
+        column_index: usize,
+    ) -> bool {
+        let Some(info) = self.table.state.table_info.clone() else {
+            self.feedback.runtime_message = "Table structure is still loading".to_owned();
+            return false;
+        };
+        let Some(column_name) = result.columns.get(column_index).map(|column| column.name.clone()) else {
+            return false;
+        };
+        let Some(fk) = table_fk_lookup::foreign_key_for_column(&info, &column_name).cloned() else {
+            self.feedback.runtime_message = "This column is not a foreign key".to_owned();
+            return false;
+        };
+        let Some(row) = result.rows.get(row_index) else {
+            return false;
+        };
+        let Some(filters) = table_fk_lookup::referenced_row_filters(&info, &fk, result, row) else {
+            self.feedback.runtime_message = "The referenced value is missing".to_owned();
+            return false;
+        };
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            self.feedback.runtime_message = "Connect to a database before opening the referenced row".to_owned();
+            return false;
+        };
+        self.schema.explorer.selected_schema = Some(fk.to_schema.clone());
+        self.schema.explorer.selected_table = Some(fk.to_table.clone());
+        self.workspace.active_tab = WorkspaceTab::Table;
+        self.table.state.table_view = TableView::Data;
+        let request_id = self.next_request_id();
+        let command = table_data_view::build_load_row_command(
+            request_id,
+            table_data_view::TableDataTarget {
+                connection_id,
+                schema: fk.to_schema,
+                table: fk.to_table,
+            },
+            filters,
+        );
+        self.dispatch_command(command)
+    }
+
+    pub(crate) fn choose_row_identity_column(&mut self, column: String) {
+        if self.table.state.has_primary_key() {
+            self.feedback.runtime_message = "This table already uses its primary key as the row id.".to_owned();
+            return;
+        }
+        let mut columns = self.table.data.manual_row_identity.clone().unwrap_or_default();
+        if !columns.iter().any(|existing| existing == &column) {
+            columns.push(column);
+        }
+        self.table.data.manual_row_identity = Some(columns);
+        self.table.data.invalidate_grid_row_caches();
+        let names = self.table.data.manual_row_identity.as_ref().map(|columns| columns.join(", "));
+        self.feedback.runtime_message = format!("Row id columns: {}", names.unwrap_or_default());
+    }
+
+    /// Toolbar copy for a result that stays read-only for a reason the generic label hides.
+    pub(crate) fn result_read_only_notice<'a>(&self, reason: Option<&'a str>) -> Option<&'a str> {
+        let surface = self.edit_surface();
+        reason.filter(|text| {
+            table_editor_context::surface_read_only_notice(surface).is_some()
+                || text.contains("not present in this result")
+        })
+    }
+
     pub(crate) fn begin_data_cell_edit(
         &mut self,
         result: &UiQueryResult,
@@ -32,13 +159,16 @@ impl DbProApp {
         column_index: usize,
         cell: &UiCell,
     ) {
-        if !self.can_edit_table_rows() {
-            if self.can_mutate_active_connection() && !self.table.state.has_primary_key() {
-                self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
-            } else {
-                self.feedback.runtime_message = "Connect with write access to edit rows".to_owned();
-            }
+        if let Some(reason) = self.result_edit_reason(result) {
+            self.feedback.runtime_message = reason;
             return;
+        }
+        if let Some(info) = self.table.state.table_info.as_ref() {
+            let manual = self.table.data.manual_row_identity.clone();
+            if let Err(error) = TableDataState::row_identity(result, info, manual.as_deref(), row_index) {
+                self.feedback.runtime_message = error;
+                return;
+            }
         }
         if !self.can_mutate_active_connection() {
             self.feedback.runtime_message = "Connect with write access to edit rows".to_owned();
@@ -74,6 +204,22 @@ impl DbProApp {
                 .mutation
                 .clear_error_for_identity(&identity, Some(column_index));
         }
+        if let Some(column_name) = result.columns.get(column_index).map(|column| column.name.clone()) {
+            let is_fk = self
+                .table
+                .state
+                .table_info
+                .as_ref()
+                .and_then(|info| table_fk_lookup::foreign_key_for_column(info, &column_name))
+                .is_some();
+            if is_fk {
+                self.table.editing.fk_lookup_column = Some(column_name);
+                self.table.editing.fk_lookup_options.clear();
+            } else if self.table.editing.fk_lookup_column.is_some() {
+                self.table.editing.fk_lookup_column = None;
+                self.table.editing.fk_lookup_options.clear();
+            }
+        }
         self.table.editing.data_editing_cell = Some((row_index, column_index));
         let should_expand = result.columns.get(column_index).is_some_and(|column| {
             let data_type = column.data_type.to_ascii_lowercase();
@@ -101,17 +247,17 @@ impl DbProApp {
         row_index: usize,
         column_index: usize,
     ) -> bool {
+        if let Some(reason) = self.result_edit_reason(result) {
+            self.feedback.runtime_message = reason;
+            return false;
+        }
         self.table_mutation_context()
             .stage_data_cell_edit(result, row_index, column_index)
     }
 
     pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
-        if !self.can_edit_table_rows() {
-            if self.can_mutate_active_connection() && !self.table.state.has_primary_key() {
-                self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
-            } else {
-                self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
-            }
+        if let Some(reason) = self.result_edit_reason(result) {
+            self.feedback.runtime_message = reason;
             return;
         }
         if !self.can_mutate_active_connection() {
