@@ -8,11 +8,11 @@ use uuid::Uuid;
 
 #[derive(Debug)]
 pub(super) struct PendingTaskRun {
-    pub task_id: Uuid,
-    pub trigger: SavedTaskRunTrigger,
-    pub started_at: DateTime<Utc>,
-    pub export_path: Option<String>,
-    pub export_format: Option<String>,
+    pub(super) task_id: Uuid,
+    pub(super) trigger: SavedTaskRunTrigger,
+    pub(super) started_at: DateTime<Utc>,
+    pub(super) export_path: Option<String>,
+    pub(super) export_format: Option<String>,
 }
 
 /// UI state for saved-task editing, scheduling, and confirmation flows.

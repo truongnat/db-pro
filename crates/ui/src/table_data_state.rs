@@ -34,8 +34,8 @@ pub(crate) struct TableDataState {
 }
 
 pub(crate) struct IdentityKey {
-    pub(crate) columns: Vec<String>,
-    pub(crate) primary: bool,
+    columns: Vec<String>,
+    primary: bool,
 }
 
 impl TableDataState {
