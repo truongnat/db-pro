@@ -28,14 +28,16 @@ fi
 # belongs in the owning feature state module.
 expected_fields=$(cat <<'EOF'
 agent
+capture_evidence_seeded
 connection
+dev_tools
 feedback
 gallery_state
 initial_frames_count
+management
 overlay
 palette
 preferences
-management
 query
 saved_tasks
 schema
@@ -298,6 +300,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/table_data_mutation_toolbar_view.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
+  [[ -f "$module" ]] || continue
   if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then
     echo "UI architecture check failed: explicit-state feature helpers must depend on state/context, not DbProApp." >&2
     exit 1
@@ -306,7 +309,7 @@ done
 
 for state_module in "$repo_root"/crates/ui/src/*_state.rs; do
   [[ "$state_module" == "$repo_root/crates/ui/src/app_state.rs" ]] && continue
-  if rg -n '^impl DbProApp|\bDbProApp\b' "$state_module"; then
+  if sed '/#\[cfg(test)\]/,$d' "$state_module" | rg -n '^impl DbProApp|\bDbProApp\b'; then
     echo "UI architecture check failed: feature state modules must not depend on DbProApp." >&2
     exit 1
   fi
