@@ -790,6 +790,16 @@ impl DbConnector for PostgresConnector {
                     });
                 }
             };
+        if let Err(error) = super::search_path::set_local_search_path(&mut tx).await {
+            let _ = tx.rollback().await;
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::RolledBack,
+                results: Vec::new(),
+                error,
+            });
+        }
         let mut results = Vec::with_capacity(statements.len());
         for (index, statement) in statements.iter().enumerate() {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
@@ -1062,7 +1072,10 @@ mod tests {
     use db_pro_core::application::sql_builder::{build_select, SortClause, SortDir};
     use db_pro_core::domain::connection::ConnectionHandle;
     use db_pro_core::domain::error::DbError;
-    use db_pro_core::ports::DbConnector;
+    use db_pro_core::domain::query::QueryParam;
+    use db_pro_core::ports::{
+        DbConnector, ParameterizedTransactionStatement, TransactionFailureOutcome, TransactionFailurePhase,
+    };
     use std::time::Duration;
 
     #[test]
@@ -1219,5 +1232,63 @@ mod tests {
             .expect_err("cancel on unknown handle should fail");
 
         assert!(matches!(error, DbError::ConnectionFailed(_)));
+    }
+
+    #[tokio::test]
+    async fn execute_parameterized_transaction_reports_validation_failure_on_unknown_handle() {
+        let connector = PostgresConnector::new();
+        let handle = ConnectionHandle::new(999);
+        let statements = vec![ParameterizedTransactionStatement {
+            sql: "INSERT INTO items VALUES ($1)".to_string(),
+            params: vec![QueryParam::Text("val".into())],
+            expect_affected_rows: true,
+            max_affected_rows: Some(1),
+        }];
+
+        let failure = connector
+            .execute_parameterized_transaction(&handle, &statements)
+            .await
+            .expect_err("unknown handle must fail validation");
+
+        assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn execute_parameterized_transaction_reports_begin_failure_when_server_unreachable() {
+        let connector = PostgresConnector::new();
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(Duration::from_millis(100))
+            .connect_lazy("postgres://127.0.0.1:1/none")
+            .expect("lazy pool creation");
+        let handle_id = 99;
+        connector.pools.write().await.insert(
+            handle_id,
+            super::PoolEntry {
+                pool,
+                query_timeout: Duration::from_millis(100),
+                max_rows: 10,
+                active_backends: std::sync::Mutex::new(Vec::new()),
+                open_session: crate::transaction_session::SessionSlot::default(),
+            },
+        );
+        let handle = ConnectionHandle::new(handle_id);
+        let statements = vec![ParameterizedTransactionStatement {
+            sql: "INSERT INTO items VALUES ($1)".to_string(),
+            params: vec![QueryParam::Text("val".into())],
+            expect_affected_rows: true,
+            max_affected_rows: Some(1),
+        }];
+
+        let failure = connector
+            .execute_parameterized_transaction(&handle, &statements)
+            .await
+            .expect_err("begin on unreachable server must fail");
+
+        assert_eq!(failure.phase, TransactionFailurePhase::Begin);
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
     }
 }
