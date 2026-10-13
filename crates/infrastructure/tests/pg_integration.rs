@@ -606,7 +606,7 @@ async fn pg_transaction_failure_rolls_back_prior_mutation() {
 async fn pg_parameterized_transaction_respects_active_schema_search_path() {
     let (connector, handle) = setup().await;
 
-    let schema = format!("pg_param_tx_schema_{}", uuid::Uuid::new_v4().simple());
+    let schema = format!("param_tx_schema_{}", uuid::Uuid::new_v4().simple());
     connector
         .execute(&handle, &format!("CREATE SCHEMA \"{schema}\""), &[])
         .await
