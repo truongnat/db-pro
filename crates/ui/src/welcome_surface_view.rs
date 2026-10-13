@@ -183,6 +183,9 @@ fn draw_card_item(
         egui::Stroke::new(STROKE_THIN, stroke_color),
         egui::StrokeKind::Inside,
     );
+    if response.has_focus() {
+        crate::components::interact::paint_focus_ring(ui, rect, RADIUS_MD, theme);
+    }
 
     let icon_char = char::from(item.icon).to_string();
     let icon_pos = egui::pos2(rect.left() + SPACE_MD, rect.center().y - ICON_DEFAULT * 0.5);
@@ -207,7 +210,7 @@ fn draw_card_item(
     let mut desc_job = egui::text::LayoutJob::simple(
         item.desc.to_string(),
         font_caption(),
-        theme.text_muted,
+        theme.text_secondary,
         max_text_w,
     );
     desc_job.wrap.max_width = max_text_w;
@@ -219,7 +222,11 @@ fn draw_card_item(
     let text_top = (rect.center().y - total_h * 0.5).round();
 
     ui.painter().galley(egui::pos2(text_x, text_top), title_galley, theme.text_primary);
-    ui.painter().galley(egui::pos2(text_x, text_top + title_h + 2.0), desc_galley, theme.text_muted);
+    ui.painter().galley(
+        egui::pos2(text_x, text_top + title_h + 2.0),
+        desc_galley,
+        theme.text_secondary,
+    );
 
     if response.clicked() {
         Some(item.action)

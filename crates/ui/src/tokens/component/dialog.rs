@@ -16,8 +16,7 @@
 //!
 //! Component tokens (stay in `components/dialog/config.rs` and
 //! `components/overlay/config.rs`, labelled there as component geometry):
-//! - `DIALOG_RADIUS` (16pt product dialog frame) is intentionally different from
-//!   `tokens::RADIUS_DIALOG` (6pt), which only maps egui's own window rounding in
-//!   the theme adapter — the two names describe different surfaces;
-//! - sheet/dropdown/popover/context-menu radii, translate offsets, content
-//!   padding, min/max sizes, and viewport clamping (`DIALOG_CHROME_HEIGHT`).
+//! - dialog, sheet, and alert frames all read `tokens::RADIUS_DIALOG`
+//!   (`RADIUS_LG`, 12). The theme adapter uses the same role for egui windows;
+//! - translate offsets, content padding, min/max sizes, and viewport clamping
+//!   (`DIALOG_CHROME_HEIGHT`).

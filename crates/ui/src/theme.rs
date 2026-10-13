@@ -5,9 +5,9 @@ use egui::{Color32, CornerRadius, FontFamily, FontId, Margin, Shadow, Stroke, Te
 
 use crate::tokens::semantic::{subtle_wash, SemanticTokens};
 use crate::tokens::{
-    FONT_SIZE_BADGE, FONT_SIZE_MONO_UI, FONT_SIZE_UI_LABEL, RADIUS_BUTTON, RADIUS_DIALOG, RADIUS_POPOVER,
-    SHADOW_ALPHA_DARK, SHADOW_ALPHA_LIGHT, SHADOW_BLUR, SHADOW_OFFSET_Y, SPACE_2XL, SPACE_MD, SPACE_SM, SPACE_XS,
-    STROKE_THIN, WINDOW_SHADOW_ALPHA,
+    component::button::BUTTON_DEFAULT_PADDING, FONT_SIZE_BADGE, FONT_SIZE_MONO_UI, FONT_SIZE_UI_LABEL, RADIUS_BUTTON,
+    RADIUS_DIALOG, RADIUS_POPOVER, SHADOW_ALPHA_DARK, SHADOW_ALPHA_LIGHT, SHADOW_BLUR, SHADOW_OFFSET_Y, SPACE_2XL,
+    SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN, WINDOW_SHADOW_ALPHA,
 };
 
 // Renderer adapter mapping: these translate design tokens into egui's own style
@@ -16,11 +16,11 @@ const RADIUS_EGUI_WINDOW: f32 = RADIUS_DIALOG;
 const RADIUS_EGUI_MENU: f32 = RADIUS_POPOVER;
 const RADIUS_EGUI_WIDGET: f32 = RADIUS_BUTTON;
 const EGUI_ITEM_SPACING: Vec2 = Vec2::new(SPACE_SM, SPACE_XS);
-const EGUI_BUTTON_PADDING: Vec2 = Vec2::new(10.0, SPACE_XS);
+const EGUI_BUTTON_PADDING: Vec2 = BUTTON_DEFAULT_PADDING;
 const EGUI_INTERACT_SIZE: Vec2 = Vec2::new(SPACE_2XL, SPACE_2XL);
 const EGUI_WINDOW_MARGIN: f32 = SPACE_MD;
-const EGUI_MENU_MARGIN: f32 = 5.0;
-const EGUI_INDENT: f32 = 13.0;
+const EGUI_MENU_MARGIN: f32 = SPACE_XS;
+const EGUI_INDENT: f32 = SPACE_MD;
 
 const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
 const INTER_REGULAR_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular-ext.ttf");
@@ -544,7 +544,8 @@ mod tests {
 
         assert_eq!(theme.surface_app, egui::Color32::from_rgb(33, 33, 33));
         assert_eq!(theme.surface_panel, egui::Color32::from_rgb(23, 23, 23));
-        assert_eq!(theme.surface_active, egui::Color32::from_rgb(52, 52, 52));
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(58, 58, 58));
+        assert_ne!(theme.surface_hover, theme.surface_active);
         assert_eq!(theme.text_primary, egui::Color32::from_rgb(236, 236, 236));
         assert_eq!(theme.accent, egui::Color32::from_rgb(236, 236, 236));
         assert_eq!(theme.accent_foreground, egui::Color32::from_rgb(13, 13, 13));

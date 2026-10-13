@@ -26,7 +26,8 @@ pub const SPACE_6XL: f32 = 64.0;
 // Semantic spacing roles mapped onto the scale.
 pub const ICON_TEXT_GAP: f32 = 8.0;
 pub const LABEL_HELPER_GAP: f32 = 4.0;
-pub const FORM_FIELD_GAP: f32 = 14.0;
+/// One step above inline control gaps so stacked fields stay looser than a button row.
+pub const FORM_FIELD_GAP: f32 = SPACE_LG;
 pub const CONTROL_GROUP_GAP: f32 = 12.0;
 pub const SECTION_GAP_SM: f32 = 24.0;
 pub const SECTION_GAP_MD: f32 = 32.0;
@@ -46,7 +47,7 @@ pub const RADIUS_XL: f32 = 16.0;
 pub const RADIUS_2XL: f32 = 24.0;
 pub const RADIUS_FULL: f32 = 999.0;
 
-// Radius role mappings (Stitch Native Spec: 4px controls/cards, 6px dialogs/popovers).
+// Radius roles. Buttons use 6, fields and cards use 8, dialogs use 12.
 // Component contracts consume these roles; they are not renderer-specific.
 pub const RADIUS_BUTTON: f32 = RADIUS_SM; // 6.0
 pub const RADIUS_ICON_BUTTON: f32 = RADIUS_SM; // 6.0

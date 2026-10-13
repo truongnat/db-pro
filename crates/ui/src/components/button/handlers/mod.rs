@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn size_tokens_preserve_existing_dimensions() {
         assert_eq!(SizeTokens::from_size(ButtonSize::Sm).min_height, 28.0);
-        assert_eq!(SizeTokens::from_size(ButtonSize::Default).padding, Vec2::new(10.0, 5.0));
+        assert_eq!(SizeTokens::from_size(ButtonSize::Default).padding, Vec2::new(12.0, 4.0));
         assert_eq!(SizeTokens::from_size(ButtonSize::IconSm).default_width, 26.0);
     }
 
@@ -60,7 +60,7 @@ mod tests {
     fn width_uses_full_width_or_content_plus_padding() {
         let tokens = SizeTokens::from_size(ButtonSize::Default);
         assert_eq!(tokens.calculate_width(4.0, false, 200.0), 32.0);
-        assert_eq!(tokens.calculate_width(20.0, false, 200.0), 40.0);
+        assert_eq!(tokens.calculate_width(20.0, false, 200.0), 44.0);
         assert_eq!(tokens.calculate_width(20.0, true, 200.0), 200.0);
     }
 
@@ -73,6 +73,10 @@ mod tests {
     #[test]
     fn action_variants_stay_borderless_through_hover_loading_and_disabled_states() {
         let theme = DbProTheme::dark();
+        let secondary = ButtonPalette::from_variant(ButtonVariant::Secondary, theme);
+        assert_ne!(secondary.fill_rest, secondary.fill_hover);
+        let light_secondary = ButtonPalette::from_variant(ButtonVariant::Secondary, DbProTheme::light());
+        assert_ne!(light_secondary.fill_rest, light_secondary.fill_hover);
         let outline = ButtonPalette::from_variant(ButtonVariant::Outline, theme);
         assert_eq!(outline.fill_rest, Color32::TRANSPARENT);
 

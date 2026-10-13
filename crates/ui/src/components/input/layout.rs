@@ -3,7 +3,7 @@ use crate::components::animation::{hover_t, lerp_color};
 use crate::tokens::component::input::{
     resolve_chrome, FieldChrome, BORDER_STROKE_WIDTH, ERROR_STROKE_WIDTH, FOCUS_STROKE_WIDTH,
 };
-use crate::tokens::RADIUS_XS;
+use crate::tokens::RADIUS_INPUT;
 use crate::DbProTheme;
 use egui::{CornerRadius, Id, Rect, Stroke, Ui};
 
@@ -48,7 +48,7 @@ pub(crate) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChrome
     // exactly `rect`, and `rounding - w` grown by the same stroke is `rounding`.
     ui.painter().rect_stroke(
         rect.shrink(stroke.width),
-        CornerRadius::same((RADIUS_XS - stroke.width).max(0.0) as u8),
+        CornerRadius::same((RADIUS_INPUT - stroke.width).max(0.0) as u8),
         stroke,
         egui::StrokeKind::Inside,
     );

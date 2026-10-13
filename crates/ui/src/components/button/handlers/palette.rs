@@ -25,8 +25,11 @@ impl ButtonPalette {
                 text_color: theme.text_on_solid(theme.accent),
             },
             ButtonVariant::Secondary => Self {
-                fill_rest: theme.surface_hover,
-                fill_hover: theme.surface_active,
+                // Rest sits on subtle so the hover wash is a visible step in both themes.
+                // Dark hover and selected are different roles; this variant must not use
+                // selected as its hover fill or the two states collapse.
+                fill_rest: theme.surface_2,
+                fill_hover: theme.surface_hover,
                 stroke_rest: Stroke::NONE,
                 stroke_hover: Stroke::NONE,
                 text_color: theme.text_primary,

@@ -1,12 +1,13 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{Align, Button, CornerRadius, Frame, Layout, Margin, Response, RichText, Stroke, TextEdit, Ui};
+use egui::{Align, CornerRadius, Frame, Layout, Margin, Response, RichText, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::input::config::{INPUT_ICON_SIZE, SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION};
 use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
-use crate::tokens::{RADIUS_XS, SPACE_SM, SPACE_XS};
+use crate::tokens::{FONT_SIZE_KBD, RADIUS_INPUT, SPACE_SM, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct SearchInput<'a> {
@@ -51,7 +52,7 @@ impl<'a> SearchInput<'a> {
             // Border is owned by `paint_field_chrome` (rest / hover / focus).
             stroke: Stroke::NONE,
             inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            corner_radius: CornerRadius::same(RADIUS_XS as u8),
+            corner_radius: CornerRadius::same(RADIUS_INPUT as u8),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -102,15 +103,12 @@ impl<'a> SearchInput<'a> {
                 }
 
                 if !self.value.is_empty()
-                    && ui
-                        .add(
-                            Button::new(
-                                RichText::new(char::from(Icon::X).to_string())
-                                    .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
-                                    .color(self.theme.text_muted),
-                            )
-                            .frame(false),
-                        )
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .access_label("Clear")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .show(ui)
                         .clicked()
                 {
                     self.value.clear();
@@ -125,7 +123,7 @@ impl<'a> SearchInput<'a> {
                         ..Default::default()
                     }
                     .show(ui, |ui| {
-                        ui.label(RichText::new(sc).size(10.0).color(self.theme.text_muted));
+                        ui.label(RichText::new(sc).size(FONT_SIZE_KBD).color(self.theme.text_secondary));
                     });
                 }
 
@@ -156,7 +154,7 @@ impl<'a> SearchInput<'a> {
             let width = crate::tokens::component::input::BORDER_STROKE_WIDTH;
             ui.painter().rect_stroke(
                 frame_rect.shrink(width),
-                CornerRadius::same((RADIUS_XS - width).max(0.0) as u8),
+                CornerRadius::same((RADIUS_INPUT - width).max(0.0) as u8),
                 Stroke::new(width, self.theme.border_subtle),
                 egui::StrokeKind::Inside,
             );

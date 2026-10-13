@@ -149,10 +149,7 @@ impl<'a> Select<'a> {
             let is_open = egui::Popup::is_id_open(ui.ctx(), popup_id);
 
             let ghost = self.variant == SelectVariant::Ghost;
-            let rounding = match self.size {
-                SelectSize::Default => ui.style().visuals.widgets.inactive.corner_radius,
-                SelectSize::Sm => egui::CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8),
-            };
+            let rounding = egui::CornerRadius::same(crate::tokens::RADIUS_INPUT as u8);
             let background = ghost.then(|| ui.painter().add(egui::Shape::Noop));
             let trigger_btn = Frame {
                 fill: if ghost {

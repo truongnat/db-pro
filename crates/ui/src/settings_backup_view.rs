@@ -131,10 +131,23 @@ impl SettingsBackupContext<'_> {
         ui.add_space(10.0);
         ui.colored_label(self.theme.warning, "Overwrite the active database?");
         ui.horizontal(|ui| {
-            if danger_button(ui, "Confirm restore", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Confirm restore")
+                .variant(ButtonVariant::Destructive)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SettingsBackupAction::ConfirmRestore);
             }
-            if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::X)
+                .text("Cancel")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.overlay.restore_confirmation = false;
             }
         });

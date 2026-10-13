@@ -6,7 +6,7 @@ use egui::{Align, CornerRadius, Frame, Margin, Response, RichText, Stroke, TextE
 use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_LABEL_FONT_SIZE, TEXTAREA_INNER_MARGIN_Y};
 use crate::components::input::layout::{paint_field_chrome, FieldChromeState};
 use crate::components::interact::text_input_info;
-use crate::tokens::{LABEL_HELPER_GAP, RADIUS_XS, SPACE_SM};
+use crate::tokens::{LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM};
 use crate::DbProTheme;
 
 pub struct Textarea<'a> {
@@ -72,7 +72,7 @@ impl<'a> Textarea<'a> {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(SPACE_SM as i8, TEXTAREA_INNER_MARGIN_Y as i8),
-                corner_radius: CornerRadius::same(RADIUS_XS as u8),
+                corner_radius: CornerRadius::same(RADIUS_INPUT as u8),
                 ..Default::default()
             }
             .show(ui, |ui| {

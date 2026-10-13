@@ -13,7 +13,7 @@ use crate::components::input::config::{
 use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::components::interact::text_input_info;
 use crate::tokens::component::input::INPUT_HEIGHT_DEFAULT;
-use crate::tokens::{LABEL_HELPER_GAP, RADIUS_XS, SPACE_SM, SPACE_XS};
+use crate::tokens::{LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct PasswordInput<'a> {
@@ -100,7 +100,7 @@ impl<'a> PasswordInput<'a> {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-                corner_radius: CornerRadius::same(RADIUS_XS as u8),
+                corner_radius: CornerRadius::same(RADIUS_INPUT as u8),
                 ..Default::default()
             }
             .show(ui, |ui| {

@@ -42,6 +42,6 @@ pub(super) const UNDERLINE_INDICATOR_INSET_X: f32 = 4.0;
 pub(super) const UNDERLINE_INDICATOR_MIN_WIDTH: f32 = 12.0;
 
 // Font size shared by labels in the segmented control, in egui points.
-pub(super) const SEGMENTED_FONT_SIZE: f32 = 12.5;
+pub(super) const SEGMENTED_FONT_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
 // Font size shared by labels in the underline tab row, in egui points.
 pub(super) const UNDERLINE_FONT_SIZE: f32 = 13.0;

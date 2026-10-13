@@ -12,7 +12,7 @@ use crate::components::input::layout::{paint_field_chrome, resolve_field_width, 
 use crate::components::interact::{button_info, text_input_info};
 use crate::tokens::component::input::INPUT_HEIGHT_DEFAULT;
 use crate::tokens::LABEL_HELPER_GAP;
-use crate::tokens::{RADIUS_XS, SPACE_SM, SPACE_XS};
+use crate::tokens::{RADIUS_INPUT, SPACE_SM, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct Input<'a> {
@@ -127,14 +127,14 @@ impl<'a> Input<'a> {
             let fill = if self.enabled {
                 self.theme.surface_editor
             } else {
-                self.theme.surface_panel
+                self.theme.surface_2
             };
 
             let frame = Frame {
                 fill,
                 stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-                corner_radius: CornerRadius::same(RADIUS_XS as u8),
+                corner_radius: CornerRadius::same(RADIUS_INPUT as u8),
                 ..Default::default()
             };
 
@@ -180,7 +180,7 @@ impl<'a> Input<'a> {
                             .text_color(if self.enabled {
                                 self.theme.text_primary
                             } else {
-                                self.theme.text_muted
+                                self.theme.text_disabled
                             }),
                     );
 

@@ -22,4 +22,4 @@ Textarea::new(&mut notes, "Notes", theme).max_chars(500).show(ui);
 
 An explicit access label takes precedence over visible label and placeholder. Disabled state outranks error/focus styling; error outranks focus, then hover. Error/helper text does not alter the value. `max_chars` displays a Unicode character count but does not reject or truncate input. egui handles editing and standard keyboard navigation.
 
-The public config aliases `INPUT_ROUNDING`, `FIELD_INNER_MARGIN_X`, `FIELD_INNER_MARGIN_Y`, and `INPUT_ICON_GAP` were removed. Replace them with `RADIUS_XS`, `SPACE_SM`, and `SPACE_XS` from `db_pro_ui::tokens`.
+The public config aliases `INPUT_ROUNDING`, `FIELD_INNER_MARGIN_X`, `FIELD_INNER_MARGIN_Y`, and `INPUT_ICON_GAP` were removed. Replace them with `RADIUS_INPUT`, `SPACE_SM`, and `SPACE_XS` from `db_pro_ui::tokens`.

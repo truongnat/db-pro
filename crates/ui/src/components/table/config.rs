@@ -1,22 +1,25 @@
 //! Table-specific layout and painting metrics.
 //!
-//! These values intentionally stay local to the table component: they describe
-//! the table's coordinate system and are not general design tokens.
+//! Row height, header height, and corner radii come from the shared token scale.
+//! The remaining values describe the table's own coordinate system.
+
+use crate::tokens::component::table::{TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT_DEFAULT};
+use crate::tokens::{RADIUS_SM, RADIUS_XS};
 
 pub(crate) const CHECKBOX_COLUMN_WIDTH: f32 = 42.0;
 pub(crate) const CHECKBOX_SIZE: f32 = 15.0;
-pub(crate) const CHECKBOX_CORNER_RADIUS: f32 = 3.5;
+pub(crate) const CHECKBOX_CORNER_RADIUS: f32 = RADIUS_XS;
 pub(crate) const CHECKBOX_STROKE_WIDTH: f32 = 1.2;
 pub(crate) const CHECKMARK_STROKE_WIDTH: f32 = 1.8;
-pub(crate) const HEADER_HEIGHT: f32 = 36.0;
-pub(crate) const HEADER_INNER_RADIUS: f32 = 7.0;
+pub(crate) const HEADER_HEIGHT: f32 = TABLE_HEADER_HEIGHT;
+pub(crate) const HEADER_INNER_RADIUS: f32 = RADIUS_SM;
 pub(crate) const TABLE_CORNER_RADIUS: f32 = 8.0;
 pub(crate) const INNER_PADDING_X: f32 = 12.0;
 pub(crate) const HEADER_TEXT_SIZE: f32 = 13.0;
 pub(crate) const SORT_ICON_SIZE: f32 = 10.0;
 pub(crate) const SORT_ICON_GAP: f32 = 4.0;
 pub(crate) const SORT_ICON_FADE: f32 = 0.5;
-pub(crate) const ROW_HEIGHT_DEFAULT: f32 = 44.0;
+pub(crate) const ROW_HEIGHT_DEFAULT: f32 = TABLE_ROW_HEIGHT_DEFAULT;
 pub(crate) const EMPTY_BODY_HEIGHT: f32 = 80.0;
 pub(crate) const EMPTY_BODY_RECT_HEIGHT: f32 = 90.0;
 pub(crate) const EMPTY_BODY_TOP_SPACE: f32 = 20.0;
@@ -37,8 +40,10 @@ mod tests {
     #[test]
     fn table_metrics_preserve_the_existing_coordinate_contract() {
         assert_eq!(CHECKBOX_COLUMN_WIDTH, 42.0);
-        assert_eq!(HEADER_HEIGHT, 36.0);
-        assert_eq!(ROW_HEIGHT_DEFAULT, 44.0);
+        assert_eq!(HEADER_HEIGHT, TABLE_HEADER_HEIGHT);
+        assert_eq!(ROW_HEIGHT_DEFAULT, TABLE_ROW_HEIGHT_DEFAULT);
+        assert_eq!(CHECKBOX_CORNER_RADIUS, RADIUS_XS);
+        assert_eq!(HEADER_INNER_RADIUS, RADIUS_SM);
         assert_eq!(INNER_PADDING_X, 12.0);
     }
 }

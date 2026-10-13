@@ -1,5 +1,5 @@
 // Shared corner radius used by modal dialog frames, in egui points.
-pub const DIALOG_RADIUS: f32 = 16.0;
+pub const DIALOG_RADIUS: f32 = crate::tokens::RADIUS_DIALOG;
 // Default dialog width before viewport constraints are applied, in egui points.
 pub const DIALOG_WIDTH: f32 = 420.0;
 // Minimum horizontal breathing room between a dialog and the viewport edge, in egui points.
@@ -33,7 +33,7 @@ pub const DIALOG_HEADER_MIN_HEIGHT: f32 = 40.0;
 // Sheet layout values, in egui points.
 pub const SHEET_PADDING: f32 = 16.0;
 pub const SHEET_TOTAL_PADDING: f32 = 32.0;
-pub const SHEET_CORNER_RADIUS: f32 = 12.0;
+pub const SHEET_CORNER_RADIUS: f32 = crate::tokens::RADIUS_DIALOG;
 pub const SHEET_CONTENT_MIN_SIZE: f32 = 80.0;
 pub const SHEET_CLOSE_WIDTH: f32 = 28.0;
 pub const SHEET_TITLE_GAP: f32 = 8.0;

@@ -3,7 +3,8 @@ use super::layout::screen_rect_fallback;
 
 #[test]
 fn dialog_constants_follow_design_tokens() {
-    assert_eq!(DIALOG_RADIUS, 16.0);
+    assert_eq!(DIALOG_RADIUS, crate::tokens::RADIUS_DIALOG);
+    assert_eq!(SHEET_CORNER_RADIUS, crate::tokens::RADIUS_DIALOG);
     assert_eq!(DIALOG_WIDTH, 420.0);
     assert_eq!(SHEET_WIDTH, 360.0);
     assert_eq!(DIALOG_TRANSLATE_PX, 8.0);

@@ -98,11 +98,9 @@ impl SettingsKeybindingsContext<'_> {
     }
 
     fn draw_editing_row(&mut self, ui: &mut egui::Ui, command: KeybindingCommand) {
-        let response = ui.add(
-            egui::TextEdit::singleline(&mut self.preferences.keybinding_edit_draft)
-                .desired_width(120.0)
-                .hint_text("mod+k"),
-        );
+        let response = Input::new(&mut self.preferences.keybinding_edit_draft, "mod+k", self.theme)
+            .width(120.0)
+            .show(ui);
         response.widget_info(|| {
             egui::WidgetInfo::labeled(
                 egui::WidgetType::TextEdit,

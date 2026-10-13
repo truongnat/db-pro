@@ -3,7 +3,7 @@
 pub const INPUT_MIN_WIDTH: f32 = 120.0;
 pub const TEXTAREA_INNER_MARGIN_Y: f32 = 6.0;
 pub const SEARCH_SHORTCUT_RESERVATION: f32 = 36.0;
-pub const SEARCH_CLEAR_RESERVATION: f32 = 20.0;
+pub const SEARCH_CLEAR_RESERVATION: f32 = crate::tokens::component::button::BUTTON_ICON_SIZE_SM.x;
 pub const PASSWORD_MIN_FRAME_WIDTH: f32 = 60.0;
 pub const PASSWORD_MIN_EDIT_WIDTH: f32 = 40.0;
 pub const INPUT_LABEL_FONT_SIZE: f32 = 12.0;

@@ -47,13 +47,9 @@ pub(super) fn draw_toolbar(
 }
 
 fn draw_filter_controls(context: &mut ResultGridToolbarContext<'_>, ui: &mut egui::Ui) {
-    input(
-        ui,
-        &mut context.data.grid_filter,
-        "Filter visible rows…",
-        160.0,
-        context.theme,
-    );
+    Input::new(&mut context.data.grid_filter, "Filter visible rows…", context.theme)
+        .width(160.0)
+        .show(ui);
     if !context.data.grid_filter.is_empty()
         && Button::new(context.theme)
             .icon(Icon::X)

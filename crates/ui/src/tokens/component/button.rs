@@ -7,8 +7,9 @@
 //! `components/button/ui/button.rs`.
 //!
 //! Semantic roles consumed (via `DbProTheme`): `accent.solid/solid_hover`
-//! for the primary variant, `status.danger.solid` for destructive, `background.hover/
-//! selected/subtle` for secondary and disabled fills, `border.subtle/default/strong`
+//! for the primary variant, `status.danger.solid` for destructive, `background.subtle`
+//! at rest and `background.hover` while hovered for secondary, `background.subtle`
+//! for the disabled fill, `border.subtle/default/strong`
 //! for outline and disabled strokes, `foreground.primary/disabled` for labels,
 //! `text_on_solid` for filled labels, and
 //! `border.focus` painted at `STROKE_THICK` by `components/interact.rs`.
@@ -18,6 +19,9 @@
 //! dimensions. Radius and group gap come from shared tokens; link underline
 //! width remains in `components/button/config.rs` as local geometry.
 
+use super::super::primitive::{
+    FONT_SIZE_BADGE, FONT_SIZE_BODY_SM, FONT_SIZE_CAPTION, FONT_SIZE_UI_LABEL, SPACE_LG, SPACE_MD, SPACE_SM, SPACE_XS,
+};
 use egui::Vec2;
 
 // Height (min) per size variant, in egui points.
@@ -29,18 +33,18 @@ pub const BUTTON_HEIGHT_LG: f32 = 38.0;
 pub const BUTTON_DEFAULT_WIDTH: f32 = 32.0;
 pub const BUTTON_LG_WIDTH: f32 = 38.0;
 
-// Padding (x, y) per size variant, in egui points.
-pub const BUTTON_SM_PADDING: Vec2 = Vec2::new(8.0, 4.0);
-pub const BUTTON_DEFAULT_PADDING: Vec2 = Vec2::new(10.0, 5.0);
-pub const BUTTON_LG_PADDING: Vec2 = Vec2::new(14.0, 7.0);
-pub const BUTTON_ICON_PADDING: Vec2 = Vec2::new(8.0, 8.0);
-pub const BUTTON_ICON_SM_PADDING: Vec2 = Vec2::new(6.0, 6.0);
+// Padding (x, y) per size variant, taken from the 4px spacing scale.
+pub const BUTTON_SM_PADDING: Vec2 = Vec2::new(SPACE_SM, SPACE_XS);
+pub const BUTTON_DEFAULT_PADDING: Vec2 = Vec2::new(SPACE_MD, SPACE_XS);
+pub const BUTTON_LG_PADDING: Vec2 = Vec2::new(SPACE_LG, SPACE_SM);
+pub const BUTTON_ICON_PADDING: Vec2 = Vec2::new(SPACE_SM, SPACE_SM);
+pub const BUTTON_ICON_SM_PADDING: Vec2 = Vec2::new(SPACE_XS, SPACE_XS);
 
-// Label font sizes per size variant, in egui points.
-pub const BUTTON_FONT_SIZE_SM: f32 = 11.5;
-pub const BUTTON_FONT_SIZE_DEFAULT: f32 = 12.5;
-pub const BUTTON_FONT_SIZE_LG: f32 = 13.5;
-pub const BUTTON_ICON_SM_FONT_SIZE: f32 = 11.0;
+// Label font sizes per size variant, taken from the shared type scale.
+pub const BUTTON_FONT_SIZE_SM: f32 = FONT_SIZE_CAPTION;
+pub const BUTTON_FONT_SIZE_DEFAULT: f32 = FONT_SIZE_UI_LABEL;
+pub const BUTTON_FONT_SIZE_LG: f32 = FONT_SIZE_BODY_SM;
+pub const BUTTON_ICON_SM_FONT_SIZE: f32 = FONT_SIZE_BADGE;
 
 // Glyph sizes: the lucide glyph itself, in egui points.
 pub const BUTTON_ICON_SIZE_SM_GLYPH: f32 = 13.0;
@@ -138,14 +142,20 @@ mod tests {
         );
     }
 
-    /// Existing rendered dimensions must not drift: these values were previously
-    /// spread across `components/button/config.rs` literals and `tokens.rs`.
+    /// Heights stay on the control scale. Padding and label sizes stay on the
+    /// shared spacing and type tokens so a second 0.5pt scale cannot return.
     #[test]
-    fn dimensions_preserve_the_existing_rendered_values() {
+    fn dimensions_stay_on_the_shared_scale() {
         assert_eq!(BUTTON_HEIGHT_SM, 28.0);
         assert_eq!(BUTTON_HEIGHT_DEFAULT, 32.0);
         assert_eq!(BUTTON_HEIGHT_LG, 38.0);
-        assert_eq!(BUTTON_DEFAULT_PADDING, Vec2::new(10.0, 5.0));
+        assert_eq!(BUTTON_DEFAULT_PADDING, Vec2::new(SPACE_MD, SPACE_XS));
+        assert_eq!(BUTTON_SM_PADDING, Vec2::new(SPACE_SM, SPACE_XS));
+        assert_eq!(BUTTON_LG_PADDING, Vec2::new(SPACE_LG, SPACE_SM));
+        assert_eq!(BUTTON_ICON_SM_PADDING, Vec2::new(SPACE_XS, SPACE_XS));
+        assert_eq!(BUTTON_FONT_SIZE_SM, FONT_SIZE_CAPTION);
+        assert_eq!(BUTTON_FONT_SIZE_DEFAULT, FONT_SIZE_UI_LABEL);
+        assert_eq!(BUTTON_FONT_SIZE_LG, FONT_SIZE_BODY_SM);
         assert_eq!(BUTTON_ICON_SIZE_SM, Vec2::new(26.0, 26.0));
     }
 }

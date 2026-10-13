@@ -13,7 +13,7 @@ pub const METRIC_VALUE_TOP_GAP: f32 = 12.0;
 /// Primary metric value font size.
 pub const METRIC_VALUE_SIZE: f32 = 24.0;
 /// Metric label font size.
-pub const METRIC_TITLE_SIZE: f32 = 12.5;
+pub const METRIC_TITLE_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
 /// Square size of the optional metric icon container.
 pub const METRIC_ICON_BOX_SIZE: f32 = 28.0;
 /// CornerRadius used for the optional metric icon container.

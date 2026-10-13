@@ -235,7 +235,8 @@ impl SemanticTokens {
                 floating: dark::NEUTRAL_780,
                 editor: dark::NEUTRAL_850,
                 hover: dark::NEUTRAL_750,
-                selected: dark::NEUTRAL_750,
+                // Lighter than hover so a selected row is not the same wash as a pointer hover.
+                selected: dark::NEUTRAL_700,
                 subtle: dark::NEUTRAL_775,
                 overlay: dark::SCRIM,
             },

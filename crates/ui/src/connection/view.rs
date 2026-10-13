@@ -8,7 +8,7 @@ use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::components::input::Input;
-use crate::components::interact::radio_info;
+use crate::components::interact::{paint_focus_ring, radio_info};
 use crate::tokens::*;
 use crate::{DbProTheme, UiCommand, UiDriver, UiSslMode};
 use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, CornerRadius, Stroke};
@@ -125,10 +125,12 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
             theme.accent,
         );
     } else {
-        let badge_w = (props.badge.len() as f32) * 5.5 + 8.0;
+        let badge_font = FontId::proportional(FONT_SIZE_BADGE);
+        let badge_h = FONT_SIZE_BADGE + SPACE_XS;
+        let badge_w = (props.badge.len() as f32) * 7.0 + SPACE_SM;
         let badge_rect = Rect::from_min_size(
-            pos2(rect.max.x - badge_w - 8.0, rect.center().y - 7.0),
-            vec2(badge_w, 14.0),
+            pos2(rect.max.x - badge_w - SPACE_SM, rect.center().y - badge_h * 0.5),
+            vec2(badge_w, badge_h),
         );
         let badge_bg = if props.is_disabled {
             theme.surface_panel
@@ -138,16 +140,20 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
         let badge_fg = if props.is_disabled {
             theme.text_disabled
         } else {
-            theme.text_muted
+            theme.text_secondary
         };
-        painter.rect_filled(badge_rect, CornerRadius::same(3.0 as u8), badge_bg);
+        painter.rect_filled(badge_rect, CornerRadius::same(RADIUS_XS as u8), badge_bg);
         painter.text(
             badge_rect.center(),
             Align2::CENTER_CENTER,
             props.badge,
-            FontId::proportional(8.5),
+            badge_font,
             badge_fg,
         );
+    }
+
+    if resp.has_focus() {
+        paint_focus_ring(ui, rect, RADIUS_CARD, *theme);
     }
 
     if props.is_disabled {

@@ -242,9 +242,8 @@ pub fn empty_state(ui: &mut Ui, icon: Icon, title: &str, description: &str, them
     });
 }
 
-/// The only shared single-line input primitive used by the native shell.
-/// Keeping its margin, height and text colors here prevents each screen from
-/// drifting into a different field style.
+/// Compatibility single-line field. New surfaces use `components::input::Input`,
+/// which owns the disabled, error, focus, and hover chrome.
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
 pub fn input(ui: &mut Ui, value: &mut String, hint: &str, width: f32, theme: DbProTheme) -> Response {
     let response = ui.add(

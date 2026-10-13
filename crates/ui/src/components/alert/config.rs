@@ -36,7 +36,7 @@ pub const DIALOG_PADDING: f32 = 20.0;
 /// Gap between dialog actions, in egui points.
 pub const DIALOG_ACTION_GAP: f32 = 8.0;
 /// Dialog frame corner radius, in egui points.
-pub const DIALOG_RADIUS: f32 = 10.0;
+pub const DIALOG_RADIUS: f32 = crate::tokens::RADIUS_DIALOG;
 /// Dialog border width, in egui points.
 pub const DIALOG_BORDER_WIDTH: f32 = 1.0;
 /// Dialog title font size, in egui points.

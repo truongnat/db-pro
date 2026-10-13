@@ -445,7 +445,8 @@ impl ShellTopbarContext<'_> {
     fn draw_quick_open(&self, ui: &mut egui::Ui, actions: &mut Vec<ShellTopbarAction>, modifier: &str) {
         ui.add_space(SPACE_SM);
         let search_width = (ui.available_width() - 32.0).clamp(180.0, 360.0);
-        let (rect, response) = ui.allocate_exact_size(egui::vec2(search_width, 26.0), Sense::click());
+        let (rect, response) =
+            ui.allocate_exact_size(egui::vec2(search_width, crate::tokens::component::input::INPUT_HEIGHT_SM), Sense::click());
         response.widget_info(|| {
             egui::WidgetInfo::labeled(
                 egui::WidgetType::Button,
@@ -465,30 +466,34 @@ impl ShellTopbarContext<'_> {
         };
         ui.painter().rect(
             rect,
-            egui::CornerRadius::same(RADIUS_MD as u8),
+            egui::CornerRadius::same(RADIUS_INPUT as u8),
             background,
             egui::Stroke::new(1.0, border), egui::StrokeKind::Inside);
-        let icon_font = egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into()));
+        if response.has_focus() {
+            crate::components::interact::paint_focus_ring(ui, rect, RADIUS_INPUT, self.theme);
+        }
+        let icon_font = egui::FontId::new(ICON_SM, egui::FontFamily::Name("lucide".into()));
+        let label_color = self.theme.text_secondary;
         ui.painter().text(
-            egui::pos2(rect.left() + 8.0, rect.center().y),
+            egui::pos2(rect.left() + SPACE_SM, rect.center().y),
             egui::Align2::LEFT_CENTER,
             char::from(Icon::Search).to_string(),
             icon_font,
-            self.theme.text_muted,
+            label_color,
         );
         ui.painter().text(
-            egui::pos2(rect.left() + 26.0, rect.center().y),
+            egui::pos2(rect.left() + SPACE_SM + ICON_SM + SPACE_XS, rect.center().y),
             egui::Align2::LEFT_CENTER,
             "Search commands, tables, schemas...",
-            egui::FontId::proportional(11.5),
-            self.theme.text_muted,
+            font_caption(),
+            label_color,
         );
         ui.painter().text(
-            egui::pos2(rect.right() - 8.0, rect.center().y),
+            egui::pos2(rect.right() - SPACE_SM, rect.center().y),
             egui::Align2::RIGHT_CENTER,
             format!("{modifier}P"),
-            egui::FontId::monospace(10.0),
-            self.theme.text_muted,
+            egui::FontId::monospace(FONT_SIZE_KBD),
+            label_color,
         );
         if response.clicked() {
             actions.push(ShellTopbarAction::OpenQuickOpen);
