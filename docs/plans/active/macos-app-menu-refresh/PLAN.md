@@ -28,6 +28,7 @@ macOS uses `muda` for the system menu. Menu events are forwarded to the UI threa
 - [ ] Native macOS menu bar shows the standard app, File, Edit, View, and Window menus.
 - [ ] View → Refresh forces schema introspection for the active connection.
 - [ ] View → Refresh Cache invalidates that connection's schema cache, then refreshes it; failures surface to the UI.
-- [ ] No active connection produces a clear user-facing message and no runtime command.
-- [ ] Capture and non-capture builds retain their existing launch paths.
-- [ ] Targeted tests and the native release build pass; runtime evidence is recorded separately and the plan remains active if unavailable.
+- [x] No active connection produces a clear user-facing message and no runtime command (UI regression test passes).
+- [x] Capture and non-capture builds retain their existing launch paths (capture check and release build pass).
+- [x] Targeted tests and the native release build pass.
+- [ ] Record live macOS menu interaction and independent SQLite/PostgreSQL runtime evidence; keep the plan active until then.
