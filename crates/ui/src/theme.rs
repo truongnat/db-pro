@@ -324,7 +324,6 @@ impl DbProTheme {
                 break;
             }
         }
-
         let mono_system_paths = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
@@ -351,42 +350,41 @@ impl DbProTheme {
 
         // CJK / Japanese / Asian font fallback
         let cjk_font_paths = [
+            "/System/Library/Fonts/AppleSDGothicNeo.ttc", // Korean + partial CJK
+            "/System/Library/Fonts/Hiragino Sans GB.ttc", // Japanese + zh-hans
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf",
             "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
             "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
             "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
             "/System/Library/Fonts/PingFang.ttc",
-            "/System/Library/Fonts/Hiragino Sans GB.ttc",
             "/Library/Fonts/Arial Unicode.ttf",
             "C:\\Windows\\Fonts\\msgothic.ttc",
             "C:\\Windows\\Fonts\\meiryo.ttc",
             "C:\\Windows\\Fonts\\msyh.ttc",
+            "C:\\Windows\\Fonts\\malgun.ttf",
             "C:\\Windows\\Fonts\\yugothr.ttc",
         ];
-        for path in cjk_font_paths {
+        // No early exit: each face covers a different CJK subset, so all found
+        // faces must enter the family for glyph-level fallback to work.
+        for (index, path) in cjk_font_paths.iter().enumerate() {
             if let Ok(bytes) = std::fs::read(path) {
-                fonts.font_data.insert(
-                    "cjk_fallback".to_owned(),
-                    std::sync::Arc::new(egui::FontData::from_owned(bytes)),
-                );
+                let name = format!("cjk_fallback_{index}");
+                fonts
+                    .font_data
+                    .insert(name.clone(), std::sync::Arc::new(egui::FontData::from_owned(bytes)));
                 fonts
                     .families
                     .entry(FontFamily::Proportional)
                     .or_default()
-                    .push("cjk_fallback".to_owned());
+                    .push(name.clone());
                 fonts
                     .families
                     .entry(FontFamily::Name("ui_medium".into()))
                     .or_default()
-                    .push("cjk_fallback".to_owned());
-                fonts
-                    .families
-                    .entry(FontFamily::Monospace)
-                    .or_default()
-                    .push("cjk_fallback".to_owned());
-                break;
+                    .push(name.clone());
+                fonts.families.entry(FontFamily::Monospace).or_default().push(name);
             }
         }
 

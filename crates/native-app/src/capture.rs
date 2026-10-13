@@ -302,6 +302,9 @@ fn take_screenshot(ctx: &egui::Context) -> Option<std::sync::Arc<egui::ColorImag
 }
 
 impl eframe::App for CaptureApp {
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        eframe::App::logic(&mut self.inner, ctx, frame);
+    }
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         #[cfg(target_os = "macos")]

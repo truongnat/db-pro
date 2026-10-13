@@ -154,8 +154,11 @@ pub(super) fn draw_schema_compare(
                     .strong()
                     .color(if total_diffs > 0 { context.theme.accent } else { context.theme.success }),
             );
+            ui.label(RichText::new("·").small().color(context.theme.text_muted));
             ui.label(RichText::new(format!("{added} Added")).small().color(context.theme.success));
+            ui.label(RichText::new("·").small().color(context.theme.text_muted));
             ui.label(RichText::new(format!("{changed} Changed")).small().color(context.theme.warning));
+            ui.label(RichText::new("·").small().color(context.theme.text_muted));
             ui.label(RichText::new(format!("{removed} Removed")).small().color(context.theme.danger));
         });
         ui.add_space(8.0);

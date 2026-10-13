@@ -127,18 +127,51 @@ pub(super) fn draw_value(
                 UiCell::Number(_) | UiCell::Text(_) => theme.text_primary,
                 _ => theme.text_secondary,
             };
+            let font = FontId::monospace(12.0);
+            // Fit-check then ellipsize: hard-clipped glyphs read as corrupt data.
+            let display_text = ellipsize_to_width(&painter, raw_value, font.clone(), content_rect.width());
             painter.text(
                 Pos2::new(content_rect.left(), content_rect.center().y),
                 Align2::LEFT_CENTER,
-                raw_value,
-                FontId::monospace(12.0),
+                display_text,
+                font,
                 text_color,
             );
         }
     }
-    if cell_response.hovered() && raw_value.len() > 36 {
+    // Show the full value on hover when the rendered text could not fit the cell.
+    let clipped = raw_value.len() > 36
+        || painter
+            .layout_no_wrap(raw_value.to_owned(), FontId::monospace(12.0), egui::Color32::TRANSPARENT)
+            .size()
+            .x
+            > content_rect.width();
+    if cell_response.hovered() && clipped {
         cell_response.clone().on_hover_text(raw_value);
     }
+}
+
+/// Layout once, then cut at the glyph whose advance exceeds the width minus the
+/// ellipsis. Cheap: one galley + a scan, no per-char re-layout.
+fn ellipsize_to_width(painter: &egui::Painter, text: &str, font: FontId, max_width: f32) -> String {
+    let galley = painter.layout_no_wrap(text.to_owned(), font.clone(), egui::Color32::TRANSPARENT);
+    if galley.size().x <= max_width {
+        return text.to_owned();
+    }
+    let ellipsis_galley = painter.layout_no_wrap("…".to_owned(), font, egui::Color32::TRANSPARENT);
+    let budget = max_width - ellipsis_galley.size().x;
+    let row = &galley.rows[0].row;
+    // Glyph pos.x is relative to the row; find the last char that still fits.
+    let cut = row
+        .glyphs
+        .iter()
+        .take_while(|g| g.pos.x + g.advance_width <= budget)
+        .count()
+        .max(1);
+    // glyphs are one-per-char; safe to slice at a char boundary by index.
+    let mut out: String = text.chars().take(cut).collect();
+    out.push('…');
+    out
 }
 
 #[derive(Clone, Copy)]

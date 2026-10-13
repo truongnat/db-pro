@@ -24,7 +24,9 @@ impl AgentThreadSurfaceContext<'_> {
     // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<AgentThreadAction> {
         let mut actions = Vec::new();
-        let messages_height = (ui.available_height() - 86.0).max(160.0);
+        // Reserve the composer's real height (label + 2-row input + action row +
+        // frame margins ≈ 108pt); 86 undercut it and the frame bottom clipped the card.
+        let messages_height = (ui.available_height() - 112.0).max(160.0);
         let thread_scroll = egui::ScrollArea::vertical()
             .id_salt("agent-thread-scroll")
             .max_height(messages_height)

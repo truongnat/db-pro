@@ -164,7 +164,7 @@ impl TableStructureContext<'_> {
         let columns = [
             TableColumn::fixed("#", 46.0),
             TableColumn::new("Column Name").width(220.0),
-            TableColumn::new("Data Type").width(180.0),
+            TableColumn::new("Data Type").width(200.0),
             TableColumn::fixed("Nullable", 110.0),
             TableColumn::fixed("Key", 90.0),
             TableColumn::new("Default Expression"),
@@ -250,9 +250,9 @@ impl TableStructureContext<'_> {
     }
 
     fn draw_data_type_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
-        let truncated = crate::components::truncate_ellipsis(&column.data_type, 24);
+        let truncated = crate::components::truncate_ellipsis(&column.data_type, 20);
         let resp = ui.label(RichText::new(&truncated).monospace().color(self.theme.text_secondary));
-        if column.data_type.chars().count() > 24 {
+        if column.data_type.chars().count() > 20 {
             resp.on_hover_text(&column.data_type);
         } else {
             resp.on_hover_text("Full database type");
