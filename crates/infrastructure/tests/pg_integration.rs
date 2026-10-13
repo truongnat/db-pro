@@ -598,6 +598,64 @@ async fn pg_transaction_failure_rolls_back_prior_mutation() {
     connector.disconnect(&handle).await.unwrap();
 }
 
+/// Parameterized transaction execution must apply the active query schema search path
+/// so staged mutations (e.g., TableMutationExecution) on non-public schemas resolve tables
+/// without needing explicit schema qualification.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_parameterized_transaction_respects_active_schema_search_path() {
+    let (connector, handle) = setup().await;
+
+    let schema = format!("pg_param_tx_schema_{}", uuid::Uuid::new_v4().simple());
+    connector
+        .execute(&handle, &format!("CREATE SCHEMA \"{schema}\""), &[])
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            &format!("CREATE TABLE \"{schema}\".\"items\" (id INT PRIMARY KEY, name TEXT)"),
+            &[],
+        )
+        .await
+        .unwrap();
+
+    db_pro_core::application::with_query_schema(Some(&schema), async {
+        let results = connector
+            .execute_parameterized_transaction(
+                &handle,
+                &[db_pro_core::ports::ParameterizedTransactionStatement {
+                    sql: "INSERT INTO \"items\" (id, name) VALUES ($1, $2)".into(),
+                    params: vec![QueryParam::Int64(100), QueryParam::Text("Widget".into())],
+                    expect_affected_rows: true,
+                    max_affected_rows: Some(1),
+                }],
+            )
+            .await
+            .expect("parameterized transaction should resolve table via active schema search path");
+
+        assert_eq!(results.len(), 1);
+    })
+    .await;
+
+    let query_res = connector
+        .query(
+            &handle,
+            &format!("SELECT name FROM \"{schema}\".\"items\" WHERE id = 100"),
+            &[],
+        )
+        .await
+        .unwrap();
+    assert_eq!(query_res.row_count, 1);
+    assert!(matches!(&query_res.rows[0].0[0], CellValue::Text(name) if name == "Widget"));
+
+    connector
+        .execute(&handle, &format!("DROP SCHEMA \"{schema}\" CASCADE"), &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
 /// Core transaction contract: timeout after a mutation must roll back before
 /// the connector returns and leave the pool usable for a subsequent query.
 #[tokio::test]

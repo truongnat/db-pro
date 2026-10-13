@@ -12,7 +12,7 @@ pub fn active_query_schema() -> Option<String> {
     ACTIVE_QUERY_SCHEMA.try_with(|schema| schema.clone()).ok()
 }
 
-pub(crate) async fn with_query_schema<T>(schema: Option<&str>, fut: impl std::future::Future<Output = T>) -> T {
+pub async fn with_query_schema<T>(schema: Option<&str>, fut: impl std::future::Future<Output = T>) -> T {
     match schema.map(str::trim).filter(|value| !value.is_empty()) {
         Some(schema) => ACTIVE_QUERY_SCHEMA.scope(schema.to_owned(), fut).await,
         None => fut.await,

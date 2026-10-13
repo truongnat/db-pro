@@ -555,6 +555,16 @@ impl DbConnector for PostgresConnector {
                     });
                 }
             };
+        if let Err(error) = super::search_path::set_local_search_path(&mut tx).await {
+            let _ = tx.rollback().await;
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::RolledBack,
+                results: Vec::new(),
+                error,
+            });
+        }
         let mut results = Vec::with_capacity(statements.len());
         for (index, statement) in statements.iter().enumerate() {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());

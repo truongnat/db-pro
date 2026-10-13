@@ -39,7 +39,7 @@ pub use json_excel_transfer::{ExcelFileTarget, JsonlFileSource, JsonlFileTarget}
 pub use migration_planner::MigrationPlanner;
 pub use monitoring_service::MonitoringService;
 pub use object_mutation_service::ObjectMutationService;
-pub use query_schema::active_query_schema;
+pub use query_schema::{active_query_schema, with_query_schema};
 pub use query_service::{MultiQueryError, MultiQueryResult, QueryService, StatementResultKind};
 pub use registry::ConnectionRegistry;
 pub use rls_service::RlsService;
