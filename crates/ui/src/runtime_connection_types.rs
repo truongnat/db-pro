@@ -96,10 +96,9 @@ impl Default for UiConnectionDraft {
             username,
             password,
             driver: UiDriver::Postgres,
-            // #144: new PostgreSQL connections default to TLS Require. Do not change
-            // the Rust `SslMode::default()` / serde fallback — persisted records that
-            // omit the field must keep decoding as Disable.
-            ssl_mode: UiSslMode::Require,
+            // New connections default to TLS disabled — users opt into
+            // Require/Verify explicitly for hosts that need it.
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
             // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
             group: String::new(),

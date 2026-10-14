@@ -145,15 +145,15 @@ fn test_driver_switching_and_default_ports() {
     let mut draft = UiConnectionDraft::default();
     select_driver(&mut draft, UiDriver::Postgres);
     assert_eq!(draft.port, "5432");
-    assert_eq!(draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
 
     select_driver(&mut draft, UiDriver::Mysql);
     assert_eq!(draft.port, "3306");
-    assert_eq!(draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
 
     select_driver(&mut draft, UiDriver::SqlServer);
     assert_eq!(draft.port, "1433");
-    assert_eq!(draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
 }
 
 #[test]

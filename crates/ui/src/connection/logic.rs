@@ -39,19 +39,19 @@ pub fn select_driver(draft: &mut UiConnectionDraft, driver: UiDriver) {
     if driver != draft.driver {
         match driver {
             UiDriver::Postgres => {
-                draft.ssl_mode = UiSslMode::Require;
+                draft.ssl_mode = UiSslMode::Disable;
                 if draft.port == "3306" || draft.port == "1433" || draft.port.is_empty() {
                     draft.port = "5432".to_owned();
                 }
             }
             UiDriver::Mysql => {
-                draft.ssl_mode = UiSslMode::Require;
+                draft.ssl_mode = UiSslMode::Disable;
                 if draft.port == "5432" || draft.port == "1433" || draft.port.is_empty() {
                     draft.port = "3306".to_owned();
                 }
             }
             UiDriver::SqlServer => {
-                draft.ssl_mode = UiSslMode::Require;
+                draft.ssl_mode = UiSslMode::Disable;
                 if draft.port == "5432" || draft.port == "3306" || draft.port.is_empty() {
                     draft.port = "1433".to_owned();
                 }

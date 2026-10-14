@@ -61,7 +61,7 @@ mod tests {
 
         assert_eq!(draft.port, "5432");
         assert_eq!(draft.driver, UiDriver::Postgres);
-        assert_eq!(draft.ssl_mode, UiSslMode::Require);
+        assert_eq!(draft.ssl_mode, UiSslMode::Disable);
         assert!(!draft.readonly);
         assert!(!draft.ssh_tunnel_enabled);
         assert_eq!(draft.ssh_port, "22");
