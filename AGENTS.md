@@ -211,7 +211,7 @@ Rules:
 ## Rust quality gates
 
 ```bash
-cargo fmt --all -- --check
+cargo +nightly fmt --all -- --check
 cargo check --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
