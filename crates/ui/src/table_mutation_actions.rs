@@ -47,7 +47,7 @@ impl DbProApp {
         let info = self.table.state.table_info.as_ref();
         let identity = info.and_then(|info| {
             TableDataState::identity_key(info, self.table.data.manual_row_identity.as_deref())
-                .map(|key| key.columns)
+                .map(|key| key.into_columns())
         });
         table_editor_context::result_edit_reason(
             self.edit_surface(),

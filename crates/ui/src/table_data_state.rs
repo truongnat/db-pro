@@ -38,6 +38,12 @@ pub(crate) struct IdentityKey {
     primary: bool,
 }
 
+impl IdentityKey {
+    pub(crate) fn into_columns(self) -> Vec<String> {
+        self.columns
+    }
+}
+
 impl TableDataState {
     pub(crate) fn column_order_for_columns(&mut self, columns: &[crate::UiColumn]) -> Vec<usize> {
         let count = columns.len();
