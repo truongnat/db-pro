@@ -409,7 +409,7 @@ impl DbProTheme {
     }
 
     pub fn apply(self, ctx: &egui::Context) {
-        crate::text_selection_style::install(ctx);
+        text_selection_style::install(ctx);
         let mut visuals = if self.dark_mode {
             Visuals::dark()
         } else {

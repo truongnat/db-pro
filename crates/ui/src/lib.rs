@@ -19,13 +19,7 @@ mod runtime;
 #[cfg(test)]
 #[path = "app/test_frame.rs"]
 pub(crate) mod test_frame;
-mod text_selection_style {
-    pub(crate) use crate::theme::text_selection_style::*;
-}
 mod theme;
-pub mod tokens {
-    pub use crate::theme::tokens::*;
-}
 
 pub use agent::{
     respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
@@ -58,4 +52,5 @@ pub use runtime::{
     UiStatementOutput, UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator,
     UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
+pub use theme::tokens;
 pub use theme::DbProTheme;
