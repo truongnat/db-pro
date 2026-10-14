@@ -1,6 +1,7 @@
 //! Native sidebar chrome: connection launcher and primary query action.
 use super::*;
 use egui::{vec2, Align2, CornerRadius, Pos2, Rect, Sense};
+use crate::components::feedback::{KBD_COMBO_GAP, KBD_FONT_SIZE, KBD_PAD_X, KBD_PAD_Y};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,15 +28,22 @@ impl SidebarChromeContext<'_> {
     }
 
     fn draw_connection_launcher(&self, ui: &mut egui::Ui) -> Vec<SidebarChromeAction> {
+        /// IconSm button (26) plus the XS gap reserve — slot stays fixed so the
+        /// selector never jumps when the sidebar resizes.
         const PLUS_SLOT_W: f32 = 28.0;
-        const SELECTOR_H: f32 = 24.0;
-        const SEARCH_SLOT_W: f32 = 18.0;
+        /// Selector strip height: one text line at BODY_SM in a compact rail.
+        const SELECTOR_H: f32 = SPACE_2XL;
+        /// Right-side search glyph slot.
+        const SEARCH_SLOT_W: f32 = SPACE_LG + SPACE_XXS;
+        /// Below this width the label would show a single glyph + ellipsis;
+        /// collapsing further is unreadable, so the floor wins over shrinking.
+        const MIN_SELECTOR_W: f32 = SPACE_6XL + SPACE_SM;
 
         let mut actions = Vec::new();
         ui.add_space(SPACE_SM);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
-            let selector_w = (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
+            let selector_w = (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(MIN_SELECTOR_W);
             let (selector_rect, selector_response) =
                 ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
             selector_response.widget_info(|| {
@@ -87,7 +95,7 @@ impl SidebarChromeContext<'_> {
             font_icon(ICON_XS),
             self.theme.text_secondary,
         );
-        let name_max = (selector_rect.width() - SPACE_XS * 2.0 - search_slot_width - SPACE_XS).max(24.0);
+        let name_max = (selector_rect.width() - SPACE_XS * 2.0 - search_slot_width - SPACE_XS).max(SPACE_2XL);
         let name_galley = ui.painter().layout_job({
             let mut job = egui::text::LayoutJob::single_section(
                 self.active_name.to_owned(),
@@ -167,7 +175,7 @@ impl SidebarChromeContext<'_> {
             self.theme.text_primary,
         );
         ui.painter().text(
-            Pos2::new(left_center.x + SPACE_LG + 2.0, left_center.y),
+            Pos2::new(left_center.x + SPACE_LG + SPACE_XXS, left_center.y),
             Align2::LEFT_CENTER,
             t!("sidebar.new_query").as_ref(),
             font_caption(),
@@ -183,15 +191,17 @@ impl SidebarChromeContext<'_> {
             return;
         }
         let painter = ui.painter();
-        let font = egui::FontId::monospace(10.5);
-        let chip_pad_x = 5.0;
-        let chip_pad_y = 2.0;
-        let plus_gap = 2.0;
+        // Same visual contract as `kbd_badge`/`kbd_combo` (feedback/config.rs):
+        // medium ui font at KBD size, symmetric padding, `+` separator.
+        let font = DbProTheme::ui_medium_font(KBD_FONT_SIZE);
+        let chip_pad_x = KBD_PAD_X;
+        let chip_pad_y = KBD_PAD_Y;
+        let plus_gap = KBD_COMBO_GAP;
         let galleys: Vec<_> = parts
             .iter()
             .map(|part| painter.layout_no_wrap(part.clone(), font.clone(), theme.text_muted))
             .collect();
-        let plus_galley = painter.layout_no_wrap("+".to_owned(), font, theme.text_muted);
+        let plus_galley = painter.layout_no_wrap("+".to_owned(), font.clone(), theme.text_muted);
         let mut total_w = galleys
             .iter()
             .map(|galley| chip_pad_x * 2.0 + galley.size().x)
@@ -213,7 +223,7 @@ impl SidebarChromeContext<'_> {
             let chip_w = galley.size().x + chip_pad_x * 2.0;
             let chip_h = galley.size().y + chip_pad_y * 2.0;
             let chip = Rect::from_min_size(Pos2::new(x, center_y - chip_h * 0.5), vec2(chip_w, chip_h));
-            painter.rect_filled(chip, CornerRadius::same(4.0 as u8), theme.surface_hover);
+            painter.rect_filled(chip, CornerRadius::same(RADIUS_XS as u8), theme.surface_hover);
             painter.galley(
                 Pos2::new(chip.left() + chip_pad_x, center_y - galley.size().y * 0.5),
                 std::sync::Arc::clone(galley),
