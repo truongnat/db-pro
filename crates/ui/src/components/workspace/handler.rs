@@ -1,4 +1,3 @@
-use crate::tokens::SPACE_MD;
 use egui::{Pos2, Rect, Vec2};
 use lucide_icons::Icon;
 
@@ -7,6 +6,7 @@ use super::config::{
     ACTIVITY_ITEM_SIZE, ACTIVITY_ITEM_STEP, LATENCY_WARNING_THRESHOLD_MS, STATUS_BAR_ICON_SLOT_WIDTH,
     STATUS_TEXT_VERTICAL_CENTER_FACTOR,
 };
+use crate::tokens::SPACE_MD;
 
 /// Top-level workspace destinations shown by the activity bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

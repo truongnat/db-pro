@@ -1,5 +1,6 @@
-use crate::{UiCell, UiQueryResult};
 use std::collections::HashMap;
+
+use crate::{UiCell, UiQueryResult};
 
 pub fn displayed_row_number(offset: u64, row_index: usize) -> u64 {
     offset.saturating_add(row_index as u64).saturating_add(1)
@@ -47,8 +48,9 @@ pub fn grid_keyboard_selection(
     }
 }
 
-use bigdecimal::BigDecimal;
 use std::cmp::Ordering;
+
+use bigdecimal::BigDecimal;
 
 /// Parsed once per sorted cell. The comparator then compares these keys and
 /// only falls back to the original text when the two cells are not the same type.

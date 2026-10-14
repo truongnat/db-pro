@@ -1,14 +1,13 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::tokens::font_icon;
-use crate::DbProTheme;
 use egui::{
     Align2, CornerRadius, FontId, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
 };
 use lucide_icons::Icon;
 
 use super::{config, handler, AgentPlan, AgentSqlActionKind, AgentTaskItem};
+use crate::{tokens::font_icon, DbProTheme};
 
 pub struct AgentThinking<'a> {
     thought: &'a str,

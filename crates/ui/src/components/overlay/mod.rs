@@ -6,17 +6,15 @@ mod ui;
 
 pub use toast::{Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant};
 pub use tooltip::{Tooltip, TooltipPosition};
+pub(crate) use ui::screen_rect;
 pub use ui::{
     context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
     FloatingPopup, Popover,
 };
 
-pub(crate) use ui::screen_rect;
-
 #[cfg(test)]
 mod tests {
-    use super::handler::should_close_on_outside_click;
-    use super::ui::context_action_menu;
+    use super::{handler::should_close_on_outside_click, ui::context_action_menu};
     use crate::DbProTheme;
 
     #[test]

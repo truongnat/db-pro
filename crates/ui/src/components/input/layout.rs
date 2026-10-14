@@ -1,15 +1,17 @@
-use super::config::INPUT_MIN_WIDTH;
-use crate::components::animation::{hover_t, lerp_color};
-use crate::tokens::component::input::{
-    resolve_chrome, FieldChrome, BORDER_STROKE_WIDTH, ERROR_STROKE_WIDTH, FOCUS_STROKE_WIDTH,
-};
-use crate::tokens::RADIUS_INPUT;
-use crate::DbProTheme;
 use egui::{CornerRadius, Id, Rect, Stroke, Ui};
 
+use super::config::INPUT_MIN_WIDTH;
 // The state struct is owned by the input contract; re-exported here so the
 // input module keeps constructing field state through this module.
 pub(crate) use crate::tokens::component::input::FieldChromeState;
+use crate::{
+    components::animation::{hover_t, lerp_color},
+    tokens::{
+        component::input::{resolve_chrome, FieldChrome, BORDER_STROKE_WIDTH, ERROR_STROKE_WIDTH, FOCUS_STROKE_WIDTH},
+        RADIUS_INPUT,
+    },
+    DbProTheme,
+};
 
 /// Fields fill their container by default. Requested widths are capped to the available
 /// space; the preferred minimum only applies when the parent can accommodate it.

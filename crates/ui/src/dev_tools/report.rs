@@ -442,8 +442,10 @@ pub fn exit_code(report: &AuditReport) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use super::super::audit::{AuditIssue, AuditReport, Confidence, RuleReport, RuleStats, Severity};
-    use super::*;
+    use super::{
+        super::audit::{AuditIssue, AuditReport, Confidence, RuleReport, RuleStats, Severity},
+        *,
+    };
 
     fn issue(rule: &'static str, widget_bits: u64, other_bits: Option<u64>, sev: Severity) -> AuditIssue {
         AuditIssue {

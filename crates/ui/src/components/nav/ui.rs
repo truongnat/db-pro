@@ -1,20 +1,22 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::interact::paint_focus_ring;
-use crate::DbProTheme;
 use egui::{Align2, CornerRadius, FontFamily, FontId, Response, RichText, Sense, Stroke, Ui, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 
-use super::config::{
-    BREADCRUMB_CHEVRON_SIZE, BREADCRUMB_TEXT_SIZE, BREADCRUMB_UNDERLINE_INSET, BREADCRUMB_UNDERLINE_THICKNESS,
-    PAGE_BUTTON_ICON_SIZE, PAGE_BUTTON_RADIUS, PAGE_HEADER_DESCRIPTION_SIZE, PAGE_HEADER_GAP, PAGE_HEADER_TITLE_SIZE,
-    PAGE_LABEL_FONT_SIZE, SECTION_HEADER_DESCRIPTION_SIZE, SECTION_HEADER_GAP, SECTION_HEADER_TITLE_SIZE,
+use super::{
+    config::{
+        BREADCRUMB_CHEVRON_SIZE, BREADCRUMB_TEXT_SIZE, BREADCRUMB_UNDERLINE_INSET, BREADCRUMB_UNDERLINE_THICKNESS,
+        PAGE_BUTTON_ICON_SIZE, PAGE_BUTTON_RADIUS, PAGE_HEADER_DESCRIPTION_SIZE, PAGE_HEADER_GAP,
+        PAGE_HEADER_TITLE_SIZE, PAGE_LABEL_FONT_SIZE, SECTION_HEADER_DESCRIPTION_SIZE, SECTION_HEADER_GAP,
+        SECTION_HEADER_TITLE_SIZE,
+    },
+    handler::{
+        breadcrumb_item_color, can_navigate_next, can_navigate_prev, clamp_page, format_page_label, next_page,
+        page_button_accessible_label, page_button_colors, prev_page,
+    },
 };
-use super::handler::{
-    breadcrumb_item_color, can_navigate_next, can_navigate_prev, clamp_page, format_page_label, next_page,
-    page_button_accessible_label, page_button_colors, prev_page,
-};
+use crate::{components::interact::paint_focus_ring, DbProTheme};
 
 /// Controls navigation between numbered pages of items.
 pub struct Pagination<'a> {

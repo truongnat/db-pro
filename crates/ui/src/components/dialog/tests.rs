@@ -1,5 +1,4 @@
-use super::config::*;
-use super::layout::screen_rect_fallback;
+use super::{config::*, layout::screen_rect_fallback};
 
 #[test]
 fn dialog_constants_follow_design_tokens() {

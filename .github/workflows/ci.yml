@@ -115,8 +115,15 @@ jobs:
       - name: Native UI architecture boundary
         run: bash scripts/check-ui-architecture.sh
 
+      - name: Nightly rustfmt
+        # rustfmt.toml uses unstable options (imports_granularity,
+        # group_imports) — the fmt gate below runs on nightly.
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
       - name: cargo fmt
-        run: cargo fmt --all --check
+        run: cargo +nightly fmt --all --check
 
       - name: cargo clippy
         run: cargo clippy --all -- -D warnings

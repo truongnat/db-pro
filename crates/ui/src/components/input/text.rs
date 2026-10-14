@@ -1,19 +1,24 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
+use std::borrow::Cow;
+
 use egui::{
     CornerRadius, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Sense, Stroke, TextEdit, Ui, Vec2,
 };
 use lucide_icons::Icon;
-use std::borrow::Cow;
 
-use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE};
-use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
-use crate::components::interact::{button_info, text_input_info};
-use crate::tokens::component::input::INPUT_HEIGHT_DEFAULT;
-use crate::tokens::LABEL_HELPER_GAP;
-use crate::tokens::{RADIUS_INPUT, SPACE_SM, SPACE_XS};
-use crate::DbProTheme;
+use crate::{
+    components::{
+        input::{
+            config::{INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE},
+            layout::{paint_field_chrome, resolve_field_width, FieldChromeState},
+        },
+        interact::{button_info, text_input_info},
+    },
+    tokens::{component::input::INPUT_HEIGHT_DEFAULT, LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM, SPACE_XS},
+    DbProTheme,
+};
 
 pub struct Input<'a> {
     label: Option<Cow<'a, str>>,

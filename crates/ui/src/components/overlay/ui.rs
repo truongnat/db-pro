@@ -1,9 +1,6 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::animation::{fade_alpha, overlay_t, small_translate};
-use crate::components::feedback::kbd_badge;
-use crate::DbProTheme;
 use egui::{
     Align2, Area, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Order, Pos2, Rect, Response, Sense, Stroke,
     Ui, Vec2,
@@ -11,6 +8,13 @@ use egui::{
 use lucide_icons::Icon;
 
 use super::{config, handler};
+use crate::{
+    components::{
+        animation::{fade_alpha, overlay_t, small_translate},
+        feedback::kbd_badge,
+    },
+    DbProTheme,
+};
 
 pub fn floating_surface(theme: DbProTheme, corner_radius: f32, margin: Margin) -> Frame {
     Frame {

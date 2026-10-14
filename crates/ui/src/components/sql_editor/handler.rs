@@ -1,5 +1,6 @@
-use crate::components::button::ButtonVariant;
 use lucide_icons::Icon;
+
+use crate::components::button::ButtonVariant;
 
 /// Actions that can be triggered from the SQL Editor toolbar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

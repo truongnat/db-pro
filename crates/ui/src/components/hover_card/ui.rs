@@ -1,9 +1,12 @@
-use super::config::{DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY, DEFAULT_WIDTH, FRAME_INNER_MARGIN, FRAME_ROUNDING};
-use super::handler::{
-    calculate_card_position, clamp_card_width, compute_open_state, escape_dismissed, sanitize_delay, timer_duration,
+use egui::{Area, CornerRadius, Frame, Margin, Order, Response, ScrollArea, Stroke, Ui};
+
+use super::{
+    config::{DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY, DEFAULT_WIDTH, FRAME_INNER_MARGIN, FRAME_ROUNDING},
+    handler::{
+        calculate_card_position, clamp_card_width, compute_open_state, escape_dismissed, sanitize_delay, timer_duration,
+    },
 };
 use crate::DbProTheme;
-use egui::{Area, CornerRadius, Frame, Margin, Order, Response, ScrollArea, Stroke, Ui};
 
 pub struct HoverCard<'a> {
     id: &'a str,
@@ -181,8 +184,9 @@ impl<'a> HoverCard<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use egui::{Button, CentralPanel, Context, Event, Key, Pos2, RawInput, Rect, Vec2};
+
+    use super::*;
 
     const SCREEN_SIZE: Vec2 = Vec2::new(800.0, 600.0);
 

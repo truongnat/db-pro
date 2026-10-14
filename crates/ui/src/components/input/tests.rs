@@ -1,8 +1,7 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config::INPUT_MIN_WIDTH;
-use super::layout::resolve_field_width;
+use super::{config::INPUT_MIN_WIDTH, layout::resolve_field_width};
 
 #[test]
 fn fills_available_width_when_unrequested() {
@@ -33,9 +32,9 @@ fn input_field_receives_click_when_clicked() {
     // you click and a double-click never selects text. We assert the `TextEdit`'s own `clicked()`
     // (not just focus, which the buggy block faked via `request_focus()`), so the test fails when
     // the frame swallows the pointer.
-    use crate::components::Input;
-    use crate::DbProTheme;
     use egui::{CentralPanel, Context, Event, Modifiers, PointerButton, Pos2, RawInput, Rect, Vec2};
+
+    use crate::{components::Input, DbProTheme};
 
     let ctx = Context::default();
     DbProTheme::install_fonts(&ctx);
@@ -91,9 +90,10 @@ fn input_field_receives_click_when_clicked() {
 
 #[test]
 fn auto_focus_requests_once_without_stealing_later_focus() {
+    use egui::{CentralPanel, Context, Pos2, RawInput, Rect, Vec2};
+
     use super::Input;
     use crate::DbProTheme;
-    use egui::{CentralPanel, Context, Pos2, RawInput, Rect, Vec2};
 
     let ctx = Context::default();
     DbProTheme::install_fonts(&ctx);
@@ -141,9 +141,10 @@ fn auto_focus_requests_once_without_stealing_later_focus() {
 
 #[test]
 fn tab_moves_between_single_line_inputs() {
+    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
+
     use super::Input;
     use crate::DbProTheme;
-    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
 
     let ctx = Context::default();
     DbProTheme::install_fonts(&ctx);
@@ -211,9 +212,10 @@ fn tab_moves_between_single_line_inputs() {
 
 #[test]
 fn tab_moves_between_inputs_in_horizontal_form_row() {
+    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
+
     use super::Input;
     use crate::DbProTheme;
-    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
 
     let ctx = Context::default();
     DbProTheme::install_fonts(&ctx);
@@ -292,9 +294,10 @@ fn tab_moves_between_inputs_in_horizontal_form_row() {
 
 #[test]
 fn tab_follows_row_order_across_form_columns() {
+    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Response, Vec2};
+
     use super::Input;
     use crate::DbProTheme;
-    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Response, Vec2};
 
     fn show_form(
         ctx: &Context,
@@ -400,9 +403,10 @@ fn password_eye_toggles_when_clicked() {
     // button never fires — the password stays masked even when toggled. We sweep a few candidate
     // points over the eye region: under the fix exactly the eye point flips `show_password`; under
     // the bug the frame swallows every click in the frame and nothing toggles.
+    use egui::{CentralPanel, Context, Event, Modifiers, PointerButton, Pos2, RawInput, Rect, Vec2};
+
     use super::PasswordInput;
     use crate::DbProTheme;
-    use egui::{CentralPanel, Context, Event, Modifiers, PointerButton, Pos2, RawInput, Rect, Vec2};
 
     let ctx = Context::default();
     DbProTheme::install_fonts(&ctx);
@@ -470,9 +474,12 @@ fn password_eye_toggles_when_clicked() {
 
 #[test]
 fn standard_field_geometry_is_independent_of_parent_spacing_and_accessories() {
-    use crate::components::{Input, PasswordInput, Select};
-    use crate::DbProTheme;
     use egui::{CentralPanel, Context, RawInput, Shape};
+
+    use crate::{
+        components::{Input, PasswordInput, Select},
+        DbProTheme,
+    };
 
     for gap in [0.0, 8.0, 16.0] {
         for control in ["input", "clearable", "disabled-clearable", "password", "select"] {

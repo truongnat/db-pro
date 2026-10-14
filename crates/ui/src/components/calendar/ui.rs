@@ -1,19 +1,23 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config;
-use super::handler::{
-    date_picker_popup_open, day_of_week, days_in_month, next_month, previous_month, should_activate_focused_control,
-};
-use crate::components::animation::hover_t;
-use crate::components::clamp_popup_to_screen;
-use crate::DbProTheme;
 use chrono::{Datelike, Local};
 use egui::{
     Align2, CornerRadius, FontFamily, FontId, Frame, Layout, Margin, Order, Pos2, Rect, Response, RichText, Sense,
     Stroke, Ui, Vec2, WidgetInfo, WidgetType,
 };
 use lucide_icons::Icon;
+
+use super::{
+    config,
+    handler::{
+        date_picker_popup_open, day_of_week, days_in_month, next_month, previous_month, should_activate_focused_control,
+    },
+};
+use crate::{
+    components::{animation::hover_t, clamp_popup_to_screen},
+    DbProTheme,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SimpleDate {

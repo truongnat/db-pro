@@ -27,8 +27,6 @@ pub mod tokens {
     pub use crate::theme::tokens::*;
 }
 
-pub use i18n::UiLanguage;
-
 pub use agent::{
     respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
     AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
@@ -46,6 +44,7 @@ pub use components::{
     progress_bar, secondary_button, secondary_button_with_icon, section_label, segmented_control, sidebar_frame,
     sidebar_item, skeleton, spinner, status_dot, switch, tab_button, tab_frame, tag_chip, toast, toolbar_frame,
 };
+pub use i18n::UiLanguage;
 pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
 pub use result_grid::{
     cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes, grid_column_window,

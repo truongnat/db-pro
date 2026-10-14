@@ -1,7 +1,8 @@
 //! Sizing and layout configuration for SqlEditorToolbar.
 
-use crate::tokens::{RADIUS_MD, SPACE_SM, SPACE_XS};
 use egui::{CornerRadius, Margin};
+
+use crate::tokens::{RADIUS_MD, SPACE_SM, SPACE_XS};
 
 /// Inner margin for the toolbar panel frame.
 pub const TOOLBAR_MARGIN: Margin = Margin {

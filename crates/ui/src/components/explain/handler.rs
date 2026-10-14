@@ -1,4 +1,3 @@
-use crate::DbProTheme;
 use egui::Color32;
 use lucide_icons::Icon;
 
@@ -6,6 +5,7 @@ use super::config::{
     EXPLAIN_HOTSPOT_RATIO, EXPLAIN_MIN_BAR_RATIO, EXPLAIN_ROW_SKEW_MAX_RATIO, EXPLAIN_ROW_SKEW_MIN_RATIO,
     EXPLAIN_WARNING_RATIO,
 };
+use crate::DbProTheme;
 
 #[derive(Debug, Clone)]
 pub struct PlanNode {

@@ -1,11 +1,16 @@
 //! Shared visual language for collapsible and accordion disclosures.
 
-use crate::components::animation::{hover_t, lerp_color};
-use crate::components::interact::paint_focus_ring;
-use crate::tokens::{font_icon, ICON_SM, RADIUS_SM};
-use crate::DbProTheme;
 use egui::{Align2, Color32, Id, Pos2, Response, Ui};
 use lucide_icons::Icon;
+
+use crate::{
+    components::{
+        animation::{hover_t, lerp_color},
+        interact::paint_focus_ring,
+    },
+    tokens::{font_icon, ICON_SM, RADIUS_SM},
+    DbProTheme,
+};
 
 pub(crate) const HEADER_HEIGHT: f32 = 32.0;
 pub(crate) const CONTENT_MARGIN: egui::Margin = egui::Margin {

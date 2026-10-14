@@ -1,9 +1,14 @@
-use super::model::{ErGraph, ErGridSpec};
-use super::spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE};
+use std::{
+    sync::mpsc::{self, Receiver, Sender, TryRecvError},
+    thread,
+    time::Instant,
+};
+
+use super::{
+    model::{ErGraph, ErGridSpec},
+    spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE},
+};
 use crate::runtime::UiTableSummary;
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
-use std::thread;
-use std::time::Instant;
 
 /// Maximum number of in-flight coalesced requests the worker will drain
 /// before processing. Prevents unbounded memory growth under rapid refresh.

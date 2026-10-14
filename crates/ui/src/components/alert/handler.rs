@@ -1,10 +1,10 @@
 //! Typed alert variant and dialog interaction decisions.
 
-use crate::DbProTheme;
 use egui::Color32;
 use lucide_icons::Icon;
 
 use super::{config, AlertDialogAction, AlertVariant};
+use crate::DbProTheme;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AlertStyle {

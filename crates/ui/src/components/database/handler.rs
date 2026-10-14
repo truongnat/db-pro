@@ -1,6 +1,7 @@
-use crate::DbProTheme;
 use egui::Color32;
 use lucide_icons::Icon;
+
+use crate::DbProTheme;
 
 /// Database provider represented by a connection card.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

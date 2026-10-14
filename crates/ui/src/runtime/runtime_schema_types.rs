@@ -1,7 +1,6 @@
 //! Schema and table-facing UI runtime models.
 
-use super::runtime_connection_types::UiSslMode;
-use super::runtime_query_types::UiCell;
+use super::{runtime_connection_types::UiSslMode, runtime_query_types::UiCell};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UiSchemaSummary {

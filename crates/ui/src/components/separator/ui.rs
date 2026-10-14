@@ -1,15 +1,16 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::DbProTheme;
 use egui::{FontId, Response, Sense, Stroke, Ui, WidgetInfo, WidgetType};
 
-use super::config::{DEFAULT_THICKNESS, DEFAULT_VERTICAL_MARGIN, LABEL_FONT_SIZE};
-use super::handler::{
-    calculate_labeled_separator_geometry, horizontal_line_segment, horizontal_size, vertical_line_segment,
-    vertical_size,
+use super::{
+    config::{DEFAULT_THICKNESS, DEFAULT_VERTICAL_MARGIN, LABEL_FONT_SIZE},
+    handler::{
+        calculate_labeled_separator_geometry, horizontal_line_segment, horizontal_size, vertical_line_segment,
+        vertical_size,
+    },
 };
-use crate::tokens::SPACE_SM;
+use crate::{tokens::SPACE_SM, DbProTheme};
 
 /// Orientation of the separator line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

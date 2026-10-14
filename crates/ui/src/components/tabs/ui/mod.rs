@@ -2,7 +2,6 @@ mod segmented;
 mod underline;
 
 use egui::{Key, Ui};
-
 pub use segmented::SegmentedTabs;
 pub use underline::UnderlineTabs;
 

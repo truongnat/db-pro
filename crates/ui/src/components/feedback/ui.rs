@@ -1,9 +1,11 @@
-use super::config::*;
-use super::handler::*;
-use crate::components::animation;
-use crate::tokens::{RADIUS_XS, STROKE_THICK, STROKE_THIN};
-use crate::DbProTheme;
 use egui::{Color32, CornerRadius, Frame, Margin, Pos2, Rect, RichText, Stroke, Ui, Vec2};
+
+use super::{config::*, handler::*};
+use crate::{
+    components::animation,
+    tokens::{RADIUS_XS, STROKE_THICK, STROKE_THIN},
+    DbProTheme,
+};
 
 pub struct Progress {
     pub(crate) fraction: f32, // 0.0 to 1.0

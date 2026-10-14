@@ -6,9 +6,8 @@ mod ui;
 
 pub use approval_ui::ExecutionApproval;
 pub use disclosure_ui::AgentThinking;
-pub use ui::{ContextChip, StatusBadge, ToolCall};
-
 use lucide_icons::Icon;
+pub use ui::{ContextChip, StatusBadge, ToolCall};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContextChipKind {

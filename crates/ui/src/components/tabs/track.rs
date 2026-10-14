@@ -3,11 +3,12 @@
 //! Animates in **track-local** coordinates so a parent panel shift (sidebar
 //! resize) does not look like a selection change.
 
+use egui::{Rect, Vec2};
+
 use super::config::{
     TAB_REPAINT_INTERVAL_MS, TAB_TRANSITION_SECS, UNDERLINE_INDICATOR_HEIGHT, UNDERLINE_INDICATOR_INSET_X,
     UNDERLINE_INDICATOR_MIN_WIDTH,
 };
-use egui::{Rect, Vec2};
 
 pub(super) struct TabTrackerAnimation;
 

@@ -1,12 +1,18 @@
-use super::config::{
-    BADGE_TEXT_OFFSET_X, BADGE_TEXT_OFFSET_Y, CHEVRON_ADVANCE, HEADER_PAD_LEFT, HEADER_TITLE_FONT_SIZE, ICON_ADVANCE,
-};
-use super::handler::{apply_header_click, calculate_badge_rect};
-use crate::components::disclosure;
-use crate::tokens::{font_icon, FONT_SIZE_BADGE, ICON_SM, ICON_TEXT_GAP, RADIUS_MD};
-use crate::DbProTheme;
 use egui::{Align2, CornerRadius, FontId, Id, Pos2, Rect, Response, Sense, Ui, Vec2, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
+
+use super::{
+    config::{
+        BADGE_TEXT_OFFSET_X, BADGE_TEXT_OFFSET_Y, CHEVRON_ADVANCE, HEADER_PAD_LEFT, HEADER_TITLE_FONT_SIZE,
+        ICON_ADVANCE,
+    },
+    handler::{apply_header_click, calculate_badge_rect},
+};
+use crate::{
+    components::disclosure,
+    tokens::{font_icon, FONT_SIZE_BADGE, ICON_SM, ICON_TEXT_GAP, RADIUS_MD},
+    DbProTheme,
+};
 
 /// An interactive disclosure widget that reveals or conceals custom nested content.
 pub struct Collapsible<'a> {

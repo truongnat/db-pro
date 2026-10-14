@@ -1,19 +1,23 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::animation::{hover_t, lerp_color, overlay_t, OVERLAY_DURATION_SECS};
-use crate::DbProTheme;
 use egui::{Align2, Color32, CornerRadius, FontFamily, FontId, Id, Response, Sense, Ui, Vec2};
 
-use super::config::{
-    CHEVRON_ANIMATION_ID_SALT, CHEVRON_ICON_FONT_SIZE, CHILDREN_HEIGHT_ID_SALT, DETAIL_FONT_SIZE,
-    HOVER_ANIMATION_ID_SALT, LABEL_FONT_SIZE, NODE_ICON_FONT_SIZE, ROW_HEIGHT, ROW_ROUNDING, SELECTED_ACCENT_ROUNDING,
-    SELECTED_ACCENT_WIDTH,
+use super::{
+    config::{
+        CHEVRON_ANIMATION_ID_SALT, CHEVRON_ICON_FONT_SIZE, CHILDREN_HEIGHT_ID_SALT, DETAIL_FONT_SIZE,
+        HOVER_ANIMATION_ID_SALT, LABEL_FONT_SIZE, NODE_ICON_FONT_SIZE, ROW_HEIGHT, ROW_ROUNDING,
+        SELECTED_ACCENT_ROUNDING, SELECTED_ACCENT_WIDTH,
+    },
+    handler::{
+        chevron_color, chevron_icon_layers, child_clip_rect, hover_animation_enabled, icon_color, label_color,
+        measured_child_height, reveal_clip, row_background, row_height, row_layout, should_toggle_expanded,
+        RowBackground, TreeNodeKind,
+    },
 };
-use super::handler::{
-    chevron_color, chevron_icon_layers, child_clip_rect, hover_animation_enabled, icon_color, label_color,
-    measured_child_height, reveal_clip, row_background, row_height, row_layout, should_toggle_expanded, RowBackground,
-    TreeNodeKind,
+use crate::{
+    components::animation::{hover_t, lerp_color, overlay_t, OVERLAY_DURATION_SECS},
+    DbProTheme,
 };
 
 pub struct DatabaseTreeNode<'a> {

@@ -3,11 +3,17 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use egui::{Align, CornerRadius, Frame, Margin, Response, RichText, Stroke, TextEdit, Ui};
 
-use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_LABEL_FONT_SIZE, TEXTAREA_INNER_MARGIN_Y};
-use crate::components::input::layout::{paint_field_chrome, FieldChromeState};
-use crate::components::interact::text_input_info;
-use crate::tokens::{LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM};
-use crate::DbProTheme;
+use crate::{
+    components::{
+        input::{
+            config::{INPUT_AUX_FONT_SIZE, INPUT_LABEL_FONT_SIZE, TEXTAREA_INNER_MARGIN_Y},
+            layout::{paint_field_chrome, FieldChromeState},
+        },
+        interact::text_input_info,
+    },
+    tokens::{LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM},
+    DbProTheme,
+};
 
 pub struct Textarea<'a> {
     label: Option<&'a str>,

@@ -1,5 +1,6 @@
-use crate::runtime::{UiSchemaForeignKey, UiTableSummary};
 use std::collections::{HashMap, HashSet, VecDeque};
+
+use crate::runtime::{UiSchemaForeignKey, UiTableSummary};
 
 /// Canonical storage key for one table node inside a persisted layout snapshot.
 pub fn er_table_key(schema: &str, name: &str) -> String {

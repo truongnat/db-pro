@@ -1,17 +1,19 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::tokens::*;
-use crate::DbProTheme;
 use egui::{Align2, CornerRadius, Response, RichText, Sense, Stroke, Ui, Vec2};
 
-use super::config::{
-    PROGRESS_RING_INSET, PROGRESS_RING_TRACK_WIDTH, TERMINAL_DOT_RADIUS, TERMINAL_HEADER_HEIGHT,
-    TERMINAL_TITLE_LEFT_INSET, TERMINAL_TITLE_RIGHT_INSET,
+use super::{
+    config::{
+        PROGRESS_RING_INSET, PROGRESS_RING_TRACK_WIDTH, TERMINAL_DOT_RADIUS, TERMINAL_HEADER_HEIGHT,
+        TERMINAL_TITLE_LEFT_INSET, TERMINAL_TITLE_RIGHT_INSET,
+    },
+    handler::{
+        clamp_progress, mac_dot_colors, mac_dot_positions, normalize_ring_radius, progress_ring_arc_points,
+        terminal_title,
+    },
 };
-use super::handler::{
-    clamp_progress, mac_dot_colors, mac_dot_positions, normalize_ring_radius, progress_ring_arc_points, terminal_title,
-};
+use crate::{tokens::*, DbProTheme};
 
 /// Terminal-like surface for displaying command outputs, script execution results, or logs.
 pub struct TerminalBlock<'a> {

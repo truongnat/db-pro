@@ -1,14 +1,20 @@
-use super::config::{
-    CARD_FRAME_STROKE_WIDTH, CARD_HEADER_DESCRIPTION_SIZE, CARD_HEADER_TITLE_SIZE, FOOTER_SEPARATOR_SIZE,
-    METRIC_CARD_MIN_HEIGHT, METRIC_ICON_BOX_RADIUS, METRIC_ICON_BOX_SIZE, METRIC_ICON_FONT_SIZE, METRIC_TITLE_SIZE,
-    METRIC_TREND_TEXT_SIZE, METRIC_TREND_TOP_GAP, METRIC_VALUE_SIZE, METRIC_VALUE_TOP_GAP,
-};
-use super::handler::{footer_separator_segment, metric_trend_visual, trend_label_text};
-use crate::tokens::{CARD_INNER_PAD, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS};
-use crate::DbProTheme;
+use std::borrow::Cow;
+
 use egui::{CornerRadius, FontFamily, FontId, Frame, Margin, RichText, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
-use std::borrow::Cow;
+
+use super::{
+    config::{
+        CARD_FRAME_STROKE_WIDTH, CARD_HEADER_DESCRIPTION_SIZE, CARD_HEADER_TITLE_SIZE, FOOTER_SEPARATOR_SIZE,
+        METRIC_CARD_MIN_HEIGHT, METRIC_ICON_BOX_RADIUS, METRIC_ICON_BOX_SIZE, METRIC_ICON_FONT_SIZE, METRIC_TITLE_SIZE,
+        METRIC_TREND_TEXT_SIZE, METRIC_TREND_TOP_GAP, METRIC_VALUE_SIZE, METRIC_VALUE_TOP_GAP,
+    },
+    handler::{footer_separator_segment, metric_trend_visual, trend_label_text},
+};
+use crate::{
+    tokens::{CARD_INNER_PAD, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS},
+    DbProTheme,
+};
 
 pub struct Card {
     theme: DbProTheme,

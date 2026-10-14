@@ -1,15 +1,15 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::tokens::{
-    font_caption, FONT_SIZE_CAPTION, RADIUS_COMPOSER, RADIUS_XS, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN,
-};
-use crate::DbProTheme;
 use egui::{Color32, CornerRadius, Rect, RichText, Stroke, Ui, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 
 use super::{handler, AgentComposerAction, AgentMode};
+use crate::{
+    components::button::{Button, ButtonSize, ButtonVariant},
+    tokens::{font_caption, FONT_SIZE_CAPTION, RADIUS_COMPOSER, RADIUS_XS, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN},
+    DbProTheme,
+};
 
 pub struct AgentComposer<'a> {
     prompt: &'a mut String,

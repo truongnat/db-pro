@@ -21,10 +21,14 @@ pub mod screen;
 pub mod semantic;
 pub mod visual_review;
 
-use crate::dev_tools::audit::{AuditIssue, AuditReport};
-use crate::dev_tools::geometry::{is_area_layer, transform_debug, GeometrySnapshot, SelectedWidget, WidgetGeometry};
-use crate::dev_tools::semantic::{AccessKitCapture, SemanticSnapshot};
-use crate::theme::DbProTheme;
+use crate::{
+    dev_tools::{
+        audit::{AuditIssue, AuditReport},
+        geometry::{is_area_layer, transform_debug, GeometrySnapshot, SelectedWidget, WidgetGeometry},
+        semantic::{AccessKitCapture, SemanticSnapshot},
+    },
+    theme::DbProTheme,
+};
 
 /// Environment variable that opens the inspector on the first frame.
 /// Lets deterministic capture runs document the panel without input injection.

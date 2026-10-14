@@ -1,20 +1,21 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::tokens::STROKE_THIN;
-use crate::DbProTheme;
 use egui::{Color32, CornerRadius, FontId, Pos2, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 
-use super::config::{
-    DIFF_BOTTOM_PADDING_Y, DIFF_CONTENT_FONT_SIZE, DIFF_CORNER_RADIUS, DIFF_HEADER_HEIGHT,
-    DIFF_HEADER_STATS_RIGHT_INSET, DIFF_HEADER_STATS_TEXT_Y_OFFSET, DIFF_HEADER_TITLE_LEFT_INSET,
-    DIFF_HEADER_TITLE_STATS_GAP, DIFF_HEADER_TITLE_TEXT_Y_OFFSET, DIFF_LINE_HEIGHT, DIFF_LINE_NUM_FONT_SIZE,
-    DIFF_MARKER_FONT_SIZE, DIFF_ROW_TEXT_TOP_OFFSET, DIFF_STATS_FONT_SIZE, DIFF_TITLE_FONT_SIZE,
+use super::{
+    config::{
+        DIFF_BOTTOM_PADDING_Y, DIFF_CONTENT_FONT_SIZE, DIFF_CORNER_RADIUS, DIFF_HEADER_HEIGHT,
+        DIFF_HEADER_STATS_RIGHT_INSET, DIFF_HEADER_STATS_TEXT_Y_OFFSET, DIFF_HEADER_TITLE_LEFT_INSET,
+        DIFF_HEADER_TITLE_STATS_GAP, DIFF_HEADER_TITLE_TEXT_Y_OFFSET, DIFF_LINE_HEIGHT, DIFF_LINE_NUM_FONT_SIZE,
+        DIFF_MARKER_FONT_SIZE, DIFF_ROW_TEXT_TOP_OFFSET, DIFF_STATS_FONT_SIZE, DIFF_TITLE_FONT_SIZE,
+    },
+    handler::{
+        count_diff_changes, diff_content_width, diff_geometry, diff_line_visual, diff_stats_left_offset,
+        format_diff_stats, format_line_num_col, DiffLine,
+    },
 };
-use super::handler::{
-    count_diff_changes, diff_content_width, diff_geometry, diff_line_visual, diff_stats_left_offset, format_diff_stats,
-    format_line_num_col, DiffLine,
-};
+use crate::{tokens::STROKE_THIN, DbProTheme};
 
 pub struct DiffViewer<'a> {
     title: &'a str,

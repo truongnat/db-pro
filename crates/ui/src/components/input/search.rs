@@ -4,11 +4,17 @@
 use egui::{Align, CornerRadius, Frame, Layout, Margin, Response, RichText, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::components::input::config::{INPUT_ICON_SIZE, SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION};
-use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
-use crate::tokens::{FONT_SIZE_KBD, RADIUS_INPUT, SPACE_SM, SPACE_XS};
-use crate::DbProTheme;
+use crate::{
+    components::{
+        button::{Button, ButtonSize, ButtonVariant},
+        input::{
+            config::{INPUT_ICON_SIZE, SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION},
+            layout::{paint_field_chrome, resolve_field_width, FieldChromeState},
+        },
+    },
+    tokens::{FONT_SIZE_KBD, RADIUS_INPUT, SPACE_SM, SPACE_XS},
+    DbProTheme,
+};
 
 pub struct SearchInput<'a> {
     value: &'a mut String,

@@ -1,8 +1,6 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::tokens::{font_icon, RADIUS_MD, RADIUS_SM};
-use crate::DbProTheme;
 use egui::{
     Align2, Color32, CornerRadius, FontId, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo,
     WidgetType,
@@ -10,6 +8,10 @@ use egui::{
 use lucide_icons::Icon;
 
 use super::{config, handler, ContextChipKind, StatusBadgeVariant, ToolCallStatus};
+use crate::{
+    tokens::{font_icon, RADIUS_MD, RADIUS_SM},
+    DbProTheme,
+};
 
 pub struct ContextChip<'a> {
     kind: ContextChipKind,

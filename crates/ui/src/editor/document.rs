@@ -1,5 +1,7 @@
-use super::buffer::TextBuffer;
-use super::syntax::{SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
+use super::{
+    buffer::TextBuffer,
+    syntax::{SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqlStatement {

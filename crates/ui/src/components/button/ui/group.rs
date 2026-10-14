@@ -1,6 +1,6 @@
-use crate::tokens::SPACE_XS;
-use crate::DbProTheme;
 use egui::{Ui, Vec2};
+
+use crate::{tokens::SPACE_XS, DbProTheme};
 
 pub struct ButtonGroup {
     // Retained to preserve the existing constructor API.

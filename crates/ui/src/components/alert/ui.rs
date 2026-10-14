@@ -1,13 +1,16 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::{config, handler};
-use crate::components::button::{Button, ButtonVariant};
-use crate::DbProTheme;
+use std::borrow::Cow;
+
 use egui::{CornerRadius, FontFamily, FontId, Frame, Margin, Response, RichText, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
-use std::borrow::Cow;
+use super::{config, handler};
+use crate::{
+    components::button::{Button, ButtonVariant},
+    DbProTheme,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlertVariant {

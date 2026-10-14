@@ -1,6 +1,7 @@
-use crate::DbProTheme;
 use egui::{Pos2, Rect};
 use lucide_icons::Icon;
+
+use crate::DbProTheme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetricTrendDirection {

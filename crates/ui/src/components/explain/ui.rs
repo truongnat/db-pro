@@ -1,11 +1,10 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config::*;
-use super::handler::*;
-use crate::tokens::*;
-use crate::DbProTheme;
 use egui::{CornerRadius, Id, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+
+use super::{config::*, handler::*};
+use crate::{tokens::*, DbProTheme};
 
 struct PlanRenderBudget {
     nodes_rendered: usize,

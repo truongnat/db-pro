@@ -1,5 +1,6 @@
-use super::config::*;
 use egui::{WidgetInfo, WidgetType};
+
+use super::config::*;
 
 pub(super) fn normalize_progress_fraction(fraction: f32) -> f32 {
     // `f32::clamp` preserves NaN, which would otherwise propagate into animation and paint geometry.

@@ -1,9 +1,8 @@
-use crate::components::animation::hover_t;
-use crate::DbProTheme;
 use egui::{Align2, Color32, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 use super::{config, handler};
+use crate::{components::animation::hover_t, DbProTheme};
 
 /// A two-state control whose pressed value is owned by the caller.
 pub struct Toggle<'a> {

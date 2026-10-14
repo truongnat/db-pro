@@ -1,14 +1,18 @@
 //! ER Design Mode draft model (#226) — no live DB mutation until explicit apply.
 
-use db_pro_core::application::ObjectMutationService;
-use db_pro_core::domain::object_mutation::{
-    ColumnDefinition, ForeignKeyDefinition, MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationPreview,
-    ObjectMutationRequest, ObjectRef, TableDefinition,
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
 };
 
+use db_pro_core::{
+    application::ObjectMutationService,
+    domain::object_mutation::{
+        ColumnDefinition, ForeignKeyDefinition, MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationPreview,
+        ObjectMutationRequest, ObjectRef, TableDefinition,
+    },
+};
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DraftColumn {

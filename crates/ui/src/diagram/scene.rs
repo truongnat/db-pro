@@ -1,8 +1,6 @@
-use super::lod::ErLod;
-use super::model::ErGraph;
-use super::spatial::ErSpatialIndex;
-use super::viewport::ErViewport;
 use std::time::Instant;
+
+use super::{lod::ErLod, model::ErGraph, spatial::ErSpatialIndex, viewport::ErViewport};
 
 #[derive(Debug, Clone, Default)]
 pub struct ErPerfMetrics {

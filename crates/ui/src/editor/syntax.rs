@@ -1,6 +1,7 @@
+use egui::Color32;
+
 use super::buffer::TextBuffer;
 use crate::DbProTheme;
-use egui::Color32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SqlDialect {

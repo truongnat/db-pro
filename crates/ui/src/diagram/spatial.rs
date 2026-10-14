@@ -1,5 +1,6 @@
-use super::model::{ErEdge, ErNode};
 use std::collections::{HashMap, HashSet};
+
+use super::model::{ErEdge, ErNode};
 
 pub const DEFAULT_SPATIAL_CELL_SIZE: f32 = 256.0;
 

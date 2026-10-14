@@ -1,20 +1,26 @@
+use std::{borrow::Cow, hash::Hash};
+
 use egui::{Area, CornerRadius, FontId, Frame, Id, Margin, Order, Pos2, Response, RichText, Stroke, Ui};
 use lucide_icons::Icon;
-use std::borrow::Cow;
-use std::hash::Hash;
 
-use crate::components::animation::{fade_alpha, overlay_t, small_translate};
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::DbProTheme;
-
-use super::config::{
-    DIALOG_CHROME_HEIGHT, DIALOG_CONTENT_HORIZONTAL_PADDING, DIALOG_CONTENT_MIN_SIZE, DIALOG_CONTENT_VERTICAL_PADDING,
-    DIALOG_FOOTER_SPACING, DIALOG_HEADER_MIN_HEIGHT, DIALOG_HORIZONTAL_MARGIN, DIALOG_RADIUS, DIALOG_SECTION_SPACING,
-    DIALOG_TOTAL_HORIZONTAL_PADDING, DIALOG_TRANSLATE_PX, DIALOG_VERTICAL_MARGIN, DIALOG_WIDTH,
+use super::{
+    config::{
+        DIALOG_CHROME_HEIGHT, DIALOG_CONTENT_HORIZONTAL_PADDING, DIALOG_CONTENT_MIN_SIZE,
+        DIALOG_CONTENT_VERTICAL_PADDING, DIALOG_FOOTER_SPACING, DIALOG_HEADER_MIN_HEIGHT, DIALOG_HORIZONTAL_MARGIN,
+        DIALOG_RADIUS, DIALOG_SECTION_SPACING, DIALOG_TOTAL_HORIZONTAL_PADDING, DIALOG_TRANSLATE_PX,
+        DIALOG_VERTICAL_MARGIN, DIALOG_WIDTH,
+    },
+    frame::DialogFrame,
+    handler::{modal_dismissal, ModalDismissal},
+    layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayPaint},
 };
-use super::frame::DialogFrame;
-use super::handler::{modal_dismissal, ModalDismissal};
-use super::layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayPaint};
+use crate::{
+    components::{
+        animation::{fade_alpha, overlay_t, small_translate},
+        button::{Button, ButtonSize, ButtonVariant},
+    },
+    DbProTheme,
+};
 
 pub struct Dialog<'a> {
     open: &'a mut bool,

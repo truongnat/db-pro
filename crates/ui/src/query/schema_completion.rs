@@ -1,17 +1,25 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::editor::completion::{CompletionItem, CompletionItemKind};
-use crate::editor::prediction::{
-    AiSqlContext, MAX_COLUMNS_PER_TABLE, MAX_CTES, MAX_FK_NEIGHBORS, MAX_REFERENCED_TABLES, MAX_SQL_AFTER_CHARS,
-    MAX_SQL_BEFORE_CHARS,
-};
-use crate::editor::syntax::CachedSqlTokens;
-use crate::runtime::UiSchemaSummary;
-use sqlparser::ast::{Expr, SelectItem, SetExpr, Statement};
-use sqlparser::dialect::{PostgreSqlDialect, SQLiteDialect};
-use sqlparser::parser::Parser;
 use std::collections::{HashMap, HashSet};
+
+use sqlparser::{
+    ast::{Expr, SelectItem, SetExpr, Statement},
+    dialect::{PostgreSqlDialect, SQLiteDialect},
+    parser::Parser,
+};
+
+use crate::{
+    editor::{
+        completion::{CompletionItem, CompletionItemKind},
+        prediction::{
+            AiSqlContext, MAX_COLUMNS_PER_TABLE, MAX_CTES, MAX_FK_NEIGHBORS, MAX_REFERENCED_TABLES,
+            MAX_SQL_AFTER_CHARS, MAX_SQL_BEFORE_CHARS,
+        },
+        syntax::CachedSqlTokens,
+    },
+    runtime::UiSchemaSummary,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SqlClause {

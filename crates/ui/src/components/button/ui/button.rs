@@ -1,20 +1,23 @@
-use crate::components::animation::{self, hover_t, press_scale, press_t};
-use crate::components::interact::{button_info, paint_focus_ring};
-use crate::components::overlay::Tooltip;
-use crate::tokens::{ICON_TEXT_GAP, RADIUS_BUTTON};
-use crate::DbProTheme;
+use std::borrow::Cow;
+
 use egui::{
     text::{LayoutJob, TextFormat},
     Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
-use std::borrow::Cow;
 
-use crate::tokens::component::button as button_contract;
-
-use super::super::config::LINK_UNDERLINE_WIDTH;
-use super::super::handlers::{
-    centered_content_pos, leading_content_x, ButtonPalette, ButtonSize, ButtonVariant, SizeTokens,
+use super::super::{
+    config::LINK_UNDERLINE_WIDTH,
+    handlers::{centered_content_pos, leading_content_x, ButtonPalette, ButtonSize, ButtonVariant, SizeTokens},
+};
+use crate::{
+    components::{
+        animation::{self, hover_t, press_scale, press_t},
+        interact::{button_info, paint_focus_ring},
+        overlay::Tooltip,
+    },
+    tokens::{component::button as button_contract, ICON_TEXT_GAP, RADIUS_BUTTON},
+    DbProTheme,
 };
 
 pub struct Button<'a> {

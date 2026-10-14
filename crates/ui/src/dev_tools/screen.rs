@@ -26,9 +26,11 @@
 
 use egui::{Id, Rect};
 
-use crate::dev_tools::audit::{Confidence, Severity};
-use crate::dev_tools::geometry::{GeometryRect, GeometrySnapshot, WidgetGeometry};
-use crate::dev_tools::semantic::SemanticSnapshot;
+use crate::dev_tools::{
+    audit::{Confidence, Severity},
+    geometry::{GeometryRect, GeometrySnapshot, WidgetGeometry},
+    semantic::SemanticSnapshot,
+};
 
 /// Environment selector for the screen fixture (`DB_PRO_AUDIT_SCREEN_FIXTURE`).
 /// `ugly` paints intentional defects; any other non-empty value paints a
@@ -1421,9 +1423,10 @@ pub fn fixture_scope() -> ScreenScope {
 
 #[cfg(test)]
 mod tests {
+    use egui::{Pos2, Rect};
+
     use super::*;
     use crate::dev_tools::geometry::GeometryRect;
-    use egui::{Pos2, Rect};
 
     /// One interactive widget on `layer`, parented to `parent` — the fixture
     /// builder mirrors `audit::tests::widget` with a parent parameter.

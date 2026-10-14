@@ -1,22 +1,28 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::interact::paint_focus_ring;
-use crate::tokens::{RADIUS_CODE_BLOCK, RADIUS_XS, STROKE_THIN};
-use crate::DbProTheme;
+use std::time::Duration;
+
 use egui::{
     Align2, Color32, CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
 };
-use std::time::Duration;
 
-use super::config::{
-    CODE_BLOCK_BODY_PADDING_Y, CODE_BLOCK_CODE_FONT_SIZE, CODE_BLOCK_COPIED_FEEDBACK_SECS, CODE_BLOCK_COPY_BTN_SIZE,
-    CODE_BLOCK_COPY_ICON_SIZE, CODE_BLOCK_COPY_LABEL_SIZE, CODE_BLOCK_CORNER_RADIUS, CODE_BLOCK_HEADER_HEIGHT,
-    CODE_BLOCK_LANG_FONT_SIZE, CODE_BLOCK_LINE_HEIGHT, CODE_BLOCK_LINE_NUM_FONT_SIZE, INLINE_CODE_FONT_SIZE,
+use super::{
+    config::{
+        CODE_BLOCK_BODY_PADDING_Y, CODE_BLOCK_CODE_FONT_SIZE, CODE_BLOCK_COPIED_FEEDBACK_SECS,
+        CODE_BLOCK_COPY_BTN_SIZE, CODE_BLOCK_COPY_ICON_SIZE, CODE_BLOCK_COPY_LABEL_SIZE, CODE_BLOCK_CORNER_RADIUS,
+        CODE_BLOCK_HEADER_HEIGHT, CODE_BLOCK_LANG_FONT_SIZE, CODE_BLOCK_LINE_HEIGHT, CODE_BLOCK_LINE_NUM_FONT_SIZE,
+        INLINE_CODE_FONT_SIZE,
+    },
+    handler::{
+        calculate_gutter_width, code_body_content_width, copy_button_rect, copy_button_state, copy_feedback_remaining,
+        format_line_number, header_language_clip_rect, inline_code_size, inline_code_text_pos, is_copy_active,
+    },
 };
-use super::handler::{
-    calculate_gutter_width, code_body_content_width, copy_button_rect, copy_button_state, copy_feedback_remaining,
-    format_line_number, header_language_clip_rect, inline_code_size, inline_code_text_pos, is_copy_active,
+use crate::{
+    components::interact::paint_focus_ring,
+    tokens::{RADIUS_CODE_BLOCK, RADIUS_XS, STROKE_THIN},
+    DbProTheme,
 };
 
 /// Clean inline monospace code snippet.

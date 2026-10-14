@@ -1,18 +1,25 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config::*;
-use super::handler::{
-    apply_destructive_dialog_action, confirmation_is_valid, destructive_dialog_action, pending_mutation_suffix,
-    status_text, transaction_action, transaction_status, TransactionStatus,
-};
-use super::TransactionAction;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::components::dialog::Dialog;
-use crate::components::input::Input;
-use crate::DbProTheme;
 use egui::{CornerRadius, FontFamily, FontId, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
+
+use super::{
+    config::*,
+    handler::{
+        apply_destructive_dialog_action, confirmation_is_valid, destructive_dialog_action, pending_mutation_suffix,
+        status_text, transaction_action, transaction_status, TransactionStatus,
+    },
+    TransactionAction,
+};
+use crate::{
+    components::{
+        button::{Button, ButtonSize, ButtonVariant},
+        dialog::Dialog,
+        input::Input,
+    },
+    DbProTheme,
+};
 
 // ── Transaction Bar ──────────────────────────────────────────────────────────
 

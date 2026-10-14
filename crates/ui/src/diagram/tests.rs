@@ -14,15 +14,20 @@
 //! - Composite FK rendering
 //! - Memory/rebuild stability
 
-use super::layout::{ErLayoutResult, ErLayoutWorker};
-use super::lod::ErLod;
-use super::model::{ErGraph, ErGridSpec, ER_CANVAS_MARGIN, ER_MIN_ZOOM, ER_NODE_WIDTH};
-use super::scene::{prepare_render_scene, ErRenderScene};
-use super::spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE};
-use super::viewport::ErViewport;
+use std::{
+    collections::HashSet,
+    time::{Duration, Instant},
+};
+
+use super::{
+    layout::{ErLayoutResult, ErLayoutWorker},
+    lod::ErLod,
+    model::{ErGraph, ErGridSpec, ER_CANVAS_MARGIN, ER_MIN_ZOOM, ER_NODE_WIDTH},
+    scene::{prepare_render_scene, ErRenderScene},
+    spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE},
+    viewport::ErViewport,
+};
 use crate::runtime::{UiSchemaColumn, UiSchemaForeignKey, UiTableSummary};
-use std::collections::HashSet;
-use std::time::{Duration, Instant};
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,12 +1,15 @@
-use crate::components::card::CARD_FRAME_STROKE_WIDTH;
-use crate::tokens::{CARD_INNER_PAD, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN};
-use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
     Align, Button, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Sense, Stroke,
     TextEdit, Ui,
 };
 use lucide_icons::Icon;
+
+use crate::{
+    components::card::CARD_FRAME_STROKE_WIDTH,
+    tokens::{CARD_INNER_PAD, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN},
+    DbProTheme,
+};
 
 /// `"1 table"` / `"2 tables"` style labels for dense status chips.
 pub fn plural_count(count: usize, singular: &str, plural: &str) -> String {

@@ -1,10 +1,10 @@
-use crate::DbProTheme;
-use egui::{CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, WidgetInfo, WidgetType};
-use lucide_icons::Icon;
 use std::borrow::Cow;
 
+use egui::{CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, WidgetInfo, WidgetType};
+use lucide_icons::Icon;
+
 use super::handler::{leading_gap, text_position, BadgeMetrics, BadgePalette, BadgeVariant};
-use crate::tokens::RADIUS_BADGE;
+use crate::{tokens::RADIUS_BADGE, DbProTheme};
 
 pub struct Badge<'a> {
     pub(crate) text: Cow<'a, str>,

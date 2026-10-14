@@ -1,5 +1,6 @@
-use egui::{epaint::PathShape, Color32, Id, Painter, Pos2, Stroke, Ui};
 use std::f32::consts::PI;
+
+use egui::{epaint::PathShape, Color32, Id, Painter, Pos2, Stroke, Ui};
 
 /// Hover / control transitions. Spec §26: 120–160ms.
 pub const HOVER_DURATION_SECS: f32 = 0.140;

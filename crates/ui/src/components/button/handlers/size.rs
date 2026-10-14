@@ -1,6 +1,7 @@
+use egui::Vec2;
+
 use super::ButtonSize;
 use crate::tokens::component::button as core;
-use egui::Vec2;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SizeTokens {

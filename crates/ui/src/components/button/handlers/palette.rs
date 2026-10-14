@@ -1,7 +1,7 @@
-use super::ButtonVariant;
-use crate::components::animation::lerp_color;
-use crate::DbProTheme;
 use egui::{Color32, Stroke};
+
+use super::ButtonVariant;
+use crate::{components::animation::lerp_color, DbProTheme};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ButtonPalette {

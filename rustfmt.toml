@@ -1,0 +1,8 @@
+edition = "2021"
+max_width = 120
+tab_spaces = 4
+# Unstable rustfmt options — require `cargo +nightly fmt` (stable rustfmt
+# rejects unknown keys). Keep CI's fmt step on nightly, or drop these two
+# lines when checking with stable.
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"

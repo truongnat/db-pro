@@ -1,16 +1,18 @@
 //! Underline-style tab track with animated active indicator.
 
-use super::super::config::{
-    UNDERLINE_BASELINE_HEIGHT, UNDERLINE_HOVER_INSET_Y, UNDERLINE_HOVER_RADIUS, UNDERLINE_ITEM_GAP,
-    UNDERLINE_ITEM_HEIGHT, UNDERLINE_LABEL_PAD_X,
-};
-use super::super::handler::next_selection;
-use super::super::layout::{track_id, TabHit};
-use super::super::style::{TabItemStyle, TabKind};
-use super::super::track::TabTrackerAnimation;
-use crate::components::interact::radio_info;
-use crate::DbProTheme;
 use egui::{Align2, CornerRadius, CursorIcon, Pos2, Rect, Sense, Ui, Vec2};
+
+use super::super::{
+    config::{
+        UNDERLINE_BASELINE_HEIGHT, UNDERLINE_HOVER_INSET_Y, UNDERLINE_HOVER_RADIUS, UNDERLINE_ITEM_GAP,
+        UNDERLINE_ITEM_HEIGHT, UNDERLINE_LABEL_PAD_X,
+    },
+    handler::next_selection,
+    layout::{track_id, TabHit},
+    style::{TabItemStyle, TabKind},
+    track::TabTrackerAnimation,
+};
+use crate::{components::interact::radio_info, DbProTheme};
 
 pub struct UnderlineTabs<'a> {
     selected: &'a mut usize,

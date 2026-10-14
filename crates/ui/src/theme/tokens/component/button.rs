@@ -19,10 +19,11 @@
 //! dimensions. Radius and group gap come from shared tokens; link underline
 //! width remains in `components/button/config.rs` as local geometry.
 
+use egui::Vec2;
+
 use super::super::primitive::{
     FONT_SIZE_BADGE, FONT_SIZE_BODY_SM, FONT_SIZE_CAPTION, FONT_SIZE_UI_LABEL, SPACE_LG, SPACE_MD, SPACE_SM, SPACE_XS,
 };
-use egui::Vec2;
 
 // Height (min) per size variant, in egui points.
 pub const BUTTON_HEIGHT_DEFAULT: f32 = 32.0;

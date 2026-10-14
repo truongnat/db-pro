@@ -1,9 +1,13 @@
-use super::{config, handler, AccordionItem};
-use crate::components::disclosure;
-use crate::tokens::{FONT_SIZE_BADGE, FONT_SIZE_UI_LABEL, ICON_SM, ICON_TEXT_GAP, SPACE_MD, SPACE_SM};
-use crate::DbProTheme;
-use egui::{Align2, CornerRadius, FontFamily, FontId, Pos2, Rect, Sense, Ui, Vec2, WidgetInfo, WidgetType};
 use std::collections::BTreeSet;
+
+use egui::{Align2, CornerRadius, FontFamily, FontId, Pos2, Rect, Sense, Ui, Vec2, WidgetInfo, WidgetType};
+
+use super::{config, handler, AccordionItem};
+use crate::{
+    components::disclosure,
+    tokens::{FONT_SIZE_BADGE, FONT_SIZE_UI_LABEL, ICON_SM, ICON_TEXT_GAP, SPACE_MD, SPACE_SM},
+    DbProTheme,
+};
 
 pub struct Accordion {
     theme: DbProTheme,

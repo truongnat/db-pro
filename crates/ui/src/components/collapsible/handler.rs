@@ -1,5 +1,6 @@
-use super::config::{BADGE_HEIGHT, BADGE_PAD_H, BADGE_RIGHT_MARGIN};
 use egui::{Pos2, Rect, Vec2};
+
+use super::config::{BADGE_HEIGHT, BADGE_PAD_H, BADGE_RIGHT_MARGIN};
 
 /// Toggles the collapsible state if clicked and not disabled.
 pub fn apply_header_click(open: &mut bool, clicked: bool, disabled: bool) {

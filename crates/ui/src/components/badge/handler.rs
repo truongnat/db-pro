@@ -1,5 +1,3 @@
-use crate::tokens::STROKE_THIN;
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Stroke, Vec2};
 
 use super::config::{
@@ -7,6 +5,7 @@ use super::config::{
     COMPACT_BADGE_DOT, COMPACT_BADGE_FONT_SIZE, COMPACT_BADGE_GAP, COMPACT_BADGE_ICON_SIZE, COMPACT_BADGE_MIN_HEIGHT,
     COMPACT_BADGE_PAD_X, COMPACT_BADGE_PAD_Y,
 };
+use crate::{tokens::STROKE_THIN, DbProTheme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BadgeVariant {

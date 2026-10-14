@@ -1,11 +1,11 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::DbProTheme;
 use egui::{Area, CornerRadius, FontFamily, FontId, Margin, Order, Pos2, Rect, RichText, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 use super::{config, floating_surface, screen_rect};
+use crate::DbProTheme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastVariant {

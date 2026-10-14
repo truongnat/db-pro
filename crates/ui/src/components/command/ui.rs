@@ -1,23 +1,27 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::animation::hover_t;
-use crate::components::feedback::kbd_badge;
-use crate::DbProTheme;
 use egui::{
     Align2, Color32, CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, UiBuilder, Vec2, WidgetInfo,
     WidgetType,
 };
 use lucide_icons::Icon;
 
-use super::config::{
-    EMPTY_STATE_FONT_SIZE, EMPTY_STATE_VERTICAL_SPACE, GROUP_CONTENT_GAP, GROUP_HEADING_SIZE, GROUP_TOP_GAP,
-    INPUT_FONT_SIZE, INPUT_HEIGHT, INPUT_ICON_SIZE, INPUT_SEPARATOR_INSET, ITEM_HEIGHT, ITEM_ICON_ADVANCE,
-    ITEM_ICON_SIZE, ITEM_LEFT_INSET, ITEM_ROUNDING, ITEM_SUBTITLE_GAP, ITEM_SUBTITLE_SIZE, ITEM_TITLE_SIZE,
+use super::{
+    config::{
+        EMPTY_STATE_FONT_SIZE, EMPTY_STATE_VERTICAL_SPACE, GROUP_CONTENT_GAP, GROUP_HEADING_SIZE, GROUP_TOP_GAP,
+        INPUT_FONT_SIZE, INPUT_HEIGHT, INPUT_ICON_SIZE, INPUT_SEPARATOR_INSET, ITEM_HEIGHT, ITEM_ICON_ADVANCE,
+        ITEM_ICON_SIZE, ITEM_LEFT_INSET, ITEM_ROUNDING, ITEM_SUBTITLE_GAP, ITEM_SUBTITLE_SIZE, ITEM_TITLE_SIZE,
+    },
+    handler::{
+        accessible_item_label, command_input_icon_x, command_input_text_rect, command_text_clip_rect,
+        item_has_background, item_highlight_target, item_icon_color, item_is_actionable, item_title_color,
+        shortcut_rect, subtitle_x,
+    },
 };
-use super::handler::{
-    accessible_item_label, command_input_icon_x, command_input_text_rect, command_text_clip_rect, item_has_background,
-    item_highlight_target, item_icon_color, item_is_actionable, item_title_color, shortcut_rect, subtitle_x,
+use crate::{
+    components::{animation::hover_t, feedback::kbd_badge},
+    DbProTheme,
 };
 
 /// Search field used above a command list.

@@ -3,8 +3,10 @@
 //! Row height, header height, and corner radii come from the shared token scale.
 //! The remaining values describe the table's own coordinate system.
 
-use crate::tokens::component::table::{TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT_DEFAULT};
-use crate::tokens::{RADIUS_SM, RADIUS_XS};
+use crate::tokens::{
+    component::table::{TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT_DEFAULT},
+    RADIUS_SM, RADIUS_XS,
+};
 
 pub(crate) const CHECKBOX_COLUMN_WIDTH: f32 = 42.0;
 pub(crate) const CHECKBOX_SIZE: f32 = 15.0;

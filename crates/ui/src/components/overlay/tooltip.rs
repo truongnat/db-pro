@@ -1,12 +1,13 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::animation::fade_alpha;
-use crate::components::feedback::kbd_badge;
-use crate::DbProTheme;
 use egui::{Area, Margin, Order, Pos2, Response, RichText, Vec2};
 
 use super::{config, ui::floating_surface};
+use crate::{
+    components::{animation::fade_alpha, feedback::kbd_badge},
+    DbProTheme,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TooltipPosition {

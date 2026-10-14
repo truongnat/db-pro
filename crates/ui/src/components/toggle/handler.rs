@@ -1,6 +1,7 @@
+use egui::{Color32, CornerRadius, Stroke};
+
 use super::config;
 use crate::DbProTheme;
-use egui::{Color32, CornerRadius, Stroke};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToggleVariant {

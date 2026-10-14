@@ -1,5 +1,6 @@
-use egui::Rect;
 use std::time::{Duration, Instant};
+
+use egui::Rect;
 
 /// Raw hover detection: which token the pointer is currently over.
 /// Emitted every frame by the renderer when the pointer is inside the editor text area.

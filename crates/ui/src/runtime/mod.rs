@@ -20,8 +20,9 @@ pub(crate) use task_bridge::MAX_RUNTIME_EVENTS_PER_FRAME;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::mpsc;
+
+    use super::*;
 
     /// Regression guard for the S-1 release-hygiene finding: the developer
     /// connection preset is developer-only. `cargo test --release` exercises the

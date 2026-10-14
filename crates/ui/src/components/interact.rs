@@ -1,6 +1,6 @@
-use crate::tokens::STROKE_THICK;
-use crate::DbProTheme;
 use egui::{CornerRadius, Rect, Stroke, Ui, WidgetInfo, WidgetType};
+
+use crate::{tokens::STROKE_THICK, DbProTheme};
 
 /// Shared focus ring: `border.focus` drawn at `STROKE_THICK`, expanded by the
 /// same amount so ring and rounding stay concentric.

@@ -1,10 +1,12 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::editor::{CachedSqlTokens, SqlDialect, SyntaxTokenKind};
-use crate::runtime::{UiFunctionSummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiTableSummary};
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
+
+use crate::{
+    editor::{CachedSqlTokens, SqlDialect, SyntaxTokenKind},
+    runtime::{UiFunctionSummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiTableSummary},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqlSymbolHelp {
@@ -908,8 +910,10 @@ fn rich_keyword_help(token: &str, dialect: SqlDialect) -> Option<RichHoverHelp> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::editor::TextBuffer;
-    use crate::runtime::{UiRoutineParameter, UiSchemaColumn, UiTableSummary};
+    use crate::{
+        editor::TextBuffer,
+        runtime::{UiRoutineParameter, UiSchemaColumn, UiTableSummary},
+    };
 
     fn tokens(sql: &str, dialect: SqlDialect) -> CachedSqlTokens {
         let mut tokens = CachedSqlTokens::new();

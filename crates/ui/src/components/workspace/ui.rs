@@ -1,19 +1,21 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::tokens::*;
-use crate::DbProTheme;
 use egui::{Align2, Color32, CornerRadius, Pos2, Response, RichText, Sense, Stroke, Ui, Vec2};
 
-use super::config::{
-    ACTIVITY_ACCENT_RADIUS, ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE, CONNECTION_DOT_RADIUS,
-    STATUS_BAR_ICON_SLOT_WIDTH,
+use super::{
+    config::{
+        ACTIVITY_ACCENT_RADIUS, ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE, CONNECTION_DOT_RADIUS,
+        STATUS_BAR_ICON_SLOT_WIDTH,
+    },
+    handler::{
+        activity_accent_rect, activity_item_rect, activity_item_start_y, connection_health_label, is_latency_warning,
+        left_status_items_limit, next_activity_item_y, next_status_item_cursor, right_status_block_width,
+        right_status_item_start, status_item_width, status_text_top, ActivityBarItemKind, ConnectionHealth,
+        StatusBarItem,
+    },
 };
-use super::handler::{
-    activity_accent_rect, activity_item_rect, activity_item_start_y, connection_health_label, is_latency_warning,
-    left_status_items_limit, next_activity_item_y, next_status_item_cursor, right_status_block_width,
-    right_status_item_start, status_item_width, status_text_top, ActivityBarItemKind, ConnectionHealth, StatusBarItem,
-};
+use crate::{tokens::*, DbProTheme};
 
 // ── StatusBar Component ──────────────────────────────────────────────────────
 

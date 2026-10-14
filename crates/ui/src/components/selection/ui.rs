@@ -1,12 +1,16 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::animation::{hover_t, lerp_color};
-use crate::components::interact::{checkbox_info, paint_focus_ring, radio_info};
-use crate::DbProTheme;
 use egui::{Color32, CornerRadius, FontId, Pos2, Rect, Response, RichText, Sense, Stroke, Ui, Vec2};
 
 use super::{config, handler};
+use crate::{
+    components::{
+        animation::{hover_t, lerp_color},
+        interact::{checkbox_info, paint_focus_ring, radio_info},
+    },
+    DbProTheme,
+};
 
 pub struct Checkbox<'a> {
     pub(crate) checked: &'a mut bool,
@@ -521,10 +525,12 @@ impl<'a> Slider<'a> {
 
 #[cfg(test)]
 mod cursor_tests {
+    use std::cell::Cell;
+
+    use egui::{CentralPanel, Context, CursorIcon, Event, Pos2, RawInput, Rect, Vec2};
+
     use super::{Checkbox, Radio};
     use crate::DbProTheme;
-    use egui::{CentralPanel, Context, CursorIcon, Event, Pos2, RawInput, Rect, Vec2};
-    use std::cell::Cell;
 
     fn hovered_cursor(enabled: bool, radio: bool) -> CursorIcon {
         let ctx = Context::default();

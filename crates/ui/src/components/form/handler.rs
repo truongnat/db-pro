@@ -1,5 +1,4 @@
-use super::rules::ValidationMode;
-use super::state::FormState;
+use super::{rules::ValidationMode, state::FormState};
 
 /// Applies validation timing to existing form state without mutating stored errors.
 pub(super) fn compose_access_label(

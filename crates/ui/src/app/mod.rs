@@ -1,26 +1,26 @@
+use std::{
+    collections::{BTreeSet, HashMap},
+    time::Duration,
+};
+
+use agent_workflow_state::AgentUiSession;
+use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
+use eframe::egui::{self, Align, FontId, Layout, RichText, Sense};
+use lucide_icons::Icon;
+
 use self::connection::ConnectionFeatureState;
 pub(crate) use self::connection::{ConnectionCatalogState, ConnectionDialogState, ConnectionLifecycleState};
-use crate::components::*;
-use crate::editor::PredictionMode;
-use crate::query::SchemaSymbolIndex;
-use crate::tokens::*;
 use crate::{
-    badge, card_frame, danger_button, editor_frame, empty_state, ghost_button_with_icon, grid_frame, icon_text, input,
-    menu_button_with_icon, primary_button, primary_button_with_icon, secondary_button, secondary_button_with_icon,
-    section_label, sidebar_item, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock,
+    badge, card_frame, components::*, danger_button, editor::PredictionMode, editor_frame, empty_state,
+    ghost_button_with_icon, grid_frame, icon_text, input, menu_button_with_icon, primary_button,
+    primary_button_with_icon, query::SchemaSymbolIndex, secondary_button, secondary_button_with_icon, section_label,
+    sidebar_item, tokens::*, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock,
     ColumnWritePolicy, DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, RequestId, TaskBridge,
     UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
     UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
     UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
     UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
-use eframe::egui::{self, Align, FontId, Layout, RichText, Sense};
-use lucide_icons::Icon;
-use std::collections::{BTreeSet, HashMap};
-use std::time::Duration;
-
-use agent_workflow_state::AgentUiSession;
-use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
 include!("app_modules.rs");
 pub struct DbProApp {

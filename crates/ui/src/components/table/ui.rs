@@ -1,15 +1,19 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use crate::components::table::config::{
-    CHECKBOX_SIZE, DIVIDER_STROKE_WIDTH, EMPTY_BODY_RECT_HEIGHT, EMPTY_BODY_TOP_SPACE, EMPTY_ICON_GAP, EMPTY_ICON_SIZE,
-    EMPTY_TEXT_SIZE, HEADER_INNER_RADIUS, HEADER_TEXT_SIZE, INNER_PADDING_X, SORT_ICON_GAP, SORT_ICON_SIZE,
-    TABLE_CORNER_RADIUS,
-};
-use crate::components::table::handler::{build_column_layout, select_all_state, SelectAllState, TableGeometry};
-use crate::components::table::{draw_crisp_checkmark, draw_crisp_minus, Table, TableColumnAlign};
 use egui::{Align, Color32, CornerRadius, Frame, Layout, Margin, Pos2, Rect, RichText, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
+
+use crate::components::table::{
+    config::{
+        CHECKBOX_SIZE, DIVIDER_STROKE_WIDTH, EMPTY_BODY_RECT_HEIGHT, EMPTY_BODY_TOP_SPACE, EMPTY_ICON_GAP,
+        EMPTY_ICON_SIZE, EMPTY_TEXT_SIZE, HEADER_INNER_RADIUS, HEADER_TEXT_SIZE, INNER_PADDING_X, SORT_ICON_GAP,
+        SORT_ICON_SIZE, TABLE_CORNER_RADIUS,
+    },
+    draw_crisp_checkmark, draw_crisp_minus,
+    handler::{build_column_layout, select_all_state, SelectAllState, TableGeometry},
+    Table, TableColumnAlign,
+};
 
 impl<'a> Table<'a> {
     // allow: table widget receives distinct generic callbacks for each interaction (row selection,

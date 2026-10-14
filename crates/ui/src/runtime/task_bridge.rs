@@ -1,7 +1,8 @@
 //! Bounded UI/runtime channel adapter.
 
-use super::{RequestId, UiCommand, UiEvent};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
+
+use super::{RequestId, UiCommand, UiEvent};
 
 /// Small typed boundary between the immediate-mode UI and asynchronous work.
 /// The receiver is drained by the UI thread in bounded batches; the native

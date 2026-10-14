@@ -14,11 +14,12 @@
 //! Rules never infer parents or focus — a missing `TreeUpdate` or absent
 //! parent entry means the rule skips, it doesn't guess.
 
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Mutex};
 
-use egui::accesskit::{self, Action, NodeId, Role};
-use egui::Id;
+use egui::{
+    accesskit::{self, Action, NodeId, Role},
+    Id,
+};
 
 /// egui [`Plugin`] that clones each pass's AccessKit [`accesskit::TreeUpdate`]
 /// into a slot the inspector reads on the next frame. Registered lazily the
@@ -221,8 +222,9 @@ pub(crate) fn is_name_required_role(role: Role) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use egui::accesskit::{Node, Tree};
+
+    use super::*;
 
     fn root_with(children: &[NodeId]) -> (NodeId, Node) {
         let root_id = egui::accesskit_root_id().accesskit_id();

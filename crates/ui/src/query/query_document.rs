@@ -1,17 +1,25 @@
-use crate::editor::buffer::TextBuffer;
-use crate::editor::completion::CompletionState;
-use crate::editor::cursor::CursorPosition;
-use crate::editor::diagnostics::Diagnostic;
-use crate::editor::document::SqlDocumentAnalysis;
-use crate::editor::hover::HoverState;
-use crate::editor::prediction::EditPrediction;
-use crate::editor::selection::SelectionRange;
-use crate::editor::snippet::SnippetSession;
-use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
-use crate::runtime::{UiQueryExecutionOutput, UiQueryResult};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+
+use crate::{
+    editor::{
+        buffer::TextBuffer,
+        completion::CompletionState,
+        cursor::CursorPosition,
+        diagnostics::Diagnostic,
+        document::SqlDocumentAnalysis,
+        hover::HoverState,
+        prediction::EditPrediction,
+        selection::SelectionRange,
+        snippet::SnippetSession,
+        syntax::{CachedSqlTokens, SqlDialect},
+    },
+    runtime::{UiQueryExecutionOutput, UiQueryResult},
+};
 
 pub const SQL_PREDICTION_DEBOUNCE: Duration = Duration::from_millis(300);
 const SQL_PREDICTION_CACHE_TTL: Duration = Duration::from_secs(10);

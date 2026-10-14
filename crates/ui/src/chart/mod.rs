@@ -4,11 +4,11 @@
 #[path = "chart_engine.rs"]
 mod chart_engine;
 
-pub use chart_engine::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartType};
+use std::collections::HashSet;
 
+pub use chart_engine::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartType};
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Stroke, Vec2};
 use lucide_icons::Icon;
-use std::collections::HashSet;
 
 /// Chart renderer using egui's built-in primitives.
 pub struct ChartRenderer;

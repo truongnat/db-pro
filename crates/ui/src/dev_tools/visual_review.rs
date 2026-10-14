@@ -23,9 +23,12 @@
 //!   bytes leave the machine is the provider's decision, not ours.
 //! - Audit scenarios run on seeded fixtures, not live connections.
 
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 /// Review bundle directory (`DB_PRO_REVIEW_DIR`) — opt-in switch. Without it
 /// nothing is written and no provider runs.
@@ -343,8 +346,9 @@ pub fn screenshot_path(review_dir: &Path, scenario: &str) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn report() -> serde_json::Value {
         json!({

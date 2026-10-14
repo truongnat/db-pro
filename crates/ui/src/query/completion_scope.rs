@@ -9,9 +9,10 @@
 //! UPDATE / INTO tokens in the statement around the cursor, not from a
 //! substring search of the script.
 
+use std::collections::{HashMap, HashSet};
+
 use super::schema_completion::SqlClause;
 use crate::runtime::UiSchemaSummary;
-use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 struct Tok<'a> {
@@ -679,9 +680,11 @@ fn floor_char_boundary(text: &str, mut index: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::editor::completion::CompletionItemKind;
-    use crate::query::schema_completion::{CompletionContext, SchemaCompletionProvider};
-    use crate::runtime::{UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiTableSummary};
+    use crate::{
+        editor::completion::CompletionItemKind,
+        query::schema_completion::{CompletionContext, SchemaCompletionProvider},
+        runtime::{UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiTableSummary},
+    };
 
     fn at_end(sql: &str) -> CompletionScope {
         analyze(sql, sql.len(), 0)

@@ -6,11 +6,12 @@ pub mod tokens;
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use egui::{Color32, CornerRadius, FontFamily, FontId, Margin, Shadow, Stroke, TextStyle, Vec2, Visuals};
 
-use crate::tokens::semantic::{subtle_wash, SemanticTokens};
 use crate::tokens::{
-    component::button::BUTTON_DEFAULT_PADDING, FONT_SIZE_BADGE, FONT_SIZE_MONO_UI, FONT_SIZE_UI_LABEL, RADIUS_BUTTON,
-    RADIUS_DIALOG, RADIUS_POPOVER, SHADOW_ALPHA_DARK, SHADOW_ALPHA_LIGHT, SHADOW_BLUR, SHADOW_OFFSET_Y, SPACE_2XL,
-    SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN, WINDOW_SHADOW_ALPHA,
+    component::button::BUTTON_DEFAULT_PADDING,
+    semantic::{subtle_wash, SemanticTokens},
+    FONT_SIZE_BADGE, FONT_SIZE_MONO_UI, FONT_SIZE_UI_LABEL, RADIUS_BUTTON, RADIUS_DIALOG, RADIUS_POPOVER,
+    SHADOW_ALPHA_DARK, SHADOW_ALPHA_LIGHT, SHADOW_BLUR, SHADOW_OFFSET_Y, SPACE_2XL, SPACE_MD, SPACE_SM, SPACE_XS,
+    STROKE_THIN, WINDOW_SHADOW_ALPHA,
 };
 
 // Renderer adapter mapping: these translate design tokens into egui's own style

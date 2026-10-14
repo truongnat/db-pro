@@ -1,10 +1,12 @@
-use super::super::handler::{option_check_icon_pos, option_galley_pos, option_text_rect};
-use crate::components::animation::{hover_t, lerp_color};
-use crate::tokens::component::table::TABLE_ROW_HEIGHT_COMPACT;
-use crate::tokens::{FONT_SIZE_UI_LABEL, ICON_XS};
-use crate::DbProTheme;
 use egui::{pos2, Color32, FontFamily, FontId, Response, Sense, Ui, Vec2};
 use lucide_icons::Icon;
+
+use super::super::handler::{option_check_icon_pos, option_galley_pos, option_text_rect};
+use crate::{
+    components::animation::{hover_t, lerp_color},
+    tokens::{component::table::TABLE_ROW_HEIGHT_COMPACT, FONT_SIZE_UI_LABEL, ICON_XS},
+    DbProTheme,
+};
 
 pub struct SelectOption<'a> {
     pub label: &'a str,

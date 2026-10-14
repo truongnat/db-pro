@@ -1,4 +1,3 @@
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Rect, Vec2};
 use lucide_icons::Icon;
 
@@ -7,6 +6,7 @@ use super::config::{
     CHEVRON_SLOT, CONTROL_CENTER_OFFSET, DEFAULT_CONTENT_HEIGHT, DETAIL_INSET, HOVER_VISIBLE_THRESHOLD, ICON_SLOT,
     INDENT_STEP, LEFT_INSET, MIN_CLIP_HEIGHT, REVEAL_VISIBLE_THRESHOLD, ROW_HEIGHT,
 };
+use crate::DbProTheme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TreeNodeKind {
@@ -174,8 +174,10 @@ fn alpha_from_unit(value: f32) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::super::config::{CHEVRON_ANIMATION_ID_SALT, CHILDREN_HEIGHT_ID_SALT, HOVER_ANIMATION_ID_SALT};
-    use super::*;
+    use super::{
+        super::config::{CHEVRON_ANIMATION_ID_SALT, CHILDREN_HEIGHT_ID_SALT, HOVER_ANIMATION_ID_SALT},
+        *,
+    };
 
     #[test]
     fn node_kind_icon_mapping_preserves_database_glyphs() {

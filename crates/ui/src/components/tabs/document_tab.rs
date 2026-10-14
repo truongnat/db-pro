@@ -5,10 +5,13 @@
 //! a context menu, so it lives here as its own component instead of a hand-built
 //! widget inside the workspace view.
 
-use crate::components::overlay::{context_action_menu, is_context_menu_triggered};
-use crate::tokens::{font_body, font_ui_label, ICON_XS, RADIUS_SM, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN};
-use crate::DbProTheme;
 use lucide_icons::Icon;
+
+use crate::{
+    components::overlay::{context_action_menu, is_context_menu_triggered},
+    tokens::{font_body, font_ui_label, ICON_XS, RADIUS_SM, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN},
+    DbProTheme,
+};
 
 pub struct DocumentTabItem<'a> {
     pub selected: bool,

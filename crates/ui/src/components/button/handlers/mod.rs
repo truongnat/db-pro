@@ -1,10 +1,9 @@
 mod palette;
 mod size;
 
+use egui::Pos2;
 pub use palette::ButtonPalette;
 pub use size::SizeTokens;
-
-use egui::Pos2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {
@@ -45,9 +44,10 @@ pub fn centered_content_pos(start_x: f32, center_y: f32, content_height: f32) ->
 
 #[cfg(test)]
 mod tests {
+    use egui::{Color32, Stroke, Vec2};
+
     use super::*;
     use crate::DbProTheme;
-    use egui::{Color32, Stroke, Vec2};
 
     #[test]
     fn size_tokens_preserve_existing_dimensions() {

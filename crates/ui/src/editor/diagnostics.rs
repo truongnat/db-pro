@@ -1,5 +1,4 @@
 pub use super::decorations::DiagnosticSeverity;
-
 use super::syntax::SqlDialect;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

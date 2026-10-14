@@ -22,8 +22,10 @@
 
 use egui::Id;
 
-use crate::dev_tools::geometry::{GeometrySnapshot, WidgetGeometry};
-use crate::dev_tools::semantic::{is_name_required_role, SemanticSnapshot};
+use crate::dev_tools::{
+    geometry::{GeometrySnapshot, WidgetGeometry},
+    semantic::{is_name_required_role, SemanticSnapshot},
+};
 
 /// How sure the rule is that this issue is a real defect (not intentional UI).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -234,8 +236,10 @@ type Rule = fn(&egui::Context, &GeometrySnapshot, Option<&SemanticSnapshot>) -> 
 /// across consecutive frames once layout settles, different when anything
 /// moved/resized/appeared.
 fn layout_fingerprint(snapshot: &GeometrySnapshot) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
     let mut h = DefaultHasher::new();
     let mut parts: Vec<(u64, i64, i64, i64, i64)> = snapshot
         .layers
@@ -1080,9 +1084,10 @@ fn u64_to_issue_id(node_id: egui::accesskit::NodeId) -> egui::Id {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use egui::{Pos2, Rect};
+
     use super::*;
     use crate::dev_tools::geometry::GeometryRect;
-    use egui::{Pos2, Rect};
 
     /// Minimal widget fixture — rule-irrelevant fields fixed so tests read as
     /// pure geometry.

@@ -1,4 +1,3 @@
-use crate::DbProTheme;
 use egui::{Pos2, Rect};
 
 use super::config::{
@@ -6,6 +5,7 @@ use super::config::{
     ITEM_HOVER_VISIBLE_THRESHOLD, ITEM_LEFT_INSET, ITEM_SUBTITLE_GAP, SHORTCUT_INSET_Y, SHORTCUT_REGION_WIDTH,
     SHORTCUT_RIGHT_INSET,
 };
+use crate::DbProTheme;
 
 pub(super) fn command_input_icon_x(input_rect: Rect) -> f32 {
     input_rect.left() + INPUT_ICON_INSET_X
@@ -100,8 +100,9 @@ pub(super) fn shortcut_rect(row_rect: Rect) -> Rect {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use egui::{Pos2, Rect, Vec2};
+
+    use super::*;
 
     #[test]
     fn disabled_items_cannot_trigger_hover_highlight_or_actions() {

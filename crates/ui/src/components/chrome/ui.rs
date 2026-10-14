@@ -1,23 +1,29 @@
-use crate::components::animation::{self, pulse_alpha};
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::tokens::{RADIUS_SM, STROKE_THIN};
-use crate::DbProTheme;
 use egui::{
     Align2, CornerRadius, FontFamily, FontId, Frame, Margin, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo,
     WidgetType,
 };
 use lucide_icons::Icon;
 
-use super::config::{
-    EMPTY_STATE_ACTION_GAP, EMPTY_STATE_BOTTOM_SPACE, EMPTY_STATE_DESCRIPTION_SIZE, EMPTY_STATE_ICON_GAP,
-    EMPTY_STATE_ICON_SIZE, EMPTY_STATE_TITLE_GAP, EMPTY_STATE_TITLE_SIZE, EMPTY_STATE_TOP_SPACE,
-    SKELETON_DEFAULT_HEIGHT, SKELETON_DEFAULT_WIDTH, SKELETON_SHIMMER_ALPHA, TOOLBAR_ITEM_GAP, TOOLBAR_MARGIN_X,
-    TOOLBAR_MARGIN_Y,
+use super::{
+    config::{
+        EMPTY_STATE_ACTION_GAP, EMPTY_STATE_BOTTOM_SPACE, EMPTY_STATE_DESCRIPTION_SIZE, EMPTY_STATE_ICON_GAP,
+        EMPTY_STATE_ICON_SIZE, EMPTY_STATE_TITLE_GAP, EMPTY_STATE_TITLE_SIZE, EMPTY_STATE_TOP_SPACE,
+        SKELETON_DEFAULT_HEIGHT, SKELETON_DEFAULT_WIDTH, SKELETON_SHIMMER_ALPHA, TOOLBAR_ITEM_GAP, TOOLBAR_MARGIN_X,
+        TOOLBAR_MARGIN_Y,
+    },
+    handler::{
+        avatar_icon_font_size, avatar_initials_font_size, avatar_rounding_radius, avatar_status_color,
+        avatar_status_dot, resolve_skeleton_height, resolve_skeleton_rounding, resolve_skeleton_width,
+        skeleton_alpha_range, visible_skeleton_shimmer_rect, AvatarShape, AvatarSize, AvatarStatus,
+    },
 };
-use super::handler::{
-    avatar_icon_font_size, avatar_initials_font_size, avatar_rounding_radius, avatar_status_color, avatar_status_dot,
-    resolve_skeleton_height, resolve_skeleton_rounding, resolve_skeleton_width, skeleton_alpha_range,
-    visible_skeleton_shimmer_rect, AvatarShape, AvatarSize, AvatarStatus,
+use crate::{
+    components::{
+        animation::{self, pulse_alpha},
+        button::{Button, ButtonSize, ButtonVariant},
+    },
+    tokens::{RADIUS_SM, STROKE_THIN},
+    DbProTheme,
 };
 
 pub struct Avatar<'a> {

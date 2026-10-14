@@ -1,16 +1,18 @@
 //! Pill-style segmented tab track.
 
-use super::super::config::{
-    SEGMENTED_ITEM_GAP, SEGMENTED_ITEM_HEIGHT, SEGMENTED_ITEM_MIN_WIDTH, SEGMENTED_LABEL_PAD_X, SEGMENTED_PILL_RADIUS,
-    SEGMENTED_TRACK_PAD, SEGMENTED_TRACK_RADIUS,
-};
-use super::super::handler::next_selection;
-use super::super::layout::{collect_tab_row, track_id, TabHit};
-use super::super::style::{TabItemStyle, TabKind};
-use super::super::track::TabTrackerAnimation;
-use crate::components::interact::radio_info;
-use crate::DbProTheme;
 use egui::{Align2, CornerRadius, CursorIcon, Frame, Margin, Rect, Sense, Stroke, Ui, Vec2};
+
+use super::super::{
+    config::{
+        SEGMENTED_ITEM_GAP, SEGMENTED_ITEM_HEIGHT, SEGMENTED_ITEM_MIN_WIDTH, SEGMENTED_LABEL_PAD_X,
+        SEGMENTED_PILL_RADIUS, SEGMENTED_TRACK_PAD, SEGMENTED_TRACK_RADIUS,
+    },
+    handler::next_selection,
+    layout::{collect_tab_row, track_id, TabHit},
+    style::{TabItemStyle, TabKind},
+    track::TabTrackerAnimation,
+};
+use crate::{components::interact::radio_info, DbProTheme};
 
 pub struct SegmentedTabs<'a> {
     selected: &'a mut usize,

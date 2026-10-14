@@ -1,20 +1,26 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{CornerRadius, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Stroke, TextEdit, Ui};
-
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use crate::components::input::config::{
-    INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE, PASSWORD_MIN_EDIT_WIDTH, PASSWORD_MIN_FRAME_WIDTH,
+use egui::{CornerRadius, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Stroke, TextEdit, Ui};
+use lucide_icons::Icon;
+
+use crate::{
+    components::{
+        button::{Button, ButtonSize, ButtonVariant},
+        input::{
+            config::{
+                INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE, PASSWORD_MIN_EDIT_WIDTH,
+                PASSWORD_MIN_FRAME_WIDTH,
+            },
+            layout::{paint_field_chrome, resolve_field_width, FieldChromeState},
+        },
+        interact::text_input_info,
+    },
+    tokens::{component::input::INPUT_HEIGHT_DEFAULT, LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM, SPACE_XS},
+    DbProTheme,
 };
-use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
-use crate::components::interact::text_input_info;
-use crate::tokens::component::input::INPUT_HEIGHT_DEFAULT;
-use crate::tokens::{LABEL_HELPER_GAP, RADIUS_INPUT, SPACE_SM, SPACE_XS};
-use crate::DbProTheme;
 
 pub struct PasswordInput<'a> {
     label: Option<Cow<'a, str>>,

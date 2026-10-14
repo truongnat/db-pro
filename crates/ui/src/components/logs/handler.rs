@@ -1,7 +1,8 @@
-use super::LogLevel;
-use crate::DbProTheme;
 use egui::Color32;
 use lucide_icons::Icon;
+
+use super::LogLevel;
+use crate::DbProTheme;
 
 pub fn level_style(level: LogLevel, theme: DbProTheme) -> (Icon, Color32) {
     match level {

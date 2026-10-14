@@ -1,19 +1,24 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config::{
-    DATABASE_BADGE_HEIGHT, DATABASE_BADGE_ICON_INSET_X, DATABASE_BADGE_TEXT_INSET_X, DATABASE_BADGE_WIDTH,
-    SSL_BADGE_HEIGHT, SSL_BADGE_PADDING_X, SSL_BADGE_TEXT_INSET_Y, STATUS_DOT_BOX_SIZE, STATUS_DOT_RADIUS,
-};
-use super::handler::{
-    connection_action_visibility, connection_status_presentation, remaining_content_width, ConnectionStatus,
-    DatabaseDriver,
-};
-use super::ConnectionCardAction;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::tokens::*;
-use crate::DbProTheme;
 use egui::{Align2, CornerRadius, Pos2, Response, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+
+use super::{
+    config::{
+        DATABASE_BADGE_HEIGHT, DATABASE_BADGE_ICON_INSET_X, DATABASE_BADGE_TEXT_INSET_X, DATABASE_BADGE_WIDTH,
+        SSL_BADGE_HEIGHT, SSL_BADGE_PADDING_X, SSL_BADGE_TEXT_INSET_Y, STATUS_DOT_BOX_SIZE, STATUS_DOT_RADIUS,
+    },
+    handler::{
+        connection_action_visibility, connection_status_presentation, remaining_content_width, ConnectionStatus,
+        DatabaseDriver,
+    },
+    ConnectionCardAction,
+};
+use crate::{
+    components::button::{Button, ButtonSize, ButtonVariant},
+    tokens::*,
+    DbProTheme,
+};
 
 /// A stateless summary of a saved connection that returns the action chosen by the user.
 pub struct ConnectionCard<'a> {

@@ -1,4 +1,3 @@
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Rect, Vec2};
 
 use super::config::{
@@ -7,7 +6,7 @@ use super::config::{
     AVATAR_STATUS_RING_PADDING, SKELETON_MAX_ALPHA, SKELETON_MIN_ALPHA, SKELETON_SHIMMER_CYCLES_PER_SECOND,
     SKELETON_SHIMMER_MIN_WIDTH, SKELETON_SHIMMER_WIDTH_FACTOR,
 };
-use crate::tokens::RADIUS_SM;
+use crate::{tokens::RADIUS_SM, DbProTheme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AvatarSize {

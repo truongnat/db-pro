@@ -1,5 +1,4 @@
-use super::rules::FieldRule;
-use super::state::FormState;
+use super::{rules::FieldRule, state::FormState};
 
 #[test]
 fn test_field_rules_validation() {

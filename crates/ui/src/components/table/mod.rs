@@ -5,8 +5,9 @@ mod ui;
 #[cfg(test)]
 mod tests;
 
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Stroke};
+
+use crate::DbProTheme;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TableColumnAlign {

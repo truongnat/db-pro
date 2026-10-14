@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 
 /// `eframe::Storage` key for per-connection ER layout snapshots.
 pub const ER_LAYOUTS_STORAGE_KEY: &str = "dbpro.native.er-layouts-v1";

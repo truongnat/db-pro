@@ -1,19 +1,22 @@
-use super::brackets;
-use super::buffer::{EditorSnapshot, TextBuffer};
-use super::cursor::CursorPosition;
-use super::decorations::DiagnosticSeverity;
-use super::diagnostics::Diagnostic;
-use super::hover::HoveredSqlToken;
-use super::prediction::EditPrediction;
-use super::selection::SelectionRange;
-use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
-use crate::components::interact::text_input_info;
-use crate::DbProTheme;
+use std::time::Duration;
+
 use egui::{
     text::{LayoutJob, TextFormat},
     CornerRadius, Event, FontId, Id, Key, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
 };
-use std::time::Duration;
+
+use super::{
+    brackets,
+    buffer::{EditorSnapshot, TextBuffer},
+    cursor::CursorPosition,
+    decorations::DiagnosticSeverity,
+    diagnostics::Diagnostic,
+    hover::HoveredSqlToken,
+    prediction::EditPrediction,
+    selection::SelectionRange,
+    syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind},
+};
+use crate::{components::interact::text_input_info, DbProTheme};
 
 const DEFAULT_LINE_HEIGHT: f32 = 20.0;
 const LINE_HEIGHT_MULT: f32 = 1.48;

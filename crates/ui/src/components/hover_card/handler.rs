@@ -1,6 +1,8 @@
-use super::config::{MAX_TIMER_DELAY_SECS, MIN_VISIBLE_HEIGHT, MIN_WIDTH, SCREEN_EDGE_INSET, TRIGGER_GAP};
-use egui::{Pos2, Rect};
 use std::time::Duration;
+
+use egui::{Pos2, Rect};
+
+use super::config::{MAX_TIMER_DELAY_SECS, MIN_VISIBLE_HEIGHT, MIN_WIDTH, SCREEN_EDGE_INSET, TRIGGER_GAP};
 
 /// Returns a safe timer delay in seconds.
 ///
@@ -115,9 +117,10 @@ pub fn clamp_card_width(requested_width: f32, screen_width: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use egui::Vec2;
+
     use super::*;
     use crate::components::hover_card::config::{DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY};
-    use egui::Vec2;
 
     #[test]
     fn invalid_delays_are_sanitized_to_immediate() {

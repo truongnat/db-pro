@@ -1,5 +1,3 @@
-use crate::components::button::ButtonVariant;
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Rect, Vec2};
 use lucide_icons::Icon;
 
@@ -7,6 +5,7 @@ use super::{
     config, AgentSqlActionKind, AgentTaskItem, AgentTaskStatus, ContextChipKind, RiskLevel, StatusBadgeVariant,
     ToolCallStatus,
 };
+use crate::{components::button::ButtonVariant, DbProTheme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StatusBadgePalette {

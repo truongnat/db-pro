@@ -1,6 +1,9 @@
-use super::handler::should_show_error;
-use super::rules::{FieldRule, ValidationMode};
 use std::collections::{HashMap, HashSet};
+
+use super::{
+    handler::should_show_error,
+    rules::{FieldRule, ValidationMode},
+};
 
 /// Central form state controller managing field rules, errors, touched, and dirty tracking.
 #[derive(Debug, Clone, Default)]

@@ -1,14 +1,12 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config::LABEL_FONT_SIZE;
-use super::handler::compose_access_label;
-use crate::components::input::Input;
-use crate::tokens::LABEL_HELPER_GAP;
-use crate::DbProTheme;
+use std::{borrow::Cow, hash::Hash};
+
 use egui::{Id, Response, RichText, Ui};
-use std::borrow::Cow;
-use std::hash::Hash;
+
+use super::{config::LABEL_FONT_SIZE, handler::compose_access_label};
+use crate::{components::input::Input, tokens::LABEL_HELPER_GAP, DbProTheme};
 
 pub struct Label<'a> {
     text: Cow<'a, str>,

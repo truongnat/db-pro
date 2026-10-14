@@ -1,15 +1,20 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::config::{TOOLBAR_MARGIN, TOOLBAR_ROUNDING};
-use super::handler::{
-    action_access_label, action_icon, action_label, action_variant, should_show_cancel, should_show_idle_actions,
-    should_show_run_selection, SqlEditorAction,
-};
-use crate::components::button::{Button, ButtonSize};
-use crate::tokens::{SPACE_XXS, STROKE_THIN};
-use crate::DbProTheme;
 use egui::{Stroke, Ui};
+
+use super::{
+    config::{TOOLBAR_MARGIN, TOOLBAR_ROUNDING},
+    handler::{
+        action_access_label, action_icon, action_label, action_variant, should_show_cancel, should_show_idle_actions,
+        should_show_run_selection, SqlEditorAction,
+    },
+};
+use crate::{
+    components::button::{Button, ButtonSize},
+    tokens::{SPACE_XXS, STROKE_THIN},
+    DbProTheme,
+};
 
 pub struct SqlEditorToolbar<'a> {
     is_running: bool,

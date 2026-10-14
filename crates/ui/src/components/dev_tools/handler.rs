@@ -1,10 +1,10 @@
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Rect};
 
 use super::config::{
     PROGRESS_RING_ARC_POINTS, PROGRESS_RING_DEFAULT_RADIUS, PROGRESS_RING_INSET, PROGRESS_RING_MIN_RADIUS,
     TERMINAL_DOT_SPACING, TERMINAL_DOT_START_X,
 };
+use crate::DbProTheme;
 
 /// Fallback title used when no explicit title is supplied to TerminalBlock.
 pub const DEFAULT_TERMINAL_TITLE: &str = "Terminal Output";

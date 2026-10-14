@@ -5,12 +5,14 @@
 //!
 //! Generates SQL only; never executes. Unsupported constructs refuse lossy import.
 
-use sqlparser::ast::{
-    BinaryOperator, Expr, FunctionArg, FunctionArgExpr, FunctionArguments, GroupByExpr, JoinConstraint, JoinOperator,
-    ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
+use sqlparser::{
+    ast::{
+        BinaryOperator, Expr, FunctionArg, FunctionArgExpr, FunctionArguments, GroupByExpr, JoinConstraint,
+        JoinOperator, ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
+    },
+    dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect},
+    parser::Parser,
 };
-use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
-use sqlparser::parser::Parser;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuilderDialect {

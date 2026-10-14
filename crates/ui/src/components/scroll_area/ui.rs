@@ -1,6 +1,7 @@
+use egui::Ui;
+
 use super::{config, handler};
 use crate::DbProTheme;
-use egui::Ui;
 
 pub struct ScrollArea {
     horizontal: bool,

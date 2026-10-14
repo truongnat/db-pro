@@ -1,4 +1,3 @@
-use crate::DbProTheme;
 use egui::{Color32, Pos2, Rect, Vec2};
 use lucide_icons::Icon;
 
@@ -6,6 +5,7 @@ use super::config::{
     CODE_BLOCK_COPY_BTN_INSET, CODE_BLOCK_DIGIT_CHAR_WIDTH, CODE_BLOCK_GUTTER_EXTRA_PAD, CODE_BLOCK_HEADER_LABEL_GAP,
     CODE_BLOCK_NO_GUTTER_WIDTH, INLINE_CODE_PAD,
 };
+use crate::DbProTheme;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CopyButtonState {

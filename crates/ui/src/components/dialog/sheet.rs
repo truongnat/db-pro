@@ -1,18 +1,21 @@
-use egui::{Area, CornerRadius, Frame, Id, LayerId, Margin, Order, Pos2, Rect, RichText, Stroke, Ui};
 use std::hash::Hash;
 
-use crate::components::animation::overlay_t;
-use crate::components::overlay::screen_rect;
-use crate::DbProTheme;
+use egui::{Area, CornerRadius, Frame, Id, LayerId, Margin, Order, Pos2, Rect, RichText, Stroke, Ui};
 
-use super::config::{
-    SHEET_CLOSE_WIDTH, SHEET_CONTENT_MIN_SIZE, SHEET_CORNER_RADIUS, SHEET_PADDING, SHEET_TITLE_GAP,
-    SHEET_TOTAL_PADDING, SHEET_TRANSLATE_PX, SHEET_WIDTH,
+use super::{
+    config::{
+        SHEET_CLOSE_WIDTH, SHEET_CONTENT_MIN_SIZE, SHEET_CORNER_RADIUS, SHEET_PADDING, SHEET_TITLE_GAP,
+        SHEET_TOTAL_PADDING, SHEET_TRANSLATE_PX, SHEET_WIDTH,
+    },
+    handler::{modal_dismissal, ModalDismissal},
+    layout::{overlay_widget_id, paint_dim, OverlayPaint},
+    modal_guard,
+    ui::close_icon_button,
 };
-use super::handler::{modal_dismissal, ModalDismissal};
-use super::layout::{overlay_widget_id, paint_dim, OverlayPaint};
-use super::modal_guard;
-use super::ui::close_icon_button;
+use crate::{
+    components::{animation::overlay_t, overlay::screen_rect},
+    DbProTheme,
+};
 
 pub struct Sheet<'a> {
     open: &'a mut bool,

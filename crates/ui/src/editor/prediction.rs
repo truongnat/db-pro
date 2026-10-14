@@ -1,6 +1,8 @@
-use crate::runtime::RequestId;
-use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+
+use serde::{Deserialize, Serialize};
+
+use crate::runtime::RequestId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PredictionMode {

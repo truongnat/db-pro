@@ -1,5 +1,6 @@
-use crate::components::animation::faded_overlay;
 use egui::{CornerRadius, Id, Pos2, Rect, Ui};
+
+use crate::components::animation::faded_overlay;
 
 pub struct OverlayPaint {
     pub screen: Rect,

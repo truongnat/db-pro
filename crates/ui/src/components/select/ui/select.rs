@@ -1,22 +1,28 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{Frame, Id, Response, RichText, Sense, Stroke, TextureId, Ui};
-use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use crate::components::animation::{hover_t, lerp_color};
-use crate::components::interact::{combo_box_info, paint_focus_ring};
-use crate::components::overlay::screen_rect;
-use crate::DbProTheme;
+use egui::{Frame, Id, Response, RichText, Sense, Stroke, TextureId, Ui};
+use lucide_icons::Icon;
 
-use super::super::handler::{
-    calculate_menu_geometry, menu_min_content_width, navigate_selection, selected_label, selection_from_click,
-    should_close_for_key, should_request_load_more, trigger_accessibility_label, trigger_content_width,
-    trigger_inner_margin, trigger_text_width, NavigationKeys,
+use super::{
+    super::handler::{
+        calculate_menu_geometry, menu_min_content_width, navigate_selection, selected_label, selection_from_click,
+        should_close_for_key, should_request_load_more, trigger_accessibility_label, trigger_content_width,
+        trigger_inner_margin, trigger_text_width, NavigationKeys,
+    },
+    option::{paint_option, SelectOption},
 };
-use super::option::{paint_option, SelectOption};
-use crate::tokens::{FONT_SIZE_CAPTION, ICON_TEXT_GAP, SPACE_XS};
+use crate::{
+    components::{
+        animation::{hover_t, lerp_color},
+        interact::{combo_box_info, paint_focus_ring},
+        overlay::screen_rect,
+    },
+    tokens::{FONT_SIZE_CAPTION, ICON_TEXT_GAP, SPACE_XS},
+    DbProTheme,
+};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum SelectSize {

@@ -1,6 +1,7 @@
-use crate::DbProTheme;
 use egui::Color32;
 use lucide_icons::Icon;
+
+use crate::DbProTheme;
 
 fn effective_page_count(page_count: usize) -> usize {
     page_count.max(1)
