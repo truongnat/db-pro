@@ -21,36 +21,15 @@ mod runtime;
 pub(crate) mod test_frame;
 mod theme;
 
-pub use agent::{
-    respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
-    AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
-};
-// Re-exported for `benches/result_grid_benchmarks.rs`: a bench is a separate crate, so it can only
-// reach the lookup through the crate root. `selection_lookup_is_reachable_from_the_crate_root`
-// pins that path.
-pub use app::result_grid_view::GridSelectionLookup;
-pub use app::{ComponentGalleryState, DbProApp};
-pub use chart::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartRenderer, ChartType};
-pub use components::{
-    activity_bar_frame, agent_message_frame, badge, card_frame, danger_button, editor_frame, empty_state, ghost_button,
-    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, kbd_chip,
-    menu_button_with_icon, panel_frame, password_input, plural_count, primary_button, primary_button_with_icon,
-    progress_bar, secondary_button, secondary_button_with_icon, section_label, segmented_control, sidebar_frame,
-    sidebar_item, skeleton, spinner, status_dot, switch, tab_button, tab_frame, tag_chip, toast, toolbar_frame,
-};
-pub use i18n::UiLanguage;
-pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
-pub use result_grid::{
-    cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes, grid_column_window,
-    grid_keyboard_selection, GridColumnWindow, GridProjectionCache, GridProjectionKey,
-};
-pub use runtime::{
-    RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,
-    UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryError,
-    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
-    UiRoutineParameter, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiStatementOutput, UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator,
-    UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
-};
-pub use theme::tokens;
-pub use theme::DbProTheme;
+// `app::*` also surfaces `app::result_grid_view::GridSelectionLookup`, pinned for
+// `benches/result_grid_benchmarks.rs` (a bench is a separate crate and can only
+// reach the lookup through the crate root).
+pub use agent::*;
+pub use app::*;
+pub use chart::*;
+pub use components::*;
+pub use i18n::*;
+pub use policy::*;
+pub use result_grid::*;
+pub use runtime::*;
+pub use theme::*;
