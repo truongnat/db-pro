@@ -5,7 +5,7 @@ i18n!("locales", fallback = "en");
 
 mod agent;
 mod app;
-mod chart_view;
+mod chart;
 pub mod components;
 #[cfg(debug_assertions)]
 mod dev_tools;
@@ -31,9 +31,7 @@ pub use agent::{
 // pins that path.
 pub use app::result_grid_view::GridSelectionLookup;
 pub use app::{ComponentGalleryState, DbProApp};
-pub use chart_view::{
-    ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartRenderer, ChartType,
-};
+pub use chart::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartRenderer, ChartType};
 pub use components::{
     activity_bar_frame, agent_message_frame, badge, card_frame, danger_button, editor_frame, empty_state, ghost_button,
     ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, kbd_chip,

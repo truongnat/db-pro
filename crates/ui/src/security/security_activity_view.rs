@@ -743,7 +743,7 @@ mod tests {
             .expect("empty privilege copy");
         assert!(error_at < empty_at);
 
-        let manager = include_str!("../../infrastructure/src/postgres/user_manager.rs");
+        let manager = include_str!("../../../infrastructure/src/postgres/user_manager.rs");
         assert!(
             !manager.contains("return Vec::new()"),
             "privilege reads must return the query error"

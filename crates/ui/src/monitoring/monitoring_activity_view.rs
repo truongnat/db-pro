@@ -430,7 +430,7 @@ mod tests {
             super::super::tools_hub_surface_view::monitor_card_description("SQL Server"),
             "SQL Server has no sessions"
         );
-        let hub = include_str!("tools_hub_surface_view.rs");
+        let hub = include_str!("../tools/tools_hub_surface_view.rs");
         assert!(hub.contains("monitor_card_description(self.driver)"));
         let locks = include_str!("monitoring_snapshot_view.rs");
         let error_at = locks.find("lock_error").expect("lock panel reads lock_error");
@@ -533,9 +533,9 @@ mod tests {
         assert!(feedback.runtime_message.contains("Task exit"));
         let _ = std::fs::remove_dir_all(dir);
 
-        let tasks_view = include_str!("tasks_view.rs");
+        let tasks_view = include_str!("../tools/tasks_view.rs");
         assert!(tasks_view.contains("self.saved_tasks.request_delete(task_id)"));
-        let files_tab = include_str!("files_activity_tabs.rs");
+        let files_tab = include_str!("../files/files_activity_tabs.rs");
         assert!(files_tab.contains("request_replace_all"));
         assert!(files_tab.contains("request_shell"));
         assert!(files_tab.contains("confirm_replace_all"));

@@ -61,7 +61,7 @@ fn data_tab_exports_visible_rows_as_excel() {
     let data_view = include_str!("table_data_view.rs");
     assert!(data_view.contains("open_table_data_export()"));
     assert!(data_view.contains("draw_export_dialog"));
-    let dialog = include_str!("query_dialog_surface_view.rs");
+    let dialog = include_str!("../query_workbench/query_dialog_surface_view.rs");
     assert!(dialog.contains("(\"Excel\", \"Excel\")"));
 
     let mut empty = data_tab_app(None);
