@@ -1,5 +1,6 @@
 use super::query_execution_state::PendingDestructiveRun;
 use super::*;
+use crate::app::overlay_state::ExportFormat;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use egui::RichText;
 
@@ -74,7 +75,7 @@ impl DestructiveDialogContext<'_> {
                 *action = Some(DestructiveDialogAction::Confirm);
             }
             if Button::new(self.theme)
-                .text("Cancel")
+                .text(t!("common.cancel").as_ref())
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -103,10 +104,10 @@ impl ExportDialogContext<'_> {
     pub(super) fn draw(&mut self, ctx: &egui::Context) -> Option<ExportDialogAction> {
         let mut open = true;
         let mut action = None;
-        Dialog::new(&mut open, "Export Results", self.theme)
+        Dialog::new(&mut open, t!("query.export_results").as_ref(), self.theme)
             .id_salt("export_results_dialog")
             .width(520.0)
-            .description("Write the visible result rows to a file on disk.")
+            .description(t!("query.export_results_desc").as_ref())
             .show_ctx(ctx, |ui| self.draw_body(ui, &mut action));
         if !open {
             return Some(ExportDialogAction::Cancel);
@@ -116,7 +117,7 @@ impl ExportDialogContext<'_> {
 
     fn draw_body(&mut self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {
         ui.label(
-            RichText::new("Format")
+            RichText::new(t!("query.export_format_label"))
                 .font(font_ui_label())
                 .color(self.theme.text_muted),
         );
@@ -124,7 +125,7 @@ impl ExportDialogContext<'_> {
         self.draw_format_picker(ui);
         ui.add_space(SPACE_SM);
         ui.label(
-            RichText::new("Output file")
+            RichText::new(t!("query.export_output_file"))
                 .font(font_ui_label())
                 .color(self.theme.text_muted),
         );
@@ -132,7 +133,7 @@ impl ExportDialogContext<'_> {
         Input::new(&mut self.overlay.export_path, "/path/to/results.csv", self.theme).show(ui);
         ui.add_space(SPACE_XS);
         ui.label(
-            RichText::new("Rows beyond the visible limit are not included in the export.")
+            RichText::new(t!("query.export_visible_only"))
                 .font(font_caption())
                 .color(self.theme.text_muted),
         );
@@ -145,18 +146,10 @@ impl ExportDialogContext<'_> {
 
     fn draw_format_picker(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_wrapped(|ui| {
-            for (value, label) in [
-                ("CSV", "CSV"),
-                ("TSV", "TSV"),
-                ("JSON", "JSON"),
-                ("MD", "Markdown"),
-                ("SQL", "INSERT"),
-                ("COPY", "COPY"),
-                ("Excel", "Excel"),
-            ] {
-                let selected = self.overlay.export_format == value;
+            for format in ExportFormat::ALL {
+                let selected = self.overlay.export_format == format;
                 if Button::new(self.theme)
-                    .text(label)
+                    .text(format.label())
                     .variant(if selected {
                         ButtonVariant::Secondary
                     } else {
@@ -166,7 +159,7 @@ impl ExportDialogContext<'_> {
                     .show(ui)
                     .clicked()
                 {
-                    self.overlay.export_format = value.to_owned();
+                    self.overlay.export_format = format;
                 }
             }
         });
@@ -175,7 +168,7 @@ impl ExportDialogContext<'_> {
     fn draw_footer(&self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if Button::new(self.theme)
-                .text("Export")
+                .text(t!("common.export").as_ref())
                 .variant(ButtonVariant::Default)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -184,7 +177,7 @@ impl ExportDialogContext<'_> {
                 *action = Some(ExportDialogAction::Export);
             }
             if Button::new(self.theme)
-                .text("Cancel")
+                .text(t!("common.cancel").as_ref())
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -199,11 +192,11 @@ impl ExportDialogContext<'_> {
         ui.add_space(SPACE_XS);
         ui.colored_label(
             self.theme.warning,
-            format!("{} already exists. Overwrite it?", self.overlay.export_path.trim()),
+            t!("query.export_overwrite_prompt", path = self.overlay.export_path.trim()).into_owned(),
         );
         ui.horizontal(|ui| {
             if Button::new(self.theme)
-                .text("Overwrite")
+                .text(t!("query.overwrite").as_ref())
                 .variant(ButtonVariant::Destructive)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -212,7 +205,7 @@ impl ExportDialogContext<'_> {
                 *action = Some(ExportDialogAction::Overwrite);
             }
             if Button::new(self.theme)
-                .text("Keep existing file")
+                .text(t!("query.keep_existing_file").as_ref())
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::Sm)
                 .show(ui)

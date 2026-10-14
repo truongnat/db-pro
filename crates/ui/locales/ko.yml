@@ -175,6 +175,17 @@ query:
   destructive_title: "파괴적인 명령문을 실행하시겠습니까?"
   destructive_confirm: "파괴적인 명령문 실행"
   save_as_title: "쿼리를 다른 이름으로 저장"
+  export_results_desc: "표시된 결과 행을 디스크 파일로 저장합니다."
+  export_format_label: "형식"
+  export_output_file: "출력 파일"
+  export_visible_only: "표시 한도를 초과한 행은보내기에 포함되지 않습니다."
+  export_overwrite_prompt: "%{path}이(가) 이미 있습니다. 덮어쓸까요?"
+  overwrite: "덮어쓰기"
+  keep_existing_file: "기존 파일 유지"
+  export_path_missing: "먼저보낼 경로를 선택하세요"
+  export_failed: "보내기 실패: %{error} (파일이 기록되지 않았습니다)"
+  export_done: "%{path}에 %{rows}개 행을보냈습니다"
+  export_done_capped: "%{path}에 %{rows}개 행보냄 (총 %{total}개 행 일치; 결과는 처음 %{rows}개 행만 보유)"
   unsaved_query_title: "저장되지 않은 쿼리"
 
 table:

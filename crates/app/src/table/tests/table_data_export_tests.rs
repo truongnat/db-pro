@@ -62,7 +62,7 @@ fn data_tab_exports_visible_rows_as_excel() {
     assert!(data_view.contains("open_table_data_export()"));
     assert!(data_view.contains("draw_export_dialog"));
     let dialog = include_str!("../../query_workbench/query_dialog_surface_view.rs");
-    assert!(dialog.contains("(\"Excel\", \"Excel\")"));
+    assert!(dialog.contains("ExportFormat::ALL"));
 
     let mut empty = data_tab_app(None);
     empty.export_results_from_palette();
@@ -82,7 +82,7 @@ fn data_tab_exports_visible_rows_as_excel() {
 
     let path = std::env::temp_dir().join(format!("db-pro-data-export-{}.xlsx", uuid::Uuid::new_v4()));
     let path_text = path.to_string_lossy().into_owned();
-    app.overlay.export_format = "Excel".to_owned();
+    app.overlay.export_format = crate::app::overlay_state::ExportFormat::Excel;
     app.overlay.export_path = path_text.clone();
     let result = app.table.data_query.result.clone().expect("data tab rows");
     app.export_result(&result);

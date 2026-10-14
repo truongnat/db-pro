@@ -175,6 +175,17 @@ query:
   destructive_title: "运行破坏性语句？"
   destructive_confirm: "运行破坏性语句"
   save_as_title: "另存查询为"
+  export_results_desc: "将当前显示的结果行写入磁盘文件。"
+  export_format_label: "格式"
+  export_output_file: "输出文件"
+  export_visible_only: "超出显示上限的行不会包含在导出中。"
+  export_overwrite_prompt: "%{path} 已存在。要覆盖吗?"
+  overwrite: "覆盖"
+  keep_existing_file: "保留现有文件"
+  export_path_missing: "请先选择导出路径"
+  export_failed: "导出失败: %{error}(未写入任何文件)"
+  export_done: "已导出 %{rows} 行到 %{path}"
+  export_done_capped: "已导出 %{rows} 行到 %{path}(共匹配 %{total} 行;结果仅保留前 %{rows} 行)"
   unsaved_query_title: "未保存的查询"
 
 table:

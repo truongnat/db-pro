@@ -59,6 +59,7 @@ mod egress_tests {
 
 mod export_tests {
     use super::super::*;
+    use crate::app::overlay_state::ExportFormat;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
@@ -155,7 +156,7 @@ mod export_tests {
             overlay: OverlayState {
                 export_open: true,
                 export_path: path.to_string_lossy().into_owned(),
-                export_format: "CSV".to_owned(),
+                export_format: ExportFormat::Csv,
                 ..Default::default()
             },
             ..Default::default()
@@ -194,7 +195,7 @@ mod export_tests {
             overlay: OverlayState {
                 export_open: true,
                 export_path: path.to_string_lossy().into_owned(),
-                export_format: "CSV".to_owned(),
+                export_format: ExportFormat::Csv,
                 ..Default::default()
             },
             ..Default::default()
@@ -239,7 +240,7 @@ mod export_tests {
             overlay: OverlayState {
                 export_open: true,
                 export_path: path.to_string_lossy().into_owned(),
-                export_format: "CSV".to_owned(),
+                export_format: ExportFormat::Csv,
                 ..Default::default()
             },
             ..Default::default()

@@ -175,6 +175,17 @@ query:
   destructive_title: "破壊的な文を実行しますか？"
   destructive_confirm: "破壊的な文を実行する"
   save_as_title: "名前を付けて保存"
+  export_results_desc: "表示中の結果行をディスク上のファイルに書き出します。"
+  export_format_label: "形式"
+  export_output_file: "出力ファイル"
+  export_visible_only: "表示上限を超えた行はエクスポートに含まれません。"
+  export_overwrite_prompt: "%{path} は既に存在します。上書きしますか?"
+  overwrite: "上書き"
+  keep_existing_file: "既存ファイルを保持"
+  export_path_missing: "先に出力パスを選択してください"
+  export_failed: "エクスポート失敗: %{error} (ファイルは書き込まれていません)"
+  export_done: "%{rows} 行を %{path} にエクスポートしました"
+  export_done_capped: "%{rows} 行を %{path} にエクスポート (%{total} 行が一致; 結果は先頭 %{rows} 行を保持)"
   unsaved_query_title: "未保存のクエリ"
 
 table:

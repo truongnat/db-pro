@@ -175,6 +175,17 @@ query:
   destructive_title: "Chạy câu lệnh nguy hiểm?"
   destructive_confirm: "Xác nhận chạy câu lệnh nguy hiểm"
   save_as_title: "Lưu truy vấn thành"
+  export_results_desc: "Ghi các hàng kết quả đang hiển thị ra file."
+  export_format_label: "Định dạng"
+  export_output_file: "File đầu ra"
+  export_visible_only: "Các hàng vượt giới hạn hiển thị không được xuất."
+  export_overwrite_prompt: "%{path} đã tồn tại. Ghi đè?"
+  overwrite: "Ghi đè"
+  keep_existing_file: "Giữ file hiện có"
+  export_path_missing: "Hãy chọn đường dẫn xuất trước"
+  export_failed: "Xuất thất bại: %{error} (không có file nào được ghi)"
+  export_done: "Đã xuất %{rows} hàng ra %{path}"
+  export_done_capped: "Đã xuất %{rows} hàng ra %{path} (tổng %{total} hàng; kết quả chỉ giữ %{rows} hàng đầu)"
   unsaved_query_title: "Truy vấn chưa lưu"
 
 table:

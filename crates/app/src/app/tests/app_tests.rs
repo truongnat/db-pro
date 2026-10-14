@@ -1,3 +1,4 @@
+use crate::app::overlay_state::ExportFormat;
 use super::diagram_view::{
     diagram_candidates, diagram_foreign_key_label, diagram_node_height, diagram_search_mode,
     diagram_show_all_after_search_edit,
@@ -4651,7 +4652,7 @@ fn test_export_result_writes_escaped_delimited_text() {
     let path_text = path.to_string_lossy().into_owned();
     let mut app = DbProApp {
         overlay: OverlayState {
-            export_format: "CSV".to_owned(),
+            export_format: ExportFormat::Csv,
             export_path: path_text.clone(),
             export_open: true,
             ..Default::default()

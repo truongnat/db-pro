@@ -175,6 +175,17 @@ query:
   destructive_title: "Run Destructive Statement?"
   destructive_confirm: "Run Destructive Statement"
   save_as_title: "Save Query As"
+  export_results_desc: "Write the visible result rows to a file on disk."
+  export_format_label: "Format"
+  export_output_file: "Output file"
+  export_visible_only: "Rows beyond the visible limit are not included in the export."
+  export_overwrite_prompt: "%{path} already exists. Overwrite it?"
+  overwrite: "Overwrite"
+  keep_existing_file: "Keep existing file"
+  export_path_missing: "Choose an export path first"
+  export_failed: "Export failed: %{error} (no file was written)"
+  export_done: "Exported %{rows} rows to %{path}"
+  export_done_capped: "Exported %{rows} rows to %{path} (%{total} rows matched; the result holds the first %{rows})"
   unsaved_query_title: "Unsaved query"
 
 table:

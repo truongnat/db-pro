@@ -1,6 +1,7 @@
 //! Query destructive-run, export, and SQL diagnostics helpers.
 use super::query_view::write_file_atomically;
 use super::*;
+use crate::app::overlay_state::ExportFormat;
 use std::path::PathBuf;
 
 impl DbProApp {
@@ -170,7 +171,7 @@ impl DbProApp {
     pub(super) fn export_result_to_disk(&mut self, result: &UiQueryResult, overwrite: bool) {
         let path_text = self.overlay.export_path.trim().to_owned();
         if path_text.is_empty() {
-            self.feedback.runtime_message = "Choose an export path first".to_owned();
+            self.feedback.runtime_message = t!("query.export_path_missing").into_owned();
             return;
         }
         let path = PathBuf::from(&path_text);
@@ -179,24 +180,27 @@ impl DbProApp {
             return;
         }
 
-        let delimiter = if self.overlay.export_format == "CSV" { "," } else { "\t" };
-        let output = if self.overlay.export_format == "Excel" {
+        let output = if self.overlay.export_format == ExportFormat::Excel {
             match result_grid_export::format_result_excel(result) {
                 Ok(bytes) => bytes,
                 Err(error) => {
-                    self.feedback.runtime_message = format!("Export failed: {error} (no file was written)");
+                    self.feedback.runtime_message = t!("query.export_failed", error = error.to_string().as_str()).into_owned();
                     self.overlay.export_overwrite_pending = false;
                     self.overlay.export_open = false;
                     return;
                 }
             }
         } else {
-            match self.overlay.export_format.as_str() {
-                "SQL" => result_grid_export::format_result_sql_insert(result, "exported_rows"),
-                "COPY" => result_grid_export::format_result_copy(result, "exported_rows"),
-                "JSON" => result_grid_export::format_result_json(result),
-                "MD" | "Markdown" => result_grid_export::format_result_markdown(result),
-                _ => result_grid_export::format_result_delimited(result, delimiter),
+            match self.overlay.export_format {
+                ExportFormat::SqlInsert => result_grid_export::format_result_sql_insert(result, "exported_rows"),
+                ExportFormat::SqlCopy => result_grid_export::format_result_copy(result, "exported_rows"),
+                ExportFormat::Json => result_grid_export::format_result_json(result),
+                ExportFormat::Markdown => result_grid_export::format_result_markdown(result),
+                ExportFormat::Csv | ExportFormat::Tsv => result_grid_export::format_result_delimited(
+                    result,
+                    self.overlay.export_format.delimiter().unwrap_or(","),
+                ),
+                ExportFormat::Excel => unreachable!("excel handled above"),
             }
             .into_bytes()
         };
@@ -206,17 +210,19 @@ impl DbProApp {
                 // Truthful row count: a capped result exports the rows it holds, not the rows the
                 // query matched, and the message has to say which one it is.
                 self.feedback.runtime_message = if result.row_count > exported_rows as u64 {
-                    format!(
-                        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        "Exported {exported_rows} rows to {path_text} ({} rows matched; the result holds the first {exported_rows})",
-                        result.row_count
+                    t!(
+                        "query.export_done_capped",
+                        rows = exported_rows,
+                        path = path_text.as_str(),
+                        total = result.row_count
                     )
+                    .into_owned()
                 } else {
-                    format!("Exported {exported_rows} rows to {path_text}")
+                    t!("query.export_done", rows = exported_rows, path = path_text.as_str()).into_owned()
                 };
             }
             Err(error) => {
-                self.feedback.runtime_message = format!("Export failed: {error} (no file was written)");
+                self.feedback.runtime_message = t!("query.export_failed", error = error.to_string().as_str()).into_owned();
             }
         }
         self.overlay.export_overwrite_pending = false;
