@@ -23,7 +23,7 @@ impl DbProApp {
                 catalog: &self.connection.catalog,
                 history_outcome_filter: self.query.editor.history_outcome_filter,
                 history_selected_id: self.query.editor.history_selected_id.as_deref(),
-                delete_confirmation_id: self.overlay.delete_confirmation_id.as_deref(),
+                saved_query_delete_id: self.overlay.saved_query_delete_id.as_deref(),
             };
             context.draw(ui)
         };
@@ -159,7 +159,7 @@ impl DbProApp {
             catalog: &self.connection.catalog,
             history_outcome_filter: self.query.editor.history_outcome_filter,
             history_selected_id: self.query.editor.history_selected_id.as_deref(),
-            delete_confirmation_id: self.overlay.delete_confirmation_id.as_deref(),
+            saved_query_delete_id: self.overlay.saved_query_delete_id.as_deref(),
         };
         for action in context.draw_history(ui) {
             match action {
@@ -223,16 +223,16 @@ impl DbProApp {
             }
             SidebarQueryLibraryAction::Rename(query) => self.rename_saved_query(&query),
             SidebarQueryLibraryAction::RequestDelete(id) => {
-                self.overlay.delete_confirmation_id = Some(id);
+                self.overlay.saved_query_delete_id = Some(id);
             }
             SidebarQueryLibraryAction::ConfirmDelete(id) => {
                 let request_id = self.next_request_id();
                 if self.dispatch_command(query_save_commands::delete_query_command(request_id, id)) {
-                    self.overlay.delete_confirmation_id = None;
+                    self.overlay.saved_query_delete_id = None;
                 }
             }
             SidebarQueryLibraryAction::CancelDelete => {
-                self.overlay.delete_confirmation_id = None;
+                self.overlay.saved_query_delete_id = None;
             }
             SidebarQueryLibraryAction::RequestDeleteFolder(id) => {
                 self.overlay.folder_delete_confirmation = id;

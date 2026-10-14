@@ -519,3 +519,45 @@ fn failed_connection_test_cancel_dispatch_keeps_the_dialog_open() {
     assert_eq!(app.connection.lifecycle.pending_request(), Some(request_id));
     assert_eq!(app.feedback.runtime_message, "Runtime worker unavailable");
 }
+
+#[test]
+fn closing_dirty_connection_draft_requires_discard_confirmation() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connection.open_new();
+    app.connection.dialog.draft_mut().name = "Local".to_owned();
+
+    let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
+    ConnectionDialogView {
+        dialog: &mut app.connection.dialog,
+        lifecycle: &mut app.connection.lifecycle,
+        command_dispatcher: &mut command_dispatcher,
+        feedback: &mut app.feedback,
+        theme: app.theme,
+    }
+    .request_close_connection_dialog();
+
+    // The dirty draft stays open behind the confirmation instead of being dropped.
+    assert!(app.connection.dialog.is_open());
+    assert!(app.connection.dialog.discard_draft_confirmation);
+}
+
+#[test]
+fn closing_pristine_connection_draft_skips_the_confirmation() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connection.open_new();
+
+    let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
+    ConnectionDialogView {
+        dialog: &mut app.connection.dialog,
+        lifecycle: &mut app.connection.lifecycle,
+        command_dispatcher: &mut command_dispatcher,
+        feedback: &mut app.feedback,
+        theme: app.theme,
+    }
+    .request_close_connection_dialog();
+
+    assert!(!app.connection.dialog.is_open());
+    assert!(!app.connection.dialog.discard_draft_confirmation);
+}

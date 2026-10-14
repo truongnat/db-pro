@@ -85,10 +85,51 @@ impl DbProApp {
         match action {
             Some(table_insert_row_surface_view::InsertRowDialogAction::Submit) => self.submit_insert_row(),
             Some(table_insert_row_surface_view::InsertRowDialogAction::Cancel) => {
-                self.table.editing.insert_row_open = false;
-                self.table.editing.insert_row_error.clear();
+                // Partially-filled values are expensive to retype — confirm
+                // before clearing the form.
+                if self
+                    .table
+                    .editing
+                    .insert_row_values
+                    .iter()
+                    .any(|value| !value.trim().is_empty())
+                {
+                    self.table.editing.insert_row_discard_confirmation = true;
+                } else {
+                    self.table.editing.insert_row_open = false;
+                    self.table.editing.insert_row_error.clear();
+                }
             }
             None => {}
+        }
+
+        if self.table.editing.insert_row_discard_confirmation {
+            let mut confirm_open = true;
+            let confirm_action = crate::components::alert::AlertDialog::new(
+                "Discard row values?",
+                "The insert form has filled values. Closing clears them.",
+                self.theme,
+            )
+            .confirm_label("Discard")
+            .cancel_label("Keep Editing")
+            .destructive(true)
+            .id_salt("insert_row_discard")
+            .show(ctx, &mut confirm_open);
+            match confirm_action {
+                Some(crate::components::alert::AlertDialogAction::Confirm) => {
+                    self.table.editing.insert_row_discard_confirmation = false;
+                    self.table.editing.insert_row_open = false;
+                    self.table.editing.insert_row_values.iter_mut().for_each(String::clear);
+                    self.table.editing.insert_row_error.clear();
+                }
+                Some(crate::components::alert::AlertDialogAction::Cancel) => {
+                    self.table.editing.insert_row_discard_confirmation = false;
+                }
+                None => {}
+            }
+            if !confirm_open {
+                self.table.editing.insert_row_discard_confirmation = false;
+            }
         }
     }
 }

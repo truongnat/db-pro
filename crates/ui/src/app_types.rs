@@ -8,7 +8,27 @@ pub(crate) enum PendingNavigationAction {
     OpenTable(String),
     ChangeSchema(String),
     ChangeConnection(String),
+    /// Routed through the staged-changes confirmation: disconnecting wipes
+    /// `staged_changes`, so it must pass `discard_changes_confirmation` first.
+    Disconnect(String),
+    /// "Open referenced row" navigates to another table — same staged-changes
+    /// hazard as `OpenTable`, so it goes through the confirmation too.
+    OpenReferencedRow {
+        connection_id: String,
+        schema: String,
+        table: String,
+        filters: Vec<crate::UiTableDataFilter>,
+    },
     CloseWorkspace(WorkspaceTab),
+}
+
+/// Which tab set a pending bulk close targets; stored while the dirty-close
+/// confirmation is open so `Discard` can replay the exact close.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PendingBulkClose {
+    Others(usize),
+    ToRight(usize),
+    All,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

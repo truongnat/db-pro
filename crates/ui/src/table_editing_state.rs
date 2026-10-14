@@ -20,6 +20,9 @@ pub(crate) struct TableEditingState {
     pub(super) insert_row_open: bool,
     pub(super) insert_row_values: Vec<String>,
     pub(super) insert_row_error: String,
+    /// Esc/backdrop on a partially-filled insert form parks here until the
+    /// user confirms discarding the values.
+    pub(super) insert_row_discard_confirmation: bool,
     pub(super) fk_lookup_column: Option<String>,
     pub(super) fk_lookup_options: Vec<String>,
 }
@@ -39,6 +42,7 @@ impl Default for TableEditingState {
             insert_row_open: false,
             insert_row_values: Vec::new(),
             insert_row_error: String::new(),
+            insert_row_discard_confirmation: false,
             fk_lookup_column: None,
             fk_lookup_options: Vec::new(),
         }

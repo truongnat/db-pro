@@ -125,6 +125,16 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         true
     }
 
+    /// Routes a close through the dirty-draft confirmation when the form
+    /// has unsaved edits; the confirm dialog keeps `open` until answered.
+    pub(crate) fn request_close_connection_dialog(&mut self) {
+        if self.dialog.draft_is_dirty() {
+            self.dialog.discard_draft_confirmation = true;
+            return;
+        }
+        self.close_connection_dialog();
+    }
+
     pub(crate) fn close_connection_dialog(&mut self) {
         if self.lifecycle.pending_operation() == Some(PendingConnectionOperation::Test)
             && !self.cancel_connection_test()
@@ -132,6 +142,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
             return;
         }
 
+        self.dialog.discard_draft_confirmation = false;
         self.dialog
             .transition(super::state::ConnectionDialogAction::Close);
     }
@@ -163,7 +174,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
                 });
             });
         if !open && self.dialog.open {
-            self.close_connection_dialog();
+            self.request_close_connection_dialog();
             if self.dialog.open {
                 return;
             }
@@ -176,6 +187,36 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         }
         if !self.dialog.open {
             self.lifecycle.clear_pending_request();
+        }
+
+        // Dirty-draft guard: Esc/backdrop/Cancel on an edited form opens this
+        // instead of dropping the draft. The form dialog stays mounted behind
+        // it (`self.dialog.open` remains true) until Discard runs.
+        if self.dialog.discard_draft_confirmation {
+            let mut confirm_open = true;
+            let action = crate::components::alert::AlertDialog::new(
+                "Discard connection changes?",
+                "This form has unsaved edits. Closing discards them.",
+                self.theme,
+            )
+            .confirm_label("Discard")
+            .cancel_label("Keep Editing")
+            .destructive(true)
+            .id_salt("connection_draft_discard")
+            .show(ctx, &mut confirm_open);
+            match action {
+                Some(crate::components::alert::AlertDialogAction::Confirm) => {
+                    self.dialog.discard_draft_confirmation = false;
+                    self.close_connection_dialog();
+                }
+                Some(crate::components::alert::AlertDialogAction::Cancel) => {
+                    self.dialog.discard_draft_confirmation = false;
+                }
+                None => {}
+            }
+            if !confirm_open {
+                self.dialog.discard_draft_confirmation = false;
+            }
         }
     }
 
@@ -340,7 +381,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
                     .show(ui)
                     .clicked()
                 {
-                    self.close_connection_dialog();
+                    self.request_close_connection_dialog();
                 }
             });
         });

@@ -118,6 +118,10 @@ impl QueryDocumentContext<'_, '_> {
 
         self.cancel_prediction(index);
         let closed = self.query_session.documents[index].clone();
+        // A running request outlives the tab if we just forget it: the
+        // server keeps executing and the result lands on a dead document.
+        // Cancel in-flight work before dropping the document.
+        self.cancel_document_requests(&closed.id);
         self.execution.forget_document(&closed.id);
         self.cancel_agent_run(&closed.id);
         self.query_session.remove_document(index);
@@ -181,6 +185,17 @@ impl QueryDocumentContext<'_, '_> {
                 .set_runtime_message("Commit or rollback the open transaction before closing this query");
             return;
         }
+        // Dirty tabs in the close set keep their SQL via the bulk-confirm
+        // dialog; only a clean bulk close proceeds immediately.
+        // Replay after the bulk dirty confirm skips the guard; the pending
+        // marker is cleared before re-entering so the check below only fires
+        // once.
+        if self.query_session.pending_bulk_close == Some(PendingBulkClose::Others(keep_index)) {
+            self.query_session.pending_bulk_close = None;
+        } else if self.bulk_close_has_dirty(|index| index != keep_index) {
+            self.query_session.pending_bulk_close = Some(PendingBulkClose::Others(keep_index));
+            return;
+        }
         let removed: Vec<String> = self
             .query_session
             .documents
@@ -192,6 +207,8 @@ impl QueryDocumentContext<'_, '_> {
         for index in 0..self.query_session.documents.len() {
             if index != keep_index {
                 self.cancel_prediction(index);
+                let id = self.query_session.documents[index].id.clone();
+                self.cancel_document_requests(&id);
             }
         }
         self.query_session.keep_document(keep_index);
@@ -216,6 +233,12 @@ impl QueryDocumentContext<'_, '_> {
                 .set_runtime_message("Commit or rollback the open transaction before closing this query");
             return;
         }
+        if self.query_session.pending_bulk_close == Some(PendingBulkClose::ToRight(index)) {
+            self.query_session.pending_bulk_close = None;
+        } else if self.bulk_close_has_dirty(|query_index| query_index > index) {
+            self.query_session.pending_bulk_close = Some(PendingBulkClose::ToRight(index));
+            return;
+        }
         let removed: Vec<String> = self
             .query_session
             .documents
@@ -225,6 +248,8 @@ impl QueryDocumentContext<'_, '_> {
             .collect();
         for query_index in index + 1..self.query_session.documents.len() {
             self.cancel_prediction(query_index);
+            let id = self.query_session.documents[query_index].id.clone();
+            self.cancel_document_requests(&id);
         }
         self.query_session.close_documents_to_right(index);
         for document_id in removed {
@@ -239,6 +264,12 @@ impl QueryDocumentContext<'_, '_> {
                 .set_runtime_message("Commit or rollback the open transaction before closing this query");
             return;
         }
+        if self.query_session.pending_bulk_close == Some(PendingBulkClose::All) {
+            self.query_session.pending_bulk_close = None;
+        } else if self.bulk_close_has_dirty(|_| true) {
+            self.query_session.pending_bulk_close = Some(PendingBulkClose::All);
+            return;
+        }
         let removed: Vec<String> = self
             .query_session
             .documents
@@ -247,6 +278,8 @@ impl QueryDocumentContext<'_, '_> {
             .collect();
         for index in 0..self.query_session.documents.len() {
             self.cancel_prediction(index);
+            let id = self.query_session.documents[index].id.clone();
+            self.cancel_document_requests(&id);
         }
         self.workspace.welcome_open = true;
         self.workspace.diagram_open = false;
@@ -350,6 +383,39 @@ impl QueryDocumentContext<'_, '_> {
         } else {
             self.activate_welcome_tab();
         }
+    }
+
+    /// Cancels every in-flight runtime request owned by `document_id` (query
+    /// execution or explain) before the document is dropped or disconnected.
+    fn cancel_document_requests(&mut self, document_id: &str) {
+        if let Some(document) = self
+            .query_session
+            .documents
+            .iter()
+            .find(|document| document.id == document_id)
+        {
+            if let QueryExecutionState::Running(request_id) = document.execution_state {
+                let _ = self
+                    .command_dispatcher
+                    .send_best_effort(UiCommand::CancelQuery { request_id });
+            }
+            if let Some(request_id) = document.explain_request {
+                let _ = self
+                    .command_dispatcher
+                    .send_best_effort(UiCommand::CancelQuery { request_id });
+            }
+        }
+    }
+
+    /// True when any document matching `target` has unsaved text — the bulk
+    /// closes gate on this so they can't drop SQL the dirty-close dialog
+    /// would have protected for a single tab.
+    fn bulk_close_has_dirty(&self, target: impl Fn(usize) -> bool) -> bool {
+        self.query_session
+            .documents
+            .iter()
+            .enumerate()
+            .any(|(index, document)| target(index) && document.is_dirty())
     }
 }
 
@@ -474,6 +540,33 @@ impl DbProApp {
                     self.connect_to_connection(&connection);
                 }
             }
+            PendingNavigationAction::Disconnect(connection_id) => {
+                let connection = self.connection.catalog.find(&connection_id).cloned();
+                if let Some(connection) = connection {
+                    self.disconnect_from_connection(&connection);
+                }
+            }
+            PendingNavigationAction::OpenReferencedRow {
+                connection_id,
+                schema,
+                table,
+                filters,
+            } => {
+                self.schema.explorer.selected_schema = Some(schema.clone());
+                self.schema.explorer.selected_table = Some(table.clone());
+                self.workspace.active_tab = WorkspaceTab::Table;
+                self.table.state.table_view = TableView::Data;
+                let request_id = self.next_request_id();
+                let _ = self.dispatch_command(table_data_view::build_load_row_command(
+                    request_id,
+                    table_data_view::TableDataTarget {
+                        connection_id,
+                        schema,
+                        table,
+                    },
+                    filters,
+                ));
+            }
             PendingNavigationAction::CloseWorkspace(tab) => self.request_close_workspace_tab(tab),
         }
     }
@@ -592,5 +685,85 @@ mod tests {
         assert_eq!(query_session.documents.len(), 1);
         assert!(execution.document_is_busy("query-1"));
         assert!(feedback.runtime_message.contains("Commit or rollback"));
+    }
+
+    #[test]
+    fn bulk_close_with_dirty_tabs_parks_the_close_for_confirmation() {
+        let mut query_session = QuerySessionState::default();
+        // A tab is dirty once its text differs from the snapshot taken at
+        // construction — simulate the user typing into the second tab.
+        query_session.add_document(QueryDocument::new("query-1", "Query 1", "select 1"));
+        let mut dirty = QueryDocument::new("query-2", "Query 2", "select 2");
+        dirty.set_text("select 2 -- edited");
+        query_session.add_document(dirty);
+        let mut query_editor = QueryEditorState::default();
+        let mut workspace = WorkspaceFeatureState::default();
+        let mut agent = AgentState::default();
+        let mut query_output = QueryOutputState::default();
+        let mut schema_explorer = SchemaExplorerState::default();
+        let mut task_bridge = TaskBridge::default();
+        let mut feedback = FeedbackState::default();
+        let mut execution = QueryExecutionPolicyState::default();
+
+        QueryDocumentContext {
+            query_session: &mut query_session,
+            query_editor: &mut query_editor,
+            workspace: &mut workspace,
+            agent: &mut agent,
+            query_output: &mut query_output,
+            schema_explorer: &mut schema_explorer,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
+            feedback: &mut feedback,
+            execution: &mut execution,
+            active_connection_id: None,
+            active_schema: "public".to_owned(),
+        }
+        .close_other_documents(0);
+
+        assert_eq!(query_session.documents.len(), 2, "dirty tab must survive the close attempt");
+        assert_eq!(
+            query_session.pending_bulk_close,
+            Some(PendingBulkClose::Others(0)),
+            "close scope must be parked for the confirmation dialog"
+        );
+    }
+
+    #[test]
+    fn bulk_close_replays_once_the_pending_scope_is_confirmed() {
+        let mut query_session = QuerySessionState::default();
+        query_session.add_document(QueryDocument::new("query-1", "Query 1", "select 1"));
+        let mut dirty = QueryDocument::new("query-2", "Query 2", "select 2");
+        dirty.set_text("select 2 -- edited");
+        query_session.add_document(dirty);
+        // Simulate the confirmation answering: the parked scope replays and
+        // clears itself, then the close proceeds with the dirty tab gone.
+        query_session.pending_bulk_close = Some(PendingBulkClose::Others(0));
+        let mut query_editor = QueryEditorState::default();
+        let mut workspace = WorkspaceFeatureState::default();
+        let mut agent = AgentState::default();
+        let mut query_output = QueryOutputState::default();
+        let mut schema_explorer = SchemaExplorerState::default();
+        let mut task_bridge = TaskBridge::default();
+        let mut feedback = FeedbackState::default();
+        let mut execution = QueryExecutionPolicyState::default();
+
+        QueryDocumentContext {
+            query_session: &mut query_session,
+            query_editor: &mut query_editor,
+            workspace: &mut workspace,
+            agent: &mut agent,
+            query_output: &mut query_output,
+            schema_explorer: &mut schema_explorer,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
+            feedback: &mut feedback,
+            execution: &mut execution,
+            active_connection_id: None,
+            active_schema: "public".to_owned(),
+        }
+        .close_other_documents(0);
+
+        assert!(query_session.pending_bulk_close.is_none());
+        assert_eq!(query_session.documents.len(), 1);
+        assert_eq!(query_session.documents[0].id, "query-1");
     }
 }

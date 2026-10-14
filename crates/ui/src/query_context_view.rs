@@ -15,6 +15,8 @@ pub(super) struct QueryContextViewContext<'a> {
     pub(super) schema: &'a str,
     pub(super) environment: &'a str,
     pub(super) active_request_id: Option<RequestId>,
+    /// Set while a query runs so the run control can show elapsed time.
+    pub(super) execution_started_at: Option<std::time::Instant>,
     pub(super) cancel_supported: bool,
     pub(super) cancel_reason: Option<&'a str>,
     pub(super) modifier: &'a str,
@@ -56,6 +58,7 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
             theme: context.theme,
             connected: context.connected,
             active_request_id: context.active_request_id,
+            execution_started_at: context.execution_started_at,
             cancel_supported: context.cancel_supported,
             cancel_reason: context.cancel_reason,
             modifier: context.modifier,

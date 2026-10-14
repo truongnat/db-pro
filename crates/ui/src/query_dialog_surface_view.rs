@@ -15,21 +15,27 @@ pub(super) struct DestructiveDialogContext<'a> {
 }
 
 impl DestructiveDialogContext<'_> {
-    pub(super) fn draw(&self, ui: &mut egui::Ui) -> DestructiveDialogAction {
+    /// ctx-level overlay variant: the held destructive statement must be
+    /// confirmable no matter which output tab or dock state is active.
+    pub(super) fn draw_ctx(&self, ctx: &egui::Context) -> Option<DestructiveDialogAction> {
         let mut open = true;
-        let mut action = DestructiveDialogAction::Cancel;
+        let mut action = None;
         Dialog::new(&mut open, "Run Destructive Statement?", self.theme)
             .id_salt("destructive_run_dialog")
             .width(560.0)
-            .show(ui, |ui| self.draw_destructive_body(ui, &mut action));
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    self.draw_destructive_body(ui, &mut action);
+                });
+            });
         if !open {
-            DestructiveDialogAction::Cancel
-        } else {
-            action
+            return Some(DestructiveDialogAction::Cancel);
         }
+        action
     }
 
-    fn draw_destructive_body(&self, ui: &mut egui::Ui, action: &mut DestructiveDialogAction) {
+
+    fn draw_destructive_body(&self, ui: &mut egui::Ui, action: &mut Option<DestructiveDialogAction>) {
         ui.label(
             RichText::new(if self.pending.all_statements() {
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
@@ -65,7 +71,7 @@ impl DestructiveDialogContext<'_> {
                 .show(ui)
                 .clicked()
             {
-                *action = DestructiveDialogAction::Confirm;
+                *action = Some(DestructiveDialogAction::Confirm);
             }
             if Button::new(self.theme)
                 .text("Cancel")
@@ -74,7 +80,7 @@ impl DestructiveDialogContext<'_> {
                 .show(ui)
                 .clicked()
             {
-                *action = DestructiveDialogAction::Cancel;
+                *action = Some(DestructiveDialogAction::Cancel);
             }
         });
     }

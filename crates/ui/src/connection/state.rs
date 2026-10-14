@@ -11,6 +11,12 @@ pub(crate) struct ConnectionDialogState {
     pub(super) focus_name_on_open: bool,
     pub(super) editing_connection_id: Option<String>,
     pub(super) draft: UiConnectionDraft,
+    /// Snapshot of the draft as seeded by the last Open* action; the dirty
+    /// check compares against this so closing a half-filled form asks first.
+    pub(super) seeded_draft: Option<UiConnectionDraft>,
+    /// Set when Esc/backdrop tried to close a dirty form — the confirmation
+    /// dialog renders while this is true.
+    pub(super) discard_draft_confirmation: bool,
     pub(super) show_password: bool,
     pub(super) error: String,
     pub(super) error_toast_pending: bool,
@@ -44,6 +50,13 @@ pub(crate) enum ConnectionDialogAction {
 impl ConnectionDialogState {
     pub(crate) fn is_open(&self) -> bool {
         self.open
+    }
+
+    /// The form differs from its seeded baseline — closing must confirm.
+    pub(crate) fn draft_is_dirty(&self) -> bool {
+        self.seeded_draft
+            .as_ref()
+            .is_some_and(|seeded| seeded != &self.draft)
     }
 
     pub(crate) fn draft(&self) -> &UiConnectionDraft {
@@ -132,23 +145,29 @@ impl ConnectionDialogState {
             ConnectionDialogAction::OpenNew => {
                 self.editing_connection_id = None;
                 self.draft = UiConnectionDraft::default();
+                self.seeded_draft = Some(self.draft.clone());
                 self.diagnostics = None;
                 self.show_password = false;
                 self.focus_name_on_open = true;
+                self.discard_draft_confirmation = false;
                 self.open = true;
                 self.invalidate_test();
             }
             ConnectionDialogAction::OpenEdit { connection_id, draft } => {
                 self.editing_connection_id = Some(connection_id);
+                self.seeded_draft = Some(draft.clone());
                 self.draft = draft;
                 self.focus_name_on_open = true;
+                self.discard_draft_confirmation = false;
                 self.open = true;
                 self.invalidate_test();
             }
             ConnectionDialogAction::OpenDuplicate { draft } => {
                 self.editing_connection_id = None;
+                self.seeded_draft = Some(draft.clone());
                 self.draft = draft;
                 self.focus_name_on_open = true;
+                self.discard_draft_confirmation = false;
                 self.open = true;
                 self.invalidate_test();
             }

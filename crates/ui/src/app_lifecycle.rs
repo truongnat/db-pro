@@ -267,7 +267,7 @@ impl DbProApp {
                 &mut self.feedback,
             );
         }
-        if self.overlay.delete_confirmation_id.is_some() {
+        if self.overlay.connection_delete_confirmation_id.is_some() {
             let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             connection::delete_dialog::draw(
                 ctx,
@@ -292,6 +292,12 @@ impl DbProApp {
         }
         if self.table.editing.insert_row_open {
             self.draw_insert_row_dialog(ctx);
+        }
+        if self.query.execution.pending_destructive_run().is_some() {
+            self.draw_destructive_run_dialog(ctx);
+        }
+        if self.query.session.pending_bulk_close.is_some() {
+            self.draw_bulk_dirty_close_dialog(ctx);
         }
         if self.palette.mode.is_some() {
             self.draw_palette(ctx);

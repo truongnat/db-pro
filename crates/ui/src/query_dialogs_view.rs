@@ -4,7 +4,11 @@ use super::*;
 use std::path::PathBuf;
 
 impl DbProApp {
-    pub(super) fn draw_destructive_run_dialog(&mut self, ui: &mut egui::Ui) {
+    /// Held destructive statements render as a ctx-level overlay so the
+    /// confirmation can't be stranded inside a closed Results dock or a
+    /// Messages tab — `hold_destructive_run` parks the statement until the
+    /// dialog answers.
+    pub(super) fn draw_destructive_run_dialog(&mut self, ctx: &egui::Context) {
         let Some(pending) = self.query.execution.pending_destructive_run().cloned() else {
             return;
         };
@@ -12,10 +16,67 @@ impl DbProApp {
             theme: self.theme,
             pending: &pending,
         })
-        .draw(ui)
+        .draw_ctx(ctx)
         {
-            query_dialog_surface_view::DestructiveDialogAction::Confirm => self.confirm_pending_destructive_run(),
-            query_dialog_surface_view::DestructiveDialogAction::Cancel => self.cancel_pending_destructive_run(),
+            Some(query_dialog_surface_view::DestructiveDialogAction::Confirm) => {
+                self.confirm_pending_destructive_run()
+            }
+            Some(query_dialog_surface_view::DestructiveDialogAction::Cancel) => {
+                self.cancel_pending_destructive_run()
+            }
+            None => {}
+        }
+    }
+
+    /// Bulk tab closes (Other/Right/All) with dirty documents wait on this
+    /// ctx-level confirmation; `Discard` replays the parked close scope.
+    pub(super) fn draw_bulk_dirty_close_dialog(&mut self, ctx: &egui::Context) {
+        let Some(scope) = self.query.session.pending_bulk_close else {
+            return;
+        };
+        let dirty_count = self
+            .query
+            .session
+            .documents
+            .iter()
+            .enumerate()
+            .filter(|(index, document)| {
+                let in_scope = match scope {
+                    PendingBulkClose::Others(keep) => *index != keep,
+                    PendingBulkClose::ToRight(boundary) => *index > boundary,
+                    PendingBulkClose::All => true,
+                };
+                in_scope && document.is_dirty()
+            })
+            .count();
+        let mut open = true;
+        let action = crate::components::alert::AlertDialog::new(
+            "Close unsaved queries?",
+            format!("{dirty_count} tab(s) have unsaved SQL. Closing discards it permanently."),
+            self.theme,
+        )
+        .confirm_label("Discard && Close")
+        .cancel_label("Keep Tabs")
+        .destructive(true)
+        .id_salt("bulk_dirty_close_dialog")
+        .show(ctx, &mut open);
+        if !open && action.is_none() {
+            self.query.session.pending_bulk_close = None;
+            return;
+        }
+        use crate::components::alert::AlertDialogAction;
+        match action {
+            Some(AlertDialogAction::Confirm) => {
+                match scope {
+                    PendingBulkClose::Others(keep) => self.close_other_query_documents(keep),
+                    PendingBulkClose::ToRight(index) => self.close_query_documents_to_right(index),
+                    PendingBulkClose::All => self.close_all_tabs(),
+                }
+            }
+            Some(AlertDialogAction::Cancel) => {
+                self.query.session.pending_bulk_close = None;
+            }
+            None => {}
         }
     }
 

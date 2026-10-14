@@ -6,7 +6,7 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        if self.shortcuts_blocked() {
+        if self.shortcuts_blocked(ctx) {
             return;
         }
         if self.handle_document_shortcuts(ctx) {
@@ -26,12 +26,16 @@ impl DbProApp {
         }
     }
 
-    fn shortcuts_blocked(&self) -> bool {
+    fn shortcuts_blocked(&self, ctx: &egui::Context) -> bool {
+        // Overlay flags that exist outside the modal registry still gate
+        // here; any *rendered* Dialog/Sheet is detected via modal_guard so
+        // global chords and Esc can't reach the surface behind a modal.
         self.palette.mode.is_some()
             || self.connection.dialog.is_open()
-            || self.overlay.delete_confirmation_id.is_some()
+            || self.overlay.connection_delete_confirmation_id.is_some()
             || self.overlay.folder_delete_confirmation.is_some()
             || self.table.editing.insert_row_open
+            || crate::components::dialog::modal_guard::any_open(ctx)
     }
 
     fn handle_document_shortcuts(&mut self, ctx: &egui::Context) -> bool {

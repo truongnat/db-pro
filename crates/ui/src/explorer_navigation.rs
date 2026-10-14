@@ -167,6 +167,17 @@ impl<'a> ExplorerConnectionContext<'a> {
     }
 
     pub(crate) fn disconnect(&mut self, connection: &UiConnectionSummary) -> bool {
+        // Staged edits are wiped by `reset_workspace` below — gate on the same
+        // discard-changes confirmation the connect path uses so disconnecting
+        // never silently drops inserts/updates/deletes.
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.workspace.pending_navigation_action =
+                Some(PendingNavigationAction::Disconnect(connection.id.clone()));
+            self.table.editing.discard_changes_confirmation = true;
+            self.feedback
+                .set_runtime_message("Apply or discard staged changes before disconnecting");
+            return false;
+        }
         if self.execution.any_transaction_busy() {
             self.execution.disconnect_txn_guard = true;
             self.feedback

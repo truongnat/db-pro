@@ -6,6 +6,8 @@ pub(super) struct QueryRunControlContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) connected: bool,
     pub(super) active_request_id: Option<RequestId>,
+    /// Set while a query runs — rendered as a live elapsed timer.
+    pub(super) execution_started_at: Option<std::time::Instant>,
     pub(super) cancel_supported: bool,
     pub(super) cancel_reason: Option<&'a str>,
     pub(super) modifier: &'a str,
@@ -58,6 +60,19 @@ pub(super) fn draw_run_control(
             .tooltip(tip)
             .show(ui)
     };
+    // Live elapsed readout while a request is in flight — the running state
+    // was previously indistinguishable from idle at a glance.
+    if context.active_request_id.is_some() {
+        if let Some(started) = context.execution_started_at {
+            crate::components::feedback::Spinner::new(context.theme).show(ui);
+            ui.label(
+                RichText::new(format!("{:.1}s", started.elapsed().as_secs_f32()))
+                    .small()
+                    .color(context.theme.text_muted),
+            );
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+        }
+    }
     if !run_button.clicked() {
         return None;
     }

@@ -1,6 +1,6 @@
 //! Feature-owned lifecycle state for query documents and their shell requests.
 
-use super::{QueryDocument, QueryExecutionState};
+use super::{PendingBulkClose, QueryDocument, QueryExecutionState};
 use crate::runtime::UiQueryResult;
 use crate::RequestId;
 use std::collections::HashMap;
@@ -14,6 +14,9 @@ pub(crate) struct QuerySessionState {
     pub(super) document_requests: HashMap<RequestId, String>,
     pub(super) save_requests: HashMap<RequestId, String>,
     pub(super) pending_dirty_close: Option<usize>,
+    /// Bulk tab closes ("Close Other/Right/All") staged here while the dirty
+    /// confirmation is up — closing must never silently drop unsaved SQL.
+    pub(super) pending_bulk_close: Option<PendingBulkClose>,
     pub(super) pending_close_after_save: Option<usize>,
     pub(super) save_as_name: String,
     pub(super) save_as_name_error: bool,

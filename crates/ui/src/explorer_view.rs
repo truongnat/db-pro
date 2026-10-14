@@ -37,6 +37,7 @@ impl DbProApp {
     fn apply_explorer_surface_action(&mut self, action: ExplorerSurfaceAction, ui: &mut egui::Ui) {
         match action {
             ExplorerSurfaceAction::NewConnection => self.connection.open_new(),
+            ExplorerSurfaceAction::RetryConnections => self.retry_connections_load(),
             ExplorerSurfaceAction::RefreshSchema => {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let schema = self.schema.explorer.selected_schema.clone();
@@ -87,6 +88,26 @@ impl DbProApp {
         .disconnect(connection);
         if !closed {
             return;
+        }
+        // In-flight requests bound to this connection outlive the disconnect
+        // otherwise — the server keeps running them and results land on
+        // documents whose connection is gone.
+        let orphaned: Vec<crate::RequestId> = self
+            .query
+            .session
+            .documents
+            .iter()
+            .filter(|document| document.connection_id.as_deref() == Some(connection.id.as_str()))
+            .flat_map(|document| {
+                let running = match document.execution_state {
+                    crate::query::query_document::QueryExecutionState::Running(id) => Some(id),
+                    _ => None,
+                };
+                running.into_iter().chain(document.explain_request)
+            })
+            .collect();
+        for request_id in orphaned {
+            let _ = self.dispatch_command(UiCommand::CancelQuery { request_id });
         }
         let request_id = self.next_request_id();
         let command = UiCommand::Disconnect {

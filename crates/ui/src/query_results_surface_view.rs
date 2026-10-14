@@ -50,10 +50,17 @@ where
                     action = Some(QueryResultsSurfaceAction::TogglePin(context.active_result_index));
                 }
 
+                let loaded = result.rows.len();
+                let row_label = if loaded < result.row_count as usize {
+                    // Sampled/truncated result — disclose the load count so
+                    // Export/Copy-as on the visible subset isn't mistaken for
+                    // the full result.
+                    format!("{loaded} of {} rows · {} ms", result.row_count, result.duration_ms)
+                } else {
+                    format!("{} rows · {} ms", result.row_count, result.duration_ms)
+                };
                 ui.label(
-                    RichText::new(format!("{} rows · {} ms", result.row_count, result.duration_ms))
-                        .small()
-                        .color(context.theme.text_muted),
+                    RichText::new(row_label).small().color(context.theme.text_muted),
                 );
                 if Button::new(context.theme)
                     .text(t!("common.export"))

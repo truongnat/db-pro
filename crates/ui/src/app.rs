@@ -374,6 +374,13 @@ impl DbProApp {
         }
     }
 
+    /// Retries the connection-catalog load after a failure — clears the
+    /// one-shot latch so `request_connections_once` fires again.
+    pub(crate) fn retry_connections_load(&mut self) {
+        self.connection.lifecycle.clear_connections_requested();
+        self.request_connections_once();
+    }
+
     // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     fn runtime_work_pending(&self) -> bool {
         self.connection.lifecycle.connections_request_pending()

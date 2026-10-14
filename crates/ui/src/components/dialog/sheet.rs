@@ -58,7 +58,9 @@ impl<'a> Sheet<'a> {
         let anchor_id = id.with("focus_anchor");
 
         if is_topmost {
-            let escape_pressed = ctx.input(|input| input.key_pressed(egui::Key::Escape));
+            // Consume Escape like `Dialog` so one key press can't close the
+            // sheet and leak through to global handlers in the same pass.
+            let escape_pressed = ctx.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
             if modal_dismissal(true, escape_pressed, false, None, None) == Some(ModalDismissal::Escape) {
                 *self.open = false;
             }

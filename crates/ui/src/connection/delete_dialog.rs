@@ -20,7 +20,7 @@ pub(crate) fn draw(
     command_dispatcher: &mut super::super::command_dispatch::RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
 ) {
-    let Some(connection_id) = overlay.delete_confirmation_id.clone() else {
+    let Some(connection_id) = overlay.connection_delete_confirmation_id.clone() else {
         return;
     };
     let name = catalog
@@ -81,9 +81,9 @@ pub(crate) fn draw(
             lifecycle.set_pending_operation(Some(PendingConnectionOperation::Delete));
             lifecycle.set_pending_connection_id(Some(connection_id));
             feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
-            overlay.delete_confirmation_id = None;
+            overlay.connection_delete_confirmation_id = None;
         }
     } else if cancelled || !open {
-        overlay.delete_confirmation_id = None;
+        overlay.connection_delete_confirmation_id = None;
     }
 }

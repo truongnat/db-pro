@@ -14,7 +14,8 @@ use super::explorer_connection_row_view::ConnectionRowAction;
 use super::explorer_schema_tree_view::{ExplorerSchemaTreeAction, ExplorerSchemaTreeModel};
 use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext};
 use super::{
-    ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, SchemaExplorerState, UiConnectionSummary, UiTableInfo,
+    Button, ButtonSize, ButtonVariant, ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, Icon,
+    SchemaExplorerState, UiConnectionSummary, UiTableInfo,
 };
 use crate::components::ScrollArea;
 use eframe::egui;
@@ -46,6 +47,8 @@ pub(super) fn catalog_surface(pending: bool, error: Option<&str>, is_empty: bool
 
 pub(super) enum ExplorerSurfaceAction {
     NewConnection,
+    /// Retries the connection-catalog load after `CatalogSurface::Failed`.
+    RetryConnections,
     RefreshSchema,
     Connection {
         connection: UiConnectionSummary,
@@ -113,7 +116,49 @@ impl ExplorerSurfaceContext<'_> {
                     }
                     CatalogSurface::Failed => {
                         let message = error.as_deref().unwrap_or("Could not load connections");
-                        ui.label(egui::RichText::new(message).color(self.theme.danger));
+                        // Error card with retry + CTA — a bare red label left
+                        // the sidebar in a dead end with no toolbar to retry.
+                        crate::components::card::Card::new(self.theme).show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new(char::from(Icon::TriangleAlert).to_string())
+                                        .color(self.theme.danger),
+                                );
+                                ui.label(
+                                    egui::RichText::new("Could not load connections")
+                                        .strong()
+                                        .color(self.theme.danger),
+                                );
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    if Button::new(self.theme)
+                                        .icon(Icon::RotateCcw)
+                                        .text("Retry")
+                                        .variant(ButtonVariant::Secondary)
+                                        .size(ButtonSize::Sm)
+                                        .show(ui)
+                                        .clicked()
+                                    {
+                                        actions.push(ExplorerSurfaceAction::RetryConnections);
+                                    }
+                                    if Button::new(self.theme)
+                                        .icon(Icon::Plus)
+                                        .text("New connection")
+                                        .variant(ButtonVariant::Ghost)
+                                        .size(ButtonSize::Sm)
+                                        .show(ui)
+                                        .clicked()
+                                    {
+                                        actions.push(ExplorerSurfaceAction::NewConnection);
+                                    }
+                                });
+                            });
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(message)
+                                    .small()
+                                    .color(self.theme.text_secondary),
+                            );
+                        });
                     }
                     CatalogSurface::Empty => actions.extend(self.draw_empty_state(ui)),
                 }

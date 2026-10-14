@@ -188,23 +188,36 @@ fn foreign_key_lookup_edits_and_opens_referenced_row() {
 
     app.workspace.active_tab = WorkspaceTab::Query;
     app.table.state.table_view = TableView::Structure;
+
+    // Staged edits park the navigation behind the discard confirmation.
+    assert!(!app.open_referenced_row(&result, 0, 1));
+    assert_eq!(app.schema.explorer.selected_table.as_deref(), Some("orders"));
+    assert!(app.table.editing.discard_changes_confirmation);
+
+    // Discard the staged change, then the navigation proceeds.
+    app.discard_staged_changes();
+    app.table.editing.discard_changes_confirmation = false;
+    app.workspace.pending_navigation_action = None;
     assert!(app.open_referenced_row(&result, 0, 1));
     assert_eq!(app.schema.explorer.selected_schema.as_deref(), Some("public"));
     assert_eq!(app.schema.explorer.selected_table.as_deref(), Some("customers"));
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Table);
     assert_eq!(app.table.state.table_view, TableView::Data);
 
-    let UiCommand::LoadTableData {
-        connection_id,
-        schema,
-        table,
-        limit,
-        offset,
-        filters,
-        ..
-    } = command_rx.try_recv().expect("LoadTableData")
-    else {
-        panic!("expected LoadTableData");
+    // Discard above also dispatches a mutation command — scan past it.
+    let (connection_id, schema, table, limit, offset, filters) = loop {
+        match command_rx.try_recv().expect("LoadTableData for customers") {
+            UiCommand::LoadTableData {
+                connection_id,
+                schema,
+                table,
+                limit,
+                offset,
+                filters,
+                ..
+            } if table == "customers" => break (connection_id, schema, table, limit, offset, filters),
+            _ => {}
+        }
     };
     assert_eq!(connection_id, "conn-1");
     assert_eq!(schema, "public");

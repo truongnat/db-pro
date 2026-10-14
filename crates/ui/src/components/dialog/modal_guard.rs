@@ -61,6 +61,20 @@ pub(super) fn register(ctx: &Context, id: Id) -> bool {
         None => true,
     }
 }
+/// Reports whether any modal dialog was painting last pass or has already
+/// registered this pass. `handle_shortcuts` runs in `prepare_frame` — before
+/// dialogs draw — so it must consult this instead of a hand-kept overlay
+/// blocklist, otherwise global chords and Esc leak through open modals.
+pub(crate) fn any_open(ctx: &Context) -> bool {
+    ctx.data(|d| {
+        let cur: ModalStack = d.get_temp(stack_key()).unwrap_or_default();
+        let pass = ctx.cumulative_pass_nr();
+        if cur.pass == pass && !cur.ids.is_empty() {
+            return true;
+        }
+        !d.get_temp::<Vec<Id>>(prev_key()).unwrap_or_default().is_empty()
+    })
+}
 
 /// Keeps keyboard focus inside `card_layer`, pulling it back to `anchor_id`
 /// whenever it escapes to a widget in another layer (a `Tab`-out to the window

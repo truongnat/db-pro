@@ -106,7 +106,7 @@ impl DbProApp {
             }
             ConnectionRowAction::Edit => self.open_edit_connection(connection),
             ConnectionRowAction::Duplicate => self.open_duplicate_connection(connection),
-            ConnectionRowAction::Delete => self.overlay.delete_confirmation_id = Some(connection.id.clone()),
+            ConnectionRowAction::Delete => self.overlay.connection_delete_confirmation_id = Some(connection.id.clone()),
         }
     }
 

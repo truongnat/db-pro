@@ -111,6 +111,22 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect to a database before opening the referenced row".to_owned();
             return false;
         };
+        // Same staged-changes hazard as `open_table`: navigating switches the
+        // selected table, stranding edits staged for the current target.
+        // Park the navigation behind the discard-changes confirmation.
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.workspace.pending_navigation_action =
+                Some(PendingNavigationAction::OpenReferencedRow {
+                    connection_id,
+                    schema: fk.to_schema.clone(),
+                    table: fk.to_table.clone(),
+                    filters: filters.clone(),
+                });
+            self.table.editing.discard_changes_confirmation = true;
+            self.feedback
+                .set_runtime_message("Apply or discard staged changes before opening the referenced row");
+            return false;
+        }
         self.schema.explorer.selected_schema = Some(fk.to_schema.clone());
         self.schema.explorer.selected_table = Some(fk.to_table.clone());
         self.workspace.active_tab = WorkspaceTab::Table;

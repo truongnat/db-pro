@@ -91,7 +91,6 @@ impl DbProApp {
             }
         }
         self.draw_export_dialog(ui, result);
-        self.draw_destructive_run_dialog(ui);
     }
 
     fn draw_messages_pane(&mut self, ui: &mut egui::Ui) {

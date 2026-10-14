@@ -26,7 +26,7 @@ pub(super) struct SidebarQueriesSurfaceContext<'a> {
     pub(super) catalog: &'a ConnectionCatalogState,
     pub(super) history_outcome_filter: HistoryOutcomeFilter,
     pub(super) history_selected_id: Option<&'a str>,
-    pub(super) delete_confirmation_id: Option<&'a str>,
+    pub(super) saved_query_delete_id: Option<&'a str>,
 }
 
 impl SidebarQueriesSurfaceContext<'_> {
@@ -89,7 +89,7 @@ impl SidebarQueriesSurfaceContext<'_> {
                 .into_iter()
                 .map(SidebarQueriesSurfaceAction::Library),
         );
-        if let Some(id) = self.delete_confirmation_id {
+        if let Some(id) = self.saved_query_delete_id {
             if let Some(action) = library.draw_delete_confirmation(ui, id) {
                 actions.push(SidebarQueriesSurfaceAction::Library(action));
             }

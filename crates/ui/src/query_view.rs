@@ -122,6 +122,11 @@ impl DbProApp {
             .map(|connection| connection.environment.clone())
             .unwrap_or_default();
         let active_request_id = self.active_query_request_id();
+        let execution_started_at = self
+            .query
+            .session
+            .active_document()
+            .and_then(|document| document.execution_started_at);
         let capabilities = self.query_capabilities();
         let cancel_reason =
             capabilities.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
@@ -138,6 +143,7 @@ impl DbProApp {
                 schema: &schema,
                 environment: &environment,
                 active_request_id,
+                execution_started_at,
                 cancel_supported,
                 cancel_reason: cancel_reason.as_deref(),
                 modifier,

@@ -98,7 +98,10 @@ impl<'a> Dialog<'a> {
         let anchor_id = id.with("focus_anchor");
 
         if is_topmost {
-            let escape_pressed = ctx.input(|input| input.key_pressed(egui::Key::Escape));
+            // Consume (not just observe) so the Escape press that dismisses the
+            // topmost dialog cannot also reach `handle_escape` and cancel a
+            // running query or toggle the agent panel.
+            let escape_pressed = ctx.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
             if modal_dismissal(true, escape_pressed, false, None, None) == Some(ModalDismissal::Escape) {
                 *self.open = false;
             }
