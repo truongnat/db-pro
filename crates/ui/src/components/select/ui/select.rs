@@ -11,10 +11,9 @@ use crate::components::overlay::screen_rect;
 use crate::DbProTheme;
 
 use super::super::handler::{
-    calculate_menu_geometry, menu_min_content_width, navigate_selection, selected_label,
-    selection_from_click, should_close_for_key, should_request_load_more,
-    trigger_accessibility_label, trigger_content_width, trigger_inner_margin, trigger_text_width,
-    NavigationKeys,
+    calculate_menu_geometry, menu_min_content_width, navigate_selection, selected_label, selection_from_click,
+    should_close_for_key, should_request_load_more, trigger_accessibility_label, trigger_content_width,
+    trigger_inner_margin, trigger_text_width, NavigationKeys,
 };
 use super::option::{paint_option, SelectOption};
 use crate::tokens::{FONT_SIZE_CAPTION, ICON_TEXT_GAP, SPACE_XS};
@@ -183,9 +182,9 @@ impl<'a> Select<'a> {
                 None => selected_label(self.options, *self.selected).to_owned(),
             };
 
-            // Comment: Stable identity preserves egui popup state across frames.
+            // Comment: Stable identity preserves menu open state across frames.
             let popup_id = self.id_salt;
-            let is_open = egui::Popup::is_id_open(ui.ctx(), popup_id);
+            let is_open = ui.ctx().data_mut(|d| d.get_temp::<bool>(popup_id).unwrap_or(false));
 
             let ghost = self.variant == SelectVariant::Ghost;
             let rounding = egui::CornerRadius::same(crate::tokens::RADIUS_INPUT as u8);
@@ -245,13 +244,15 @@ impl<'a> Select<'a> {
             let response = trigger_btn.interact(Sense::click());
             let info_label = trigger_accessibility_label(self.label.as_deref(), &current_text);
             response.widget_info(|| combo_box_info(true, &info_label));
-            // Pointer clicks are handled by egui::Popup::menu below (it toggles
-            // on response.clicked()); only keyboard activation needs a manual
-            // toggle so we never double-toggle on the same press.
+            // Both pointer and keyboard toggles write the same temp flag;
+            // `!response.clicked()` prevents a double toggle on activation keys.
             let keyboard_toggle =
                 ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
             if response.has_focus() && keyboard_toggle && !response.clicked() {
-                egui::Popup::toggle_id(ui.ctx(), popup_id);
+                ui.ctx().data_mut(|d| {
+                    let open = !d.get_temp::<bool>(popup_id).unwrap_or(false);
+                    d.insert_temp(popup_id, open);
+                });
             }
             let hover = hover_t(
                 ui.ctx(),
@@ -285,7 +286,18 @@ impl<'a> Select<'a> {
                 paint_focus_ring(ui, response.rect, f32::from(rounding.nw), self.theme);
             }
 
-            if egui::Popup::is_id_open(ui.ctx(), popup_id) || response.clicked() {
+            // Open state lives in egui temp data keyed by `popup_id`; we own
+            // the toggle ourselves instead of `egui::Popup::menu`, whose
+            // memory bookkeeping (Toggle + keep_popup_open + CloseOnClick*)
+            // deadlocks inside modal dialogs (menu stuck closed or painted
+            // under the card).
+            if response.clicked() {
+                ui.ctx().data_mut(|d| {
+                    let open = !d.get_temp::<bool>(popup_id).unwrap_or(false);
+                    d.insert_temp(popup_id, open);
+                });
+            }
+            if ui.ctx().data_mut(|d| d.get_temp::<bool>(popup_id).unwrap_or(false)) {
                 self.show_menu(ui, popup_id, &response);
             }
 
@@ -295,11 +307,13 @@ impl<'a> Select<'a> {
     }
 
     fn show_menu(self, ui: &mut Ui, popup_id: Id, response: &egui::Response) {
-        // Flow comment:
-        // 1. Read keyboard input, navigate real options, and close on Enter/Escape.
-        // 2. Render the menu through egui::Popup so the area stays open across
-        //    frames (keep_popup_open), inherits the trigger's layer (so it sits
-        //    above modal dialog cards), and closes on outside clicks/Esc.
+        // Open state is a temp flag owned by `show` — no `egui::Popup`
+        // bookkeeping (Toggle/keep_popup_open/CloseOnClick*), which deadlocks
+        // inside modal dialogs. A plain `Area` paints on Foreground and
+        // `move_to_top` each frame keeps it above the self-raising card.
+        let close = |ctx: &egui::Context| {
+            ctx.data_mut(|d| d.insert_temp(popup_id, false));
+        };
         let key_actions = ui.input(|input| {
             (
                 input.key_pressed(egui::Key::Escape),
@@ -318,83 +332,101 @@ impl<'a> Select<'a> {
             },
         );
         if should_close_for_key(key_actions.0, key_actions.1) {
-            egui::Popup::close_all(ui.ctx());
+            close(ui.ctx());
         }
 
         let screen = screen_rect(ui);
-        // Block comment: Geometry (width + max visible rows) is resolved before
-        // handing off to egui's popup anchor, which flips/clamps the position.
         let geo = calculate_menu_geometry(screen, response.rect, self.options.len(), self.has_more);
 
-        let popup_resp = egui::Popup::menu(response)
-            .width(geo.menu_width)
-            .frame(crate::components::overlay::floating_surface(
-                self.theme,
-                f32::from(ui.style().visuals.window_corner_radius.nw),
-                super::super::handler::menu_surface_margin(ui.spacing().menu_margin.leftf()),
-            ))
-            .show(|ui| {
-                ui.set_max_height(geo.max_height);
-                egui::ScrollArea::vertical()
-                    .id_salt(popup_id.with("scroll"))
-                    .max_height(geo.max_height)
-                    .auto_shrink([false, true])
-                    .show(ui, |ui| {
-                        ui.set_min_width(menu_min_content_width(geo.menu_width));
-                        for (idx, opt) in self.options.iter().enumerate() {
-                            let clicked = paint_option(
-                                ui,
-                                SelectOption {
-                                    label: opt,
-                                    selected: idx == *self.selected,
-                                    theme: self.theme,
-                                    icon: self.option_icons.and_then(|icons| icons.get(idx).copied().flatten()),
-                                    disabled: self
-                                        .option_disabled
-                                        .and_then(|flags| flags.get(idx))
-                                        .copied()
-                                        .unwrap_or(false),
-                                },
-                            )
-                            .clicked();
-                            if let Some(selected) = selection_from_click(clicked, idx) {
-                                *self.selected = selected;
-                                egui::Popup::close_all(ui.ctx());
-                            }
-                        }
-                        // Comment: This action row leaves selection and popup state unchanged.
-                        if self.has_more {
-                            let load = paint_option(
-                                ui,
-                                SelectOption {
-                                    label: "Load more…",
-                                    selected: false,
-                                    theme: self.theme,
-                                    icon: None,
-                                    disabled: false,
-                                },
-                            );
-                            if should_request_load_more(load.clicked(), self.has_more) {
-                                if let Some(flag) = self.load_more {
-                                    *flag = true;
+        let area = egui::Area::new(popup_id)
+            .order(egui::Order::Foreground)
+            .fixed_pos(geo.menu_pos)
+            .constrain_to(screen.shrink(4.0))
+            .show(ui.ctx(), |ui| {
+                crate::components::overlay::floating_surface(
+                    self.theme,
+                    f32::from(ui.style().visuals.window_corner_radius.nw),
+                    super::super::handler::menu_surface_margin(ui.spacing().menu_margin.leftf()),
+                )
+                .show(ui, |ui| {
+                    ui.set_min_width(geo.menu_width);
+                    egui::ScrollArea::vertical()
+                        .id_salt(popup_id.with("scroll"))
+                        .max_height(geo.max_height)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| {
+                            ui.set_min_width(menu_min_content_width(geo.menu_width));
+                            for (idx, opt) in self.options.iter().enumerate() {
+                                let clicked = paint_option(
+                                    ui,
+                                    SelectOption {
+                                        label: opt,
+                                        selected: idx == *self.selected,
+                                        theme: self.theme,
+                                        icon: self.option_icons.and_then(|icons| icons.get(idx).copied().flatten()),
+                                        disabled: self
+                                            .option_disabled
+                                            .and_then(|flags| flags.get(idx))
+                                            .copied()
+                                            .unwrap_or(false),
+                                    },
+                                )
+                                .clicked();
+                                if let Some(selected) = selection_from_click(clicked, idx) {
+                                    *self.selected = selected;
+                                    close(ui.ctx());
                                 }
                             }
-                        }
-                    });
+                            // Comment: This action row leaves selection and open state unchanged.
+                            if self.has_more {
+                                let load = paint_option(
+                                    ui,
+                                    SelectOption {
+                                        label: "Load more…",
+                                        selected: false,
+                                        theme: self.theme,
+                                        icon: None,
+                                        disabled: false,
+                                    },
+                                );
+                                if should_request_load_more(load.clicked(), self.has_more) {
+                                    if let Some(flag) = self.load_more {
+                                        *flag = true;
+                                    }
+                                }
+                            }
+                        });
+                });
             });
-            if std::env::var_os("DB_PRO_DEBUG_SELECT").is_some() {
-                let pl = popup_resp.as_ref().map(|r| r.response.layer_id);
-                let at = ui
-                    .ctx()
-                    .layer_id_at(egui::pos2(geo.menu_pos.x + 20.0, geo.menu_pos.y + 10.0));
-                eprintln!("[menu] open={} shown={} layer={pl:?} at_menu_pos={at:?}",
-                    egui::Popup::is_id_open(ui.ctx(), popup_id), popup_resp.is_some());
+
+        // Pin the menu as a sublayer of the trigger's layer: sublayers are
+        // spliced directly above their parent in `Areas::end_pass`, which
+        // `move_to_top` alone can't guarantee (its stable sort preserves the
+        // historical [dim, card, popup] order). Skip when the trigger lives
+        // on a different z-order (e.g. plain panels) — same-order required.
+        let popup_layer = area.response.layer_id;
+        ui.ctx().memory_mut(|m| {
+            if response.layer_id.order == popup_layer.order {
+                m.areas_mut().set_sublayer(response.layer_id, popup_layer);
             }
-        // A modal dialog keeps its card layer raised via `move_to_top`, which
-        // outranks the menu's own Foreground area. Re-raise the menu above the
-        // trigger's layer so it paints (and receives input) on top.
-        if let Some(popup_layer) = popup_resp.as_ref().map(|r| r.response.layer_id) {
-            ui.ctx().memory_mut(|m| m.areas_mut().move_to_top(popup_layer));
+            m.areas_mut().move_to_top(popup_layer);
+        });
+        if std::env::var_os("DB_PRO_DEBUG_SELECT").is_some() {
+            let probe = egui::pos2(geo.menu_pos.x + 20.0, geo.menu_pos.y + 10.0);
+            let top = ui.ctx().layer_id_at(probe);
+            eprintln!("[menu] area.rect={:?} layer={popup_layer:?} top_at_pos={top:?}", area.response.rect);
+        }
+
+        // Outside click closes — skip clicks inside the menu or on the
+        // trigger (the trigger's own click handler toggles).
+        let clicked_outside = ui.ctx().input(|i| {
+            i.pointer.any_click()
+                && i.pointer
+                    .interact_pos()
+                    .is_some_and(|pos| !area.response.rect.contains(pos) && !response.rect.contains(pos))
+        });
+        if clicked_outside {
+            close(ui.ctx());
         }
     }
 }

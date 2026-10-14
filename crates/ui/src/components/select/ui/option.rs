@@ -17,7 +17,13 @@ pub struct SelectOption<'a> {
 }
 
 pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
-    let SelectOption { label, selected, theme, icon, disabled } = option;
+    let SelectOption {
+        label,
+        selected,
+        theme,
+        icon,
+        disabled,
+    } = option;
     let (rect, response) = ui.allocate_exact_size(
         Vec2::new(ui.available_width(), TABLE_ROW_HEIGHT_COMPACT),
         if disabled { Sense::hover() } else { Sense::click() },
@@ -40,7 +46,10 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
     if let Some(tex) = icon {
         let icon_side = 16.0;
         let icon_rect = egui::Rect::from_center_size(
-            pos2(text_left + ui.spacing().button_padding.x + icon_side * 0.5, rect.center().y),
+            pos2(
+                text_left + ui.spacing().button_padding.x + icon_side * 0.5,
+                rect.center().y,
+            ),
             egui::vec2(icon_side, icon_side),
         );
         ui.painter().image(

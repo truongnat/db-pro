@@ -212,7 +212,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         if std::env::var_os("DB_PRO_DEBUG_SELECT").is_some() {
             let pos = ui.ctx().input(|i| i.pointer.interact_pos());
             let layer = pos.and_then(|p| ui.ctx().layer_id_at(p));
-            let open = egui::Popup::is_id_open(ui.ctx(), egui::Id::new("db_engine_select"));
+            let open = ui.ctx().data_mut(|d| d.get_temp::<bool>(egui::Id::new("db_engine_select")).unwrap_or(false));
             eprintln!("[select] pos={pos:?} layer={layer:?} clicked={} open={open}", resp.clicked());
         }
         // Disabled specs carry `driver: None` — ignore them so a coming-soon row
