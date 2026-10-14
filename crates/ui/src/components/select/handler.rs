@@ -103,10 +103,6 @@ pub fn option_check_icon_pos(rect_right: f32, vertical_center: f32) -> Pos2 {
     Pos2::new(rect_right - SPACE_SM, vertical_center)
 }
 
-pub fn should_toggle_popup(clicked: bool, focused: bool, keyboard_activation: bool) -> bool {
-    clicked || (focused && keyboard_activation)
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NavigationKeys {
     pub arrow_down: bool,
@@ -136,16 +132,6 @@ pub fn selection_from_click(clicked: bool, option_index: usize) -> Option<usize>
     clicked.then_some(option_index)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PopupBounds {
-    pub trigger: Rect,
-    pub menu: Rect,
-}
-
-pub fn should_close_on_outside_click(clicked: bool, pos: Pos2, bounds: PopupBounds) -> bool {
-    clicked && !bounds.trigger.contains(pos) && !bounds.menu.contains(pos)
-}
-
 pub fn should_request_load_more(clicked: bool, has_more: bool) -> bool {
     clicked && has_more
 }
@@ -168,8 +154,6 @@ mod tests {
 
     #[test]
     fn keyboard_input_maps_to_selection_and_popup_actions() {
-        assert!(should_toggle_popup(false, true, true));
-        assert!(!should_toggle_popup(false, false, true));
         assert_eq!(
             navigate_selection(
                 0,
@@ -212,12 +196,6 @@ mod tests {
         let popup = Rect::from_min_size(Pos2::new(0.0, 40.0), egui::vec2(100.0, 60.0));
         assert_eq!(selection_from_click(true, 2), Some(2));
         assert_eq!(selection_from_click(false, 2), None);
-        let bounds = PopupBounds {
-            trigger: parent,
-            menu: popup,
-        };
-        assert!(!should_close_on_outside_click(true, Pos2::new(10.0, 10.0), bounds));
-        assert!(should_close_on_outside_click(true, Pos2::new(200.0, 200.0), bounds));
         assert!(should_request_load_more(true, true));
         assert!(!should_request_load_more(false, true));
     }
