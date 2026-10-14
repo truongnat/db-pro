@@ -106,12 +106,14 @@ pub(crate) enum HistoryOutcomeFilter {
 impl HistoryOutcomeFilter {
     pub(crate) const ALL: [Self; 4] = [Self::All, Self::Success, Self::Failed, Self::Cancelled];
 
-    pub(crate) fn label(self) -> &'static str {
+    /// Locale key for the filter's display label; views render it via `t!()`.
+    /// Domain types never own display strings — this is a key, not a value.
+    pub(crate) fn locale_key(self) -> &'static str {
         match self {
-            Self::All => "All",
-            Self::Success => "Success",
-            Self::Failed => "Failed",
-            Self::Cancelled => "Cancelled",
+            Self::All => "sidebar.filter_all",
+            Self::Success => "sidebar.filter_success",
+            Self::Failed => "sidebar.filter_failed",
+            Self::Cancelled => "sidebar.filter_cancelled",
         }
     }
 }

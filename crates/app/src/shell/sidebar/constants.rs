@@ -39,3 +39,18 @@ pub(super) const SOURCE_OPTIONS: [(ProblemsSourceFilter, &str); 5] = [
     (ProblemsSourceFilter::Delimiter, "sidebar.filter_delimiter"),
     (ProblemsSourceFilter::Database, "sidebar.filter_database"),
 ];
+
+// --- History activity -------------------------------------------------------
+
+/// Characters kept of the SQL's first non-empty line in the history row title.
+pub(super) const ENTRY_TITLE_MAX_CHARS: usize = 22;
+/// Characters kept of the `conn · schema · outcome · time · ms` meta line.
+pub(super) const META_LINE_MAX_CHARS: usize = 44;
+/// Distance of the status dot from the row's right edge.
+pub(super) const STATUS_DOT_INSET: f32 = crate::tokens::SPACE_MD;
+/// Status dot radius — reads as a small badge, not a bullet.
+pub(super) const STATUS_DOT_RADIUS: f32 = 3.0;
+/// Max height of the SQL detail card's scroll area (~4 mono lines).
+pub(super) const DETAILS_MAX_HEIGHT: f32 = crate::tokens::SPACE_6XL * 1.5;
+/// Outcome filter select width: fits "Cancelled" at BODY_SM.
+pub(super) const FILTER_SELECT_WIDTH: f32 = crate::tokens::SPACE_6XL + crate::tokens::SPACE_2XL;
