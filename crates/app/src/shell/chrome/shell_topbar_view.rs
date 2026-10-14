@@ -199,7 +199,7 @@ impl ShellTopbarContext<'_> {
         {
             actions.push(ShellTopbarAction::ToggleSidebar);
         }
-        ui.add_space(2.0);
+        ui.add_space(SPACE_XXS);
 
         if Button::new(self.theme)
             .icon(Icon::ArrowLeft)

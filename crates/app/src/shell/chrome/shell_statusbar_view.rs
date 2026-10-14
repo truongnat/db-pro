@@ -1,6 +1,13 @@
 //! Native shell statusbar rendering and intent collection.
 use super::*;
 
+/// Statusbar strip height.
+const STATUSBAR_HEIGHT: f32 = 28.0;
+/// Max width of the transient runtime-status message; longer text is
+/// elided by the fixed-size label.
+const STATUS_MESSAGE_W: f32 = 260.0;
+const STATUS_MESSAGE_H: f32 = 18.0;
+
 pub(super) enum ShellStatusbarAction {
     ToggleOutput,
 }
@@ -27,7 +34,7 @@ impl ShellStatusbarContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Option<ShellStatusbarAction> {
         let mut action = None;
         egui::Panel::bottom("statusbar")
-            .exact_size(28.0)
+            .exact_size(STATUSBAR_HEIGHT)
             .frame(shell_surface_frame(
                 self.theme,
                 ShellSurface::Panel,
@@ -44,8 +51,8 @@ impl ShellStatusbarContext<'_> {
                             .icon(Icon::PanelBottom)
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
-                            .tooltip("Toggle output panel")
-                            .access_label("Toggle output panel")
+                            .tooltip(t!("shell.toggle_output_panel"))
+                            .access_label(t!("shell.toggle_output_panel"))
                             .show(ui)
                             .clicked()
                         {
@@ -95,7 +102,7 @@ impl ShellStatusbarContext<'_> {
         }
         if let Some(duration_ms) = self.duration_ms {
             ui.label(
-                RichText::new(format!("Ping: {duration_ms} ms"))
+                RichText::new(t!("shell.ping_ms", n = duration_ms))
                     .font(font_mono_sm())
                     .color(self.theme.text_muted),
             );
@@ -106,7 +113,7 @@ impl ShellStatusbarContext<'_> {
         if let Some((message, message_color)) = &self.runtime_status {
             ui.add_space(SPACE_SM);
             ui.add_sized(
-                [260.0, 18.0],
+                [STATUS_MESSAGE_W, STATUS_MESSAGE_H],
                 egui::Label::new(RichText::new(message).font(font_caption()).color(*message_color)),
             );
         }
@@ -116,7 +123,7 @@ impl ShellStatusbarContext<'_> {
         if self.editor_status {
             ui.label(RichText::new("UTF-8").font(font_mono_sm()).color(self.theme.text_muted));
             ui.label(
-                RichText::new(format!("Ln {}, Col {}", self.cursor_line, self.cursor_column))
+                RichText::new(t!("shell.ln_col", line = self.cursor_line, col = self.cursor_column))
                     .font(font_mono_sm())
                     .color(self.theme.text_muted),
             );

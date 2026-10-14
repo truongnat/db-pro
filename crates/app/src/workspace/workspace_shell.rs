@@ -25,7 +25,7 @@ pub(crate) struct WorkspaceShellState {
     pub(crate) sidebar_open_before_agent: Option<bool>,
     pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
     pub(crate) split_editor_secondary: Option<usize>,
-    pub(crate) nav_back: Vec<WorkspaceLocation>,
+    pub(crate) nav_back: std::collections::VecDeque<WorkspaceLocation>,
     pub(crate) nav_forward: Vec<WorkspaceLocation>,
     pub(crate) nav_current: WorkspaceLocation,
     pub(crate) nav_ready: bool,
@@ -58,7 +58,7 @@ impl Default for WorkspaceShellState {
             sidebar_open_before_agent: None,
             pending_navigation_action: None,
             split_editor_secondary: None,
-            nav_back: Vec::new(),
+            nav_back: std::collections::VecDeque::new(),
             nav_forward: Vec::new(),
             nav_current: WorkspaceLocation {
                 tab: WorkspaceTab::Welcome,

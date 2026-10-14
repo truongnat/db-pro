@@ -1,4 +1,7 @@
 use super::workspace_shell::WorkspaceLocation;
+
+/// Back-stack depth cap; `pop_front` keeps it bounded.
+const NAV_HISTORY_LIMIT: usize = 64;
 use super::*;
 impl DbProApp {
     pub(super) fn draw_topbar(&mut self, ui: &mut egui::Ui) {
@@ -73,16 +76,16 @@ impl DbProApp {
             return;
         }
         let previous = self.workspace.nav_current;
-        self.workspace.nav_back.push(previous);
-        if self.workspace.nav_back.len() > 64 {
-            self.workspace.nav_back.remove(0);
+        self.workspace.nav_back.push_back(previous);
+        if self.workspace.nav_back.len() > NAV_HISTORY_LIMIT {
+            self.workspace.nav_back.pop_front();
         }
         self.workspace.nav_forward.clear();
         self.workspace.nav_current = current;
     }
 
     pub(crate) fn go_back(&mut self) {
-        let Some(previous) = self.workspace.nav_back.pop() else {
+        let Some(previous) = self.workspace.nav_back.pop_back() else {
             return;
         };
         let current = self.workspace.nav_current;
@@ -96,7 +99,7 @@ impl DbProApp {
             return;
         };
         let current = self.workspace.nav_current;
-        self.workspace.nav_back.push(current);
+        self.workspace.nav_back.push_back(current);
         self.workspace.nav_suppress = true;
         self.restore_workspace_location(next);
     }
@@ -189,7 +192,7 @@ impl DbProApp {
         // drag handle (id = panel id + "__resize") — name it so AT can
         // announce "resize output panel" instead of nothing.
         ui.ctx().accesskit_node_builder(egui::Id::new("output_panel").with("__resize"), |b| {
-            b.set_label("Resize output panel");
+            b.set_label(t!("shell.resize_output"));
         });
         self.workspace.set_bottom_panel_height(response.response.rect.height());
     }
