@@ -447,6 +447,7 @@ pub enum UiCommand {
     },
 }
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum UiEvent {
     ConnectionsLoaded {
         request_id: RequestId,
