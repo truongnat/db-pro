@@ -36,16 +36,16 @@ fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
             .color(theme.accent),
     );
     ui.add_space(SPACE_MD);
-    ui.label(RichText::new("DB Pro").font(font_display()).color(theme.text_primary));
+    ui.label(RichText::new(t!("welcome.title").to_string()).font(font_display()).color(theme.text_primary));
     ui.add_space(SPACE_XS);
     ui.label(
-        RichText::new("Explore databases, write SQL with AI Copilot, and inspect results.")
+        RichText::new(t!("welcome.tagline").to_string())
             .font(font_body())
             .color(theme.text_secondary),
     );
     ui.add_space(SPACE_XS);
     ui.label(
-        RichText::new("PostgreSQL  ·  SQLite  ·  MySQL  ·  SQL Server")
+        RichText::new(t!("welcome.drivers").to_string())
             .font(font_caption())
             .color(theme.text_muted),
     );
@@ -53,8 +53,8 @@ fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
 
 struct WelcomeItem {
     icon: Icon,
-    title: &'static str,
-    desc: &'static str,
+    title: String,
+    desc: String,
     action: WelcomeAction,
 }
 
@@ -62,26 +62,26 @@ fn welcome_items() -> [WelcomeItem; 4] {
     [
         WelcomeItem {
             icon: Icon::Plus,
-            title: "New Connection",
-            desc: "Connect to PostgreSQL, SQLite or remote database",
+            title: t!("welcome.new_connection").to_string(),
+            desc: t!("welcome.new_connection_desc").to_string(),
             action: WelcomeAction::NewConnection,
         },
         WelcomeItem {
             icon: Icon::FileCode2,
-            title: "New SQL Query",
-            desc: "Open a blank scratchpad with auto-completion",
+            title: t!("welcome.new_query").to_string(),
+            desc: t!("welcome.new_query_desc").to_string(),
             action: WelcomeAction::NewQuery,
         },
         WelcomeItem {
             icon: Icon::Sparkles,
-            title: "AI Copilot Assistant",
-            desc: "Generate queries, explain schema or review SQL",
+            title: t!("welcome.ai_copilot").to_string(),
+            desc: t!("welcome.ai_copilot_desc").to_string(),
             action: WelcomeAction::ToggleAgent,
         },
         WelcomeItem {
             icon: Icon::Workflow,
-            title: "ER Diagram Canvas",
-            desc: "Visualize schema tables and relationships",
+            title: t!("welcome.er_diagram").to_string(),
+            desc: t!("welcome.er_diagram_desc").to_string(),
             action: WelcomeAction::OpenDiagram,
         },
     ]
