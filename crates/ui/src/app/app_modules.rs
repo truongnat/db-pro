@@ -600,22 +600,22 @@ mod table_view;
 #[path = "../table/table_workspace_surface_view.rs"]
 mod table_workspace_surface_view;
 #[cfg(test)]
-#[path = "app_tests.rs"]
+#[path = "tests/app_tests.rs"]
 mod tests;
 #[cfg(test)]
-#[path = "../table/table_row_edit_tests.rs"]
+#[path = "../table/tests/table_row_edit_tests.rs"]
 mod table_row_edit_tests;
 #[cfg(test)]
-#[path = "../table/table_row_identity_tests.rs"]
+#[path = "../table/tests/table_row_identity_tests.rs"]
 mod table_row_identity_tests;
 #[cfg(test)]
-#[path = "../table/table_fk_lookup_tests.rs"]
+#[path = "../table/tests/table_fk_lookup_tests.rs"]
 mod table_fk_lookup_tests;
 #[cfg(test)]
-#[path = "../table/table_data_export_tests.rs"]
+#[path = "../table/tests/table_data_export_tests.rs"]
 mod table_data_export_tests;
 #[cfg(test)]
-#[path = "../settings/shortcut_catalog_tests.rs"]
+#[path = "../settings/tests/shortcut_catalog_tests.rs"]
 mod shortcut_catalog_tests;
 #[path = "../tools/transfer_activity_view.rs"]
 mod transfer_activity_view;

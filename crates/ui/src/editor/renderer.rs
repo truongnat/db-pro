@@ -1893,5 +1893,5 @@ fn paint_editor_scrollbars(
 }
 
 #[cfg(test)]
-#[path = "renderer_tests.rs"]
+#[path = "tests/renderer_tests.rs"]
 mod tests;

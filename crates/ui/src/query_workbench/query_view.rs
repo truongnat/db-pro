@@ -451,5 +451,5 @@ impl DbProApp {
 }
 
 #[cfg(test)]
-#[path = "query_view_tests.rs"]
+#[path = "tests/query_view_tests.rs"]
 mod query_view_tests;

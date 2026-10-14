@@ -9,7 +9,7 @@ use crate::GridProjectionKey;
 mod result_grid_body_view;
 
 #[cfg(test)]
-#[path = "result_grid_record_tests.rs"]
+#[path = "tests/result_grid_record_tests.rs"]
 mod record_tests;
 
 /// Per-cell render context for the result grid.
