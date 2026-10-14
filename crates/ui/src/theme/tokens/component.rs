@@ -12,6 +12,7 @@ pub mod button;
 pub mod dialog;
 pub mod feedback;
 pub mod input;
+pub mod shell;
 pub mod table;
 
 /// Mandatory interaction-state precedence, strongest first, for every contract in

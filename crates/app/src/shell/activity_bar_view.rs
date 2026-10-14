@@ -25,7 +25,7 @@ pub(super) fn draw_activity_bar(ui: &mut egui::Ui, context: &ActivityBarContext)
     let mut action = None;
     egui::Panel::left("activity_bar")
         .resizable(false)
-        .exact_size(48.0)
+        .exact_size(crate::tokens::component::shell::ACTIVITY_RAIL_WIDTH)
         .show_separator_line(false)
         .frame(activity_bar_frame(context.theme))
         .show(ui, |ui| {
@@ -33,7 +33,7 @@ pub(super) fn draw_activity_bar(ui: &mut egui::Ui, context: &ActivityBarContext)
 
             ui.vertical_centered(|ui| {
                 action = draw_activity_buttons(ui, context);
-                ui.add_space((ui.available_height() - 44.0).max(0.0));
+                ui.add_space((ui.available_height() - crate::tokens::component::shell::ACTIVITY_RAIL_SETTINGS_RESERVE).max(0.0));
                 if draw_settings_button(ui, context) {
                     action = Some(ActivityBarAction::OpenSettings);
                 }
