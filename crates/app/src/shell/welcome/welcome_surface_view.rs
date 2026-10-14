@@ -1,5 +1,9 @@
 //! A modern ChatGPT-inspired introduction with interactive quick-action cards.
 use super::*;
+
+#[path = "constants.rs"]
+mod constants;
+use constants::*;
 use egui::RichText;
 use lucide_icons::Icon;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -9,13 +13,6 @@ pub(super) enum WelcomeAction {
     ToggleAgent,
     OpenDiagram,
 }
-
-/// Fraction of the leftover height (after reserving the content block) used as
-/// top padding so the header sits slightly above vertical center.
-const TOP_SPACE_RATIO: f32 = 0.4;
-/// Approximate height the welcome content occupies; the space above it is
-/// distributed via TOP_SPACE_RATIO.
-const WELCOME_BLOCK_HEIGHT: f32 = 400.0;
 
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let top_space = ((ui.available_height() - WELCOME_BLOCK_HEIGHT) * TOP_SPACE_RATIO).max(SPACE_MD);
@@ -86,16 +83,6 @@ fn welcome_items() -> [WelcomeItem; 4] {
         },
     ]
 }
-
-const CARD_GAP: f32 = SPACE_MD;
-const CARD_HEIGHT: f32 = 64.0;
-/// Width above which the four cards lay out in a 2x2 grid instead of stacking.
-const WIDE_BREAKPOINT: f32 = 620.0;
-const STACKED_SIDE_INSET: f32 = 32.0;
-const MIN_CONTAINER_WIDTH: f32 = 280.0;
-const TITLE_DESC_GAP: f32 = 2.0;
-/// Floor for the description wrap width so narrow cards never wrap to zero.
-const MIN_DESC_WRAP_WIDTH: f32 = 10.0;
 
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let items = welcome_items();

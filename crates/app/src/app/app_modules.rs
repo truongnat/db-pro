@@ -484,7 +484,7 @@ mod tasks_view;
 mod visual_query_builder_state;
 #[path = "../visual_query_builder/visual_query_builder_view.rs"]
 mod visual_query_builder_view;
-#[path = "../shell/welcome_surface_view.rs"]
+#[path = "../shell/welcome/welcome_surface_view.rs"]
 mod welcome_surface_view;
 #[path = "../workspace/workspace_actions.rs"]
 mod workspace_actions;

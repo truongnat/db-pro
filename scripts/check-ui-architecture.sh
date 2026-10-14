@@ -218,7 +218,7 @@ explicit_state_modules=(
   "$repo_root/crates/app/src/shell/chrome/shell_frame_view.rs"
   "$repo_root/crates/app/src/shell/chrome/shell_topbar_view.rs"
   "$repo_root/crates/app/src/shell/chrome/shell_statusbar_view.rs"
-  "$repo_root/crates/app/src/shell/welcome_surface_view.rs"
+  "$repo_root/crates/app/src/shell/welcome/welcome_surface_view.rs"
   "$repo_root/crates/app/src/explorer/explorer_toolbar_view.rs"
   "$repo_root/crates/app/src/explorer/explorer_connection_row_view.rs"
   "$repo_root/crates/app/src/explorer/explorer_connection_node_view.rs"
