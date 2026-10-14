@@ -22,7 +22,7 @@ pub(super) struct SidebarDataContext<'a> {
 impl SidebarDataContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarDataAction> {
         let mut actions = Vec::new();
-        self.draw_section_header(ui, "PINNED TABLES", self.pinned_tables.len());
+        self.draw_section_header(ui, &t!("sidebar.section_pinned"), self.pinned_tables.len());
         ui.add_space(SPACE_SM);
         if self.pinned_tables.is_empty() {
             ui.label(
@@ -37,7 +37,7 @@ impl SidebarDataContext<'_> {
         }
 
         ui.add_space(SPACE_LG);
-        self.draw_section_header(ui, "RECENT TABLES", self.recent_tables.len());
+        self.draw_section_header(ui, &t!("sidebar.section_recent"), self.recent_tables.len());
         ui.add_space(SPACE_SM);
         if self.recent_tables.is_empty() {
             ui.label(
@@ -90,14 +90,14 @@ impl SidebarDataContext<'_> {
         from_pinned: bool,
     ) -> Vec<SidebarDataAction> {
         let is_pinned = self.pinned_tables.iter().any(|item| item == table);
-        let pin_label = if is_pinned { "Unpin table" } else { "Pin table" };
+        let pin_label = if is_pinned { t!("sidebar.unpin_table") } else { t!("sidebar.pin_table") };
         let mut actions = Vec::new();
 
         context_action_menu(ui, response, self.theme, |ui, close_menu| {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Table2),
-                "Open data",
+                t!("sidebar.open_data").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -110,7 +110,7 @@ impl SidebarDataContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Columns3),
-                "Open structure",
+                t!("sidebar.open_structure").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -123,7 +123,7 @@ impl SidebarDataContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::FileCode2),
-                "New query for table",
+                t!("sidebar.new_query_for_table").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -137,7 +137,7 @@ impl SidebarDataContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Pin),
-                pin_label,
+                pin_label.as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -151,7 +151,7 @@ impl SidebarDataContext<'_> {
                 && ctx_menu_item(
                     ui,
                     Some(Icon::Trash2),
-                    "Remove from recent",
+                    t!("sidebar.remove_from_recent").as_ref(),
                     None,
                     self.theme.text_primary,
                     self.theme,
