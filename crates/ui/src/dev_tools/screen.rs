@@ -759,9 +759,7 @@ fn classify(
 ///
 /// A toolbar of varied-size buttons produces none of the three.
 fn is_grid_like(_ctx: &egui::Context, widgets: &[(&WidgetGeometry, Rect)], idx: &[usize]) -> bool {
-    grid_size_signature(widgets, idx)
-        || grid_banding_signature(widgets, idx)
-        || grid_stride_signature(widgets, idx)
+    grid_size_signature(widgets, idx) || grid_banding_signature(widgets, idx) || grid_stride_signature(widgets, idx)
 }
 
 /// Size signature: no parent structure needed — a region where ≥75% of
@@ -1537,9 +1535,23 @@ mod tests {
         }
         // Rail: 7 items running down the left edge (55% of screen height —
         // tall enough to count as edge chrome, not a floating nav block).
-        ws.extend(column(Column { parent: 200, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(120.0, 40.0), n: 7 }));
+        ws.extend(column(Column {
+            parent: 200,
+            x: 8.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(120.0, 40.0),
+            n: 7,
+        }));
         // Content rows on the right.
-        ws.extend(column(Column { parent: 300, x: 160.0, y0: 48.0, gap: 8.0, size: egui::vec2(200.0, 32.0), n: 5 }));
+        ws.extend(column(Column {
+            parent: 300,
+            x: 160.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(200.0, 32.0),
+            n: 5,
+        }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         let kinds: Vec<_> = a.regions.iter().map(|r| r.kind.label()).collect();
@@ -1584,7 +1596,14 @@ mod tests {
 
     #[test]
     fn off_screen_flags_widget_outside_viewport() {
-        let mut ws = column(Column { parent: 1, x: 8.0, y0: 8.0, gap: 8.0, size: egui::vec2(100.0, 32.0), n: 4 });
+        let mut ws = column(Column {
+            parent: 1,
+            x: 8.0,
+            y0: 8.0,
+            gap: 8.0,
+            size: egui::vec2(100.0, 32.0),
+            n: 4,
+        });
         // Interactive rect fully outside the 800×600 fixture screen.
         ws.push(widget_at(
             9,
@@ -1601,7 +1620,14 @@ mod tests {
 
     #[test]
     fn off_screen_ignores_widget_inside() {
-        let ws = column(Column { parent: 1, x: 8.0, y0: 8.0, gap: 8.0, size: egui::vec2(100.0, 32.0), n: 4 });
+        let ws = column(Column {
+            parent: 1,
+            x: 8.0,
+            y0: 8.0,
+            gap: 8.0,
+            size: egui::vec2(100.0, 32.0),
+            n: 4,
+        });
         let a = analyze(ws, None);
         assert!(findings_for(&a, "screen.off_screen").is_empty());
     }
@@ -1690,9 +1716,23 @@ mod tests {
         let (scope, layer) = scope();
         let mut ws = Vec::new();
         // Side-anchored, non-grid panel occupying 62% of the screen width.
-        ws.extend(column(Column { parent: 1, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(480.0, 30.0), n: 8 }));
+        ws.extend(column(Column {
+            parent: 1,
+            x: 8.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(480.0, 30.0),
+            n: 8,
+        }));
         // Narrow content column on the right.
-        ws.extend(column(Column { parent: 2, x: 540.0, y0: 48.0, gap: 8.0, size: egui::vec2(200.0, 30.0), n: 8 }));
+        ws.extend(column(Column {
+            parent: 2,
+            x: 540.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(200.0, 30.0),
+            n: 8,
+        }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         let hits = findings_for(&a, "screen.layout_inversion");
@@ -1706,8 +1746,22 @@ mod tests {
         let ctx = egui::Context::default();
         let (scope, _l) = scope();
         let mut ws = Vec::new();
-        ws.extend(column(Column { parent: 1, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(120.0, 30.0), n: 8 }));
-        ws.extend(column(Column { parent: 2, x: 200.0, y0: 48.0, gap: 8.0, size: egui::vec2(500.0, 30.0), n: 8 }));
+        ws.extend(column(Column {
+            parent: 1,
+            x: 8.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(120.0, 30.0),
+            n: 8,
+        }));
+        ws.extend(column(Column {
+            parent: 2,
+            x: 200.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(500.0, 30.0),
+            n: 8,
+        }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         assert!(findings_for(&a, "screen.layout_inversion").is_empty());
@@ -1720,8 +1774,22 @@ mod tests {
         let (scope, _l) = scope();
         let mut ws = Vec::new();
         // Narrow left rail, content column flush to the right edge (200→800).
-        ws.extend(column(Column { parent: 1, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(120.0, 30.0), n: 8 }));
-        ws.extend(column(Column { parent: 2, x: 200.0, y0: 48.0, gap: 8.0, size: egui::vec2(600.0, 30.0), n: 8 }));
+        ws.extend(column(Column {
+            parent: 1,
+            x: 8.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(120.0, 30.0),
+            n: 8,
+        }));
+        ws.extend(column(Column {
+            parent: 2,
+            x: 200.0,
+            y0: 48.0,
+            gap: 8.0,
+            size: egui::vec2(600.0, 30.0),
+            n: 8,
+        }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         assert!(
@@ -1734,7 +1802,14 @@ mod tests {
     fn no_primary_needs_busy_fragmented_screen() {
         // Sparse screen: two small regions, little interactive coverage —
         // a welcome screen legitimately has no dominant region.
-        let ws = column(Column { parent: 1, x: 100.0, y0: 100.0, gap: 8.0, size: egui::vec2(100.0, 28.0), n: 4 });
+        let ws = column(Column {
+            parent: 1,
+            x: 100.0,
+            y0: 100.0,
+            gap: 8.0,
+            size: egui::vec2(100.0, 28.0),
+            n: 4,
+        });
         let a = analyze(ws, None);
         assert!(findings_for(&a, "screen.no_primary_region").is_empty());
     }
@@ -1743,7 +1818,14 @@ mod tests {
     fn findings_report_kind_not_opinion() {
         // Every finding carries an explicit objective/heuristic split — the
         // contract that keeps measured defects separate from taste.
-        let mut ws = column(Column { parent: 1, x: 8.0, y0: 8.0, gap: 8.0, size: egui::vec2(100.0, 32.0), n: 4 });
+        let mut ws = column(Column {
+            parent: 1,
+            x: 8.0,
+            y0: 8.0,
+            gap: 8.0,
+            size: egui::vec2(100.0, 32.0),
+            n: 4,
+        });
         ws.push(widget_at(
             9,
             1,
