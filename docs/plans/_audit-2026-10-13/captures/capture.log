@@ -1,0 +1,1047 @@
+2026-10-12T18:20:33.420985Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xc61a517e0> for the key path "nextResponder" from <WinitView 0xc60d7ed00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000103a49524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000103a49f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000103a44df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000103a39854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000103a39b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001037ce2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x00000001037dbf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x00000001037cdb18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x00000001037e3524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001037a19f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001037c9d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001037c5d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001037c5e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001037bbf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001037bd2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001037bc514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001037a2108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001037a201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001037bc1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001037c1420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001037bde0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001037bdb64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000102f0597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000102f07b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000102ed78c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000102e
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:20:36.338963Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:37.054212Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:39.684439Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xa49926780> for the key path "nextResponder" from <WinitView 0xa48d4ed00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x00000001039f1524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x00000001039f1f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x00000001039ecdf4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x00000001039e1854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x00000001039e1b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001037762d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000103783f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000103775b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x000000010378b524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001037499f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000103771d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x000000010376dd34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x000000010376de68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000103763f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001037652e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000103764514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x000000010374a108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x000000010374a01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001037641c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000103769420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000103765e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000103765b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000102ead97c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000102eafb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000102e7f8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000102e
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:20:42.623582Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:43.241147Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:47.406419Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:50.115174Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:51.490890Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:20:56.017380Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x80d2d0ae0> for the key path "nextResponder" from <WinitView 0x80ccfad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000100f55524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000100f55f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000100f50df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000100f45854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000100f45b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000100cda2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000100ce7f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000100cd9b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100cef524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000100cad9f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000100cd5d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000100cd1d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000100cd1e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000100cc7f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000100cc92e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000100cc8514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000100cae108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000100cae01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000100cc81c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000100ccd420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000100cc9e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000100cc9b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010041197c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000100413b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001003e38c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:20:57.869654Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xbd1a3b5c0> for the key path "nextResponder" from <WinitView 0xbd0d6ad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000103ad9524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000103ad9f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000103ad4df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000103ac9854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000103ac9b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x000000010385e2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x000000010386bf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x000000010385db18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000103873524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001038319f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000103859d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000103855d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000103855e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x000000010384bf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x000000010384d2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x000000010384c514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000103832108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x000000010383201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x000000010384c1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000103851420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x000000010384de0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x000000010384db64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000102f9597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000102f97b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000102f678c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000102f
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:00.524675Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x98521a520> for the key path "nextResponder" from <WinitView 0x984d62d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000100cad524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000100cadf6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000100ca8df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000100c9d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000100c9db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000100a322d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000100a3ff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000100a31b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100a47524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000100a059f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000100a2dd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000100a29d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000100a29e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000100a1ff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000100a212e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000100a20514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000100a06108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000100a0601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000100a201c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000100a25420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000100a21e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000100a21b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010016997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x000000010016bb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x000000010013b8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x00000001001
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:04.546065Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:05.808204Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:07.883045Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x82b2aa020> for the key path "nextResponder" from <WinitView 0x82ad62d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x00000001058a1524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x00000001058a1f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x000000010589cdf4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000105891854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000105891b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001056262d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000105633f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000105625b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x000000010563b524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001055f99f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000105621d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x000000010561dd34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x000000010561de68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000105613f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001056152e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000105614514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001055fa108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001055fa01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001056141c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000105619420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000105615e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000105615b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000104d5d97c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000104d5fb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000104d2f8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000104d
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:10.967456Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xb1588aca0> for the key path "nextResponder" from <WinitView 0xb14d2ad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000102cb9524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000102cb9f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000102cb4df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000102ca9854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000102ca9b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000102a3e2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000102a4bf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000102a3db18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000102a53524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000102a119f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000102a39d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000102a35d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000102a35e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000102a2bf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000102a2d2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000102a2c514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000102a12108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000102a1201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000102a2c1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000102a31420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000102a2de0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000102a2db64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010217597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000102177b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001021478c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:13.554791Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:14.250514Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xb7da3f1c0> for the key path "nextResponder" from <WinitView 0xb7cd62d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000100f95524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000100f95f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000100f90df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000100f85854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000100f85b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000100d1a2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000100d27f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000100d19b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100d2f524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000100ced9f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000100d15d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000100d11d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000100d11e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000100d07f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000100d092e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000100d08514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000100cee108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000100cee01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000100d081c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000100d0d420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000100d09e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000100d09b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010045197c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000100453b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001004238c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x00000001004
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:17.717354Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xc45a370a0> for the key path "nextResponder" from <WinitView 0xc44d2ed00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000103015524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000103015f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000103010df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000103005854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000103005b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000102d9a2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000102da7f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000102d99b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000102daf524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000102d6d9f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000102d95d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000102d91d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000102d91e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000102d87f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000102d892e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000102d88514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000102d6e108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000102d6e01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000102d881c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000102d8d420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000102d89e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000102d89b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x00000001024d197c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x00000001024d3b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001024a38c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x00000001024
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:21.217188Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:21.647790Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x8bf315fa0> for the key path "nextResponder" from <WinitView 0x8bed02d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000101949524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000101949f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000101944df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000101939854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000101939b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001016ce2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x00000001016dbf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x00000001016cdb18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x00000001016e3524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001016a19f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001016c9d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001016c5d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001016c5e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001016bbf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001016bd2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001016bc514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001016a2108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001016a201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001016bc1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001016c1420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001016bde0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001016bdb64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000100e0597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000100e07b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000100dd78c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000100d
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:24.419680Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:27.495945Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:30.579184Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:30.636365Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:33.597371Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x94ba02980> for the key path "nextResponder" from <WinitView 0x94ad7ad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000105809524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000105809f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000105804df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x00000001057f9854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x00000001057f9b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x000000010558e2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x000000010559bf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x000000010558db18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x00000001055a3524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001055619f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000105589d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000105585d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000105585e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x000000010557bf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x000000010557d2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x000000010557c514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000105562108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x000000010556201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x000000010557c1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000105581420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x000000010557de0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x000000010557db64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000104cc597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000104cc7b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000104c978c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000104c
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:36.558186Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xcb724e1e0> for the key path "nextResponder" from <WinitView 0xcb6d2ad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x000000010587d524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x000000010587df6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000105878df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x000000010586d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x000000010586db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001056022d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x000000010560ff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000105601b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000105617524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001055d59f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001055fdd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001055f9d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001055f9e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001055eff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001055f12e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001055f0514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001055d6108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001055d601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001055f01c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001055f5420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001055f1e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001055f1b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000104d3997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000104d3bb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000104d0b8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:37.587686Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:40.053709Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xc1da6f2a0> for the key path "nextResponder" from <WinitView 0xc1cd1ad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x000000010537d524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x000000010537df6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000105378df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x000000010536d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x000000010536db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001051022d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x000000010510ff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000105101b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000105117524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001050d59f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001050fdd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001050f9d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001050f9e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001050eff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001050f12e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001050f0514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001050d6108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001050d601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001050f01c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001050f5420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001050f1e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001050f1b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010483997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x000000010483bb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x000000010480b8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x00000001047
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:42.828889Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x87d982900> for the key path "nextResponder" from <WinitView 0x87cd4ed00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x00000001010c9524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x00000001010c9f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x00000001010c4df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x00000001010b9854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x00000001010b9b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000100e4e2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000100e5bf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000100e4db18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100e63524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000100e219f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000100e49d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000100e45d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000100e45e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000100e3bf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000100e3d2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000100e3c514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000100e22108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000100e2201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000100e3c1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000100e41420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000100e3de0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000100e3db64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010058597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000100587b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001005578c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:44.583757Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:46.013677Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x9539a2a40> for the key path "nextResponder" from <WinitView 0x952cead00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000100ea1524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000100ea1f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000100e9cdf4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000100e91854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000100e91b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000100c262d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000100c33f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000100c25b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100c3b524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000100bf99f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000100c21d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000100c1dd34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000100c1de68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000100c13f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000100c152e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000100c14514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000100bfa108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000100bfa01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000100c141c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000100c19420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000100c15e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000100c15b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010035d97c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x000000010035fb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x000000010032f8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x00000001003
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:48.997503Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:50.493679Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:52.063052Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:55.121326Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xbe7286100> for the key path "nextResponder" from <WinitView 0xbe6d62d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000103709524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000103709f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000103704df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x00000001036f9854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x00000001036f9b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x000000010348e2d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x000000010349bf18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x000000010348db18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x00000001034a3524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001034619f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000103489d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000103485d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000103485e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x000000010347bf08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x000000010347d2e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x000000010347c514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000103462108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x000000010346201c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x000000010347c1c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000103481420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x000000010347de0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x000000010347db64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000102bc597c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000102bc7b40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000102b978c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000102b
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:21:59.343291Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:21:59.353370Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x929389180> for the key path "nextResponder" from <WinitView 0x928d46d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000103a3d524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000103a3df6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000103a38df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000103a2d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000103a2db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001037c22d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x00000001037cff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x00000001037c1b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x00000001037d7524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001037959f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001037bdd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001037b9d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001037b9e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001037aff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001037b12e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001037b0514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000103796108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x000000010379601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001037b01c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001037b5420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001037b1e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001037b1b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000102ef997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000102efbb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000102ecb8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x0000000102e
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:22:02.684725Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x99128dfc0> for the key path "nextResponder" from <WinitView 0x990d3ed00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	10  QuartzCore                          0x000000019a0c53d8 _ZN2CA11Transaction6commitEv + 324
+	11  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	12  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	13  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	14  CoreFoundation                      0x0000000190090f60 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+	15  CoreFoundation                      0x0000000190090ef4 __CFRunLoopDoSource0 + 172
+	16  CoreFoundation                      0x0000000190090cc4 __CFRunLoopDoSources0 + 332
+	17  CoreFoundation                      0x000000019008f884 __CFRunLoopRun + 820
+	18  CoreFoundation                      0x0000000190162264 _CFRunLoopRunSpecificWithOptions + 532
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000100d6d524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000100d6df6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000100d68df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000100d5d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000100d5db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x0000000100af22d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000100afff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000100af1b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100b07524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x0000000100ac59f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x0000000100aedd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000100ae9d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000100ae9e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x0000000100adff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x0000000100ae12e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000100ae0514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x0000000100ac6108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x0000000100ac601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x0000000100ae01c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000100ae5420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000100ae1e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000100ae1b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010022997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x000000010022bb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001001fb8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki9Xm1X_13db_pro_native + 16
+	52  db-pro-native                       0x00000001001
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:22:05.818372Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:06.295221Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:09.019454Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:11.791783Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:13.432485Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:14.866317Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:18.298423Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:20.282721Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:22.648625Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:25.962880Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:27.136612Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:33.677855Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:40.334994Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:47.323399Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:22:53.832889Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:00.494347Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:07.231881Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:14.050588Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:21.017590Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:28.472898Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:33.526938Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:40.345695Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:47.276059Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:23:53.908233Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+2026-10-12T18:24:00.813807Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x779295fe0> for the key path "nextResponder" from <WinitView 0x778d36d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x000000010568d524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x000000010568df6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000105688df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x000000010567d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x000000010567db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001054122d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x000000010541ff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x0000000105411b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000105427524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001053e59f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x000000010540dd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x0000000105409d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x0000000105409e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001053fff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001054012e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x0000000105400514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001053e6108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001053e601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001054001c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x0000000105405420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x0000000105401e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x0000000105401b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000104b4997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000104b4bb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000104b1b8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:24:06.908975Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0x9db2a24c0> for the key path "nextResponder" from <WinitView 0x9dad4ad00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000100c6d524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000100c6df6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x0000000100c68df4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000100c5d854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000100c5db64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001009f22d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x00000001009fff18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x00000001009f1b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x0000000100a07524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001009c59f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001009edd14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001009e9d34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001009e9e68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001009dff08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001009e12e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001009e0514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001009c6108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001009c601c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001009e01c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001009e5420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001009e1e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001009e1b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x000000010012997c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x000000010012bb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x00000001000fb8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:24:14.323363Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+*** Terminating app due to uncaught exception 'NSRangeException', reason: 'Cannot remove an observer <_NSTouchBarFinderObservation 0xb012a2380> for the key path "nextResponder" from <WinitView 0xb00d86d00> because it is not registered as an observer.'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001900ff1f0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018fb7a91c objc_exception_throw + 88
+	2   Foundation                          0x00000001918d11d0 -[NSObject(NSKeyValueObserverRegistration) _removeObserver:forProperty:] + 636
+	3   Foundation                          0x00000001918d0f00 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:] + 136
+	4   Foundation                          0x00000001918d0bd8 -[NSObject(NSKeyValueObserverRegistration) removeObserver:forKeyPath:context:] + 196
+	5   AppKit                              0x0000000194f70474 -[_NSTouchBarFinderObservation invalidate] + 264
+	6   AppKit                              0x0000000194f71724 ___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2 + 636
+	7   AppKit                              0x0000000194569364 NSDisplayCycleObserverInvoke + 168
+	8   AppKit                              0x0000000194568fe0 NSDisplayCycleFlush + 656
+	9   AppKit                              0x000000019523ce3c __37+[NSDisplayCycle currentDisplayCycle]_block_invoke.4 + 80
+	10  QuartzCore                          0x000000019a0c6d9c _ZN2CA11Transaction19run_commit_handlersE18CATransactionPhase + 120
+	11  QuartzCore                          0x000000019a291e94 _ZN2CA7Context18commit_transactionEPNS_11TransactionEdPd + 968
+	12  QuartzCore                          0x000000019a0c5520 _ZN2CA11Transaction6commitEv + 652
+	13  QuartzCore                          0x000000019a2c32bc _ZN2CA11Transaction25flush_as_runloop_observerEb + 140
+	14  AppKit                              0x0000000194e000c8 stepTransactionFlush + 220
+	15  UpdateCycle                         0x000000028804d2f4 _ZN2UC10DriverCore18continueProcessingEv + 84
+	16  CoreFoundation                      0x0000000190090344 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+	17  CoreFoundation                      0x0000000190090240 __CFRunLoopDoObservers + 648
+	18  CoreFoundation                      0x0000000190162234 _CFRunLoopRunSpecificWithOptions + 484
+	19  HIToolbox                           0x000000019ce7b560 RunCurrentEventLoopInMode + 320
+	20  HIToolbox                           0x000000019ce7e8bc ReceiveNextEventCommon + 488
+	21  HIToolbox                           0x000000019d00814c _BlockUntilNextEventMatchingListInMode + 48
+	22  AppKit                              0x0000000194b723d0 _DPSBlockUntilNextEventMatchingListInMode + 228
+	23  AppKit                              0x00000001944c6084 _DPSNextEvent + 576
+	24  AppKit                              0x000000019505b96c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+	25  AppKit                              0x000000019505b678 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+	26  AppKit                              0x00000001944b913c -[NSApplication run] + 368
+	27  db-pro-native                       0x0000000105871524 _RINvXsh_NtCscdCWqYjk86F_5objc26encodeuNtB6_15EncodeArguments8___invokeuECsuhwbbAPjFc_16objc2_foundation + 24
+	28  db-pro-native                       0x0000000105871f6c _RINvNtNtNtCscdCWqYjk86F_5objc27runtime16message_receiver18msg_send_primitive4senduuECsuhwbbAPjFc_16objc2_foundation + 36
+	29  db-pro-native                       0x000000010586cdf4 _RINvYONtNtCscdCWqYjk86F_5objc27runtime9AnyObjectNtNtB6_16message_receiver15MessageReceiver12send_messageuuECsuhwbbAPjFc_16objc2_foundation + 120
+	30  db-pro-native                       0x0000000105861854 _RINvYRNtNtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplication13NSApplicationNtNtNtCscdCWqYjk86F_5objc215___macro_helpers8msg_send7MsgSend12send_messageuuEBa_ + 108
+	31  db-pro-native                       0x0000000105861b64 _RNvMs1A_NtNtCscZwsAZDaxQc_13objc2_app_kit9generated15___NSApplicationNtB6_13NSApplication3run + 64
+	32  db-pro-native                       0x00000001055f62d8 _RNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtBa_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBg_10event_loop9E	33  db-pro-native                       0x0000000105603f18 _RINvNtNtCscdCWqYjk86F_5objc22rc11autorelease15autoreleasepooluNCNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB19_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_int	34  db-pro-native                       0x00000001055f5b18 _RNCINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB8_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBe_10event_loop9Eve	35  db-pro-native                       0x000000010560b524 _RINvMs_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos13event_handlerNtB5_12EventHandler3setuNCINvNtB7_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEvent	36  db-pro-native                       0x00000001055c99f0 _RINvMNtNtNtCslfXEp6So11c_5winit13platform_impl5macos9app_stateNtB3_19ApplicationDelegate17set_event_handleruNCINvNtB5_10event_loop14map_user_eventNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integr	37  db-pro-native                       0x00000001055f1d14 _RINvMs3_NtNtNtCslfXEp6So11c_5winit13platform_impl5macos10event_loopINtB6_9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventE13run_on_demandNCINvYINtNtBc_10event_loop9Event	38  db-pro-native                       0x00000001055edd34 _RINvXNtNtCslfXEp6So11c_5winit8platform13run_on_demandINtNtB7_10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtB3_23EventLoopExtRunOnDemand13run_on_demandNC	39  db-pro-native                       0x00000001055ede68 _RINvYINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6native17winit_integration9UserEventENtNtNtB8_8platform13run_on_demand23EventLoopExtRunOnDemand17run_app_on_demandI	40  db-pro-native                       0x00000001055e3f08 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run14run_and_returnNtNtB4_16glow_integration12GlowWinitAppEB6_ + 460
+	41  db-pro-native                       0x00000001055e52e8 _RNCNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow0B7_ + 172
+	42  db-pro-native                       0x00000001055e4514 _RNCINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB8_5ErrorENCNvB4_8run_glow0E0B8_ + 344
+	43  db-pro-native                       0x00000001055ca108 _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	44  db-pro-native                       0x00000001055ca01c _RINvMs2_NtNtCs1SSuMAdGM58_3std6thread5localINtB6_8LocalKeyINtNtCsjIpoRzUjyHQ_4core4cell7RefCellINtNtBZ_6option6OptionINtNtCslfXEp6So11c_5winit10event_loop9EventLoopNtNtNtCsfnGKi1qtAcN_6eframe6na	45  db-pro-native                       0x00000001055e41c0 _RINvNtNtCsfnGKi1qtAcN_6eframe6native3run15with_event_loopINtNtCsjIpoRzUjyHQ_4core6result6ResultuNtB6_5ErrorENCNvB2_8run_glow0EB6_ + 100
+	46  db-pro-native                       0x00000001055e9420 _RNvNtNtCsfnGKi1qtAcN_6eframe6native3run8run_glow + 204
+	47  db-pro-native                       0x00000001055e5e0c _RNvCsfnGKi1qtAcN_6eframe14run_native_ext + 220
+	48  db-pro-native                       0x00000001055e5b64 _RNvCsfnGKi1qtAcN_6eframe10run_native + 92
+	49  db-pro-native                       0x0000000104d2d97c _RNvCs6W60ki9Xm1X_13db_pro_native14run_native_app + 2700
+	50  db-pro-native                       0x0000000104d2fb40 _RNvCs6W60ki9Xm1X_13db_pro_native4main + 1064
+	51  db-pro-native                       0x0000000104cff8c8 _RNvYFEINtNtCsjIpoRzUjyHQ_4core6result6ResultuINtNtCs6zY7rJBZy9D_5alloc5boxed3BoxDNtNtB9_5error5ErrorEL_EEINtNtNtB9_3ops8function6FnOnceuE9call_onceCs6W60ki
+libc++abi: terminating due to uncaught exception of type NSException
+2026-10-12T18:24:20.150260Z  INFO db_pro_runtime: DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)

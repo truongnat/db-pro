@@ -2,6 +2,7 @@
 
 use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
 use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme, EXPLORER_ROW_HEIGHT};
+use crate::components::Separator;
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -57,7 +58,7 @@ impl TableFolderContext<'_> {
                 actions.push(TableFolderAction::RefreshSchema);
                 *close_menu = true;
             }
-            ui.separator();
+            Separator::horizontal(theme).show(ui);
             if ctx_menu_item(ui, Some(Icon::Copy), "Copy Schema Name", None, theme.text_primary, theme).clicked() {
                 actions.push(TableFolderAction::CopySchemaName);
                 *close_menu = true;

@@ -24,6 +24,8 @@ pub struct PasswordInput<'a> {
     helper_text: Option<Cow<'a, str>>,
     error_text: Option<Cow<'a, str>>,
     required: bool,
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
+    bordered: bool,
     width: Option<f32>,
     id_salt: Option<Id>,
     theme: DbProTheme,
@@ -44,6 +46,7 @@ impl<'a> PasswordInput<'a> {
             helper_text: None,
             error_text: None,
             required: false,
+            bordered: false,
             width: None,
             id_salt: None,
             theme,
@@ -72,6 +75,13 @@ impl<'a> PasswordInput<'a> {
 
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome;
+    /// hover/focus/error still upgrade the stroke.
+    pub fn bordered(mut self, bordered: bool) -> Self {
+        self.bordered = bordered;
         self
     }
 
@@ -184,6 +194,7 @@ impl<'a> PasswordInput<'a> {
                     hovered: frame_output.response.hovered() || edit_response.hovered(),
                     enabled: true,
                     has_error,
+                    bordered: self.bordered,
                 },
                 self.theme,
             );

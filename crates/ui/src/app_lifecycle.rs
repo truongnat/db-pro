@@ -123,14 +123,6 @@ impl DbProApp {
             "dbpro.native.output-height",
             self.workspace.bottom_panel_height.to_string(),
         );
-        storage.set_string(
-            "dbpro.native.connections-pane-height",
-            self.schema.explorer.connections_pane_height.to_string(),
-        );
-        storage.set_string(
-            "dbpro.native.schemas-pane-height",
-            self.schema.explorer.schemas_pane_height.to_string(),
-        );
     }
 
     fn normalize_input_modifiers(&mut self, ctx: &egui::Context) {
@@ -228,10 +220,7 @@ impl DbProApp {
     /// own output surface: Query has its rich dock and Results renders the
     /// grid itself.
     fn shows_shell_output_panel(&self) -> bool {
-        !matches!(
-            self.workspace.active_tab,
-            WorkspaceTab::Query | WorkspaceTab::Results
-        )
+        !matches!(self.workspace.active_tab, WorkspaceTab::Query | WorkspaceTab::Results)
     }
 
     fn apply_activity_bar_action(&mut self, action: activity_bar_view::ActivityBarAction, ctx: &egui::Context) {
@@ -388,10 +377,6 @@ impl DbProApp {
                 Ok(()) => vr::run_provider(&bundle),
             }
         };
-        Some((
-            outcome.to_json(&bundle.to_string_lossy(), &shot_name),
-            bundle,
-            shot,
-        ))
+        Some((outcome.to_json(&bundle.to_string_lossy(), &shot_name), bundle, shot))
     }
 }

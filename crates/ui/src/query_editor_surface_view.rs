@@ -112,7 +112,7 @@ impl<'view> QueryEditorSurfaceContext<'view> {
         .with_cached_tokens(&mut doc.cached_tokens)
         .with_search(&search_query, doc.search.active_match_index)
         .with_completion_open(is_completion_open)
-        .with_rich_hover_open(doc.hover_state.confirmed_token().is_some())
+        .with_rich_hover(doc.hover_state.confirmed_token())
         .with_snippet(
             doc.snippet.is_some(),
             doc.snippet.as_ref().and_then(|session| session.active_range()),

@@ -6,6 +6,7 @@
 
 use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme, UiConnectionSummary};
+use crate::components::Separator;
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -184,7 +185,7 @@ fn connection_context_menu(
             *close_menu = true;
         }
 
-        ui.separator();
+        Separator::horizontal(theme).show(ui);
         let new_script_shortcut = format!("{modifier}T");
         if ctx_menu_item(
             ui,
@@ -226,7 +227,7 @@ fn connection_context_menu(
             *close_menu = true;
         }
 
-        ui.separator();
+        Separator::horizontal(theme).show(ui);
         if ctx_menu_item(
             ui,
             Some(Icon::Plus),
@@ -267,7 +268,7 @@ fn connection_context_menu(
             *close_menu = true;
         }
 
-        ui.separator();
+        Separator::horizontal(theme).show(ui);
         if ctx_menu_item(
             ui,
             Some(Icon::Pencil),

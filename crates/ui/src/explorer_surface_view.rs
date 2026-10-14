@@ -16,6 +16,7 @@ use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext
 use super::{
     ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, SchemaExplorerState, UiConnectionSummary, UiTableInfo,
 };
+use crate::components::ScrollArea;
 use eframe::egui;
 use crate::tokens::{SPACE_SM, SPACE_XS};
 
@@ -66,6 +67,7 @@ pub(super) struct ExplorerSurfaceContext<'a> {
     pub(super) table_info: Option<UiTableInfo>,
     pub(super) reduce_motion: bool,
     pub(super) functions_enabled: bool,
+    pub(super) trigger_toggle_unavailable_reason: Option<String>,
     pub(super) modifier: &'static str,
 }
 
@@ -93,7 +95,7 @@ impl ExplorerSurfaceContext<'_> {
             .max(ui.available_width())
             .min(ui.clip_rect().width());
         let scroll_h = ui.available_height();
-        egui::ScrollArea::vertical()
+        ScrollArea::new(self.theme)
             .id_salt(EXPLORER_SCROLL_ID)
             .auto_shrink([false, false])
             .max_height(scroll_h)
@@ -204,6 +206,7 @@ impl ExplorerSurfaceContext<'_> {
             selected_table: self.explorer.selected_table.clone(),
             table_info: self.table_info.clone(),
             functions_enabled: self.functions_enabled,
+            trigger_toggle_unavailable_reason: self.trigger_toggle_unavailable_reason.clone(),
         }
     }
 }

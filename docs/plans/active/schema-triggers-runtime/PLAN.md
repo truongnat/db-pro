@@ -59,10 +59,11 @@ pub struct Trigger {
 **PostgreSQL:**
 - Introspect via `information_schema.triggers` + `pg_trigger` + `pg_proc`
 - Capture: name, table, schema, timing, event, action_statement, trigger function body
-- Capture enabled state from `pg_trigger.tgenabled`
+- Map `pg_trigger.tgenabled`: `D` disabled; `O`, `R`, and `A` enabled.
+- Exclude internal catalog triggers (`pg_trigger.tgisinternal`).
 - CREATE TRIGGER with function body
 - DROP TRIGGER with IF EXISTS
-- ALTER TRIGGER ... DISABLE/ENABLE
+- `ALTER TABLE <qualified table> ENABLE|DISABLE TRIGGER <quoted trigger name>`
 
 **SQLite:**
 - Introspect via `sqlite_master WHERE type = 'trigger'`
@@ -70,6 +71,13 @@ pub struct Trigger {
 - CREATE TRIGGER with SQL body
 - DROP TRIGGER
 - No native disable support (capability-gated)
+
+**MySQL:**
+- Trigger create/drop and introspection remain supported.
+- Individual trigger enable/disable is unsupported; the capability gate MUST prevent SQL emission.
+
+**SQL Server:**
+- Individual trigger enable/disable remains gated unsupported by this provider.
 
 ### Frontend
 - Trigger tab in schema object viewer

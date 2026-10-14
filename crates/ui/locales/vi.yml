@@ -62,6 +62,7 @@ connection:
   delete_folder_warning: "Các truy vấn trong thư mục này sẽ chuyển về trạng thái Chưa phân loại."
   cloud_presets_title: "Cấu hình mẫu Cloud & Nhập từ URI"
   apply_preset: "Áp dụng cấu hình mẫu"
+  cloud_preset_placeholder: "Chọn cấu hình mẫu cloud…"
   token_session_warning: "Token chỉ có hiệu lực trong phiên làm việc — không bao giờ lưu như mật khẩu dài hạn"
   paste_uri: "Dán chuỗi URI kết nối"
   import_uri: "Nhập từ URI"

@@ -4,7 +4,7 @@
 use super::{config, handler};
 use crate::components::button::{Button, ButtonVariant};
 use crate::DbProTheme;
-use egui::{Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Response, RichText, Sense, Stroke, Ui, Vec2};
+use egui::{CornerRadius, FontFamily, FontId, Frame, Margin, Response, RichText, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 use std::borrow::Cow;
@@ -223,11 +223,8 @@ impl<'a> AlertDialog<'a> {
             .fixed_pos(screen_rect.min)
             .show(ctx, |ui| {
                 let (_, response) = ui.allocate_exact_size(screen_rect.size(), Sense::click());
-                ui.painter().rect_filled(
-                    screen_rect,
-                    CornerRadius::ZERO,
-                    Color32::from_black_alpha(config::BACKDROP_OPACITY),
-                );
+                ui.painter()
+                    .rect_filled(screen_rect, CornerRadius::ZERO, self.theme.overlay);
                 if handler::should_close_from_backdrop(self.destructive, response.clicked()) {
                     *open = false;
                     action = Some(handler::action_for_close(false));
@@ -246,12 +243,7 @@ impl<'a> AlertDialog<'a> {
                     stroke: Stroke::new(config::DIALOG_BORDER_WIDTH, self.theme.border_default),
                     inner_margin: Margin::same(config::DIALOG_PADDING as i8),
                     corner_radius: CornerRadius::same(config::DIALOG_RADIUS as u8),
-                    shadow: egui::epaint::Shadow {
-                        offset: [0, config::DIALOG_SHADOW_OFFSET_Y as i8],
-                        blur: config::DIALOG_SHADOW_BLUR as u8,
-                        spread: 0,
-                        color: Color32::from_black_alpha(config::DIALOG_SHADOW_OPACITY),
-                    },
+                    shadow: self.theme.floating_shadow(),
                     ..Default::default()
                 }
                 .show(ui, |ui| {

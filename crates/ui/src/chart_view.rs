@@ -18,32 +18,8 @@ impl ChartRenderer {
     const MARGIN_RIGHT: f64 = 20.0;
     const MARGIN_TOP: f64 = 30.0;
     const MARGIN_BOTTOM: f64 = 40.0;
-    /// Light surfaces need darker series colors — the dark-theme hues wash out
-    /// on white (yellow was ~1.9:1 contrast).
-    const PALETTE_LIGHT: [Color32; 6] = [
-        Color32::from_rgb(37, 99, 235),  // #2563eb
-        Color32::from_rgb(220, 38, 38),  // #dc2626
-        Color32::from_rgb(180, 83, 9),   // #b45309
-        Color32::from_rgb(21, 128, 61),  // #15803d
-        Color32::from_rgb(147, 51, 234), // #9333ea
-        Color32::from_rgb(14, 116, 144), // #0e7490
-    ];
-    const PALETTE_DARK: [Color32; 6] = [
-        Color32::from_rgb(66, 133, 244), // Blue
-        Color32::from_rgb(219, 68, 55),  // Red
-        Color32::from_rgb(244, 180, 0),  // Yellow
-        Color32::from_rgb(15, 157, 88),  // Green
-        Color32::from_rgb(171, 71, 188), // Purple
-        Color32::from_rgb(0, 172, 193),  // Cyan
-    ];
-
-    fn palette(theme: &crate::theme::DbProTheme) -> &'static [Color32; 6] {
-        if theme.dark_mode {
-            &Self::PALETTE_DARK
-        } else {
-            &Self::PALETTE_LIGHT
-        }
-    }
+    // Series colors come from `theme.chart_series` (`semantic.chart.series`);
+    // the token layer ships light/deep and dark/bright variants for legibility.
 
     /// Draw the chart onto the given UI area.
     pub fn draw(ui: &mut egui::Ui, points: &[ChartPoint], config: &ChartConfig, theme: &crate::theme::DbProTheme) {
@@ -189,11 +165,12 @@ impl ChartRenderer {
     }
 
     fn series_color(series_name: &str, series_order: &[String], theme: &crate::theme::DbProTheme) -> Color32 {
+        let series = theme.chart_series;
         if series_name.is_empty() {
-            return Self::palette(theme)[0];
+            return series[0];
         }
         let idx = series_order.iter().position(|name| name == series_name).unwrap_or(0);
-        Self::palette(theme)[idx % Self::palette(theme).len()]
+        series[idx % series.len()]
     }
 
     fn series_order(points: &[ChartPoint]) -> Vec<String> {
@@ -348,7 +325,7 @@ impl ChartRenderer {
             let frac = point.y / total;
             let end_angle = start_angle + frac * std::f64::consts::TAU;
 
-            let color = Self::palette(theme)[i % Self::palette(theme).len()];
+            let color = theme.chart_series[i % theme.chart_series.len()];
 
             // Draw slice as a polygon approximation
             let num_segments = 24;
@@ -390,7 +367,7 @@ impl ChartRenderer {
         // Legend
         let legend_x = rect.right() + 10.0;
         for (i, point) in points.iter().enumerate() {
-            let color = Self::palette(theme)[i % Self::palette(theme).len()];
+            let color = theme.chart_series[i % theme.chart_series.len()];
             let ly = rect.min.y + i as f32 * 18.0;
             painter.rect_filled(
                 Rect::from_min_size(Pos2::new(legend_x, ly), Vec2::new(12.0, 12.0)),

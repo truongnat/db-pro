@@ -244,7 +244,7 @@ fn draw_parameter_inputs(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egu
         });
         ui.horizontal(|ui| {
             let mut is_null = context.parameter_nulls.get(index).copied().unwrap_or(false);
-            if ui.checkbox(&mut is_null, "NULL").changed() {
+            if Checkbox::new(&mut is_null, "NULL", context.theme).show(ui).changed() {
                 if let Some(slot) = context.parameter_nulls.get_mut(index) {
                     *slot = is_null;
                 }

@@ -201,13 +201,11 @@ fn draw_script_error(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) {
 fn draw_script_editor(context: &mut DdlScriptContext<'_>, ui: &mut egui::Ui) -> Option<DdlScriptAction> {
     let mut changed = false;
     editor_frame(context.theme).show(ui, |ui| {
-        let response = ui.add(
-            TextEdit::multiline(&mut *context.ddl)
-                .font(FontId::monospace(13.0))
-                .desired_width(ui.available_width())
-                .desired_rows(18)
-                .interactive(context.writable),
-        );
+        let response = crate::components::Textarea::new(context.ddl, "DDL script…", context.theme)
+            .font(FontId::monospace(13.0))
+            .min_rows(18)
+            .read_only(!context.writable)
+            .show(ui);
         changed = response.changed();
         // The editor has no visible label widget — name the accesskit node
         // directly so AT announces the control (fixes semantic.missing_name).

@@ -234,7 +234,7 @@ impl SidebarQueryLibraryContext<'_> {
                 });
                 *close_menu = true;
             }
-            ui.separator();
+            Separator::horizontal(self.theme).show(ui);
             if ctx_menu_item(
                 ui,
                 Some(Icon::Pencil),

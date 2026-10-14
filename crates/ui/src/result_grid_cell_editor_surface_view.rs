@@ -92,9 +92,7 @@ fn draw_input(context: &mut CellEditorContext<'_>, ui: &mut egui::Ui, cell_rect:
 fn draw_text_input(ui: &mut egui::Ui, theme: DbProTheme, value: &mut String, size: egui::Vec2) -> egui::Response {
     ui.add_sized(
         size,
-        egui::TextEdit::singleline(value)
-            // no frame: the editor should read as the cell's own text, not a
-            // bordered widget floating on top of the grid
+        egui::TextEdit::singleline(value) // ui-rules: in-cell grid editor must stay chromeless (Frame::NONE, add_sized); Input owns label/field chrome
             .frame(egui::Frame::NONE)
             .margin(egui::Margin::symmetric(6.0 as i8, 2.0 as i8))
             .text_color(theme.text_primary),
@@ -122,26 +120,30 @@ fn draw_select(
     id: egui::Id,
     options: &[(String, String)],
 ) -> egui::Response {
-    let selected = options
+    let labels: Vec<String> = options.iter().map(|(_, label)| label.clone()).collect();
+    let mut selected = options
+        .iter()
+        .position(|(stored, _)| stored.eq_ignore_ascii_case(value.as_str()))
+        .unwrap_or(usize::MAX);
+    // Show the matched label (or the raw stored value) on the trigger even
+    // though `Select` bookkeeping is index-based.
+    let selected_text = options
         .iter()
         .find(|(stored, _)| stored.eq_ignore_ascii_case(value.as_str()))
         .map(|(_, label)| label.clone())
         .unwrap_or_else(|| value.clone());
-    egui::ComboBox::from_id_salt(id)
+    let idx_before = selected;
+    let response = crate::components::Select::new(id, &mut selected, &labels)
+        .theme(theme)
+        .size(crate::components::SelectSize::Sm)
         .width(ui.available_width())
-        .selected_text(RichText::new(selected).color(theme.text_primary).size(12.0))
-        .show_ui(ui, |ui| {
-            for (stored, label) in options {
-                if ui
-                    .selectable_label(stored.eq_ignore_ascii_case(value.as_str()), label)
-                    .clicked()
-                {
-                    *value = stored.clone();
-                    *error = None;
-                }
-            }
-        })
-        .response
+        .selected_text(selected_text)
+        .show(ui);
+    if selected != idx_before && selected < options.len() {
+        *value = options[selected].0.clone();
+        *error = None;
+    }
+    response
 }
 
 fn draw_temporal(

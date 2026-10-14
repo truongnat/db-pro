@@ -7,7 +7,7 @@ use super::schema_workbench::{
 };
 use super::*;
 use crate::components::dialog::Dialog;
-use crate::components::{Button, ButtonSize, ButtonVariant};
+use crate::components::{Button, ButtonSize, ButtonVariant, Checkbox};
 use db_pro_core::domain::object_mutation::ObjectAction;
 use lucide_icons::Icon;
 
@@ -15,6 +15,9 @@ pub(super) struct SchemaWorkbenchFormContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) workbench: &'a mut SchemaWorkbenchState,
     pub(super) can_mutate: bool,
+    /// `Some(reason)` when the active driver cannot ALTER COLUMN — the plan
+    /// button stays visible but disabled with the reason on hover.
+    pub(super) column_alter_limitation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,19 +59,27 @@ pub(super) fn draw_workbench_form(
         SchemaWorkbenchMode::Column => {
             ui.horizontal(|ui| {
                 ui.label("Table");
-                ui.text_edit_singleline(&mut context.workbench.parent_table);
+                crate::components::input::Input::new(&mut context.workbench.parent_table, "schema.table", context.theme)
+                    .width(180.0)
+                    .show(ui);
                 ui.label("Type");
-                ui.text_edit_singleline(&mut context.workbench.data_type);
+                crate::components::input::Input::new(&mut context.workbench.data_type, "int4", context.theme)
+                    .width(140.0)
+                    .show(ui);
             });
             ui.horizontal(|ui| {
-                ui.checkbox(&mut context.workbench.nullable, "Nullable");
-                ui.checkbox(&mut context.workbench.is_pk, "PK (create table only)");
+                Checkbox::new(&mut context.workbench.nullable, "Nullable", context.theme).show(ui);
+                Checkbox::new(&mut context.workbench.is_pk, "PK (create table only)", context.theme).show(ui);
                 ui.label("Default");
-                ui.text_edit_singleline(&mut context.workbench.default_expr);
+                crate::components::input::Input::new(&mut context.workbench.default_expr, "expression", context.theme)
+                    .width(160.0)
+                    .show(ui);
             });
             ui.horizontal(|ui| {
                 ui.label("Rename to");
-                ui.text_edit_singleline(&mut context.workbench.new_name);
+                crate::components::input::Input::new(&mut context.workbench.new_name, "new_name", context.theme)
+                    .width(180.0)
+                    .show(ui);
             });
         }
         SchemaWorkbenchMode::View => {
@@ -91,28 +102,38 @@ pub(super) fn draw_workbench_form(
         }
         SchemaWorkbenchMode::SchemaDb => {
             ui.label("Schema name uses Name field; Database create/drop uses Name as DB name.");
-            ui.checkbox(&mut context.workbench.cascade, "CASCADE on drop schema");
+            Checkbox::new(&mut context.workbench.cascade, "CASCADE on drop schema", context.theme).show(ui);
         }
         SchemaWorkbenchMode::Extension => {
             ui.label("Extension schema (optional)");
-            ui.text_edit_singleline(&mut context.workbench.extension_schema);
-            ui.checkbox(&mut context.workbench.cascade, "CASCADE on drop");
+            crate::components::input::Input::new(&mut context.workbench.extension_schema, "schema", context.theme)
+                .width(220.0)
+                .show(ui);
+            Checkbox::new(&mut context.workbench.cascade, "CASCADE on drop", context.theme).show(ui);
         }
         SchemaWorkbenchMode::Comment => {
             ui.horizontal(|ui| {
                 ui.label("Parent (column comments)");
-                ui.text_edit_singleline(&mut context.workbench.parent_table);
+                crate::components::input::Input::new(&mut context.workbench.parent_table, "schema.table", context.theme)
+                    .width(180.0)
+                    .show(ui);
             });
             ui.label("Comment text (empty clears)");
-            ui.text_edit_singleline(&mut context.workbench.comment_text);
+            crate::components::input::Input::new(&mut context.workbench.comment_text, "COMMENT text", context.theme)
+                .width(360.0)
+                .show(ui);
         }
         SchemaWorkbenchMode::Partition => {
             ui.horizontal(|ui| {
                 ui.label("Parent table");
-                ui.text_edit_singleline(&mut context.workbench.parent_table);
+                crate::components::input::Input::new(&mut context.workbench.parent_table, "schema.table", context.theme)
+                    .width(180.0)
+                    .show(ui);
             });
             ui.label("FOR VALUES …");
-            ui.text_edit_singleline(&mut context.workbench.partition_bound);
+            crate::components::input::Input::new(&mut context.workbench.partition_bound, "FOR VALUES …", context.theme)
+                .width(360.0)
+                .show(ui);
         }
         SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs | SchemaWorkbenchMode::History => {}
     }
@@ -140,15 +161,32 @@ pub(super) fn draw_workbench_form(
         {
             action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Drop));
         }
-        if mode == SchemaWorkbenchMode::Column
-            && Button::new(context.theme)
+        if mode == SchemaWorkbenchMode::Column {
+            let rename_response = Button::new(context.theme)
                 .text("Plan rename")
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-        {
-            action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Rename));
+                .show(ui);
+            if rename_response.clicked() {
+                action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Rename));
+            }
+            let alter_supported = context.column_alter_limitation.is_none();
+            let mut alter_response = ui
+                .add_enabled_ui(alter_supported, |ui| {
+                    Button::new(context.theme)
+                        .text("Plan alter")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::Pencil)
+                        .show(ui)
+                })
+                .response;
+            if let Some(reason) = &context.column_alter_limitation {
+                alter_response = alter_response.on_disabled_hover_text(reason);
+            }
+            if alter_response.clicked() {
+                action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Alter));
+            }
         }
         if mode == SchemaWorkbenchMode::View
             && context.workbench.materialized
@@ -318,7 +356,7 @@ fn draw_sequence_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut
         ui.add_space(SPACE_MD);
         ui.vertical(|ui| {
             ui.label(RichText::new("Cycle").small().color(context.theme.text_secondary));
-            ui.checkbox(&mut context.workbench.cycle, "Enable CYCLE");
+            Checkbox::new(&mut context.workbench.cycle, "Enable CYCLE", context.theme).show(ui);
         });
     });
 }
@@ -369,7 +407,7 @@ fn draw_view_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egu
                 .color(context.theme.text_primary),
         );
         ui.add_space(SPACE_MD);
-        ui.checkbox(&mut context.workbench.materialized, "Materialized View");
+        Checkbox::new(&mut context.workbench.materialized, "Materialized View", context.theme).show(ui);
         ui.add_space(SPACE_MD);
         if Button::new(context.theme)
             .text("+ Basic SELECT")
@@ -419,7 +457,7 @@ fn draw_index_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                 .color(context.theme.text_primary),
         );
         ui.add_space(SPACE_MD);
-        ui.checkbox(&mut context.workbench.unique, "Unique Index");
+        Checkbox::new(&mut context.workbench.unique, "Unique Index", context.theme).show(ui);
     });
     ui.add_space(SPACE_SM);
 
@@ -697,7 +735,7 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                 ui.add_space(10.0);
                 ui.label(RichText::new("Default Expression").small().strong().color(context.theme.text_secondary));
             });
-            ui.separator();
+            Separator::horizontal(context.theme).show(ui);
 
             let types = [
                 "BIGINT",
@@ -743,16 +781,18 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                     }
 
                     // PK
-                    if ui.checkbox(&mut col.is_pk, "").changed() && col.is_pk {
+                    if Checkbox::new(&mut col.is_pk, "", context.theme).show(ui).changed() && col.is_pk {
                         col.nullable = false;
                     }
 
                     // Nullable
                     let can_be_nullable = !col.is_pk;
-                    ui.add_enabled(can_be_nullable, egui::Checkbox::without_text(&mut col.nullable));
+                    Checkbox::new(&mut col.nullable, "", context.theme)
+                        .enabled(can_be_nullable)
+                        .show(ui);
 
                     // Auto inc
-                    ui.checkbox(&mut col.auto_increment, "");
+                    Checkbox::new(&mut col.auto_increment, "", context.theme).show(ui);
 
                     // Default
                     crate::components::Input::new(&mut col.default_expr, "default / expr", context.theme)
@@ -873,7 +913,7 @@ pub(super) fn draw_workbench_preview(
                         .monospace(),
                 );
             } else {
-                egui::ScrollArea::vertical()
+                ScrollArea::new(context.theme)
                     .max_height(220.0)
                     .show(ui, |ui| {
                         ui.add(

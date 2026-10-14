@@ -235,15 +235,15 @@ impl DbProApp {
             ui.spacing_mut().item_spacing.x = 0.0;
             self.draw_gallery_category_navigation(ui, available_height);
 
-            ui.separator();
+            Separator::vertical(self.theme).show(ui);
 
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing = content_spacing;
                 ui.set_min_width(ui.available_width());
                 self.draw_gallery_header(ui);
-                ui.separator();
+                Separator::horizontal(self.theme).show(ui);
 
-                let mut scroll = egui::ScrollArea::vertical()
+                let mut scroll = ScrollArea::new(self.theme)
                     .id_salt("component_gallery_detail_scroll")
                     .auto_shrink([false, false]);
                 if let Ok(offset) = std::env::var("DB_PRO_CAPTURE_GALLERY_SCROLL") {

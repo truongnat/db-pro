@@ -71,7 +71,9 @@ impl TableRelationsContext<'_> {
             TableColumn::new("Target Columns").width(180.0),
             TableColumn::new("Action"),
         ];
-        egui::ScrollArea::horizontal()
+        ScrollArea::new(self.theme)
+            .horizontal(true)
+            .vertical(false)
             .id_salt("relations-table-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {

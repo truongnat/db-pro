@@ -129,7 +129,7 @@ impl AuditSurfaceContext<'_> {
         Card::new(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 let mut selected_now = selected;
-                if ui.checkbox(&mut selected_now, "").changed() {
+                if Checkbox::new(&mut selected_now, "", self.theme).show(ui).changed() {
                     actions.push(AuditSurfaceAction::SetSelected {
                         event_id: event.id.clone(),
                         selected: selected_now,

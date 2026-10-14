@@ -60,7 +60,7 @@ impl ConflictDialogContext<'_> {
     ) {
         self.draw_primary_key(ui, identity);
         ui.add_space(8.0);
-        egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+        ScrollArea::new(self.theme).max_height(280.0).show(ui, |ui| {
             egui::Grid::new("conflict_diff_grid")
                 .num_columns(5)
                 .spacing([12.0, 6.0])
@@ -82,7 +82,7 @@ impl ConflictDialogContext<'_> {
                 });
         });
         ui.add_space(12.0);
-        ui.separator();
+        Separator::horizontal(self.theme).show(ui);
         ui.add_space(8.0);
         ui.horizontal_wrapped(|ui| {
             if Button::new(self.theme)

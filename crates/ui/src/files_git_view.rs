@@ -225,7 +225,7 @@ impl FilesGitContext<'_> {
                 .color(self.theme.text_secondary),
         );
         ui.add_space(4.0);
-        egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
+        ScrollArea::new(self.theme).max_height(220.0).show(ui, |ui| {
             ui.label(
                 RichText::new(diff.text.chars().take(8_000).collect::<String>())
                     .small()

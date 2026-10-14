@@ -15,6 +15,8 @@ pub(super) struct SchemaWorkbenchSurfaceContext<'a> {
     pub(super) can_mutate: bool,
     pub(super) driver: &'a str,
     pub(super) edges: &'a [ObjectDependencyEdge],
+    /// `Some(reason)` when the active driver cannot ALTER COLUMN.
+    pub(super) column_alter_limitation: Option<String>,
 }
 
 impl SchemaWorkbenchSurfaceContext<'_> {
@@ -40,7 +42,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
     pub(super) fn draw_main(&mut self, ui: &mut egui::Ui) -> Vec<SchemaWorkbenchSurfaceAction> {
         let mut actions = Vec::new();
         ui.set_min_width(ui.available_width());
-        egui::ScrollArea::vertical()
+        ScrollArea::new(self.theme)
             .id_salt("schema_workbench_scroll")
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
@@ -121,6 +123,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
                         theme: self.theme,
                         workbench: self.workbench,
                         can_mutate: self.can_mutate,
+                        column_alter_limitation: self.column_alter_limitation.clone(),
                     };
                     if let Some(action) = schema_workbench_form::draw_workbench_form(&mut context, ui) {
                         actions.push(SchemaWorkbenchSurfaceAction::Form(action));
@@ -131,6 +134,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
                     theme: self.theme,
                     workbench: self.workbench,
                     can_mutate: self.can_mutate,
+                    column_alter_limitation: self.column_alter_limitation.clone(),
                 };
                 if let Some(action) = schema_workbench_form::draw_workbench_preview(&mut context, ui) {
                     actions.push(SchemaWorkbenchSurfaceAction::Form(action));

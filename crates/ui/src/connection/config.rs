@@ -1,50 +1,57 @@
 use crate::{UiDriver, UiSslMode};
 use lucide_icons::Icon;
 
-/// Static configuration and UI constants for driver selection cards.
+/// Static configuration and UI constants for driver selection entries.
+///
+/// `driver: None` marks an entry that renders in the picker but isn't
+/// selectable yet ("coming soon"): it carries no `UiDriver` variant and
+/// `is_disabled` must stay `true`.
 #[derive(Clone, Copy, Debug)]
 pub struct DriverCardSpec {
-    pub driver: UiDriver,
+    pub driver: Option<UiDriver>,
+    /// Fallback lucide glyph when the brand PNG is unavailable.
     pub icon: Icon,
+    /// Key into `crate::connection::driver_icons::DRIVER_ICONS`.
+    pub icon_png: &'static str,
     pub name: &'static str,
     pub subtitle: &'static str,
     pub badge: &'static str,
     pub is_disabled: bool,
 }
 
+macro_rules! spec {
+    ($driver:expr, $icon:expr, $png:literal, $name:literal, $sub:literal, $disabled:expr) => {
+        DriverCardSpec {
+            driver: $driver,
+            icon: $icon,
+            icon_png: $png,
+            name: $name,
+            subtitle: $sub,
+            badge: if $disabled { "Soon" } else { "Active" },
+            is_disabled: $disabled,
+        }
+    };
+}
+
 pub const DRIVER_CARD_SPECS: &[DriverCardSpec] = &[
-    DriverCardSpec {
-        driver: UiDriver::Postgres,
-        icon: Icon::Database,
-        name: "PostgreSQL",
-        subtitle: "Port 5432 · SQL",
-        badge: "Active",
-        is_disabled: false,
-    },
-    DriverCardSpec {
-        driver: UiDriver::Sqlite,
-        icon: Icon::FileCode,
-        name: "SQLite",
-        subtitle: "Embedded File",
-        badge: "Active",
-        is_disabled: false,
-    },
-    DriverCardSpec {
-        driver: UiDriver::Mysql,
-        icon: Icon::Database,
-        name: "MySQL",
-        subtitle: "Port 3306 · SQL",
-        badge: "Active",
-        is_disabled: false,
-    },
-    DriverCardSpec {
-        driver: UiDriver::SqlServer,
-        icon: Icon::Database,
-        name: "SQL Server",
-        subtitle: "Port 1433 · TDS",
-        badge: "Active",
-        is_disabled: false,
-    },
+    // Active engines — selectable, mapped to a `UiDriver` variant.
+    spec!(Some(UiDriver::Postgres), Icon::Database, "postgresql", "PostgreSQL", "Port 5432 · SQL", false),
+    spec!(Some(UiDriver::Sqlite), Icon::FileCode, "sqlite", "SQLite", "Embedded File", false),
+    spec!(Some(UiDriver::Mysql), Icon::Database, "mysql", "MySQL", "Port 3306 · SQL", false),
+    spec!(Some(UiDriver::SqlServer), Icon::Database, "microsoftsqlserver", "SQL Server", "Port 1433 · TDS", false),
+    // Upcoming engines — listed so the picker already looks complete, but the
+    // runtime driver enum has no variant for them yet.
+    spec!(None, Icon::Database, "mariadb", "MariaDB", "Port 3306 · MySQL wire", true),
+    spec!(None, Icon::Database, "azuresql", "Azure SQL", "Cloud · TDS", true),
+    spec!(None, Icon::Database, "oracle", "Oracle", "Port 1521 · OCI", true),
+    spec!(None, Icon::Database, "cockroachlabs", "CockroachDB", "Port 26257 · PG wire", true),
+    spec!(None, Icon::Database, "neon", "Neon", "Serverless Postgres", true),
+    spec!(None, Icon::Database, "supabase", "Supabase", "Managed Postgres", true),
+    spec!(None, Icon::Database, "mongodb", "MongoDB", "Port 27017 · Doc", true),
+    spec!(None, Icon::Database, "redis", "Redis", "Port 6379 · KV", true),
+    spec!(None, Icon::Database, "clickhouse", "ClickHouse", "Port 8123 · OLAP", true),
+    spec!(None, Icon::Database, "elasticsearch", "Elasticsearch", "Port 9200 · Search", true),
+    spec!(None, Icon::Database, "cassandra", "Cassandra", "Port 9042 · CQL", true),
 ];
 
 /// Cloud preset option definition for UI dropdown.

@@ -76,3 +76,15 @@ Welcome capture after the composer redesign: `/opt/cursor/artifacts/welcome_lab_
 - P1: 0
 - P2: workspace clippy and the full test suite were not run in this pass
 - Independent review is still required; this plan stays under `docs/plans/active/`
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/02-query-editor-workspace.md` verdict: **STALE-DOC** —
+the toolbar/filter claims hold at HEAD (Run/Explain/Format on the editor toolbar
+`query_context_view.rs:94,101`; explorer object filter gated
+`explorer_surface_view.rs:53,83`), but the Welcome surface has since been redesigned
+(`3ea9e249`..`c6a033da`): no separate "Connections card", and the cited test
+`welcome_top_inset_*` no longer exists. The `welcome` captures re-collected in this
+audit (`_audit-2026-10-13/captures/welcome{,-light}_*.png`, 3 sizes) document the
+current surface, not the composer this plan verified. Re-run of the workspace suite
++ clippy remains outstanding from the original pass. State stays RUNTIME_VERIFY.

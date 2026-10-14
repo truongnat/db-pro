@@ -168,7 +168,7 @@ impl VisualQueryBuilderContext<'_> {
     fn draw_columns(&mut self, ui: &mut egui::Ui) {
         ui.add_space(SPACE_SM);
         section_label(ui, "COLUMNS", self.theme);
-        ui.checkbox(&mut self.state.model.select_star, "SELECT *");
+        Checkbox::new(&mut self.state.model.select_star, "SELECT *", self.theme).show(ui);
         ui.horizontal(|ui| {
             input(ui, &mut self.state.col_ref, "alias.column", 110.0, self.theme);
             input(ui, &mut self.state.col_alias, "AS alias", 90.0, self.theme);
@@ -223,7 +223,7 @@ impl VisualQueryBuilderContext<'_> {
         }
         ui.horizontal(|ui| {
             input(ui, &mut self.state.order, "alias.col", 110.0, self.theme);
-            ui.checkbox(&mut self.state.order_desc, "DESC");
+            Checkbox::new(&mut self.state.order_desc, "DESC", self.theme).show(ui);
             if secondary_button(ui, "Add ORDER", self.theme).clicked() {
                 self.state.add_order(self.dialect);
             }
@@ -242,7 +242,7 @@ impl VisualQueryBuilderContext<'_> {
         ui.add_space(SPACE_SM);
         section_label(ui, "GENERATED SQL", self.theme);
         self.state.refresh_preview(self.dialect);
-        egui::ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
+        ScrollArea::new(self.theme).max_height(160.0).show(ui, |ui| {
             ui.label(RichText::new(&self.state.sql_preview).monospace());
         });
     }

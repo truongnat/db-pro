@@ -14,7 +14,7 @@ use crate::{
     UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
     UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
-use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit};
+use eframe::egui::{self, Align, FontId, Layout, RichText, Sense};
 use lucide_icons::Icon;
 use std::collections::{BTreeSet, HashMap};
 use std::time::Duration;

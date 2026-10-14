@@ -11,7 +11,7 @@
 - [x] Cache/state invalidation accounted for (n/a — presentation only)
 
 ## Tests
-- [x] `welcome_top_inset_keeps_the_start_block_in_the_upper_third`
+- [x] `welcome_top_inset_keeps_the_start_block_in_the_upper_third` — **[NOTE 2026-10-13]** test no longer exists at HEAD (Welcome redesigned `3ea9e249`..`c6a033da`); retained as historical record of the run, see VERIFICATION audit update
 - [x] `the_filter_field_border_is_painted_inside_the_field` still passes with a connection present
 - [x] PostgreSQL: N/A (no SQL change)
 - [x] SQLite: N/A (no SQL change)

@@ -112,7 +112,7 @@ pub(super) fn draw_menu(
         );
 
         if context.editable {
-            ui.separator();
+            Separator::horizontal(context.theme).show(ui);
             if let Some(reason) = context.write_block_reason {
                 ctx_menu_item(
                     ui,
@@ -156,7 +156,7 @@ pub(super) fn draw_menu(
             );
         }
 
-        ui.separator();
+        Separator::horizontal(context.theme).show(ui);
         menu_item!(
             Icon::Key,
             "Use column as row id",

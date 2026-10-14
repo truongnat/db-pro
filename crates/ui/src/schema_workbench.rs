@@ -3,7 +3,6 @@
 use crate::UiTableSummary;
 use super::*;
 use db_pro_core::domain::object_mutation::*;
-use db_pro_core::ports::SqlDialect;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum SchemaWorkbenchMode {
@@ -303,17 +302,6 @@ pub(super) struct SchemaWorkbenchDdlRequest {
     pub(super) sql: String,
 }
 
-pub(super) struct QuoteDialect;
-
-impl SqlDialect for QuoteDialect {
-    fn placeholder(&self, index: usize) -> String {
-        format!("${index}")
-    }
-
-    fn quote_identifier(&self, name: &str) -> String {
-        format!("\"{}\"", name.replace('"', "\"\""))
-    }
-}
 
 impl DbProApp {
     pub(crate) fn open_schema_workbench(&mut self) {
@@ -330,6 +318,7 @@ impl DbProApp {
 
     pub(super) fn draw_schema_workbench_sidebar(&mut self, ui: &mut egui::Ui) {
         let driver = self.active_query_driver().to_owned();
+        let column_alter_limitation = self.column_alter_limitation();
         let action = {
             let mut context = schema_workbench_surface_view::SchemaWorkbenchSurfaceContext {
                 theme: self.theme,
@@ -337,6 +326,7 @@ impl DbProApp {
                 can_mutate: false,
                 driver: &driver,
                 edges: &[],
+                column_alter_limitation,
             };
             context.draw_sidebar(ui)
         };
@@ -346,9 +336,17 @@ impl DbProApp {
         }
     }
 
+    /// Capability-level reason the active query connection cannot ALTER COLUMN,
+    /// or `None` when the provider advertises it.
+    pub(crate) fn column_alter_limitation(&self) -> Option<String> {
+        self.query_capabilities()
+            .feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::AlterColumnType)
+    }
+
     pub(super) fn draw_schema_workbench(&mut self, ui: &mut egui::Ui) {
         let edges = self.collect_ui_dependency_edges();
         let driver = self.active_query_driver().to_owned();
+        let column_alter_limitation = self.column_alter_limitation();
         let actions = {
             let can_mutate = self.can_mutate_active_connection();
             let mut context = schema_workbench_surface_view::SchemaWorkbenchSurfaceContext {
@@ -357,6 +355,7 @@ impl DbProApp {
                 can_mutate,
                 driver: &driver,
                 edges: &edges,
+                column_alter_limitation,
             };
             context.draw_main(ui)
         };
@@ -585,7 +584,7 @@ mod tests {
         let request = state
             .build_mutation_request(ObjectAction::Create, "postgresql")
             .expect("request");
-        let preview = ObjectMutationService::plan(&request, &QuoteDialect).expect("plan");
+        let preview = ObjectMutationService::plan_for_driver(&request).expect("plan");
         let sql = preview.statements.join("\n");
         let upper = sql.to_ascii_uppercase();
         assert!(!upper.contains("CREATE TABLE"), "{sql}");
@@ -618,4 +617,5 @@ mod tests {
         assert_eq!(wb.history.len(), 100);
         assert_eq!(wb.history[0].object_name, "t_109");
     }
+
 }

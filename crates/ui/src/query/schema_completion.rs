@@ -1145,11 +1145,17 @@ fn subsequence_score(query: &str, label: &str) -> i32 {
 }
 
 fn extract_word_prefix(text: &str) -> &str {
-    let mut end = text.len();
-    while end > 0 && text[end - 1..end].chars().all(|c| c.is_alphanumeric() || c == '_') {
-        end -= 1;
+    // Walk back one char at a time — `end - 1` can sit on a UTF-8
+    // continuation byte, which would panic a byte slice.
+    let mut start = text.len();
+    for (idx, ch) in text.char_indices().rev() {
+        if ch.is_alphanumeric() || ch == '_' {
+            start = idx;
+        } else {
+            break;
+        }
     }
-    &text[end..]
+    &text[start..]
 }
 
 fn extract_qualifier(text: &str) -> Option<&str> {
@@ -1422,6 +1428,19 @@ mod tests {
         let aliases = extract_table_aliases(sql);
         assert_eq!(aliases.get("u").map(|s| s.as_str()), Some("users"));
         assert_eq!(aliases.get("o").map(|s| s.as_str()), Some("orders"));
+    }
+
+    #[test]
+    fn test_extract_word_prefix_multibyte_tail_does_not_panic() {
+        // Regression: byte-decrement slicing panicked when the cursor sat
+        // directly behind a multi-byte char (continuation byte slice).
+        assert_eq!(extract_word_prefix("SELECT tên"), "tên");
+        assert_eq!(extract_word_prefix("SELECT 🚀"), "");
+        assert_eq!(extract_word_prefix("SELECT tên 🚀"), "");
+        assert_eq!(extract_word_prefix("SELECT * FROM bảng"), "bảng");
+        assert_eq!(extract_word_prefix(""), "");
+        assert_eq!(extract_word_prefix("SELECT "), "");
+        assert_eq!(extract_word_prefix("SELECT * FROM us"), "us");
     }
 
     #[test]

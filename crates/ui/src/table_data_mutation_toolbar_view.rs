@@ -74,7 +74,7 @@ pub(super) fn draw_mutation_controls(
 
         draw_pending_change_summary(context, ui, &mut action);
     } else if context.connected && context.read_only_notice.is_none() {
-        ui.separator();
+        Separator::vertical(context.theme).show(ui);
         ui.label(
             RichText::new(if context.has_primary_key {
                 "Read-only"
@@ -163,7 +163,7 @@ fn draw_pending_change_summary(
     if context.staged_changes.is_empty() {
         return;
     }
-    ui.separator();
+    Separator::vertical(context.theme).show(ui);
     let counts = context.staged_changes.counts();
     if ui
         .small_button(format!(
@@ -189,7 +189,7 @@ fn draw_failure_controls(
         return;
     };
     let is_conflict = failure.code == "CONFLICT";
-    ui.separator();
+    Separator::vertical(context.theme).show(ui);
     ui.label(
         RichText::new(format!(
             "{} · {}",

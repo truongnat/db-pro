@@ -199,6 +199,11 @@ and moved from `docs/plans/active/` to `docs/plans/archived/` (with a dedicated 
 |---|---|---|
 | P1/P2 | Query results grid | Results pane paints blank while query executes and returns correct row count; table-data grid renders correctly. Reproduces under hardware and software GL → application defect. Consistent with README noting interactive runtime smoke was never completed. |
 
+**[UPDATED 2026-10-13]** The blank results grid is **FIXED** in `294ab089` (PR #308) —
+`query_output_dock_surface_view.rs` now bounds the tab strip to `DOCK_TAB_STRIP_HEIGHT` and
+allocates the remainder to the pane. Visually confirmed: seeded results rows render
+correctly in `docs/plans/_audit-2026-10-13/captures/results_*.png`.
+
 ---
 
 ## 6. Release readiness (v0.1.0)
@@ -212,8 +217,11 @@ Per `docs/plans/STATUS.md` (2026-09-14 correction) and `README.md`:
   (`docs/release/evidence/v01-runtime/providers/07`) — but that is **provider-level automated**
   evidence, not the **native-UI runtime** evidence completion requires.
 - SSH suite `BLOCKED` (nine `DB_PRO_SSH_*` unset); Agent ships **Preview** by policy.
-- Release rule: no `v0.1.0` tag while any confirmed P1 remains open (`ui-core-audit` currently
-  violates this) and until the RC1 runtime smoke + live-provider checks are recorded.
+- Release rule: no `v0.1.0` tag while any confirmed P1 remains open (~~`ui-core-audit` currently
+  violates this~~ **[CORRECTED 2026-10-13]** the `ui-core-audit` P0s were fixed in #307 and
+  verified in code; several recorded P1s — responsive width, overlay fade, focus indicator —
+  are also now implemented, see `_audit-2026-10-13/05`) and until the RC1 runtime smoke +
+  live-provider checks are recorded.
 
 ---
 
@@ -224,7 +232,7 @@ Per `docs/plans/STATUS.md` (2026-09-14 correction) and `README.md`:
 2. **Capture the now-unblocked native-UI runtime evidence.** The GUI runs in this environment;
    drive the `egui → UiCommand → … → UiEvent` matrix for the `RUNTIME_VERIFY` schema/table/query
    features and attach captures at 1280×800 / 1440×900 / 1920×1080.
-3. **File and fix the blank Query results grid** (§5) — it directly undermines the core SQL flow.
+3. ~~**File and fix the blank Query results grid** (§5) — it directly undermines the core SQL flow.~~ **[DONE]** fixed in `294ab089` (PR #308); re-captured 2026-10-13.
 4. **Triage the archived-frontend cluster (§4)** — re-scope to native egui or mark `OBSOLETE` to
    stop it inflating the active backlog.
 5. **Close provider gaps:** run the schema S1–S4 features' live PostgreSQL introspection (not just

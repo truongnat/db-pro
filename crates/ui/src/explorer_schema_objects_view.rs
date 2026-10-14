@@ -23,6 +23,7 @@ pub(super) struct ExplorerSchemaObjectsModel {
     pub(super) table_info: Option<UiTableInfo>,
     pub(super) connection_id: String,
     pub(super) functions_enabled: bool,
+    pub(super) trigger_toggle_unavailable_reason: Option<String>,
 }
 
 pub(super) struct ExplorerSchemaObjectsView<'a> {
@@ -50,36 +51,39 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
         };
 
         if kinds.views {
-            let view_count = self
-                .explorer
-                .count_by_schema(&self.explorer.schema.views, schema, |view| &view.schema);
             actions.extend(
-                SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                    .draw_views(ui, schema, &search_query, view_count)
+                SchemaObjectFoldersView::new(
+                    self.theme,
+                    &*self.explorer,
+                    self.model.trigger_toggle_unavailable_reason.clone(),
+                )
+                    .draw_views(ui, schema, &search_query)
                     .into_iter()
                     .map(ExplorerSchemaObjectsAction::SchemaObject),
             );
         }
 
         if kinds.functions && self.model.functions_enabled {
-            let function_count = self
-                .explorer
-                .count_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema);
             actions.extend(
-                SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                    .draw_functions(ui, schema, &search_query, function_count)
+                SchemaObjectFoldersView::new(
+                    self.theme,
+                    &*self.explorer,
+                    self.model.trigger_toggle_unavailable_reason.clone(),
+                )
+                    .draw_functions(ui, schema, &search_query)
                     .into_iter()
                     .map(ExplorerSchemaObjectsAction::SchemaObject),
             );
         }
 
         if kinds.triggers {
-            let trigger_count = self
-                .explorer
-                .count_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema);
             actions.extend(
-                SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                    .draw_triggers(ui, schema, &search_query, trigger_count)
+                SchemaObjectFoldersView::new(
+                    self.theme,
+                    &*self.explorer,
+                    self.model.trigger_toggle_unavailable_reason.clone(),
+                )
+                    .draw_triggers(ui, schema, &search_query)
                     .into_iter()
                     .map(ExplorerSchemaObjectsAction::SchemaObject),
             );

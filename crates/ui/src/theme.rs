@@ -83,6 +83,9 @@ pub struct DbProTheme {
     pub code_operator: Color32,
     pub code_punctuation: Color32,
     pub code_variable: Color32,
+    /// Categorical chart series colors (alias of `semantic.chart.series`); views
+    /// pick series colors with `theme.chart_series[i % theme.chart_series.len()]`.
+    pub chart_series: [Color32; 6],
 }
 
 impl Default for DbProTheme {
@@ -135,6 +138,7 @@ impl DbProTheme {
             code_operator: semantic.syntax.operator,
             code_punctuation: semantic.syntax.punctuation,
             code_variable: semantic.syntax.variable,
+            chart_series: semantic.chart.series,
         }
     }
     pub fn dark() -> Self {
@@ -180,6 +184,7 @@ impl DbProTheme {
             code_operator: semantic.syntax.operator,
             code_punctuation: semantic.syntax.punctuation,
             code_variable: semantic.syntax.variable,
+            chart_series: semantic.chart.series,
         }
     }
     /// Subtle tinted fill for badges, diff rows, and status cards (~10-12% opacity).
@@ -465,6 +470,17 @@ impl DbProTheme {
         let mut style = (*ctx.global_style()).clone();
         style.spacing.item_spacing = EGUI_ITEM_SPACING;
         style.spacing.button_padding = EGUI_BUTTON_PADDING;
+        // macOS-style overlay scrollbars: nothing painted at rest, thin thumb on
+        // hover/scroll, expanding slightly when the bar itself is hovered.
+        style.spacing.scroll = egui::style::ScrollStyle {
+            dormant_background_opacity: 0.0,
+            dormant_handle_opacity: 0.0,
+            active_background_opacity: 0.0,
+            active_handle_opacity: 0.5,
+            interact_background_opacity: 0.0,
+            interact_handle_opacity: 1.0,
+            ..egui::style::ScrollStyle::thin()
+        };
         style.spacing.interact_size = EGUI_INTERACT_SIZE;
         style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN as i8);
         style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN as i8);
@@ -570,6 +586,20 @@ mod tests {
                 theme.accent_foreground,
                 theme.accent
             );
+        }
+    }
+
+    #[test]
+    fn chart_series_stay_legible_on_the_canvas() {
+        for theme in [DbProTheme::light(), DbProTheme::dark()] {
+            assert_eq!(theme.chart_series, theme.semantic.chart.series);
+            for color in theme.chart_series {
+                assert!(
+                    contrast_ratio(color, theme.surface_app) >= 3.0,
+                    "series {color:?} on canvas {:?}",
+                    theme.surface_app
+                );
+            }
         }
     }
 

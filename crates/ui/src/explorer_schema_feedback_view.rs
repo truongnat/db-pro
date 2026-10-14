@@ -59,7 +59,7 @@ impl ExplorerSchemaFeedbackContext<'_> {
                 });
             });
             ui.add_space(6.0);
-            egui::ScrollArea::vertical().max_height(120.0).show(ui, |ui| {
+            ScrollArea::new(self.theme).max_height(120.0).show(ui, |ui| {
                 ui.label(
                     RichText::new(error)
                         .small()

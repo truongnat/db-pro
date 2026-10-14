@@ -177,9 +177,9 @@ impl AgentSettingsContext<'_> {
 
     fn draw_footer(&mut self, ui: &mut egui::Ui) {
         ui.add_space(8.0);
-        ui.checkbox(self.auto_run_read_only, "Auto-run read-only queries in Agent mode");
+        Checkbox::new(self.auto_run_read_only, "Auto-run read-only queries in Agent mode", self.theme).show(ui);
         ui.add_space(8.0);
-        ui.separator();
+        Separator::horizontal(self.theme).show(ui);
         ui.add_space(4.0);
         ui.label(
             // cc-scan:allow LINE_TOO_LONG — literal must not wrap

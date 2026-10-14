@@ -96,14 +96,14 @@ impl PendingChangesContext<'_> {
                             .small()
                             .color(self.theme.text_muted),
                     );
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     ui.horizontal(|ui| {
                         ui.label(format!("{} row group(s)", groups.len()));
                         if ui.small_button("Discard All").clicked() {
                             actions.push(PendingChangesAction::RequestDiscardAll);
                         }
                     });
-                    egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                    ScrollArea::new(self.theme).max_height(360.0).show(ui, |ui| {
                         for group in &groups {
                             self.draw_group(ui, group, &mut actions);
                         }
@@ -129,7 +129,7 @@ impl PendingChangesContext<'_> {
     fn draw_group(&self, ui: &mut egui::Ui, group: &ChangeGroup, actions: &mut Vec<PendingChangesAction>) {
         self.draw_group_header(ui, group, actions);
         self.draw_group_entries(ui, group, actions);
-        ui.separator();
+        Separator::horizontal(self.theme).show(ui);
     }
 
     fn draw_group_header(&self, ui: &mut egui::Ui, group: &ChangeGroup, actions: &mut Vec<PendingChangesAction>) {

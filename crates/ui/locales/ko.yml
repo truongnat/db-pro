@@ -62,6 +62,7 @@ connection:
   delete_folder_warning: "이 폴더의 쿼리는 미분류 상태로 이동합니다."
   cloud_presets_title: "클라우드 프리셋 및 URI 가져오기"
   apply_preset: "프리셋 적용"
+  cloud_preset_placeholder: "클라우드 프리셋 선택…"
   token_session_warning: "토큰은 현재 세션에서만 유효하며 장기 비밀번호로 저장되지 않습니다"
   paste_uri: "연결 URI 붙여넣기"
   import_uri: "URI에서 가져오기"

@@ -74,7 +74,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, 0.0);
 
-                egui::ScrollArea::horizontal()
+                ScrollArea::new(self.theme)
+                    .horizontal(true)
+                    .vertical(false)
                     .id_salt("workspace-tabs-scroll")
                     // Take full width; shrink height to the tab row (not the whole panel).
                     .auto_shrink([false, true])
@@ -140,7 +142,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
@@ -233,7 +235,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
@@ -287,7 +289,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                         *close_all_requested = true;
                         *close_menu = true;
                     }
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Copy),
@@ -327,7 +329,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                         ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(title.to_string())));
                         *close_menu = true;
                     }
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Play),
@@ -401,7 +403,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
@@ -415,7 +417,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                         close_table = true;
                         *close_menu = true;
                     }
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::RefreshCw),
@@ -500,7 +502,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
@@ -566,7 +568,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                         .strong()
                         .color(self.theme.text_primary),
                 );
-                ui.separator();
+                Separator::horizontal(self.theme).show(ui);
                 if ctx_menu_item(
                     ui,
                     Some(Icon::X),

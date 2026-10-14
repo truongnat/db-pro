@@ -23,9 +23,6 @@ pub const FRAME_INNER_MARGIN: f32 = 14.0;
 pub const FRAME_ROUNDING: f32 = 8.0;
 /// Smallest useful visible height before the card should prefer opening upward.
 pub const MIN_VISIBLE_HEIGHT: f32 = 96.0;
-/// Shadow offset Y in egui points.
-pub const SHADOW_OFFSET_Y: f32 = 4.0;
-/// Shadow blur in egui points.
-pub const SHADOW_BLUR: f32 = 16.0;
-/// Shadow alpha channel value (0..255).
-pub const SHADOW_ALPHA: u8 = 40;
+// Shadow uses the shared `DbProTheme::floating_shadow` (offset, blur, and
+// theme-aware alpha live in the primitive elevation scale), so the card owns
+// no shadow constants.

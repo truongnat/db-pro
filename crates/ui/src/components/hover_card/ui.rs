@@ -1,12 +1,9 @@
-use super::config::{
-    DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY, DEFAULT_WIDTH, FRAME_INNER_MARGIN, FRAME_ROUNDING, SHADOW_ALPHA,
-    SHADOW_BLUR, SHADOW_OFFSET_Y,
-};
+use super::config::{DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY, DEFAULT_WIDTH, FRAME_INNER_MARGIN, FRAME_ROUNDING};
 use super::handler::{
     calculate_card_position, clamp_card_width, compute_open_state, escape_dismissed, sanitize_delay, timer_duration,
 };
 use crate::DbProTheme;
-use egui::{Area, Color32, CornerRadius, Frame, Margin, Order, Response, ScrollArea, Stroke, Ui};
+use egui::{Area, CornerRadius, Frame, Margin, Order, Response, ScrollArea, Stroke, Ui};
 
 pub struct HoverCard<'a> {
     id: &'a str,
@@ -140,12 +137,7 @@ impl<'a> HoverCard<'a> {
                         stroke: Stroke::new(1.0, self.theme.border_subtle),
                         inner_margin: Margin::same(FRAME_INNER_MARGIN as i8),
                         corner_radius: CornerRadius::same(FRAME_ROUNDING as u8),
-                        shadow: egui::epaint::Shadow {
-                            offset: [0, SHADOW_OFFSET_Y as i8],
-                            blur: SHADOW_BLUR as u8,
-                            spread: 0,
-                            color: Color32::from_black_alpha(SHADOW_ALPHA),
-                        },
+                        shadow: self.theme.floating_shadow(),
                         ..Default::default()
                     };
 

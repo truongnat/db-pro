@@ -64,7 +64,7 @@ where
                                     });
                                 },
                             );
-                            ui.separator();
+                            Separator::vertical(context.theme).show(ui);
                             ui.allocate_ui_with_layout(
                                 egui::vec2(ui.available_width(), height),
                                 Layout::top_down(Align::Min),

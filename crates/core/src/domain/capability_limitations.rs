@@ -20,7 +20,10 @@ fn postgres_reason(feature: CapabilityFeature) -> &'static str {
 fn sqlite_reason(feature: CapabilityFeature) -> &'static str {
     match feature {
         CapabilityFeature::Schemas => "SQLite has no named schemas; attached databases are not introspected in v0.1",
-        CapabilityFeature::AlterColumnType => "SQLite cannot ALTER COLUMN type without table rebuild",
+        CapabilityFeature::TriggerEnableDisable => "SQLite cannot enable or disable individual triggers",
+        CapabilityFeature::AlterColumnType => {
+            "SQLite cannot ALTER COLUMN type, nullability, or default without a table rebuild"
+        }
         CapabilityFeature::Sequences => "this engine has no standalone SEQUENCE objects",
         CapabilityFeature::EnumTypes => "SQLite has no native ENUM type",
         CapabilityFeature::Functions => "stored functions/procedures are not available for this driver",
@@ -39,6 +42,7 @@ fn sqlite_reason(feature: CapabilityFeature) -> &'static str {
 
 fn mysql_reason(feature: CapabilityFeature) -> &'static str {
     match feature {
+        CapabilityFeature::TriggerEnableDisable => "MySQL does not support enabling or disabling individual triggers",
         CapabilityFeature::Sequences => "this engine has no standalone SEQUENCE objects",
         CapabilityFeature::Functions => "stored functions/procedures are not available for this driver",
         CapabilityFeature::ArrayTypes => "array columns are not supported for this driver",
@@ -74,6 +78,7 @@ fn sql_server_reason(feature: CapabilityFeature) -> &'static str {
         CapabilityFeature::Tablespaces => "SQL Server tablespace administration is not a supported provider operation",
         CapabilityFeature::SshTunnel => "SQL Server SSH tunneling is not implemented by the provider yet",
         CapabilityFeature::Backup => "SQL Server backup/restore is not implemented by the shared backup service yet",
+        CapabilityFeature::TriggerEnableDisable => "SQL Server trigger enable/disable is not enabled for this provider",
         feature => generic_reason(feature),
     }
 }

@@ -62,6 +62,7 @@ connection:
   delete_folder_warning: "Saved queries in this folder will become unfiled."
   cloud_presets_title: "Cloud Presets & URI Importer"
   apply_preset: "Apply Preset"
+  cloud_preset_placeholder: "Select a cloud preset…"
   token_session_warning: "Token is session-only — never stored as a long-lived password"
   paste_uri: "Paste Connection URI"
   import_uri: "Import from URI"

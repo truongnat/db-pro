@@ -108,7 +108,7 @@ pub(super) fn draw_pagination(
                 action = Some(TableDataPaginationAction::RequestData);
             }
 
-            ui.separator();
+            Separator::vertical(context.theme).show(ui);
         }
 
         let previous_limit = context.query.limit;

@@ -18,6 +18,9 @@ pub(crate) struct ConnectionDialogState {
     pub(super) test_draft: Option<UiConnectionDraft>,
     pub(super) diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
     pub(super) ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
+    /// Collapsed state of the optional panels; `Collapsible` owns the toggle.
+    pub(super) cloud_presets_open: bool,
+    pub(super) tags_panel_open: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -118,6 +118,116 @@ pub fn build_alter_table_rename_column(
     )
 }
 
+/// Column attributes for an `ALTER COLUMN`-style mutation (type change,
+/// nullability toggle, default set/drop).
+///
+/// **Warning**: `data_type` and `default` are raw SQL fragments — they are
+/// inserted verbatim into the generated SQL without sanitization (only the
+/// shared `validate_raw_fragment` guardrail applies). Callers must ensure
+/// these values come from trusted sources.
+pub struct ColumnAlterDef {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    /// `Some(expr)` sets the default to `expr`; `None` drops the default where
+    /// the provider's ALTER syntax expresses that (PostgreSQL, MySQL).
+    pub default: Option<String>,
+}
+
+/// PostgreSQL-style `ALTER TABLE … ALTER COLUMN` with combined sub-actions:
+/// `TYPE`, `SET|DROP NOT NULL`, `SET|DROP DEFAULT` in one statement.
+pub fn build_alter_table_alter_column(
+    dialect: &dyn SqlDialect,
+    schema: &str,
+    table: &str,
+    column: &ColumnAlterDef,
+) -> Result<String, String> {
+    validate_raw_fragment(&column.data_type, "data_type")?;
+    if let Some(default) = &column.default {
+        validate_raw_fragment(default, "default")?;
+    }
+    if column.data_type.trim().is_empty() {
+        return Err("data_type must not be empty".to_owned());
+    }
+
+    let qualified = qualify(dialect, schema, table);
+    let name = dialect.quote_identifier(&column.name);
+    let nullability = if column.nullable {
+        "DROP NOT NULL"
+    } else {
+        "SET NOT NULL"
+    };
+    let default_clause = match &column.default {
+        Some(default) => format!("ALTER COLUMN {name} SET DEFAULT {default}"),
+        None => format!("ALTER COLUMN {name} DROP DEFAULT"),
+    };
+    Ok(format!(
+        "ALTER TABLE {qualified} ALTER COLUMN {name} TYPE {}, ALTER COLUMN {name} {nullability}, {default_clause}",
+        column.data_type
+    ))
+}
+
+/// MySQL `ALTER TABLE … MODIFY COLUMN` — requires restating the full column
+/// definition (type + nullability + default). Omitting `DEFAULT` drops any
+/// existing default, matching PostgreSQL `DROP DEFAULT` semantics.
+pub fn build_alter_table_modify_column(
+    dialect: &dyn SqlDialect,
+    schema: &str,
+    table: &str,
+    column: &ColumnAlterDef,
+) -> Result<String, String> {
+    validate_raw_fragment(&column.data_type, "data_type")?;
+    if let Some(default) = &column.default {
+        validate_raw_fragment(default, "default")?;
+    }
+    if column.data_type.trim().is_empty() {
+        return Err("data_type must not be empty".to_owned());
+    }
+
+    let qualified = qualify(dialect, schema, table);
+    let mut def = format!(
+        "ALTER TABLE {qualified} MODIFY COLUMN {} {}",
+        dialect.quote_identifier(&column.name),
+        column.data_type
+    );
+    if !column.nullable {
+        def.push_str(" NOT NULL");
+    }
+    if let Some(default) = &column.default {
+        def.push_str(&format!(" DEFAULT {default}"));
+    }
+    Ok(def)
+}
+
+/// SQL Server `ALTER TABLE … ALTER COLUMN` — only type and nullability can be
+/// altered this way; defaults live in named constraints and are intentionally
+/// rejected rather than silently emitted or dropped.
+pub fn build_alter_table_alter_column_sqlserver(
+    dialect: &dyn SqlDialect,
+    schema: &str,
+    table: &str,
+    column: &ColumnAlterDef,
+) -> Result<String, String> {
+    validate_raw_fragment(&column.data_type, "data_type")?;
+    if column.data_type.trim().is_empty() {
+        return Err("data_type must not be empty".to_owned());
+    }
+    if column.default.is_some() {
+        return Err(
+            "SQL Server column defaults live in named constraints; changing them is not supported by this ALTER path"
+                .to_owned(),
+        );
+    }
+
+    let qualified = qualify(dialect, schema, table);
+    let nullability = if column.nullable { "NULL" } else { "NOT NULL" };
+    Ok(format!(
+        "ALTER TABLE {qualified} ALTER COLUMN {} {} {nullability}",
+        dialect.quote_identifier(&column.name),
+        column.data_type
+    ))
+}
+
 pub fn build_drop_table(dialect: &dyn SqlDialect, schema: &str, table: &str) -> String {
     let qualified = qualify(dialect, schema, table);
     format!("DROP TABLE {qualified}")
@@ -195,6 +305,19 @@ pub fn build_drop_trigger(dialect: &dyn SqlDialect, schema: &str, table: &str, t
     let qualified_table = qualify(dialect, schema, table);
     let qualified_trigger = qualify(dialect, schema, trigger_name);
     format!("DROP TRIGGER {qualified_trigger} ON {qualified_table}")
+}
+/// Build a PostgreSQL table-trigger enable/disable statement.
+pub fn build_set_trigger_enabled(
+    dialect: &dyn SqlDialect,
+    schema: &str,
+    table: &str,
+    trigger_name: &str,
+    enabled: bool,
+) -> String {
+    let qualified_table = qualify(dialect, schema, table);
+    let trigger_name = dialect.quote_identifier(trigger_name);
+    let action = if enabled { "ENABLE" } else { "DISABLE" };
+    format!("ALTER TABLE {qualified_table} {action} TRIGGER {trigger_name}")
 }
 
 pub fn build_create_materialized_view(
@@ -526,7 +649,7 @@ mod tests {
             "?".into()
         }
         fn quote_identifier(&self, name: &str) -> String {
-            format!("\"{name}\"")
+            format!("\"{}\"", name.replace('"', "\"\""))
         }
     }
 
@@ -571,6 +694,19 @@ mod tests {
     }
 
     #[test]
+    fn pg_trigger_enable_disable_quotes_identifiers() {
+        let dialect = TestDialect;
+        assert_eq!(
+            build_set_trigger_enabled(&dialect, "odd schema", "user\"table", "tri\"gger", true),
+            "ALTER TABLE \"odd schema\".\"user\"\"table\" ENABLE TRIGGER \"tri\"\"gger\""
+        );
+        assert_eq!(
+            build_set_trigger_enabled(&dialect, "public", "users", "audit", false),
+            "ALTER TABLE \"public\".\"users\" DISABLE TRIGGER \"audit\""
+        );
+    }
+
+    #[test]
     fn validate_rejects_semicolon_in_data_type() {
         let dialect = TestDialect;
         let cols = vec![ColumnDef {
@@ -610,5 +746,123 @@ mod tests {
         assert!(validate_raw_fragment("my_drop_column", "data_type").is_ok());
         assert!(validate_raw_fragment("last_update_time", "data_type").is_ok());
         assert!(validate_raw_fragment("auto_increment", "data_type").is_ok());
+    }
+    fn alter_column_def(data_type: &str, nullable: bool, default: Option<&str>) -> ColumnAlterDef {
+        ColumnAlterDef {
+            name: "email".into(),
+            data_type: data_type.to_owned(),
+            nullable,
+            default: default.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn pg_alter_column_combines_type_nullable_and_default() {
+        let dialect = TestDialect;
+        let sql = build_alter_table_alter_column(
+            &dialect,
+            "public",
+            "users",
+            &alter_column_def("VARCHAR(320)", false, Some("'none@example.com'")),
+        )
+        .unwrap();
+        assert_eq!(
+            sql,
+            "ALTER TABLE \"public\".\"users\" ALTER COLUMN \"email\" TYPE VARCHAR(320), ALTER COLUMN \"email\" SET NOT NULL, ALTER COLUMN \"email\" SET DEFAULT 'none@example.com'"
+        );
+    }
+
+    #[test]
+    fn pg_alter_column_nullable_toggle_and_default_drop() {
+        let dialect = TestDialect;
+        let sql =
+            build_alter_table_alter_column(&dialect, "public", "users", &alter_column_def("TEXT", true, None)).unwrap();
+        assert!(sql.contains("ALTER COLUMN \"email\" TYPE TEXT"));
+        assert!(sql.contains("ALTER COLUMN \"email\" DROP NOT NULL"));
+        assert!(sql.contains("ALTER COLUMN \"email\" DROP DEFAULT"));
+    }
+
+    #[test]
+    fn pg_alter_column_quotes_identifiers_and_unqualified_table() {
+        let dialect = TestDialect;
+        let column = ColumnAlterDef {
+            name: "weird name".into(),
+            data_type: "INT".into(),
+            nullable: true,
+            default: None,
+        };
+        let sql = build_alter_table_alter_column(&dialect, "", "my table", &column).unwrap();
+        assert!(sql.starts_with("ALTER TABLE \"my table\" ALTER COLUMN \"weird name\" TYPE INT"));
+    }
+
+    #[test]
+    fn pg_alter_column_rejects_unsafe_fragments_and_empty_type() {
+        let dialect = TestDialect;
+        let err = build_alter_table_alter_column(
+            &dialect,
+            "public",
+            "users",
+            &alter_column_def("TEXT; DROP TABLE users", true, None),
+        )
+        .unwrap_err();
+        assert!(err.contains("semicolons"));
+
+        let err = build_alter_table_alter_column(
+            &dialect,
+            "public",
+            "users",
+            &alter_column_def("TEXT", true, Some("nextval DELETE")),
+        )
+        .unwrap_err();
+        assert!(err.contains("DELETE"));
+
+        let err = build_alter_table_alter_column(&dialect, "public", "users", &alter_column_def("  ", true, None))
+            .unwrap_err();
+        assert!(err.contains("data_type"));
+    }
+
+    #[test]
+    fn mysql_modify_column_restates_full_definition() {
+        let dialect = TestDialect;
+        let sql = build_alter_table_modify_column(
+            &dialect,
+            "app",
+            "users",
+            &alter_column_def("VARCHAR(320)", false, Some("'x'")),
+        )
+        .unwrap();
+        assert_eq!(
+            sql,
+            "ALTER TABLE \"app\".\"users\" MODIFY COLUMN \"email\" VARCHAR(320) NOT NULL DEFAULT 'x'"
+        );
+
+        let sql =
+            build_alter_table_modify_column(&dialect, "app", "users", &alter_column_def("TEXT", true, None)).unwrap();
+        assert_eq!(sql, "ALTER TABLE \"app\".\"users\" MODIFY COLUMN \"email\" TEXT");
+    }
+
+    #[test]
+    fn sqlserver_alter_column_type_and_nullable_only() {
+        let dialect = TestDialect;
+        let sql = build_alter_table_alter_column_sqlserver(
+            &dialect,
+            "dbo",
+            "users",
+            &alter_column_def("NVARCHAR(320)", false, None),
+        )
+        .unwrap();
+        assert_eq!(
+            sql,
+            "ALTER TABLE \"dbo\".\"users\" ALTER COLUMN \"email\" NVARCHAR(320) NOT NULL"
+        );
+
+        let err = build_alter_table_alter_column_sqlserver(
+            &dialect,
+            "dbo",
+            "users",
+            &alter_column_def("NVARCHAR(320)", false, Some("'x'")),
+        )
+        .unwrap_err();
+        assert!(err.contains("named constraints"));
     }
 }

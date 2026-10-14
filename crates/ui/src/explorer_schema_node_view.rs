@@ -2,6 +2,7 @@
 
 use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme};
+use crate::components::Separator;
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -108,7 +109,7 @@ impl SchemaNodeContext<'_> {
                 Icon::RefreshCw,
                 "Refresh Schema",
             );
-            ui.separator();
+            Separator::horizontal(self.theme).show(ui);
             self.add_item(
                 ui,
                 &mut actions,

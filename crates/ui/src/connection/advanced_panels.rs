@@ -5,121 +5,144 @@ use super::config::*;
 use super::layout::*;
 use super::mapper::apply_connection_snippet;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::card::Card;
+use crate::components::collapsible::Collapsible;
 use crate::components::input::Input;
 use crate::components::selection::Checkbox;
 use crate::components::tabs::SegmentedTabs;
+use crate::components::Label;
 use crate::tokens::*;
 use crate::{DbProTheme, UiCommand, UiSslMode};
-use egui::{
-    Align2, FontFamily, FontId, Frame, Margin, RichText, CornerRadius, Sense, Stroke, Vec2, WidgetInfo, WidgetType,
-};
+use egui::{FontFamily, FontId, RichText};
 use lucide_icons::Icon;
+
+/// Wrap an optional panel in a `Card` with a `Collapsible` header whose open
+/// state lives on `ConnectionDialogState` (persists while the dialog is open).
+fn collapsing_panel<R>(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    open: &mut bool,
+    title: &str,
+    theme: DbProTheme,
+    body: impl FnOnce(&mut egui::Ui) -> R,
+) {
+    Card::new(theme).show(ui, |ui| {
+        Collapsible::new(open, theme).id(id).title(title).show(ui, body);
+    });
+}
 
 impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
     /// Panel 1: Cloud Presets & URI Importer
     pub(crate) fn draw_cloud_presets_panel(&mut self, ui: &mut egui::Ui) {
-        Frame {
-            fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
-            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
-            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            show_click_only_collapsing_section(
-                ui,
-                "conn_cloud_presets_panel",
-                t!("connection.cloud_presets_title").as_ref(),
-                self.theme,
-                |ui| {
-                    ui.add_space(SPACE_XS);
-                    ui.horizontal(|ui| {
-                        let selected = if self.dialog.draft.cloud_preset.is_empty() {
-                            "Select a cloud preset…".to_owned()
+        // The open flag is split into a local so the body closure can keep
+        // borrowing the rest of `self`.
+        let mut open = self.dialog.cloud_presets_open;
+        collapsing_panel(
+            ui,
+            ui.make_persistent_id("conn_cloud_presets_panel"),
+            &mut open,
+            t!("connection.cloud_presets_title").as_ref(),
+            self.theme,
+            |ui| {
+                ui.add_space(SPACE_XS);
+                ui.horizontal(|ui| {
+                    let mut selected_idx = CLOUD_PRESET_OPTIONS
+                        .iter()
+                        .position(|option| option.key == self.dialog.draft.cloud_preset)
+                        .map(|index| index + 1)
+                        .unwrap_or(0);
+                    let preset_labels: Vec<String> = std::iter::once("None (manual)".to_owned())
+                        .chain(CLOUD_PRESET_OPTIONS.iter().map(|option| option.label.to_owned()))
+                        .collect();
+                    let selected_text = if self.dialog.draft.cloud_preset.is_empty() {
+                        t!("connection.cloud_preset_placeholder").to_string()
+                    } else {
+                        CLOUD_PRESET_OPTIONS
+                            .iter()
+                            .find(|option| option.key == self.dialog.draft.cloud_preset)
+                            .map(|option| option.label.to_owned())
+                            .unwrap_or_else(|| self.dialog.draft.cloud_preset.clone())
+                    };
+                    let idx_before = selected_idx;
+                    crate::components::Select::new("cloud_preset", &mut selected_idx, &preset_labels)
+                        .theme(self.theme)
+                        .size(crate::components::SelectSize::Sm)
+                        .width(260.0)
+                        .selected_text(selected_text)
+                        .show(ui);
+                    if selected_idx != idx_before && selected_idx < preset_labels.len() {
+                        self.dialog.draft.cloud_preset = if selected_idx == 0 {
+                            String::new()
                         } else {
-                            self.dialog.draft.cloud_preset.clone()
+                            CLOUD_PRESET_OPTIONS[selected_idx - 1].key.to_owned()
                         };
-                        egui::ComboBox::from_id_salt("cloud_preset")
-                            .selected_text(selected)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    &mut self.dialog.draft.cloud_preset,
-                                    String::new(),
-                                    "None (manual)",
-                                );
-                                for option in CLOUD_PRESET_OPTIONS {
-                                    ui.selectable_value(
-                                        &mut self.dialog.draft.cloud_preset,
-                                        option.key.to_owned(),
-                                        option.label,
-                                    );
-                                }
-                            });
-                        if Button::new(self.theme)
-                            .text(t!("connection.apply_preset"))
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.apply_cloud_preset();
-                        }
-                    });
-                    ui.add_space(SPACE_XS);
-                    ui.horizontal(|ui| {
-                        let mut auth_idx = if self.dialog.draft.auth_kind == "ephemeral_token" {
-                            1
-                        } else {
-                            0
-                        };
-                        SegmentedTabs::new(&mut auth_idx, AUTH_KIND_OPTIONS, self.theme).show(ui);
-                        self.dialog.draft.auth_kind = if auth_idx == 1 {
-                            "ephemeral_token".into()
-                        } else {
-                            "password".into()
-                        };
-                        if self.dialog.draft.auth_kind == "ephemeral_token" {
-                            ui.colored_label(self.theme.warning, t!("connection.token_session_warning"));
-                        }
-                    });
-                    ui.add_space(SPACE_XS);
-                    Input::new(
-                        &mut self.dialog.draft.cloud_snippet,
-                        "postgresql://user:secret@host:5432/db?sslmode=verify-full",
-                        self.theme,
-                    )
-                    .label(t!("connection.paste_uri"))
-                    .show(ui);
-                    ui.add_space(SPACE_XXS);
-                    ui.horizontal(|ui| {
-                        if Button::new(self.theme)
-                            .text(t!("connection.import_uri"))
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .show(ui)
-                            .clicked()
-                        {
-                            let snippet = self.dialog.draft.cloud_snippet.clone();
-                            match apply_connection_snippet(&mut self.dialog.draft, &snippet) {
-                                Ok(()) => self.dialog.clear_error(),
-                                Err(err) => self.dialog.set_error(err),
-                            }
-                        }
-                    });
-                    if !self.dialog.draft.cloud_guidance.is_empty() {
-                        ui.add_space(SPACE_XXS);
-                        ui.label(
-                            RichText::new(&self.dialog.draft.cloud_guidance)
-                                .small()
-                                .color(self.theme.text_secondary),
-                        );
                     }
-                },
-            );
-        });
+                    if Button::new(self.theme)
+                        .text(t!("connection.apply_preset"))
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.apply_cloud_preset();
+                    }
+                });
+                ui.add_space(SPACE_XS);
+                ui.horizontal(|ui| {
+                    let mut auth_idx = if self.dialog.draft.auth_kind == "ephemeral_token" {
+                        1
+                    } else {
+                        0
+                    };
+                    SegmentedTabs::new(&mut auth_idx, AUTH_KIND_OPTIONS, self.theme).show(ui);
+                    self.dialog.draft.auth_kind = if auth_idx == 1 {
+                        "ephemeral_token".into()
+                    } else {
+                        "password".into()
+                    };
+                    if self.dialog.draft.auth_kind == "ephemeral_token" {
+                        ui.colored_label(self.theme.warning, t!("connection.token_session_warning"));
+                    }
+                });
+                ui.add_space(SPACE_XS);
+                Input::new(
+                    &mut self.dialog.draft.cloud_snippet,
+                    "postgresql://user:secret@host:5432/db?sslmode=verify-full",
+                    self.theme,
+                )
+                .label(t!("connection.paste_uri"))
+                .bordered(true)
+                .show(ui);
+                ui.add_space(SPACE_XXS);
+                ui.horizontal(|ui| {
+                    if Button::new(self.theme)
+                        .text(t!("connection.import_uri"))
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        let snippet = self.dialog.draft.cloud_snippet.clone();
+                        match apply_connection_snippet(&mut self.dialog.draft, &snippet) {
+                            Ok(()) => self.dialog.clear_error(),
+                            Err(err) => self.dialog.set_error(err),
+                        }
+                    }
+                });
+                if !self.dialog.draft.cloud_guidance.is_empty() {
+                    ui.add_space(SPACE_XXS);
+                    ui.label(
+                        RichText::new(&self.dialog.draft.cloud_guidance)
+                            .small()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+            },
+        );
+        self.dialog.cloud_presets_open = open;
     }
 
-    /// Panel 2: SSL / TLS Custom Certificates
+    /// Panel 2: SSL / TLS Custom Certificates — only reachable for Verify modes.
     pub(crate) fn draw_ssl_certificates_panel(&mut self, ui: &mut egui::Ui) {
         if !matches!(self.dialog.draft.ssl_mode, UiSslMode::VerifyCa | UiSslMode::VerifyFull) {
             return;
@@ -127,54 +150,45 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
 
         let gap = SPACE_SM;
         ui.add_space(SPACE_SM);
-        Frame {
-            fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
-            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
-            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            ui.label(
-                RichText::new(t!("connection.ssl_certs_title"))
-                    .font(DbProTheme::ui_medium_font(11.5))
-                    .color(self.theme.text_primary),
-            );
+        Card::new(self.theme).show(ui, |ui| {
+            Label::new(t!("connection.ssl_certs_title"), self.theme).show(ui);
             ui.add_space(SPACE_XS);
             Input::new(&mut self.dialog.draft.ssl_root_cert_path, "/path/to/ca.pem", self.theme)
                 .label(t!("connection.root_ca_path"))
+                .bordered(true)
                 .leading_icon(Icon::FileCode)
                 .show(ui);
             ui.add_space(SPACE_XS);
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = gap;
-                let panel_half_w = calculate_half_row_width(ui.available_width(), gap);
-                ui.vertical(|ui| {
-                    ui.set_width(panel_half_w);
-                    ui.set_max_width(panel_half_w);
-                    Input::new(
-                        &mut self.dialog.draft.ssl_client_cert_path,
-                        "/path/to/client.crt",
-                        self.theme,
-                    )
-                    .label(t!("connection.client_cert_path"))
-                    .width(panel_half_w)
-                    .show(ui);
-                });
-                ui.vertical(|ui| {
-                    let w = ui.available_width();
-                    ui.set_width(w);
-                    ui.set_max_width(w);
-                    Input::new(
-                        &mut self.dialog.draft.ssl_client_key_path,
-                        "/path/to/client.key",
-                        self.theme,
-                    )
-                    .label(t!("connection.client_key_path"))
-                    .width(w)
-                    .show(ui);
-                });
-            });
+            let widths = row_widths(ui.available_width(), gap, &[1.0, 1.0]);
+            form_row(
+                ui,
+                &widths,
+                vec![
+                    Box::new(|ui| {
+                        Input::new(
+                            &mut self.dialog.draft.ssl_client_cert_path,
+                            "/path/to/client.crt",
+                            self.theme,
+                        )
+                        .label(t!("connection.client_cert_path"))
+                        .bordered(true)
+                        .width(widths[0])
+                        .show(ui);
+                    }),
+                    Box::new(|ui| {
+                        Input::new(
+                            &mut self.dialog.draft.ssl_client_key_path,
+                            "/path/to/client.key",
+                            self.theme,
+                        )
+                        .label(t!("connection.client_key_path"))
+                        .bordered(true)
+                        .width(widths[1])
+                        .show(ui);
+                    }),
+                ],
+                gap,
+            );
         });
     }
 
@@ -182,14 +196,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
     pub(crate) fn draw_ssh_tunnel_panel(&mut self, ui: &mut egui::Ui) {
         let gap = SPACE_SM;
         ui.add_space(SPACE_SM);
-        Frame {
-            fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
-            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
-            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(Icon::Shield).to_string())
@@ -216,106 +223,81 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             if self.dialog.draft.ssh_tunnel_enabled {
                 ui.add_space(SPACE_SM);
 
-                let SshRowWidths {
-                    host_w,
-                    port_w,
-                    user_w,
-                    key_w,
-                } = calculate_ssh_row_widths(ui.available_width(), gap);
+                // Host 38% / Port 14% / User 20% / Key 28%
+                let widths = row_widths(ui.available_width(), gap, &[38.0, 14.0, 20.0, 28.0]);
+                let key_w = widths[3];
+                let show_ssh_host_error =
+                    !self.dialog.error.is_empty() && self.dialog.draft.ssh_host.trim().is_empty();
+                let show_ssh_port_error =
+                    !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.ssh_port);
+                let show_ssh_user_error =
+                    !self.dialog.error.is_empty() && self.dialog.draft.ssh_user.trim().is_empty();
+                let show_ssh_key_error = !self.dialog.error.is_empty()
+                    && self.dialog.draft.ssh_private_key.trim().is_empty();
+                let mut browse_key_clicked = false;
 
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = gap;
-
-                    ui.vertical(|ui| {
-                        ui.set_width(host_w);
-                        ui.set_max_width(host_w);
-                        let show_ssh_host_error =
-                            !self.dialog.error.is_empty() && self.dialog.draft.ssh_host.trim().is_empty();
-                        let mut ssh_host =
-                            Input::new(&mut self.dialog.draft.ssh_host, "bastion.example.com", self.theme)
-                                .label(t!("connection.ssh_host"))
-                                .required(true)
-                                .width(host_w)
-                                .leading_icon(Icon::Server);
-                        if show_ssh_host_error {
-                            ssh_host = ssh_host.error_text(t!("connection.validation_ssh_host_required"));
-                        }
-                        ssh_host.show(ui);
-                    });
-                    ui.vertical(|ui| {
-                        ui.set_width(port_w);
-                        ui.set_max_width(port_w);
-                        let show_ssh_port_error =
-                            !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.ssh_port);
-                        let mut ssh_port = Input::new(&mut self.dialog.draft.ssh_port, "22", self.theme)
-                            .label(t!("connection.port"))
-                            .required(true)
-                            .width(port_w)
-                            .leading_icon(Icon::Hash);
-                        if show_ssh_port_error {
-                            ssh_port = ssh_port.error_text(t!("connection.validation_ssh_port_invalid"));
-                        }
-                        ssh_port.show(ui);
-                    });
-                    ui.vertical(|ui| {
-                        ui.set_width(user_w);
-                        ui.set_max_width(user_w);
-                        let show_ssh_user_error =
-                            !self.dialog.error.is_empty() && self.dialog.draft.ssh_user.trim().is_empty();
-                        let mut ssh_user =
-                            Input::new(&mut self.dialog.draft.ssh_user, "ubuntu", self.theme)
-                                .label(t!("connection.ssh_user"))
-                                .required(true)
-                                .width(user_w)
-                                .leading_icon(Icon::User);
-                        if show_ssh_user_error {
-                            ssh_user = ssh_user.error_text(t!("connection.validation_ssh_user_required"));
-                        }
-                        ssh_user.show(ui);
-                    });
-                    ui.vertical(|ui| {
-                        ui.set_width(key_w);
-                        ui.set_max_width(key_w);
-                        crate::components::Label::new(t!("connection.ssh_private_key"), self.theme)
-                            .required(true)
-                            .show(ui);
-                        ui.add_space(SPACE_XXS);
-                        ui.horizontal(|ui| {
-                            let browse_w = 68.0;
-                            let key_input_w = (key_w - browse_w - SPACE_XS).max(50.0);
-                            ui.vertical(|ui| {
-                                ui.set_width(key_input_w);
-                                ui.set_max_width(key_input_w);
-                                let show_ssh_key_error =
-                                    !self.dialog.error.is_empty()
-                                        && self.dialog.draft.ssh_private_key.trim().is_empty();
-                                let mut ssh_key = Input::new(
-                                    &mut self.dialog.draft.ssh_private_key,
-                                    "~/.ssh/id_rsa",
-                                    self.theme,
-                                )
-                                .width(key_input_w)
-                                .leading_icon(Icon::Key);
-                                if show_ssh_key_error {
-                                    ssh_key = ssh_key.error_text(t!("connection.validation_ssh_key_required"));
-                                }
-                                ssh_key.show(ui);
-                            });
-                            ui.add_space(SPACE_XS);
-                            if Button::new(self.theme)
-                                .icon(Icon::FolderOpen)
-                                .text(t!("connection.browse"))
-                                .variant(ButtonVariant::Secondary)
-                                .size(ButtonSize::Sm)
-                                .show(ui)
-                                .clicked()
-                            {
-                                let request_id = self.command_dispatcher.next_request_id();
-                                self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
+                form_row(
+                    ui,
+                    &widths,
+                    vec![
+                        Box::new(|ui| {
+                            let mut ssh_host =
+                                Input::new(&mut self.dialog.draft.ssh_host, "bastion.example.com", self.theme)
+                                    .label(t!("connection.ssh_host"))
+                                    .required(true)
+                                    .bordered(true)
+                                    .width(widths[0])
+                                    .leading_icon(Icon::Server);
+                            if show_ssh_host_error {
+                                ssh_host =
+                                    ssh_host.error_text(t!("connection.validation_ssh_host_required"));
                             }
-                        });
-                    });
-                });
+                            ssh_host.show(ui);
+                        }),
+                        Box::new(|ui| {
+                            let mut ssh_port = Input::new(&mut self.dialog.draft.ssh_port, "22", self.theme)
+                                .label(t!("connection.port"))
+                                .required(true)
+                                .bordered(true)
+                                .width(widths[1])
+                                .leading_icon(Icon::Hash);
+                            if show_ssh_port_error {
+                                ssh_port =
+                                    ssh_port.error_text(t!("connection.validation_ssh_port_invalid"));
+                            }
+                            ssh_port.show(ui);
+                        }),
+                        Box::new(|ui| {
+                            let mut ssh_user =
+                                Input::new(&mut self.dialog.draft.ssh_user, "ubuntu", self.theme)
+                                    .label(t!("connection.ssh_user"))
+                                    .required(true)
+                                    .bordered(true)
+                                    .width(widths[2])
+                                    .leading_icon(Icon::User);
+                            if show_ssh_user_error {
+                                ssh_user =
+                                    ssh_user.error_text(t!("connection.validation_ssh_user_required"));
+                            }
+                            ssh_user.show(ui);
+                        }),
+                        Box::new(|ui| {
+                            ssh_key_cell(
+                                ui,
+                                key_w,
+                                show_ssh_key_error,
+                                &mut browse_key_clicked,
+                                &mut self.dialog.draft.ssh_private_key,
+                                self.theme,
+                            );
+                        }),
+                    ],
+                    gap,
+                );
+                if browse_key_clicked {
+                    let request_id = self.command_dispatcher.next_request_id();
+                    self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
+                }
                 ui.add_space(SPACE_XS);
                 ui.horizontal(|ui| {
                     if Button::new(self.theme)
@@ -333,11 +315,21 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                                 .small()
                                 .color(self.theme.text_muted),
                         );
-                        for profile in self.dialog.ssh_profiles.clone() {
-                            let selected = self.dialog.draft.ssh_profile_id == profile.id;
-                            if ui.selectable_label(selected, &profile.name).clicked() {
-                                self.apply_ssh_profile(&profile.id);
-                            }
+                        let profiles = self.dialog.ssh_profiles.clone();
+                        let profile_labels: Vec<String> =
+                            profiles.iter().map(|profile| profile.name.clone()).collect();
+                        let mut profile_idx = profiles
+                            .iter()
+                            .position(|profile| self.dialog.draft.ssh_profile_id == profile.id)
+                            .unwrap_or(usize::MAX);
+                        let idx_before = profile_idx;
+                        crate::components::Select::new("ssh_profile_picker", &mut profile_idx, &profile_labels)
+                            .theme(self.theme)
+                            .size(crate::components::SelectSize::Sm)
+                            .width(220.0)
+                            .show(ui);
+                        if profile_idx != idx_before && profile_idx < profiles.len() {
+                            self.apply_ssh_profile(&profiles[profile_idx].id);
                         }
                     }
                 });
@@ -358,70 +350,60 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
     /// Panel 4: Tags & Metadata
     pub(crate) fn draw_tags_metadata_panel(&mut self, ui: &mut egui::Ui, id_salt: &'static str, placeholder: &str) {
         ui.add_space(SPACE_SM);
-        Frame {
-            fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
-            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
-            inner_margin: Margin::symmetric(12.0 as i8, 8.0 as i8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            show_click_only_collapsing_section(
-                ui,
-                id_salt,
-                t!("connection.tags_metadata").as_ref(),
-                self.theme,
-                |ui| {
-                    ui.add_space(SPACE_XS);
-                    Input::new(&mut self.dialog.draft.tags, placeholder, self.theme)
-                        .label(t!("connection.tags_label"))
-                        .leading_icon(Icon::Tag)
-                        .show(ui);
-                },
-            );
-        });
+        let mut open = self.dialog.tags_panel_open;
+        collapsing_panel(
+            ui,
+            ui.make_persistent_id(id_salt),
+            &mut open,
+            t!("connection.tags_metadata").as_ref(),
+            self.theme,
+            |ui| {
+                ui.add_space(SPACE_XS);
+                Input::new(&mut self.dialog.draft.tags, placeholder, self.theme)
+                    .label(t!("connection.tags_label"))
+                    .bordered(true)
+                    .leading_icon(Icon::Tag)
+                    .show(ui);
+            },
+        );
+        self.dialog.tags_panel_open = open;
     }
 }
 
-fn show_click_only_collapsing_section(
+/// SSH private-key cell: label + path input + browse button, split inside the
+/// column width the row already reserved. The browse click is returned via the
+/// flag so the caller can dispatch after `form_row` ends (closures borrow
+/// disjoint `draft` fields; dispatch needs the whole view).
+fn ssh_key_cell(
     ui: &mut egui::Ui,
-    id_salt: &'static str,
-    title: &str,
+    key_w: f32,
+    show_key_error: bool,
+    browse_clicked: &mut bool,
+    ssh_private_key: &mut String,
     theme: DbProTheme,
-    add_body: impl FnOnce(&mut egui::Ui),
 ) {
-    let id = ui.make_persistent_id(id_salt);
-    let mut state = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false);
-    let header_height = ui.spacing().interact_size.y;
-    let (rect, response) = ui.allocate_exact_size(
-        Vec2::new(ui.available_width(), header_height),
-        Sense::CLICK,
-    );
-    if response.clicked() {
-        state.toggle(ui);
-    }
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::CollapsingHeader, true, title));
-
-    let icon = if state.is_open() {
-        Icon::ChevronDown
-    } else {
-        Icon::ChevronRight
-    };
-    ui.painter().text(
-        rect.left_center() + egui::vec2(4.0, 0.0),
-        Align2::LEFT_CENTER,
-        char::from(icon).to_string(),
-        FontId::new(13.0, FontFamily::Name("lucide".into())),
-        theme.text_muted,
-    );
-    ui.painter().text(
-        rect.left_center() + egui::vec2(22.0, 0.0),
-        Align2::LEFT_CENTER,
-        title,
-        DbProTheme::ui_medium_font(11.5),
-        theme.text_primary,
-    );
-
-    state.show_body_indented(&response, ui, add_body);
-    state.store(ui.ctx());
+    Label::new(t!("connection.ssh_private_key"), theme)
+        .required(true)
+        .show(ui);
+    ui.add_space(SPACE_XXS);
+    ui.horizontal(|ui| {
+        let browse_w = 68.0;
+        let key_input_w = (key_w - browse_w - SPACE_XS).max(50.0);
+        let mut ssh_key = Input::new(ssh_private_key, "~/.ssh/id_rsa", theme)
+            .bordered(true)
+            .width(key_input_w)
+            .leading_icon(Icon::Key);
+        if show_key_error {
+            ssh_key = ssh_key.error_text(t!("connection.validation_ssh_key_required"));
+        }
+        ssh_key.show(ui);
+        ui.add_space(SPACE_XS);
+        *browse_clicked = Button::new(theme)
+            .icon(Icon::FolderOpen)
+            .text(t!("connection.browse"))
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked();
+    });
 }

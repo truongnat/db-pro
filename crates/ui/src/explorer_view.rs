@@ -13,6 +13,9 @@ impl DbProApp {
     pub(crate) fn draw_explorer_sub_panes(&mut self, ui: &mut egui::Ui) {
         let active_schema = self.active_schema().to_owned();
         let functions_enabled = self.active_capabilities().allows(|c| c.schema.functions);
+        let trigger_toggle_unavailable_reason = self
+            .query_capabilities()
+            .feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::TriggerEnableDisable);
         let actions = ExplorerSurfaceContext {
             theme: self.theme,
             catalog: &self.connection.catalog,
@@ -22,6 +25,7 @@ impl DbProApp {
             table_info: self.table.state.table_info.clone(),
             reduce_motion: self.preferences.reduce_motion,
             functions_enabled,
+            trigger_toggle_unavailable_reason,
             modifier: Self::primary_modifier_label(),
         }
         .draw(ui);

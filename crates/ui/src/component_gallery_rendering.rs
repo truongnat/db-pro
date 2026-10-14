@@ -29,6 +29,7 @@ impl DbProApp {
             .small()
             .color(self.theme.text_tertiary),
         );
+        // ui-rules: egui reference baseline
         ui.checkbox(
             &mut self.gallery_state.show_linear_blend_reference,
             "Show computed linear-light blend reference",
@@ -69,6 +70,7 @@ impl DbProApp {
             ("white", [255, 255, 255]),
         ];
 
+        // ui-rules: egui reference baseline
         egui::ScrollArea::horizontal()
             .id_salt("rendering_blend_samples")
             .show(ui, |ui| {
@@ -94,6 +96,7 @@ impl DbProApp {
             "Each stroke is sized in physical pixels and converted to logical points using the live pixels_per_point.",
         );
 
+        // ui-rules: egui reference baseline
         ui.checkbox(
             &mut self.gallery_state.align_strokes_to_pixels,
             "Align stroke centers to physical pixel centers",

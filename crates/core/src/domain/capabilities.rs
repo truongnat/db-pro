@@ -47,7 +47,7 @@ pub struct QueryCapabilities {
 pub struct SchemaCapabilities {
     /// Supports named schemas (PostgreSQL schemas).
     pub schemas: bool,
-    /// Supports ALTER TABLE ... ALTER COLUMN (type change).
+    /// Supports ALTER TABLE ... ALTER COLUMN (type, nullability, default).
     pub alter_column_type: bool,
     /// Supports ALTER TABLE ... ADD COLUMN.
     pub add_column: bool,
@@ -63,6 +63,9 @@ pub struct SchemaCapabilities {
     pub indexes: bool,
     /// Supports creating/dropping triggers.
     pub triggers: bool,
+    /// Supports enabling/disabling individual table triggers.
+    #[serde(default)]
+    pub trigger_enable_disable: bool,
     /// Supports creating/dropping views.
     pub views: bool,
     /// Supports stored functions / procedures.
@@ -132,6 +135,7 @@ pub enum CapabilityFeature {
     PositionalParameters,
     Schemas,
     AlterColumnType,
+    TriggerEnableDisable,
     Sequences,
     EnumTypes,
     Functions,
@@ -159,6 +163,7 @@ impl DatabaseCapabilities {
             CapabilityFeature::PositionalParameters => self.query.positional_parameters,
             CapabilityFeature::Schemas => self.schema.schemas,
             CapabilityFeature::AlterColumnType => self.schema.alter_column_type,
+            CapabilityFeature::TriggerEnableDisable => self.schema.trigger_enable_disable,
             CapabilityFeature::Sequences => self.schema.sequences,
             CapabilityFeature::EnumTypes => self.schema.enum_types,
             CapabilityFeature::Functions => self.schema.functions,

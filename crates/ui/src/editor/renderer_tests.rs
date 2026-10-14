@@ -402,3 +402,44 @@ fn long_buffer_scrolls_to_keep_end_caret_visible() {
         },
     );
 }
+
+#[test]
+fn hover_occurrences_match_case_insensitively_and_skip_anchor() {
+    let text = "SELECT users.id FROM users u JOIN USERS_archive a ON a.id = u.id";
+    let tokens = SqlHighlighter::new(SqlDialect::Postgres).tokenize(text);
+    // Anchor on the first `users` token (byte 7..12).
+    let occurrences = hover_occurrence_ranges(text, (7, 12), &tokens, 0, text.len());
+    assert_eq!(
+        occurrences,
+        vec![(21, 26)],
+        "only the standalone second `users` is an occurrence — `USERS_archive` is a different identifier"
+    );
+}
+
+#[test]
+fn hover_occurrences_respect_visible_window() {
+    let text = "SELECT a.id FROM a_table a WHERE a.id > 0";
+    let tokens = SqlHighlighter::new(SqlDialect::Postgres).tokenize(text);
+    // Anchor `a` at byte 7..8; the full window finds both other `a` tokens.
+    assert_eq!(
+        hover_occurrence_ranges(text, (7, 8), &tokens, 0, text.len()),
+        vec![(25, 26), (33, 34)]
+    );
+    // A window ending before WHERE clips the second occurrence.
+    assert_eq!(hover_occurrence_ranges(text, (7, 8), &tokens, 0, 30), vec![(25, 26)]);
+}
+
+#[test]
+fn hover_occurrences_return_empty_for_out_of_range_anchor() {
+    let text = "SELECT 1";
+    let tokens = SqlHighlighter::new(SqlDialect::Postgres).tokenize(text);
+    assert!(hover_occurrence_ranges(text, (text.len(), text.len() + 5), &tokens, 0, text.len()).is_empty());
+    assert!(hover_occurrence_ranges(text, (0, 6), &[], 0, text.len()).is_empty());
+}
+
+#[test]
+fn str_eq_ignore_case_handles_unicode() {
+    assert!(str_eq_ignore_case("bảng", "BẢNG"));
+    assert!(str_eq_ignore_case("Users", "users"));
+    assert!(!str_eq_ignore_case("users", "user"));
+}

@@ -22,7 +22,7 @@ pub(super) fn draw_messages_pane(context: &mut QueryOutputPanesContext<'_>, ui: 
                 context.theme,
             );
         } else {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            ScrollArea::new(context.theme).show(ui, |ui| {
                 for message in messages.iter().rev().take(20) {
                     // Producers tag failures inline ("Query failed · …", "Statement n failed · …")
                     let color = if message.contains("failed") {

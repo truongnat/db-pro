@@ -66,7 +66,9 @@ impl TableIndexesContext<'_> {
     }
 
     fn draw_table(&self, ui: &mut egui::Ui, indexes: &[&UiTableIndex]) {
-        egui::ScrollArea::horizontal()
+        ScrollArea::new(self.theme)
+            .horizontal(true)
+            .vertical(false)
             .id_salt("indexes-table-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {

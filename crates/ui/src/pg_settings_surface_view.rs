@@ -44,7 +44,13 @@ impl PgSettingsSurfaceContext<'_> {
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-            ui.text_edit_singleline(&mut self.state.pg_settings_filter);
+            crate::components::input::SearchInput::new(
+                &mut self.state.pg_settings_filter,
+                "name, category, source…",
+                self.theme,
+            )
+            .width(260.0)
+            .show(ui);
         });
         if let Some(error) = &self.state.pg_settings_error {
             ui.colored_label(self.theme.danger, error);
@@ -158,7 +164,12 @@ impl PgSettingsSurfaceContext<'_> {
             .id_salt("pg_settings_edit_dialog")
             .show_framed_ctx(ui.ctx(), |frame| {
                 frame.body(|ui| {
-                    ui.text_edit_singleline(&mut self.state.pg_settings_edit_value);
+                    crate::components::input::Input::new(
+                        &mut self.state.pg_settings_edit_value,
+                        "new value",
+                        self.theme,
+                    )
+                    .show(ui);
                 });
                 frame.footer(|ui| {
                     if secondary_button(ui, "Apply SET", self.theme).clicked() {

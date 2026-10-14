@@ -78,47 +78,56 @@ pub(super) fn draw_body(
         Layout::top_down(Align::Min),
         |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
-            let grid_scroll = egui::ScrollArea::horizontal()
+            let grid_scroll = crate::components::ScrollArea::new(context.theme)
+                .horizontal(true)
+                .vertical(false)
                 .id_salt("result-grid-columns-scroll")
-                .show(ui, |ui| {
-                ui.spacing_mut().item_spacing = Vec2::ZERO;
-                let content_width = GRID_ROW_NUMBER_WIDTH + context.widths.iter().sum::<f32>();
-                // Rows/header paint a trailing filler up to the grid edge, so the
-                // scroll content must claim the viewport width even when the
-                // columns are narrower.
-                ui.set_min_width(content_width.max(grid_width));
-                renderer.draw_header(ui, context.result, context.indexes, context.widths, context.order);
+                .show_with_output(ui, |ui| {
+                    ui.spacing_mut().item_spacing = Vec2::ZERO;
+                    let content_width = GRID_ROW_NUMBER_WIDTH + context.widths.iter().sum::<f32>();
+                    // Rows/header paint a trailing filler up to the grid edge, so the
+                    // scroll content must claim the viewport width even when the
+                    // columns are narrower.
+                    ui.set_min_width(content_width.max(grid_width));
+                    renderer.draw_header(ui, context.result, context.indexes, context.widths, context.order);
 
-                let rows = GridRows {
-                    indexes: context.indexes,
-                    widths: context.widths,
-                    order: context.order,
-                    editable: context.editable,
-                    row_offset: context.row_offset,
-                    selection_lookup: context.selection_lookup,
-                };
-                let row_height = 28.0;
-                let viewport_height = (grid_height - 28.0).max(140.0);
-                let rows_top = ui.cursor().top();
-                let rows_scroll = egui::ScrollArea::vertical()
-                    .max_height(viewport_height)
-                    .id_salt("result-grid-rows-scroll")
-                    .show_rows(ui, row_height, context.indexes.len(), |ui, range| {
-                        ui.spacing_mut().item_spacing = Vec2::ZERO;
-                        for position in range {
-                            renderer.draw_row(
-                                ui,
-                                ResultGridRowInput {
-                                    result: context.result,
-                                    rows: &rows,
-                                    position,
-                                },
-                            );
-                        }
-                    });
-                crate::components::scroll_area::name_scroll_bars(ui.ctx(), rows_scroll.id, "Result rows");
-                draw_empty_fill(ui, rows_top, viewport_height, context.indexes.len(), row_height, context.theme);
-            });
+                    let rows = GridRows {
+                        indexes: context.indexes,
+                        widths: context.widths,
+                        order: context.order,
+                        editable: context.editable,
+                        row_offset: context.row_offset,
+                        selection_lookup: context.selection_lookup,
+                    };
+                    let row_height = 28.0;
+                    let viewport_height = (grid_height - 28.0).max(140.0);
+                    let rows_top = ui.cursor().top();
+                    let rows_scroll = crate::components::ScrollArea::new(context.theme)
+                        .max_height(viewport_height)
+                        .id_salt("result-grid-rows-scroll")
+                        .show_rows(ui, row_height, context.indexes.len(), |ui, range| {
+                            ui.spacing_mut().item_spacing = Vec2::ZERO;
+                            for position in range {
+                                renderer.draw_row(
+                                    ui,
+                                    ResultGridRowInput {
+                                        result: context.result,
+                                        rows: &rows,
+                                        position,
+                                    },
+                                );
+                            }
+                        });
+                    crate::components::scroll_area::name_scroll_bars(ui.ctx(), rows_scroll.id, "Result rows");
+                    draw_empty_fill(
+                        ui,
+                        rows_top,
+                        viewport_height,
+                        context.indexes.len(),
+                        row_height,
+                        context.theme,
+                    );
+                });
             // egui never names its native scroll bars — name them so
             // assistive tech sees "Result grid" / "Result rows".
             crate::components::scroll_area::name_scroll_bars(ui.ctx(), grid_scroll.id, "Result grid");

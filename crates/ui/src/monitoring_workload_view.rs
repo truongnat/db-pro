@@ -92,7 +92,9 @@ impl MonitoringWorkloadContext<'_> {
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-            ui.text_edit_singleline(self.filter);
+            crate::components::input::SearchInput::new(self.filter, "Query text…", self.theme)
+                .width(260.0)
+                .show(ui);
         });
         actions
     }

@@ -40,6 +40,12 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
                 self.feedback.set_runtime_message(format!("Planned drop for {kind} `{schema}.{name}`"));
             }
+            SchemaObjectFolderAction::ToggleTrigger {
+                schema,
+                table,
+                name,
+                enable,
+            } => self.plan_trigger_toggle(&schema, &table, &name, enable),
             SchemaObjectFolderAction::CopyName(name) => {
                 ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(name.clone())));
                 self.feedback.runtime_message = format!("Copied `{name}` to clipboard");
@@ -50,6 +56,54 @@ impl DbProApp {
                 }
             }
         }
+    }
+
+    fn plan_trigger_toggle(&mut self, schema: &str, table: &str, name: &str, enable: bool) {
+        use db_pro_core::domain::capabilities::CapabilityFeature;
+        use db_pro_core::domain::object_mutation::{
+            MutationOptions, ObjectDefinition, ObjectKind, ObjectMutationRequest, ObjectRef, TriggerDefinition,
+        };
+
+        if let Some(reason) = self
+            .query_capabilities()
+            .feature_limitation(CapabilityFeature::TriggerEnableDisable)
+        {
+            self.feedback.runtime_message = format!("Trigger enable/disable is unavailable: {reason}");
+            return;
+        }
+        let action = if enable { ObjectAction::Enable } else { ObjectAction::Disable };
+        let request = ObjectMutationRequest {
+            driver: self.active_query_driver().to_owned(),
+            action,
+            target: Some(ObjectRef {
+                kind: ObjectKind::Trigger,
+                schema: Some(schema.to_owned()),
+                name: name.to_owned(),
+                parent: Some(table.to_owned()),
+            }),
+            definition: ObjectDefinition::Trigger(TriggerDefinition {
+                schema: schema.to_owned(),
+                table: table.to_owned(),
+                name: name.to_owned(),
+                timing: String::new(),
+                event: String::new(),
+                body: String::new(),
+            }),
+            options: MutationOptions::default(),
+        };
+        self.schema.workbench.mode = SchemaWorkbenchMode::Trigger;
+        self.schema.workbench.schema = schema.to_owned();
+        self.schema.workbench.name = name.to_owned();
+        self.schema.workbench.parent_table = table.to_owned();
+        self.schema.workbench.apply_confirmation = false;
+        self.run_plan(request);
+        self.workspace.activity = Activity::Schema;
+        self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+        self.workspace.sidebar_open = true;
+        self.feedback.runtime_message = format!(
+            "Planned {} trigger `{schema}.{name}`",
+            if enable { "enable" } else { "disable" }
+        );
     }
 
     /// Activates a schema object (view / function / trigger) in the workspace.

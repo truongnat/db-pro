@@ -11,6 +11,7 @@ pub(crate) enum SchemaObjectRowAction {
     OpenQuery,
     Modify,
     Drop,
+    ToggleTrigger,
     CopyName,
 }
 
@@ -27,6 +28,8 @@ pub(crate) struct SchemaObjectRowContext<'a> {
     pub(crate) modify_label: Option<&'a str>,
     pub(crate) drop_label: Option<&'a str>,
     pub(crate) copy_label: &'a str,
+    pub(crate) trigger_toggle_label: Option<&'a str>,
+    pub(crate) trigger_toggle_unavailable_reason: Option<&'a str>,
 }
 
 impl SchemaObjectRowContext<'_> {
@@ -108,6 +111,14 @@ impl SchemaObjectRowContext<'_> {
                     Icon::Trash2,
                     drop_label,
                 );
+            }
+            if let Some(label) = self.trigger_toggle_label {
+                if ctx_menu_item(ui, Some(Icon::Zap), label, None, self.theme.text_primary, self.theme).clicked() {
+                    menu.actions.push(SchemaObjectRowAction::ToggleTrigger);
+                    *close_menu = true;
+                }
+            } else if let Some(reason) = self.trigger_toggle_unavailable_reason {
+                ui.add_enabled(false, egui::Button::new(format!("Enable/Disable unavailable: {reason}")));
             }
             menu.add_item(
                 ui,

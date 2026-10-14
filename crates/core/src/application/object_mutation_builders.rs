@@ -1,4 +1,4 @@
-use crate::application::ddl_builder::{self, ColumnDef};
+use crate::application::ddl_builder::{self, ColumnAlterDef, ColumnDef};
 use crate::domain::object_mutation::*;
 use crate::ports::SqlDialect;
 
@@ -94,6 +94,7 @@ fn build_table_column_statements(
                 new_name,
             )])
         }
+        (ObjectDefinition::Column(def), ObjectAction::Alter) => build_column_alter_statements(request, def, dialect),
         _ => Err(unsupported(request)),
     }
 }
@@ -202,6 +203,52 @@ fn alter_existing_table(dialect: &dyn SqlDialect, driver: &str, def: &TableDefin
         }
     }
     statements
+}
+
+/// Column ALTER is provider-specific: PostgreSQL combines `TYPE` /
+/// `SET|DROP NOT NULL` / `SET|DROP DEFAULT` sub-actions in one `ALTER TABLE`,
+/// MySQL restates the full definition via `MODIFY COLUMN`, and SQL Server can
+/// only alter type + nullability (defaults are named constraints). SQLite is
+/// gated upstream in `unsupported_reason` before builders run.
+fn build_column_alter_statements(
+    request: &ObjectMutationRequest,
+    def: &ColumnDefinition,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    if def.data_type.trim().is_empty() {
+        return Err(MutationError::Validation {
+            field: "data_type".to_owned(),
+            message: "column type is required to alter a column".to_owned(),
+        });
+    }
+    if def.name.trim().is_empty() || def.table.trim().is_empty() {
+        return Err(MutationError::Validation {
+            field: "name".to_owned(),
+            message: "column and parent table names are required to alter a column".to_owned(),
+        });
+    }
+    let column = ColumnAlterDef {
+        name: def.name.clone(),
+        data_type: def.data_type.clone(),
+        nullable: def.nullable,
+        default: def.default.clone(),
+    };
+    let driver = request.driver.to_ascii_lowercase();
+    let statement = if driver.contains("mysql") {
+        ddl_builder::build_alter_table_modify_column(dialect, &def.schema, &def.table, &column)
+    } else if driver.contains("sqlserver") || driver.contains("sql server") {
+        if def.default.is_some() {
+            return Err(MutationError::Unsupported {
+                capability: "alter_column_default".to_owned(),
+                reason: "SQL Server column defaults live in named constraints; changing them is not supported by this ALTER path".to_owned(),
+            });
+        }
+        ddl_builder::build_alter_table_alter_column_sqlserver(dialect, &def.schema, &def.table, &column)
+    } else {
+        ddl_builder::build_alter_table_alter_column(dialect, &def.schema, &def.table, &column)
+    }
+    .map_err(MutationError::Build)?;
+    Ok(vec![statement])
 }
 
 fn build_view_statements(
@@ -366,6 +413,15 @@ fn build_trigger_statements(
             &def.table,
             &def.name,
         )]),
+        (ObjectDefinition::Trigger(def), ObjectAction::Enable | ObjectAction::Disable) => {
+            Ok(vec![ddl_builder::build_set_trigger_enabled(
+                dialect,
+                &def.schema,
+                &def.table,
+                &def.name,
+                request.action == ObjectAction::Enable,
+            )])
+        }
         _ => Err(unsupported(request)),
     }
 }

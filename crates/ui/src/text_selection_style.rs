@@ -217,7 +217,7 @@ mod tests {
             let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.add(
-                        egui::TextEdit::singleline(&mut value)
+                        egui::TextEdit::singleline(&mut value) // ui-rules: test deliberately exercises the raw egui widget to verify global selection styling
                             .id(id)
                             .text_color(theme.text_secondary),
                     );

@@ -41,12 +41,12 @@ pub(super) fn draw_dialog(
         .show_ctx(egui_context, |ui| {
             context.draw_quick_actions(ui);
             ui.add_space(8.0);
-            ui.separator();
+            Separator::horizontal(context.theme).show(ui);
             ui.add_space(8.0);
             context.draw_columns(ui);
             context.draw_error(ui);
             ui.add_space(12.0);
-            ui.separator();
+            Separator::horizontal(context.theme).show(ui);
             ui.add_space(10.0);
             action = context.draw_footer(ui);
         });
@@ -117,7 +117,7 @@ impl InsertRowDialogContext<'_> {
     }
 
     fn draw_columns(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical()
+        ScrollArea::new(self.theme)
             .max_height(380.0)
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -264,36 +264,11 @@ impl InsertRowDialogContext<'_> {
             "Enter value or click Gen..."
         };
         let value = &mut self.values[index];
-        let edit = egui::TextEdit::singleline(value)
-            .hint_text(
-                RichText::new(placeholder)
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            )
-            .text_color(if is_null {
-                self.theme.warning
-            } else {
-                self.theme.text_primary
-            })
-            .font(font_ui_label())
-            .margin(Margin::symmetric(8.0 as i8, 6.0 as i8))
-            .desired_width(ui.available_width());
-        Frame {
-            fill: self.theme.surface_elevated,
-            stroke: Stroke::new(
-                1.0,
-                if is_null {
-                    self.theme.warning.linear_multiply(0.6)
-                } else {
-                    self.theme.border_subtle
-                },
-            ),
-            corner_radius: CornerRadius::same(6.0 as u8),
-            ..Default::default()
+        let mut edit = crate::components::input::Input::new(value, placeholder, self.theme);
+        if is_null {
+            edit = edit.error_text("NULL literal");
         }
-        .show(ui, |ui| {
-            ui.add(edit);
-        });
+        edit.show(ui);
     }
 
     fn draw_error(&self, ui: &mut egui::Ui) {

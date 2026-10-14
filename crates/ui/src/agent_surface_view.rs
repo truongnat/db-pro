@@ -229,10 +229,12 @@ pub(super) struct AgentContextSurfaceContext<'a> {
 impl AgentContextSurfaceContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) {
         toolbar_frame(self.theme).show(ui, |ui| {
-            let chips_scroll = egui::ScrollArea::horizontal()
+            let chips_scroll = ScrollArea::new(self.theme)
+                .horizontal(true)
+                .vertical(false)
                 .id_salt("agent-context-chips")
                 .auto_shrink([false, true])
-                .show(ui, |ui| {
+                .show_with_output(ui, |ui| {
                     ui.horizontal(|ui| {
                         if self.provider_label == "Offline draft" {
                             badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);

@@ -40,7 +40,7 @@
 - [x] Target-mismatch safety lock: plan records `connection · schema` target; banner + disabled Apply on divergence; `prepare_migration_sql` refuses before dispatch (defence in depth)
 - [x] Focused tests: lock blocks on divergence / passes on match / diff resets the target
 - [x] Capture helper `DB_PRO_CAPTURE_COMPARE` added (seeds real snapshot→diff→plan with divergent target)
-- [ ] Visual capture — **pending: host windowing stopped producing framebuffer PNGs mid-session** (known-good HISTORY env also produced no PNG; process alive, no `capture: wrote framebuffer` log)
+- [x] Visual capture — ~~pending: host windowing stopped producing framebuffer PNGs mid-session (known-good HISTORY env also produced no PNG; process alive, no `capture: wrote framebuffer` log)~~ **DONE 2026-10-13**: `docs/plans/_audit-2026-10-13/captures/compare_{1280x800,1440x900,1920x1080}.png`; SAFETY LOCK banner, destructive-op marks and confirm gate all visible
 - [x] Commit `34601996`
 
 ## T6 — ER diagram polish (~30m, optional)

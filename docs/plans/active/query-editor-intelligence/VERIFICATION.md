@@ -165,3 +165,26 @@ Live runtime verification executed against local PostgreSQL 18 container (`dbpro
 - ~~**Workspace Test Gate**: 808 regular tests + 19 live PG/SSH integration tests = **827 tests PASS, 0 failures**.~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The 19 are `#[ignore]`d (ignored, not passing) and are already part of the workspace total, so `808 + 19 = 827 PASS` is wrong; the workspace result measured today is **811 passed / 0 failed / 19 ignored**. The original claim is retained above, unretracted.
 - **Status**: RUNTIME_VERIFY requirements closed for Query Editor. **[SUPERSEDED 2026-09-14 — V01-06 evidence audit]** This closing status line is not supported by retrievable evidence. Audited verdict: `EVIDENCE_GAP` (see the correction block above and `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §3). Retained as the original record.
 
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/02-query-editor-workspace.md` verdict: **EVIDENCE_GAP**
+— all code claims verified in tree at HEAD (prediction routing `translate_cmd.rs`,
+`StatementResultKind` routing, snapshot dirty tracking, history retention,
+collision-safe IDs), but provider/viewport evidence was still thin until this run.
+
+New evidence from this audit:
+
+- **Live providers:** `pg_integration` **28/28 PASS** on PostgreSQL 18.6 and
+  `mysql_integration` **8/8 PASS** on live MySQL
+  (`docs/plans/_audit-2026-10-13/CAPTURE-EVIDENCE.md`) — a retrievable live run
+  beyond the earlier 18/18 PG-16 fixture. Note `pg_integration` now carries **29**
+  `#[ignore]`d tests (28 ran + counted; SSH/SQL Server lanes stay BLOCKED).
+- **Native captures:** `captures/query{,-light,-row-limit}_*.png`,
+  `results{,-light}_*.png`, `table-completion_*.png` at 3 sizes — the results dock
+  renders seeded rows correctly, visually confirming the `294ab089` blank-grid fix
+  (FEATURE_AUDIT §5, now closed).
+
+Still open: live AI-prediction provider request + stale/cancel evidence,
+interactive typing/completion passes (captures are static), exact 900/1080
+heights. State stays RUNTIME_VERIFY.
+

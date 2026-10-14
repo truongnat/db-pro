@@ -75,7 +75,7 @@ impl DbProApp {
                 .show(ui);
 
             ui.add_space(SPACE_LG);
-            ui.separator();
+            Separator::horizontal(theme).show(ui);
             ui.add_space(SPACE_MD);
             self.draw_gallery_form_actions(ui);
         });

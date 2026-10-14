@@ -818,11 +818,10 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             JOIN pg_class c ON c.oid = pg_t.tgrelid
             JOIN pg_namespace n ON n.oid = c.relnamespace
         ) ON pg_t.tgname = t.trigger_name
-            AND n.nspname = t.event_object_schema
-            AND c.relname = t.event_object_table
         LEFT JOIN pg_proc ON pg_proc.oid = pg_t.tgfoid
-        WHERE t.trigger_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND t.trigger_schema !~ '^pg_(toast_)?temp'
-        ORDER BY t.event_object_schema, t.event_object_table, t.trigger_name
+        WHERE pg_t.tgisinternal = false
+            AND t.trigger_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+            AND t.trigger_schema !~ '^pg_(toast_)?temp'
         "#,
     )
     .fetch_all(pool)
@@ -838,7 +837,7 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             let event = optional_string(&row, "event_manipulation")?.unwrap_or_default();
             let definition = optional_string(&row, "action_statement")?.unwrap_or_default();
             let enabled_flag = optional_string(&row, "enabled_flag")?.unwrap_or_else(|| "O".into());
-            let enabled = enabled_flag != "D";
+            let enabled = trigger_enabled_from_flag(&enabled_flag);
             let function_def = optional_string(&row, "function_def")?.unwrap_or_default();
             Ok(Trigger {
                 name,
@@ -852,6 +851,10 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             })
         })
         .collect()
+}
+
+fn trigger_enabled_from_flag(flag: &str) -> bool {
+    matches!(flag, "O" | "R" | "A")
 }
 
 // cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
@@ -1022,6 +1025,14 @@ fn split_name_and_type(input: &str) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn postgres_trigger_enabled_state_maps_all_catalog_modes() {
+        assert!(!trigger_enabled_from_flag("D"));
+        for flag in ["O", "R", "A"] {
+            assert!(trigger_enabled_from_flag(flag), "{flag} should be enabled");
+        }
+    }
 
     #[test]
     fn test_parse_simple_columns() {

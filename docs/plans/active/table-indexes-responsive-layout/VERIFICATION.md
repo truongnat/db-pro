@@ -77,3 +77,21 @@
 
 - Required `cargo build --release --locked -p db-pro-native`: PASS, exit 0 (5.15 s).
 - Final count-layout captures `evidence/dependencies-count-{1280x800,1440x900,1920x1080}.png` are valid PNGs at physical sizes 2560×1600, 2880×1676, 3840×1676. 1280 screenshot inspected: `2 of 3` sits at the right edge of the filter row, while the two outgoing rows remain directly under the header. Capture build and shipped release build both PASS; formatting and diff checks PASS.
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/03-data-grid-table-editor.md` verdict: **EVIDENCE_GAP**
+(implementation verified; empty/loading + interactive matrix still open). Confirmed
+at HEAD: viewport-derived fractional widths with 640pt floor, `.truncate()` +
+`on_hover_text`, passive index-name label (modal removed), and
+`index_columns_fit_the_standard_table_detail_viewport` **passes at HEAD**.
+
+**Stale-fact correction:** the "992 passed / 2 failed connection tests remain
+unclassified" note above is stale — both named tests
+(`new_postgresql_connection_defaults_to_tls_require`,
+`explicit_disable_selection_is_preserved_on_submit`) **PASS at HEAD**.
+
+Fresh captures: `docs/plans/_audit-2026-10-13/captures/table-indexes_*.png`,
+`table-foreign-keys_*.png`, `table-constraints_*.png`, `table-dependencies_*.png`
+at 3 sizes (heights capped at 838). Remaining: empty/loading captures, interactive
+filter/category/search matrix, live provider round-trip. State stays RUNTIME_VERIFY.

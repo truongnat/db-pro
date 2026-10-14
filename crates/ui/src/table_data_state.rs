@@ -33,9 +33,9 @@ pub(crate) struct TableDataState {
     pub(super) selection_anchor_cell: Option<(usize, usize)>,
 }
 
-pub(crate) struct IdentityKey {
-    pub(crate) columns: Vec<String>,
-    pub(crate) primary: bool,
+pub(super) struct IdentityKey {
+    pub(super) columns: Vec<String>,
+    pub(super) primary: bool,
 }
 
 impl TableDataState {

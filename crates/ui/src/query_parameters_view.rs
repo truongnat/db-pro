@@ -70,21 +70,16 @@ fn draw_parameter_row(
                 .small()
                 .color(theme.text_secondary),
         );
-        let edit = if is_secret {
-            egui::TextEdit::singleline(&mut value).password(true)
-        } else {
-            egui::TextEdit::singleline(&mut value)
-        };
-        let response = ui.add(edit.desired_width(180.0));
+        let response = crate::components::input::Input::new(
+            &mut value,
+            format!("Value for {}", parameter.name),
+            theme,
+        )
+        .width(180.0)
+        .password(is_secret)
+        .show(ui);
         value_changed = response.changed();
-        response.widget_info(|| {
-            egui::WidgetInfo::labeled(
-                egui::WidgetType::TextEdit,
-                ui.is_enabled(),
-                format!("Value for {}", parameter.name),
-            )
-        });
-        secret_changed = ui.checkbox(&mut is_secret, "secret").changed();
+        secret_changed = Checkbox::new(&mut is_secret, "secret", theme).show(ui).changed();
     });
     if let Some(document) = session.documents.get_mut(document_index) {
         // An untouched field must stay absent. A present key is filled, so writing

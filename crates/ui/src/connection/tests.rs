@@ -193,28 +193,229 @@ fn test_connection_config_mappings() {
 #[test]
 fn test_connection_layout_calculations() {
     use super::layout::*;
-    let card_w = calculate_engine_card_width(800.0, 8.0);
-    assert!((card_w - (800.0 - 24.0) / 4.0).abs() < 0.001);
+    // Weighted rows always span the full width minus inter-cell gaps.
+    for (weights, gaps) in [
+        (vec![52.0, 36.0, 12.0], 2.0),
+        (vec![55.0, 45.0], 1.0),
+        (vec![68.0, 32.0], 1.0),
+        (vec![1.0, 1.0], 1.0),
+        (vec![38.0, 14.0, 20.0, 28.0], 3.0),
+    ] {
+        let total: f32 = row_widths(800.0, 8.0, &weights).iter().sum();
+        assert!((total - (800.0 - gaps * 8.0)).abs() < 0.01);
+    }
 
-    let prof = calculate_profile_row_widths(800.0, 8.0);
-    let total_prof = prof.name_w + prof.group_w + prof.fav_w;
-    assert!((total_prof - (800.0 - 16.0)).abs() < 0.01);
-
-    let env = calculate_env_row_widths(800.0, 8.0);
-    let total_env = env.env_w + env.ro_w;
-    assert!((total_env - (800.0 - 8.0)).abs() < 0.01);
-
-    let srv = calculate_server_row_widths(800.0, 8.0);
-    let total_srv = srv.host_w + srv.port_w;
-    assert!((total_srv - (800.0 - 8.0)).abs() < 0.01);
-
-    let half = calculate_half_row_width(800.0, 8.0);
-    assert_eq!(half, (800.0 - 8.0) * 0.5);
-
-    let ssh = calculate_ssh_row_widths(800.0, 8.0);
-    let total_ssh = ssh.host_w + ssh.port_w + ssh.user_w + ssh.key_w;
-    assert!((total_ssh - (800.0 - 24.0)).abs() < 0.01);
+    let (input_w, button_w) = sqlite_file_row(800.0, 8.0);
+    assert_eq!(button_w, 110.0);
+    assert!((input_w - (800.0 - 118.0)).abs() < 0.01);
 }
+/// Drives the engine `Select` with real pointer events: the trigger must open
+/// the option menu, and picking an item must update the draft driver.
+#[test]
+fn engine_select_opens_on_click_and_applies_the_chosen_driver() {
+    use crate::components::Select;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+
+    let mut draft = UiConnectionDraft {
+        name: "t".into(),
+        database: "t".into(),
+        ..Default::default()
+    };
+    let trigger_rect = Rc::new(Cell::new(egui::Rect::NOTHING));
+
+    let collect_texts = |output: &egui::FullOutput| -> Vec<String> {
+        fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(t) => out.push(t.galley.text().to_owned()),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| walk(s, out)),
+                _ => {}
+            }
+        }
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            walk(&clipped.shape, &mut texts);
+        }
+        texts
+    };
+
+    let render = |ctx: &egui::Context,
+                  draft: &mut UiConnectionDraft,
+                  trigger_rect: &Rc<Cell<egui::Rect>>,
+                  events: Vec<egui::Event>| {
+        let rect_cell = Rc::clone(trigger_rect);
+        crate::test_frame::frame(
+            &ctx,
+            egui::RawInput {
+                events,
+                ..Default::default()
+            },
+            |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let mut idx = super::config::DRIVER_CARD_SPECS
+                        .iter()
+                        .position(|s| s.driver == Some(draft.driver))
+                        .unwrap_or(0);
+                    let options: Vec<String> = super::config::DRIVER_CARD_SPECS
+                        .iter()
+                        .map(|s| format!("{} — {}", s.name, s.subtitle))
+                        .collect();
+                    let response = Select::new("db_engine_select", &mut idx, &options)
+                        .label(t!("connection.database_engine"))
+                        .show(ui);
+                    rect_cell.set(response.rect);
+                    let spec = &super::config::DRIVER_CARD_SPECS[idx];
+                    if let Some(driver) = spec.driver {
+                        if driver != draft.driver {
+                            select_driver(draft, driver);
+                        }
+                    }
+                });
+            },
+        )
+    };
+
+    // Frame 1: lay out once so the trigger rect is known.
+    let out = render(&ctx, &mut draft, &trigger_rect, vec![]);
+    let trigger = trigger_rect.get();
+    assert!(!trigger.is_negative(), "trigger rect must be laid out");
+    assert!(!collect_texts(&out).iter().any(|t| t.contains("MySQL")));
+
+    let click_pos = trigger.center();
+    let press = egui::Event::PointerButton {
+        pos: click_pos,
+        button: egui::PointerButton::Primary,
+        pressed: true,
+        modifiers: egui::Modifiers::default(),
+    };
+    let release = egui::Event::PointerButton {
+        pos: click_pos,
+        button: egui::PointerButton::Primary,
+        pressed: false,
+        modifiers: egui::Modifiers::default(),
+    };
+
+    // Click down + up over two frames, then a settled frame for the popup.
+    render(&ctx, &mut draft, &trigger_rect, vec![egui::Event::PointerMoved(click_pos), press]);
+    render(&ctx, &mut draft, &trigger_rect, vec![release]);
+    let out = render(&ctx, &mut draft, &trigger_rect, vec![]);
+
+    let texts = collect_texts(&out);
+    assert!(
+        texts.iter().any(|t| t.contains("MySQL")),
+        "engine menu must open after a trigger click; painted: {texts:?}"
+    );
+}
+#[test]
+fn sqlite_driver_keeps_existing_port_and_skips_port_validation() {
+    let mut draft = UiConnectionDraft {
+        name: "local".into(),
+        database: "/tmp/app.db".into(),
+        port: "9999".into(),
+        ssl_mode: UiSslMode::VerifyFull,
+        ..Default::default()
+    };
+    draft.driver = UiDriver::Mysql;
+    select_driver(&mut draft, UiDriver::Sqlite);
+    // SQLite is file-backed: driver switch must not touch host-side fields.
+    assert_eq!(draft.port, "9999");
+    assert_eq!(draft.ssl_mode, UiSslMode::VerifyFull);
+
+    // A non-numeric port must not fail validation for SQLite drafts.
+    draft.port = "not-a-port".into();
+    assert!(
+        validate_connection_draft(&draft).is_ok(),
+        "SQLite drafts skip port validation"
+    );
+
+    // But TCP drivers still enforce it.
+    draft.driver = UiDriver::Postgres;
+    assert!(validate_connection_draft(&draft).is_err());
+}
+
+#[test]
+fn cloud_preset_applies_driver_port_ssl_and_only_overwrites_placeholder_hosts() {
+    let mut draft = UiConnectionDraft {
+        cloud_preset: "aws_rds:postgres".into(),
+        ..Default::default()
+    };
+    let guidance =
+        apply_cloud_preset_to_draft(&mut draft, "aws_rds:postgres").expect("known preset applies");
+    assert_eq!(draft.driver, UiDriver::Postgres);
+    assert_eq!(draft.port, "5432");
+    // Preset overrides ssl_mode with its own CA policy (RDS Postgres → VerifyFull).
+    assert_eq!(draft.ssl_mode, UiSslMode::VerifyFull);
+    assert!(!guidance.is_empty());
+
+    // A user-typed real host must survive preset application.
+    draft.host = "prod.cluster-abc.eu-west-1.rds.amazonaws.com".into();
+    apply_cloud_preset_to_draft(&mut draft, "aws_rds:postgres").unwrap();
+    assert_eq!(draft.host, "prod.cluster-abc.eu-west-1.rds.amazonaws.com");
+    // Empty hosts get filled with the preset endpoint hint.
+    draft.host.clear();
+    apply_cloud_preset_to_draft(&mut draft, "aws_rds:postgres").unwrap();
+    assert!(
+        !draft.host.trim().is_empty() && draft.host != "localhost",
+        "empty host should receive the preset's host hint"
+    );
+
+    assert!(
+        apply_cloud_preset_to_draft(&mut draft, "no_such:preset").is_err(),
+        "unknown preset keys must surface an error instead of mutating the draft"
+    );
+}
+
+#[test]
+fn apply_cloud_preset_clears_error_and_invalidates_test_state() {
+    let mut dialog = super::state::ConnectionDialogState::default();
+    dialog.draft_mut().cloud_preset = "gcp_cloudsql:mysql".into();
+    dialog.set_error("previous failure".to_owned());
+    dialog.set_test_valid(true);
+
+    super::apply_cloud_preset(&mut dialog).expect("preset applies");
+
+    assert_eq!(dialog.draft().driver, UiDriver::Mysql);
+    assert_eq!(dialog.error(), "");
+    assert!(
+        !dialog.test_valid(),
+        "applying a preset must invalidate a previously green test"
+    );
+    assert!(!dialog.draft().cloud_guidance.is_empty());
+}
+
+#[test]
+fn ssh_profile_roundtrip_requires_identity_fields_and_restores_draft() {
+    let mut profiles = Vec::new();
+    let empty = UiConnectionDraft::default();
+    assert!(save_ssh_profile(&mut profiles, &empty).is_err());
+    assert!(profiles.is_empty());
+
+    let mut draft = UiConnectionDraft {
+        ssh_host: "bastion.internal".into(),
+        ssh_user: "deploy".into(),
+        ssh_private_key: "/keys/id_ed25519".into(),
+        ssh_port: String::new(), // unset → profile defaults to 22
+        ..Default::default()
+    };
+    let profile_id = save_ssh_profile(&mut profiles, &draft).unwrap();
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(profiles[0].port, 22);
+    assert_eq!(profiles[0].name, "deploy@bastion.internal");
+
+    let mut other = UiConnectionDraft::default();
+    apply_ssh_profile_to_draft(&mut other, &profiles[0]);
+    assert!(other.ssh_tunnel_enabled);
+    assert_eq!(other.ssh_host, "bastion.internal");
+    assert_eq!(other.ssh_port, "22");
+    assert_eq!(other.ssh_user, "deploy");
+    assert_eq!(other.ssh_private_key, "/keys/id_ed25519");
+    assert_eq!(other.ssh_profile_id, profile_id);
+    draft.ssh_tunnel_enabled = true; // silence unused-mut lint path stays exercised
+}
+
 #[test]
 fn cancelling_connection_test_dispatches_cancel_for_the_active_request() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();

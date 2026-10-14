@@ -34,7 +34,7 @@ impl MonitoringHeaderContext<'_> {
                     {
                         actions.push(MonitoringHeaderAction::Refresh);
                     }
-                    ui.checkbox(self.poll, "Auto-refresh");
+                    Checkbox::new(self.poll, "Auto-refresh", self.theme).show(ui);
                 });
             });
             ui.add_space(SPACE_SM);

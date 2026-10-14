@@ -119,7 +119,7 @@ impl DbProApp {
                         );
                     },
                 );
-                ui.separator();
+                Separator::vertical(self.theme).show(ui);
                 ui.allocate_ui_with_layout(
                     egui::vec2(ui.available_width(), ui.available_height()),
                     Layout::top_down(Align::Min),

@@ -5,11 +5,33 @@ use super::config::*;
 use super::layout::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::input::{Input, PasswordInput};
+use crate::components::selection::Checkbox;
 use crate::components::tabs::SegmentedTabs;
+use crate::components::Label;
 use crate::tokens::*;
 use crate::DbProTheme;
 use egui::{FontFamily, FontId, RichText};
 use lucide_icons::Icon;
+
+/// Muted section header used above each field group ("GENERAL", "SERVER & …").
+fn section_label(ui: &mut egui::Ui, text: &str, theme: DbProTheme) {
+    ui.label(
+        RichText::new(text)
+            .font(DbProTheme::ui_medium_font(10.5))
+            .color(theme.text_muted),
+    );
+    ui.add_space(SPACE_XXS);
+}
+
+/// Label + widget pair for non-Input controls (SegmentedTabs, Checkbox rows).
+fn labeled_cell(ui: &mut egui::Ui, label: &str, theme: DbProTheme, body: impl FnOnce(&mut egui::Ui)) {
+    // Child UIs inherit egui's default `indent`, which would nudge the label
+    // right of the widget's left edge — zero it so label and widget align.
+    ui.spacing_mut().indent = 0.0;
+    Label::new(label, theme).show(ui);
+    ui.add_space(SPACE_XXS);
+    body(ui);
+}
 
 impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
     /// Draw general connection profile fields (Name, Group, Favorite, Environment, Safety).
@@ -18,134 +40,127 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         let focus_name = self.dialog.focus_name_on_open;
         let gap = SPACE_SM;
 
-        ui.label(
-            RichText::new(t!("connection.general"))
-                .font(DbProTheme::ui_medium_font(10.5))
-                .color(self.theme.text_muted),
+        section_label(ui, &t!("connection.general"), self.theme);
+
+        // Row 1: Connection Name (65%), Folder/Group + Favorite toggle (35%)
+        let widths = row_widths(avail, gap, &[65.0, 35.0]);
+        let show_name_error =
+            !self.dialog.error.is_empty() && self.dialog.draft.name.trim().is_empty();
+        let mut name_input = Input::new(
+            &mut self.dialog.draft.name,
+            t!("connection.connection_name_placeholder"),
+            self.theme,
+        )
+        .label(t!("connection.connection_name"))
+        .required(true)
+        .bordered(true)
+        .id_salt(focus_id::NAME)
+        .auto_focus(focus_name)
+        .width(widths[0])
+        .leading_icon(Icon::Tag)
+        .clearable(true);
+        if show_name_error {
+            name_input = name_input.error_text(t!("connection.validation_name_required"));
+        }
+        let favorite = self.dialog.draft.favorite;
+        form_row(
+            ui,
+            &widths,
+            vec![
+                Box::new(|ui| {
+                    name_input.show(ui);
+                }),
+                // Group input shares its labeled cell with a square star toggle
+                // so the favorite affordance reads as part of the folder/group
+                // metadata instead of a lone third column.
+                Box::new(|ui| {
+                    ui.spacing_mut().indent = 0.0;
+                    Label::new(t!("connection.folder_group"), self.theme).show(ui);
+                    ui.add_space(SPACE_XXS);
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = SPACE_XS;
+                        let toggle_w = egui::vec2(38.0, 38.0);
+                        let group_w = (widths[1] - toggle_w.x - SPACE_XS).max(80.0);
+                        Input::new(
+                            &mut self.dialog.draft.group,
+                            t!("connection.folder_group_placeholder"),
+                            self.theme,
+                        )
+                        .bordered(true)
+                        .id_salt(focus_id::GROUP)
+                        .width(group_w)
+                        .leading_icon(Icon::Folder)
+                        .clearable(true)
+                        .show(ui);
+                        let (rect, _) = ui.allocate_exact_size(toggle_w, egui::Sense::hover());
+                        let mut toggle_ui = ui.new_child(
+                            egui::UiBuilder::new()
+                                .max_rect(rect)
+                                .layout(egui::Layout::top_down(egui::Align::Center)),
+                        );
+                        toggle_ui.spacing_mut().indent = 0.0;
+                        if Button::new(self.theme)
+                            .icon(Icon::Star)
+                            .variant(if favorite {
+                                ButtonVariant::Secondary
+                            } else {
+                                ButtonVariant::Outline
+                            })
+                            .size(ButtonSize::Lg)
+                            .access_label(t!("connection.favorite"))
+                            .show(&mut toggle_ui)
+                            .clicked()
+                        {
+                            self.dialog.draft.favorite = !favorite;
+                        }
+                    });
+                }),
+            ],
+            gap,
         );
-        ui.add_space(SPACE_XXS);
-
-        // Row 1: Connection Name, Folder/Group, Favorite
-        let ProfileRowWidths { name_w, group_w, fav_w } = calculate_profile_row_widths(avail, gap);
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            ui.vertical(|ui| {
-                ui.set_width(name_w);
-                ui.set_max_width(name_w);
-                let show_name_error =
-                    !self.dialog.error.is_empty() && self.dialog.draft.name.trim().is_empty();
-                let mut name_input = Input::new(
-                    &mut self.dialog.draft.name,
-                    t!("connection.connection_name_placeholder"),
-                    self.theme,
-                )
-                .label(t!("connection.connection_name"))
-                .required(true)
-                .id_salt(focus_id::NAME)
-                .auto_focus(focus_name)
-                .width(name_w)
-                .leading_icon(Icon::Tag)
-                .clearable(true);
-                if show_name_error {
-                    name_input = name_input.error_text(t!("connection.validation_name_required"));
-                }
-                name_input.show(ui);
-            });
-            ui.vertical(|ui| {
-                ui.set_width(group_w);
-                ui.set_max_width(group_w);
-                Input::new(
-                    &mut self.dialog.draft.group,
-                    t!("connection.folder_group_placeholder"),
-                    self.theme,
-                )
-                .label(t!("connection.folder_group"))
-                .id_salt(focus_id::GROUP)
-                .width(group_w)
-                .leading_icon(Icon::Folder)
-                .clearable(true)
-                .show(ui);
-            });
-            ui.vertical(|ui| {
-                ui.set_width(fav_w);
-                ui.set_max_width(fav_w);
-                ui.label(
-                    RichText::new(t!("connection.favorite"))
-                        .size(12.0)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(3.0);
-                let (fav_icon, fav_text) = if self.dialog.draft.favorite {
-                    (Icon::Star, t!("connection.favorite_saved"))
-                } else {
-                    (Icon::Star, t!("connection.favorite_off"))
-                };
-                if Button::new(self.theme)
-                    .icon(fav_icon)
-                    .text(fav_text)
-                    .variant(if self.dialog.draft.favorite {
-                        ButtonVariant::Secondary
-                    } else {
-                        ButtonVariant::Ghost
-                    })
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.dialog.draft.favorite = !self.dialog.draft.favorite;
-                }
-            });
-        });
         if focus_name {
             self.dialog.focus_name_on_open = false;
         }
         ui.add_space(SPACE_SM);
 
-        // Row 2: Environment Selector & Read-only mode
-        let EnvRowWidths { env_w, ro_w } = calculate_env_row_widths(avail, gap);
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            ui.vertical(|ui| {
-                ui.set_width(env_w);
-                ui.set_max_width(env_w);
-                ui.label(
-                    RichText::new(t!("connection.environment"))
-                        .size(12.0)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(SPACE_XXS);
-                let mut env_idx = environment_to_index(&self.dialog.draft.environment);
-                SegmentedTabs::new(&mut env_idx, ENVIRONMENT_OPTIONS, self.theme)
-                    .focusable(false)
-                    .show(ui);
-                self.dialog.draft.environment = index_to_environment(env_idx).to_owned();
-            });
-            ui.vertical(|ui| {
-                ui.set_width(ro_w);
-                ui.set_max_width(ro_w);
-                ui.label(
-                    RichText::new(t!("connection.safety_policy"))
-                        .size(12.0)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(SPACE_XXS);
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.dialog.draft.readonly, t!("connection.readonly_mode"));
-                    if self.dialog.draft.environment == "Production" {
-                        ui.label(
-                            RichText::new(t!("connection.production_guard"))
-                                .font(font_caption())
-                                .color(self.theme.warning),
-                        );
-                    }
-                });
-            });
-        });
+        // Row 2: Environment & Safety Policy — even split
+        let widths = row_widths(avail, gap, &[50.0, 50.0]);
+        let is_production = self.dialog.draft.environment == "Production";
+        form_row(
+            ui,
+            &widths,
+            vec![
+                Box::new(|ui| {
+                    labeled_cell(ui, &t!("connection.environment"), self.theme, |ui| {
+                        let mut env_idx = environment_to_index(&self.dialog.draft.environment);
+                        SegmentedTabs::new(&mut env_idx, ENVIRONMENT_OPTIONS, self.theme)
+                            .focusable(false)
+                            .show(ui);
+                        self.dialog.draft.environment = index_to_environment(env_idx).to_owned();
+                    });
+                }),
+                Box::new(|ui| {
+                    labeled_cell(ui, &t!("connection.safety_policy"), self.theme, |ui| {
+                        ui.horizontal(|ui| {
+                            Checkbox::new(
+                                &mut self.dialog.draft.readonly,
+                                t!("connection.readonly_mode").as_ref(),
+                                self.theme,
+                            )
+                            .show(ui);
+                            if is_production {
+                                ui.label(
+                                    RichText::new(t!("connection.production_guard"))
+                                        .font(font_caption())
+                                        .color(self.theme.warning),
+                                );
+                            }
+                        });
+                    });
+                }),
+            ],
+            gap,
+        );
         ui.add_space(SPACE_MD);
     }
 
@@ -154,158 +169,164 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         let avail = ui.available_width();
         let gap = SPACE_SM;
 
-        ui.label(
-            RichText::new(t!("connection.server_credentials"))
-                .font(DbProTheme::ui_medium_font(10.5))
-                .color(self.theme.text_muted),
-        );
-        ui.add_space(SPACE_XXS);
+        section_label(ui, &t!("connection.server_credentials"), self.theme);
 
         // Row 1: Host (68%) + Port (32%)
-        let ServerRowWidths { host_w, port_w } = calculate_server_row_widths(avail, gap);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            ui.vertical(|ui| {
-                ui.set_width(host_w);
-                ui.set_max_width(host_w);
-                let host_input = Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
-                    .label(t!("connection.host"))
-                    .id_salt(focus_id::HOST)
-                    .width(host_w)
-                    .leading_icon(Icon::Server);
-                host_input.show(ui);
-            });
-            ui.vertical(|ui| {
-                ui.set_width(port_w);
-                ui.set_max_width(port_w);
-                let default_port = default_port_for_driver(self.dialog.draft.driver);
-                let show_port_error =
-                    !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
-                let mut port_input = Input::new(&mut self.dialog.draft.port, default_port, self.theme)
-                    .label(t!("connection.port"))
-                    .required(true)
-                    .id_salt(focus_id::PORT)
-                    .width(port_w)
-                    .leading_icon(Icon::Hash);
-                if show_port_error {
-                    port_input = port_input.error_text(t!("connection.validation_port_invalid"));
-                }
-                port_input.show(ui);
-            });
-        });
+        let widths = row_widths(avail, gap, &[68.0, 32.0]);
+        let default_port = default_port_for_driver(self.dialog.draft.driver);
+        let show_port_error =
+            !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
+        form_row(
+            ui,
+            &widths,
+            vec![
+                Box::new(|ui| {
+                    Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
+                        .label(t!("connection.host"))
+                        .bordered(true)
+                        .id_salt(focus_id::HOST)
+                        .width(widths[0])
+                        .leading_icon(Icon::Server)
+                        .show(ui);
+                }),
+                Box::new(|ui| {
+                    let mut port_input = Input::new(&mut self.dialog.draft.port, default_port, self.theme)
+                        .label(t!("connection.port"))
+                        .required(true)
+                        .bordered(true)
+                        .id_salt(focus_id::PORT)
+                        .width(widths[1])
+                        .leading_icon(Icon::Hash);
+                    if show_port_error {
+                        port_input = port_input.error_text(t!("connection.validation_port_invalid"));
+                    }
+                    port_input.show(ui);
+                }),
+            ],
+            gap,
+        );
         ui.add_space(SPACE_SM);
 
         // Row 2: Database Name (50%) + Username (50%)
-        let half_w = calculate_half_row_width(avail, gap);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            ui.vertical(|ui| {
-                ui.set_width(half_w);
-                ui.set_max_width(half_w);
-                let default_db = default_database_for_driver(self.dialog.draft.driver);
-                let show_database_error =
-                    !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
-                let mut db_input = Input::new(&mut self.dialog.draft.database, default_db, self.theme)
-                    .label(t!("connection.database"))
-                    .required(true)
-                    .id_salt(focus_id::DATABASE)
-                    .width(half_w)
-                    .leading_icon(Icon::Database)
-                    .clearable(true);
-                if show_database_error {
-                    db_input = db_input.error_text(t!("connection.validation_database_required"));
-                }
-                db_input.show(ui);
-            });
-            ui.vertical(|ui| {
-                ui.set_width(half_w);
-                ui.set_max_width(half_w);
-                let default_user = default_username_for_driver(self.dialog.draft.driver);
-                Input::new(&mut self.dialog.draft.username, default_user, self.theme)
-                    .label(t!("connection.username"))
-                    .id_salt(focus_id::USERNAME)
-                    .width(half_w)
-                    .leading_icon(Icon::User)
-                    .show(ui);
-            });
-        });
+        let widths = row_widths(avail, gap, &[1.0, 1.0]);
+        let default_db = default_database_for_driver(self.dialog.draft.driver);
+        let default_user = default_username_for_driver(self.dialog.draft.driver);
+        let show_database_error =
+            !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
+        form_row(
+            ui,
+            &widths,
+            vec![
+                Box::new(|ui| {
+                    let mut db_input = Input::new(&mut self.dialog.draft.database, default_db, self.theme)
+                        .label(t!("connection.database"))
+                        .required(true)
+                        .bordered(true)
+                        .id_salt(focus_id::DATABASE)
+                        .width(widths[0])
+                        .leading_icon(Icon::Database)
+                        .clearable(true);
+                    if show_database_error {
+                        db_input = db_input.error_text(t!("connection.validation_database_required"));
+                    }
+                    db_input.show(ui);
+                }),
+                Box::new(|ui| {
+                    Input::new(&mut self.dialog.draft.username, default_user, self.theme)
+                        .label(t!("connection.username"))
+                        .bordered(true)
+                        .id_salt(focus_id::USERNAME)
+                        .width(widths[1])
+                        .leading_icon(Icon::User)
+                        .show(ui);
+                }),
+            ],
+            gap,
+        );
         ui.add_space(SPACE_SM);
 
         // Row 3: Password/Auth Token (50%) + SSL Mode (50%)
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            ui.vertical(|ui| {
-                ui.set_width(half_w);
-                ui.set_max_width(half_w);
-                let pwd_placeholder = if self.dialog.draft.auth_kind == "ephemeral_token" {
-                    t!("connection.password_token_placeholder")
-                } else if self.dialog.editing_connection_id.is_some() {
-                    t!("connection.password_blank_keep")
-                } else {
-                    t!("connection.password_blank_optional")
-                };
-                let pwd_label = if self.dialog.draft.auth_kind == "ephemeral_token" {
-                    t!("connection.access_token")
-                } else {
-                    t!("connection.password")
-                };
-                PasswordInput::new(
-                    &mut self.dialog.draft.password,
-                    pwd_placeholder,
-                    &mut self.dialog.show_password,
-                    self.theme,
-                )
-                .label(pwd_label)
-                .id_salt(focus_id::PASSWORD)
-                .width(half_w)
-                .show(ui);
-            });
-            ui.vertical(|ui| {
-                ui.set_width(half_w);
-                ui.set_max_width(half_w);
-                ui.label(
-                    RichText::new(t!("connection.ssl_mode"))
-                        .size(12.0)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(SPACE_XXS);
-                let mut ssl_idx = ssl_mode_to_index(self.dialog.draft.ssl_mode);
-                SegmentedTabs::new(&mut ssl_idx, SSL_MODE_OPTIONS, self.theme)
-                    .focusable(false)
-                    .show(ui);
-                self.dialog.draft.ssl_mode = index_to_ssl_mode(ssl_idx);
-                ui.add_space(SPACE_XXS);
-                let guidance_color = match self.dialog.draft.ssl_mode {
-                    crate::UiSslMode::Disable => self.theme.danger,
-                    crate::UiSslMode::Require | crate::UiSslMode::VerifyCa => self.theme.warning,
-                    crate::UiSslMode::VerifyFull => self.theme.text_muted,
-                };
-                let guidance_width = ui.available_width();
-                ui.add_sized(
-                    egui::vec2(guidance_width, 28.0),
-                    egui::Label::new(
-                        RichText::new(super::view::ssl_mode_guidance(self.dialog.draft.ssl_mode))
-                            .size(10.0)
-                            .color(guidance_color),
+        let is_token = self.dialog.draft.auth_kind == "ephemeral_token";
+        let is_editing = self.dialog.editing_connection_id.is_some();
+        let pwd_placeholder = if is_token {
+            t!("connection.password_token_placeholder")
+        } else if is_editing {
+            t!("connection.password_blank_keep")
+        } else {
+            t!("connection.password_blank_optional")
+        };
+        let pwd_label = if is_token {
+            t!("connection.access_token")
+        } else {
+            t!("connection.password")
+        };
+        form_row(
+            ui,
+            &widths,
+            vec![
+                Box::new(|ui| {
+                    PasswordInput::new(
+                        &mut self.dialog.draft.password,
+                        pwd_placeholder,
+                        &mut self.dialog.show_password,
+                        self.theme,
                     )
-                    .wrap(),
-                );
-            });
-        });
+                    .label(pwd_label)
+                    .bordered(true)
+                    .id_salt(focus_id::PASSWORD)
+                    .width(widths[0])
+                    .show(ui);
+                }),
+                Box::new(|ui| {
+                    labeled_cell(ui, &t!("connection.ssl_mode"), self.theme, |ui| {
+                        let mut ssl_idx = ssl_mode_to_index(self.dialog.draft.ssl_mode);
+                        SegmentedTabs::new(&mut ssl_idx, SSL_MODE_OPTIONS, self.theme)
+                            .focusable(false)
+                            .show(ui);
+                        self.dialog.draft.ssl_mode = index_to_ssl_mode(ssl_idx);
+                        ui.add_space(SPACE_XXS);
+                        let guidance_color = match self.dialog.draft.ssl_mode {
+                            crate::UiSslMode::Disable => self.theme.danger,
+                            crate::UiSslMode::Require | crate::UiSslMode::VerifyCa => self.theme.warning,
+                            crate::UiSslMode::VerifyFull => self.theme.text_muted,
+                        };
+                        let guidance_width = widths[1];
+                        let guidance = super::view::ssl_mode_guidance(self.dialog.draft.ssl_mode);
+                        // Painter call keeps the hint pinned to the cell's left
+                        // edge — `Label` placement proved inconsistent inside
+                        // `add_sized` + wrap (renders centered/offset).
+                        let galley = ui.painter().layout(
+                            guidance.into_owned(),
+                            egui::FontId::proportional(10.0),
+                            guidance_color,
+                            guidance_width,
+                        );
+                        let (rect, _) = ui.allocate_exact_size(
+                            egui::vec2(guidance_width, galley.size().y.max(14.0)),
+                            egui::Sense::hover(),
+                        );
+                        ui.painter().galley(rect.left_top(), galley, guidance_color);
+                    });
+                }),
+            ],
+            gap,
+        );
 
         ui.add_space(SPACE_XS);
-        ui.horizontal(|ui| {
-            ui.label(
-                RichText::new(char::from(Icon::ShieldCheck).to_string())
-                    .font(FontId::new(11.0, FontFamily::Name("lucide".into())))
-                    .color(self.theme.accent),
-            );
-            ui.label(
-                RichText::new(t!("connection.credentials_encrypted_hint"))
-                    .size(11.0)
-                    .color(self.theme.text_muted),
-            );
+        ui.scope(|ui| {
+            ui.set_min_width(avail);
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(char::from(Icon::ShieldCheck).to_string())
+                        .font(FontId::new(11.0, FontFamily::Name("lucide".into())))
+                        .color(self.theme.accent),
+                );
+                ui.label(
+                    RichText::new(t!("connection.credentials_encrypted_hint"))
+                        .size(11.0)
+                        .color(self.theme.text_muted),
+                );
+            });
         });
 
         ui.add_space(SPACE_MD);

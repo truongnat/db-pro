@@ -94,7 +94,7 @@ pub(super) fn draw_floating_completion_popup(
                 let sel_idx = doc.completion.selected_index.min(count.saturating_sub(1));
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 let list_height = (count.min(COMPLETION_VISIBLE_ROWS) as f32 * COMPLETION_ROW_HEIGHT).max(COMPLETION_ROW_HEIGHT);
-                let click_idx = egui::ScrollArea::vertical()
+                let click_idx = ScrollArea::new(theme)
                     .max_height(list_height)
                     .show_viewport(ui, |ui, viewport| {
                         // Fixed content height keeps the scrollbar matched to the full list

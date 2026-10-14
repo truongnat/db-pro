@@ -22,19 +22,19 @@ impl SettingsAppearanceContext<'_> {
                     "",
                     self.theme.accent,
                 ));
-                if ui
-                    .selectable_value(&mut self.preferences.dark_mode, false, "Light")
-                    .changed()
+                if crate::components::RadioGroup::new(*self.theme)
+                    .horizontal(true)
+                    .option(crate::components::RadioGroupOption::new(false, "Light"))
+                    .option(crate::components::RadioGroupOption::new(true, "Dark"))
+                    .show(ui, &mut self.preferences.dark_mode)
+                    .is_some()
                 {
-                    self.preferences.settings.appearance.dark_mode = false;
-                    *self.theme = DbProTheme::light();
-                }
-                if ui
-                    .selectable_value(&mut self.preferences.dark_mode, true, "Dark")
-                    .changed()
-                {
-                    self.preferences.settings.appearance.dark_mode = true;
-                    *self.theme = DbProTheme::dark();
+                    self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
+                    *self.theme = if self.preferences.dark_mode {
+                        DbProTheme::dark()
+                    } else {
+                        DbProTheme::light()
+                    };
                 }
             });
             ui.label(

@@ -83,13 +83,6 @@ impl ChangeSet {
         self.target_table.as_deref()
     }
 
-    // allow: no active caller currently; keeps public setter symmetric with the ChangeSet API
-    // rather than deleting and re-adding when diff targeting is used.
-    #[allow(dead_code)]
-    pub fn set_target_table(&mut self, table: Option<String>) {
-        self.target_table = table;
-    }
-
     pub fn ensure_target(&mut self, table: &str) -> bool {
         if let Some(ref current) = self.target_table {
             if current != table {
@@ -205,9 +198,7 @@ impl ChangeSet {
         local_id
     }
 
-    // Kept as a domain operation so a future local-row delete can cancel an
-    // insert without emitting SQL; the current insert dialog has no row target.
-    #[allow(dead_code)]
+    /// Removing a staged insert row cancels it locally without emitting SQL.
     pub fn remove_insert(&mut self, local_id: u64) -> bool {
         let before = self.entries.len();
         self.entries

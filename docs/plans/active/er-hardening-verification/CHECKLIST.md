@@ -154,7 +154,7 @@
 
 - [x] World-to-screen roundtrip
 - [x] Visible rect expands by margin
-- [x] Zoom clamped to [0.5, 2.0]
+- [x] Zoom clamped to [0.5, 2.0] — **[CORRECTED 2026-10-13 — `_audit-2026-10-13` slice 04]** the clamp band at HEAD is wider: `ER_MIN_ZOOM = 0.1` (`diagram/model.rs:19-20`, widened by `er-diagram-canvas-ux`); this line's range is stale, the clamp behavior itself holds
 
 ## Quality gates
 

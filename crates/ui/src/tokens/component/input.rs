@@ -37,6 +37,9 @@ pub struct FieldChromeState {
     pub hovered: bool,
     pub enabled: bool,
     pub has_error: bool,
+    /// When true the field keeps a resting border (`border.default`) instead of
+    /// relying on fill alone; hover/focus/error still upgrade the stroke.
+    pub bordered: bool,
 }
 
 /// Resolved chrome state of a text field, strongest state first.
@@ -46,6 +49,9 @@ pub enum FieldChrome {
     Error,
     Focus,
     Hover,
+    /// Bordered resting state (static outline).
+    Bordered,
+    /// Default resting state (no outline).
     Rest,
 }
 
@@ -59,6 +65,8 @@ pub fn resolve_chrome(state: FieldChromeState) -> FieldChrome {
         FieldChrome::Focus
     } else if state.hovered {
         FieldChrome::Hover
+    } else if state.bordered {
+        FieldChrome::Bordered
     } else {
         FieldChrome::Rest
     }
@@ -68,52 +76,66 @@ pub fn resolve_chrome(state: FieldChromeState) -> FieldChrome {
 mod tests {
     use super::*;
 
+    fn field_state(enabled: bool, has_error: bool, focused: bool, hovered: bool, bordered: bool) -> FieldChromeState {
+        FieldChromeState {
+            enabled,
+            has_error,
+            focused,
+            hovered,
+            bordered,
+        }
+    }
+
     #[test]
     fn disabled_outranks_error_focus_and_hover() {
-        let state = FieldChromeState {
-            enabled: false,
-            has_error: true,
-            focused: true,
-            hovered: true,
-        };
+        let state = field_state(false, true, true, true, false);
         assert_eq!(resolve_chrome(state), FieldChrome::Disabled);
     }
 
     #[test]
     fn error_outranks_focus_and_hover_but_not_disabled() {
-        let focused_error = FieldChromeState {
-            enabled: true,
-            has_error: true,
-            focused: true,
-            hovered: true,
-        };
-        assert_eq!(resolve_chrome(focused_error), FieldChrome::Error);
-        let hovered_error = FieldChromeState {
-            enabled: true,
-            has_error: true,
-            focused: false,
-            hovered: true,
-        };
-        assert_eq!(resolve_chrome(hovered_error), FieldChrome::Error);
+        assert_eq!(
+            resolve_chrome(field_state(true, true, true, true, false)),
+            FieldChrome::Error
+        );
+        assert_eq!(
+            resolve_chrome(field_state(true, true, false, true, false)),
+            FieldChrome::Error
+        );
     }
 
     #[test]
     fn focus_outranks_hover_and_rest_follows() {
-        let base = FieldChromeState {
-            enabled: true,
-            has_error: false,
-            focused: false,
-            hovered: false,
-        };
+        let rest = field_state(true, false, false, false, false);
         assert_eq!(
-            resolve_chrome(FieldChromeState { focused: true, ..base }),
+            resolve_chrome(FieldChromeState { focused: true, ..rest }),
             FieldChrome::Focus
         );
         assert_eq!(
-            resolve_chrome(FieldChromeState { hovered: true, ..base }),
+            resolve_chrome(FieldChromeState { hovered: true, ..rest }),
             FieldChrome::Hover
         );
-        assert_eq!(resolve_chrome(base), FieldChrome::Rest);
+        assert_eq!(resolve_chrome(rest), FieldChrome::Rest);
+    }
+
+    #[test]
+    fn bordered_field_paints_a_resting_outline_but_states_still_upgrade() {
+        let bordered_rest = field_state(true, false, false, false, true);
+        assert_eq!(resolve_chrome(bordered_rest), FieldChrome::Bordered);
+        assert_eq!(
+            resolve_chrome(FieldChromeState {
+                hovered: true,
+                ..bordered_rest
+            }),
+            FieldChrome::Hover
+        );
+        assert_eq!(
+            resolve_chrome(FieldChromeState {
+                focused: true,
+                ..bordered_rest
+            }),
+            FieldChrome::Focus
+        );
     }
 
     #[test]

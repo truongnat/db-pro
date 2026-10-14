@@ -8,10 +8,10 @@ use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::components::input::Input;
-use crate::components::interact::{paint_focus_ring, radio_info};
+
 use crate::tokens::*;
 use crate::{DbProTheme, UiCommand, UiDriver, UiSslMode};
-use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, CornerRadius, Stroke};
+use egui::{FontFamily, FontId, RichText};
 use lucide_icons::Icon;
 
 use super::super::FeedbackState;
@@ -31,138 +31,6 @@ pub fn ssl_mode_guidance(mode: UiSslMode) -> std::borrow::Cow<'static, str> {
     }
 }
 
-pub struct DriverCardProps<'a> {
-    pub icon: Icon,
-    pub name: &'a str,
-    pub subtitle: &'a str,
-    pub badge: &'a str,
-    pub is_selected: bool,
-    pub is_disabled: bool,
-    pub width: f32,
-}
-
-pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbProTheme) -> egui::Response {
-    let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 52.0), egui::Sense::click());
-    resp.widget_info(|| radio_info(!props.is_disabled, props.is_selected, props.name));
-    let is_hovered = resp.hovered() && !props.is_disabled;
-    let painter = ui.painter();
-
-    let bg_fill = if props.is_selected {
-        theme.accent_soft
-    } else if props.is_disabled {
-        theme.surface_panel.linear_multiply(0.6)
-    } else if is_hovered {
-        theme.surface_hover
-    } else {
-        theme.surface_panel
-    };
-
-    let border_stroke = if props.is_selected {
-        Stroke::new(1.5, theme.accent)
-    } else if props.is_disabled {
-        Stroke::new(1.0, theme.border_subtle.linear_multiply(0.5))
-    } else if is_hovered {
-        Stroke::new(1.0, theme.border_strong)
-    } else {
-        Stroke::new(1.0, theme.border_subtle)
-    };
-
-    painter.rect(rect, CornerRadius::same(RADIUS_CARD as u8), bg_fill, border_stroke, egui::StrokeKind::Inside);
-
-    // Left Icon (18px)
-    let icon_color = if props.is_selected {
-        theme.accent
-    } else if props.is_disabled {
-        theme.text_disabled
-    } else {
-        theme.text_secondary
-    };
-    painter.text(
-        pos2(rect.min.x + 12.0, rect.center().y),
-        Align2::LEFT_CENTER,
-        char::from(props.icon).to_string(),
-        FontId::new(18.0, FontFamily::Name("lucide".into())),
-        icon_color,
-    );
-
-    // Title and Subtitle
-    let text_x = rect.min.x + 38.0;
-    let title_color = if props.is_selected {
-        theme.text_primary
-    } else if props.is_disabled {
-        theme.text_disabled
-    } else {
-        theme.text_secondary
-    };
-    painter.text(
-        pos2(text_x, rect.center().y - 7.0),
-        Align2::LEFT_CENTER,
-        props.name,
-        DbProTheme::ui_medium_font(12.5),
-        title_color,
-    );
-
-    let sub_color = if props.is_disabled {
-        theme.text_disabled
-    } else {
-        theme.text_muted
-    };
-    painter.text(
-        pos2(text_x, rect.center().y + 8.0),
-        Align2::LEFT_CENTER,
-        props.subtitle,
-        FontId::proportional(10.0),
-        sub_color,
-    );
-
-    // Right Badge / Check
-    if props.is_selected {
-        painter.text(
-            pos2(rect.max.x - 12.0, rect.center().y),
-            Align2::RIGHT_CENTER,
-            char::from(Icon::Check).to_string(),
-            FontId::new(14.0, FontFamily::Name("lucide".into())),
-            theme.accent,
-        );
-    } else {
-        let badge_font = FontId::proportional(FONT_SIZE_BADGE);
-        let badge_h = FONT_SIZE_BADGE + SPACE_XS;
-        let badge_w = (props.badge.len() as f32) * 7.0 + SPACE_SM;
-        let badge_rect = Rect::from_min_size(
-            pos2(rect.max.x - badge_w - SPACE_SM, rect.center().y - badge_h * 0.5),
-            vec2(badge_w, badge_h),
-        );
-        let badge_bg = if props.is_disabled {
-            theme.surface_panel
-        } else {
-            theme.surface_hover
-        };
-        let badge_fg = if props.is_disabled {
-            theme.text_disabled
-        } else {
-            theme.text_secondary
-        };
-        painter.rect_filled(badge_rect, CornerRadius::same(RADIUS_XS as u8), badge_bg);
-        painter.text(
-            badge_rect.center(),
-            Align2::CENTER_CENTER,
-            props.badge,
-            badge_font,
-            badge_fg,
-        );
-    }
-
-    if resp.has_focus() {
-        paint_focus_ring(ui, rect, RADIUS_CARD, *theme);
-    }
-
-    if props.is_disabled {
-        resp.on_hover_cursor(egui::CursorIcon::NotAllowed)
-            .on_hover_text(format!("{} provider is coming soon in a future release", props.name))
-    } else {
-        resp
-    }
-}
 
 pub(crate) struct ConnectionDialogView<'view, 'bridge> {
     pub(crate) dialog: &'view mut ConnectionDialogState,
@@ -314,53 +182,47 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
     pub(crate) fn draw_connection_form(&mut self, ui: &mut egui::Ui) {
         self.draw_connection_feedback(ui);
 
-        // ── 1. Database Engine Selection Cards (Grid: 4 cols) ─────────
-        ui.horizontal(|ui| {
-            ui.label(
-                RichText::new(t!("connection.database_engine"))
-                    .font(DbProTheme::ui_medium_font(10.5))
-                    .color(self.theme.text_muted),
-            );
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(
-                    RichText::new(t!("connection.engine_hint"))
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                );
-            });
-        });
-        ui.add_space(SPACE_XS);
-
-        let gap = 8.0;
-        let card_w = calculate_engine_card_width(ui.available_width(), gap);
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            for spec in DRIVER_CARD_SPECS {
-                let is_selected = self.dialog.draft.driver == spec.driver;
-                if draw_driver_card(
-                    ui,
-                    DriverCardProps {
-                        icon: spec.icon,
-                        name: spec.name,
-                        subtitle: spec.subtitle,
-                        badge: spec.badge,
-                        is_selected,
-                        is_disabled: spec.is_disabled,
-                        width: card_w,
-                    },
-                    &self.theme,
-                )
-                .clicked()
-                {
-                    let driver_changed = self.dialog.draft.driver != spec.driver;
-                    select_driver(&mut self.dialog.draft, spec.driver);
-                    if driver_changed {
-                        self.dialog.focus_name_on_open = true;
-                    }
-                }
+        // ── 1. Database Engine Picker (Select — add providers in DRIVER_CARD_SPECS) ──
+        let avail = ui.available_width();
+        // Engine picker as a Select: adding a provider is one spec entry, no
+        // new card layout. Select is not required-marked — a driver is always
+        // selected by default.
+        let mut selected_idx = DRIVER_CARD_SPECS
+            .iter()
+            .position(|spec| spec.driver == Some(self.dialog.draft.driver))
+            .unwrap_or(0);
+        let options: Vec<String> = DRIVER_CARD_SPECS
+            .iter()
+            .map(|spec| format!("{} — {}", spec.name, spec.subtitle))
+            .collect();
+        let icon_ids: Vec<Option<egui::TextureId>> = DRIVER_CARD_SPECS
+            .iter()
+            .map(|spec| super::driver_icons::texture(ui.ctx(), spec.icon_png))
+            .collect();
+        let disabled_flags: Vec<bool> = DRIVER_CARD_SPECS
+            .iter()
+            .map(|spec| spec.is_disabled)
+            .collect();
+        let resp = crate::components::Select::new("db_engine_select", &mut selected_idx, &options)
+            .label(t!("connection.database_engine"))
+            .width(avail)
+            .option_icons(&icon_ids)
+            .option_disabled(&disabled_flags)
+            .show(ui);
+        if std::env::var_os("DB_PRO_DEBUG_SELECT").is_some() {
+            let pos = ui.ctx().input(|i| i.pointer.interact_pos());
+            let layer = pos.and_then(|p| ui.ctx().layer_id_at(p));
+            let open = egui::Popup::is_id_open(ui.ctx(), egui::Id::new("db_engine_select"));
+            eprintln!("[select] pos={pos:?} layer={layer:?} clicked={} open={open}", resp.clicked());
+        }
+        // Disabled specs carry `driver: None` — ignore them so a coming-soon row
+        // can't overwrite the real driver behind the scenes.
+        if let Some(driver) = DRIVER_CARD_SPECS[selected_idx].driver {
+            if driver != self.dialog.draft.driver {
+                select_driver(&mut self.dialog.draft, driver);
+                self.dialog.focus_name_on_open = true;
             }
-        });
+        }
 
         ui.add_space(SPACE_MD);
 
@@ -513,7 +375,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         );
         ui.add_space(SPACE_XXS);
 
-        let SqliteFileRowWidths { input_w, button_w } = calculate_sqlite_file_row_widths(avail, gap);
+        let (input_w, button_w) = sqlite_file_row(avail, gap);
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
@@ -554,28 +416,10 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         ui.add_space(SPACE_SM);
 
         // Embedded SQLite Engine Info Card
-        Frame {
-            fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
-            corner_radius: CornerRadius::same(RADIUS_CARD as u8),
-            inner_margin: Margin::same(10.0 as i8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(char::from(Icon::Info).to_string())
-                        .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
-                        .color(self.theme.accent),
-                );
-                ui.add_space(SPACE_XS);
-                ui.label(
-                    RichText::new(t!("connection.sqlite_info_hint"))
-                        .size(11.5)
-                        .color(self.theme.text_muted),
-                );
-            });
-        });
+        Alert::title_only(t!("connection.sqlite_info_hint"), self.theme)
+            .variant(AlertVariant::Info)
+            .icon(Icon::Info)
+            .show(ui);
 
         // Panel: Tags & Metadata
         self.draw_tags_metadata_panel(

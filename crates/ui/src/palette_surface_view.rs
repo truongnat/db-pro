@@ -18,14 +18,6 @@ pub(super) struct PaletteSurfaceContext<'a> {
     pub(super) description: &'a str,
 }
 
-fn scope_filter_label(ui: &mut egui::Ui, theme: DbProTheme, selected: bool, label: &str) -> egui::Response {
-    let foreground = if selected {
-        ui.visuals().selection.stroke.color
-    } else {
-        theme.text_primary
-    };
-    ui.selectable_label(selected, RichText::new(label).color(foreground))
-}
 
 impl<'a> PaletteSurfaceContext<'a> {
     pub(super) fn draw(&mut self, ctx: &egui::Context) -> Vec<PaletteSurfaceAction> {
@@ -39,17 +31,12 @@ impl<'a> PaletteSurfaceContext<'a> {
             .width(580.0)
             .id_salt("palette_dialog")
             .show_ctx(ctx, |ui| {
-                let response = ui.add(
-                    TextEdit::singleline(&mut self.palette.query)
-                        .hint_text(RichText::new("Type a command or search…").color(self.theme.text_muted))
-                        .desired_width(ui.available_width())
-                        .margin(egui::Margin::symmetric(12.0 as i8, 8.0 as i8))
-                        .font(egui::FontId::proportional(13.5))
-                        .text_color(self.theme.text_primary),
-                );
-                response.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), title)
-                });
+                let response = crate::components::input::SearchInput::new(
+                    &mut self.palette.query,
+                    "Type a command or search…",
+                    self.theme,
+                )
+                .show(ui);
                 if self.palette.focus_requested {
                     response.request_focus();
                     self.palette.focus_requested = false;
@@ -57,14 +44,17 @@ impl<'a> PaletteSurfaceContext<'a> {
 
                 ui.add_space(6.0);
                 ui.horizontal_wrapped(|ui| {
-                    ui.style_mut().visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
-                    ui.style_mut().visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
-                    for scope in SearchScope::all() {
-                        let selected = self.palette.scope == *scope;
-                        if scope_filter_label(ui, self.theme, selected, scope.label()).clicked() {
-                            self.palette.scope = *scope;
-                            self.palette.selected = 0;
-                        }
+                    let scopes = SearchScope::all();
+                    let mut scope_idx = scopes
+                        .iter()
+                        .position(|scope| *scope == self.palette.scope)
+                        .unwrap_or(0);
+                    let idx_before = scope_idx;
+                    let scope_labels: Vec<&str> = scopes.iter().map(|scope| scope.label()).collect();
+                    crate::components::SegmentedTabs::new(&mut scope_idx, &scope_labels, self.theme).show(ui);
+                    if scope_idx != idx_before && scope_idx < scopes.len() {
+                        self.palette.scope = scopes[scope_idx];
+                        self.palette.selected = 0;
                     }
                 });
 
@@ -83,7 +73,7 @@ impl<'a> PaletteSurfaceContext<'a> {
                 }
 
                 ui.add_space(8.0);
-                egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                ScrollArea::new(self.theme).max_height(320.0).show(ui, |ui| {
                     if items.is_empty() {
                         ui.add_space(16.0);
                         ui.vertical_centered(|ui| {
@@ -193,30 +183,3 @@ impl<'a> PaletteSurfaceContext<'a> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn selected_scope_label_uses_the_theme_selection_foreground() {
-        for theme in [DbProTheme::light(), DbProTheme::dark()] {
-            let ctx = egui::Context::default();
-            theme.apply(&ctx);
-            let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    let _ = scope_filter_label(ui, theme, true, "Schema");
-                });
-            });
-
-            let selected_foreground = ctx.global_style().visuals.selection.stroke.color;
-            let actual_foreground = output.shapes.iter().find_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(text) if text.galley.job.text == "Schema" => {
-                    text.galley.job.sections.first().map(|section| section.format.color)
-                }
-                _ => None,
-            });
-
-            assert_eq!(actual_foreground, Some(selected_foreground), "dark_mode={}", theme.dark_mode);
-        }
-    }
-}

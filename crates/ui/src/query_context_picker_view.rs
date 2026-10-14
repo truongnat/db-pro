@@ -45,7 +45,7 @@ pub(super) fn draw_picker(
                         .color(context.theme.text_muted),
                 );
                 ui.add_space(4.0);
-                egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).max_height(180.0).show(ui, |ui| {
                     for (id, name, environment) in context.connections {
                         let selected = context.current_connection_id == Some(id.as_str());
                         let label = if environment.is_empty() {
@@ -59,6 +59,8 @@ pub(super) fn draw_picker(
                                 label: &label,
                                 selected,
                                 theme: context.theme,
+                                icon: None,
+                                disabled: false,
                             },
                         )
                         .clicked()
@@ -67,7 +69,7 @@ pub(super) fn draw_picker(
                         }
                     }
                 });
-                ui.separator();
+                Separator::horizontal(context.theme).show(ui);
                 ui.label(RichText::new("Schema").small().strong().color(context.theme.text_muted));
                 ui.add_space(4.0);
                 for schema in context.available_schemas {
@@ -77,6 +79,8 @@ pub(super) fn draw_picker(
                             label: schema,
                             selected: context.current_schema == schema,
                             theme: context.theme,
+                            icon: None,
+                            disabled: false,
                         },
                     )
                     .clicked()

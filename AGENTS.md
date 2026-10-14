@@ -25,6 +25,15 @@ benchmark harness under `_archive/bench/`. They are reference material only: do 
 features to them, do not build them in CI, and do not restore them as a fallback.
 See `_archive/README.md` and `docs/10-egui-native-migration-plan.md`.
 
+### Component-first rule
+
+Read `RULES.md` before any UI work in `crates/ui`: view code MUST use core
+components (`crates/ui/src/components/*`), never raw egui widgets
+(`ui.checkbox`, `egui::ScrollArea`, `egui::ComboBox`, `ui.text_edit_*`, …).
+Theme colors come only from `DbProTheme`/tokens. Exemptions require an inline
+`// ui-rules:` comment; `scripts/check-ui-architecture.sh` enforces the rule.
+
+
 ## Canonical feature lifecycle
 
 Read `docs/plans/FEATURE_LIFECYCLE.md` before non-trivial work.

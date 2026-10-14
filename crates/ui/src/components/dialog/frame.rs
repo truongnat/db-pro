@@ -17,6 +17,7 @@ impl<'a> DialogFrame<'a> {
             .max_width(inner_w)
             .max_height(max_h)
             .auto_shrink([false, true])
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
             .show(self.ui, |body_ui| {
                 body_ui.set_max_width(inner_w);
                 add_contents(body_ui)

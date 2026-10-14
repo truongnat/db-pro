@@ -125,18 +125,6 @@ impl<'a> NativeStorageContext<'a> {
         {
             self.workspace.set_bottom_panel_height(height);
         }
-        if let Some(height) = storage
-            .get_string("dbpro.native.connections-pane-height")
-            .and_then(|value| value.parse::<f32>().ok())
-        {
-            self.schema_explorer.connections_pane_height = height.clamp(80.0, 400.0);
-        }
-        if let Some(height) = storage
-            .get_string("dbpro.native.schemas-pane-height")
-            .and_then(|value| value.parse::<f32>().ok())
-        {
-            self.schema_explorer.schemas_pane_height = height.clamp(60.0, 200.0);
-        }
     }
 
     pub(crate) fn restore_table_layout(&mut self, storage: &dyn eframe::Storage) {

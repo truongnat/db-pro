@@ -90,7 +90,7 @@ pub(super) fn draw_menu(
             action = Some(GridHeaderMenuAction::AddFilter);
             *close_menu = true;
         }
-        ui.separator();
+        Separator::horizontal(context.theme).show(ui);
         if ctx_menu_item(
             ui,
             Some(Icon::Copy),
@@ -117,7 +117,7 @@ pub(super) fn draw_menu(
             action = Some(GridHeaderMenuAction::CopyColumnValues(context.column_index));
             *close_menu = true;
         }
-        ui.separator();
+        Separator::horizontal(context.theme).show(ui);
         if context.visual_index > 0
             && ctx_menu_item(
                 ui,
@@ -146,7 +146,7 @@ pub(super) fn draw_menu(
             action = Some(GridHeaderMenuAction::MoveRight(context.visual_index));
             *close_menu = true;
         }
-        ui.separator();
+        Separator::horizontal(context.theme).show(ui);
         if ctx_menu_item(
             ui,
             Some(Icon::RotateCcw),

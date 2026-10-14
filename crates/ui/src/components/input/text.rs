@@ -24,7 +24,12 @@ pub struct Input<'a> {
     error_text: Option<Cow<'a, str>>,
     leading_icon: Option<Icon>,
     clearable: bool,
+    /// Mask the value with egui's password glyphs (no reveal affordance;
+    /// callers that need a reveal toggle use `PasswordInput` instead).
+    password: bool,
     required: bool,
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
+    bordered: bool,
     width: Option<f32>,
     id_salt: Option<Id>,
     auto_focus: bool,
@@ -43,7 +48,9 @@ impl<'a> Input<'a> {
             error_text: None,
             leading_icon: None,
             clearable: false,
+            password: false,
             required: false,
+            bordered: false,
             width: None,
             id_salt: None,
             auto_focus: false,
@@ -97,6 +104,13 @@ impl<'a> Input<'a> {
         self
     }
 
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome;
+    /// hover/focus/error still upgrade the stroke.
+    pub fn bordered(mut self, bordered: bool) -> Self {
+        self.bordered = bordered;
+        self
+    }
+
     pub fn id_salt(mut self, id_salt: impl std::hash::Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(id_salt));
         self
@@ -104,6 +118,11 @@ impl<'a> Input<'a> {
 
     pub fn auto_focus(mut self, auto_focus: bool) -> Self {
         self.auto_focus = auto_focus;
+        self
+    }
+
+    pub fn password(mut self, password: bool) -> Self {
+        self.password = password;
         self
     }
 
@@ -177,6 +196,7 @@ impl<'a> Input<'a> {
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)
                             .frame(egui::Frame::NONE)
+                            .password(self.password)
                             .text_color(if self.enabled {
                                 self.theme.text_primary
                             } else {
@@ -233,6 +253,7 @@ impl<'a> Input<'a> {
                     hovered: frame_output.response.hovered() || edit_response.hovered(),
                     enabled: self.enabled,
                     has_error,
+                    bordered: self.bordered,
                 },
                 self.theme,
             );

@@ -39,9 +39,12 @@ management
 query
 saved_tasks
 schema
+table_copy
 table
 task_bridge
 theme
+dev_tools
+capture_evidence_seeded
 workspace
 EOF
 )
@@ -209,7 +212,6 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/sidebar_query_library_view.rs"
   "$repo_root/crates/ui/src/sidebar_query_shortcuts_view.rs"
   "$repo_root/crates/ui/src/shell_frame_view.rs"
-  "$repo_root/crates/ui/src/shell_output_panel_view.rs"
   "$repo_root/crates/ui/src/shell_topbar_view.rs"
   "$repo_root/crates/ui/src/shell_statusbar_view.rs"
   "$repo_root/crates/ui/src/welcome_surface_view.rs"
@@ -298,7 +300,8 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/table_data_mutation_toolbar_view.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
-  if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then
+  # DbProApp inside #[cfg(test)] blocks is allowed: tests construct the shell.
+  if awk '/#\[cfg\(test\)\]/{exit} /^impl DbProApp|\bDbProApp\b/{found=1} END{exit !found}' "$module"; then
     echo "UI architecture check failed: explicit-state feature helpers must depend on state/context, not DbProApp." >&2
     exit 1
   fi
@@ -413,5 +416,21 @@ for module in event_router agent_events connection_events ddl_events file_picker
     exit 1
   }
 done
+
+# RULES.md: view code must use crates/ui/src/components primitives, never raw
+# egui widgets. Exemptions: components/ (the wrappers themselves), dev_tools/,
+# *_tests.rs / test modules, and lines carrying an explicit `// ui-rules:` comment.
+raw_widgets=$(rg -n \
+  'ui\.checkbox|ui\.radio\b|ui\.toggle_value|ui\.button\(|ui\.selectable_label|ui\.text_edit_|ui\.menu_button|egui::ComboBox|egui::Slider|egui::RadioButton|egui::TextEdit|egui::ScrollArea' \
+  "$repo_root/crates/ui/src" --glob '*.rs' \
+  | rg -v '/components/|/dev_tools/|_tests\.rs:|app_tests\.rs:|component_gallery_rendering\.rs:' \
+  | rg -v 'ui-rules:' \
+  | rg -v '#\[cfg\(test\)\]' || true)
+if [[ -n "$raw_widgets" ]]; then
+  echo "UI architecture check failed: raw egui widgets in view code (see RULES.md; use components/* or add a // ui-rules: exemption):" >&2
+  echo "$raw_widgets" >&2
+  exit 1
+fi
+
 
 echo "UI architecture boundary: PASS"

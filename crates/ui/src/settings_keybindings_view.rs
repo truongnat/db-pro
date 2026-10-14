@@ -70,7 +70,7 @@ impl SettingsKeybindingsContext<'_> {
             .copied()
             .collect();
         let conflicts = self.preferences.settings.keybindings.conflict_ids();
-        egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+        ScrollArea::new(self.theme).max_height(280.0).show(ui, |ui| {
             for command in catalog {
                 self.draw_command_row(ui, command, conflicts.contains(command.id));
                 ui.add_space(4.0);

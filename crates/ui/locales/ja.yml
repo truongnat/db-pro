@@ -62,6 +62,7 @@ connection:
   delete_folder_warning: "このフォルダ内のクエリは未分類になります。"
   cloud_presets_title: "クラウドプリセット & URI インポート"
   apply_preset: "プリセットを適用"
+  cloud_preset_placeholder: "クラウドプリセットを選択…"
   token_session_warning: "トークンはセッション中のみ有効で、パスワードとして永続化されません"
   paste_uri: "接続URIを貼り付け"
   import_uri: "URIからインポート"

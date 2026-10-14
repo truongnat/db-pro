@@ -138,25 +138,22 @@ fn draw_value(context: &mut ValueInspectorContext<'_>, ui: &mut egui::Ui) {
 }
 
 fn draw_raw(context: &mut ValueInspectorContext<'_>, ui: &mut egui::Ui) {
-    let mut editor = egui::TextEdit::multiline(context.value)
-        .desired_width(ui.available_width())
-        .desired_rows(16);
-    if !context.writable {
-        editor = editor.interactive(false);
-    }
-    if ui.add(editor).changed() {
+    let response = crate::components::Textarea::new(context.value, "", context.theme)
+        .min_rows(16)
+        .read_only(!context.writable)
+        .show(ui);
+    if response.changed() {
         *context.error = None;
     }
 }
 
 fn draw_pretty(context: &mut ValueInspectorContext<'_>, ui: &mut egui::Ui) {
     let mut pretty = cell_inspector::pretty_json(context.value).unwrap_or_else(|| context.value.clone());
-    ui.add(
-        egui::TextEdit::multiline(&mut pretty)
-            .desired_width(ui.available_width())
-            .desired_rows(16)
-            .interactive(false),
-    );
+    crate::components::Textarea::new(&mut pretty, "", context.theme)
+        .min_rows(16)
+        .read_only(true)
+        .show(ui);
+
     if context.writable
         && Button::new(context.theme)
             .text("Use pretty as edit buffer")
@@ -171,7 +168,7 @@ fn draw_pretty(context: &mut ValueInspectorContext<'_>, ui: &mut egui::Ui) {
 }
 
 fn draw_tree(context: &ValueInspectorContext<'_>, ui: &mut egui::Ui) {
-    egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+    ScrollArea::new(context.theme).max_height(280.0).show(ui, |ui| {
         for line in cell_inspector::json_tree_lines(context.value, 400) {
             ui.label(egui::RichText::new(line).monospace().small());
         }
@@ -195,12 +192,10 @@ fn draw_bytes(context: &ValueInspectorContext<'_>, ui: &mut egui::Ui, hex: bool)
         Err(error) => format!("({} unavailable: {error})", if hex { "hex" } else { "base64" }),
     };
     let mut display = text;
-    ui.add(
-        egui::TextEdit::multiline(&mut display)
-            .desired_width(ui.available_width())
-            .desired_rows(if hex { 14 } else { 10 })
-            .interactive(false),
-    );
+    crate::components::Textarea::new(&mut display, "", context.theme)
+        .min_rows(if hex { 14 } else { 10 })
+        .read_only(true)
+        .show(ui);
 }
 
 fn draw_footer(context: &ValueInspectorContext<'_>, ui: &mut egui::Ui, action: &mut Option<ValueInspectorAction>) {

@@ -54,7 +54,7 @@ impl DbProApp {
             return;
         }
         let scroll_h = ui.available_height();
-        egui::ScrollArea::vertical()
+        ScrollArea::new(self.theme)
             .id_salt("sidebar_scroll")
             .auto_shrink([false, false])
             .max_height(scroll_h)

@@ -250,10 +250,12 @@ fn draw_profile_grid(theme: DbProTheme, ui: &mut egui::Ui, profiles: &[ColumnPro
         .iter()
         .any(|profile| profile.avg.is_some() || profile.sum.is_some());
     let columns = profile_columns(ui, theme, profiles, row_count, show_numeric_summary);
-    let profile_scroll = egui::ScrollArea::horizontal()
+    let profile_scroll = ScrollArea::new(theme)
+        .horizontal(true)
+        .vertical(false)
         .id_salt("column-profile-grid-scroll")
         .auto_shrink([false, true])
-        .show(ui, |ui| {
+        .show_with_output(ui, |ui| {
             // Row names come from the profile's real column names — AT users
             // hear the column the row describes, not "row 3".
             Table::new(&columns, theme)

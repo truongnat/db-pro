@@ -50,3 +50,12 @@ navigation theo nhóm và active pill; pipeline action/state cũ được giữ 
 Dark/light capture 1280×800 và các capture width 1440/1920 đã kiểm tra trực
 quan. Toàn bộ gate tự động đã chạy đạt; độ cao 1440/1920 bị giới hạn bởi host,
 và independent review vẫn chưa thực hiện.
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/06-shell-crosscutting.md` verdict: **SUPPORTS** — the
+dedicated Settings mode and chrome suppression verified at HEAD
+(`app_lifecycle.rs:187-221` `settings_mode` suppresses topbar/tabs/sidebar/dock/statusbar).
+Fresh captures: `docs/plans/_audit-2026-10-13/captures/settings_{1280x800,1440x900,1920x1080}.png`
+(larger heights host-capped at 838, as before). Only independent review remains.
+State stays RUNTIME_VERIFY.

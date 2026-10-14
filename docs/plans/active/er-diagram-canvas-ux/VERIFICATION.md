@@ -87,3 +87,20 @@ pointer-level drag can only be fully confirmed by the owner in the live app.
   mouse-drag gesture should be smoke-tested by the owner in the live app.
 - Plan stays under `active/` pending owner review; move to `completed/` only
   after handoff acceptance.
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/04-er-explorer-sidebar.md` verdict: **SUPPORTS** — all 7
+scope items verified in code at HEAD (infinite canvas, wheel-zoom to cursor, node drag,
+auto-fit, minimap, compact toolbar, per-connection persisted layouts). Persistence is
+real: `ErLayoutSnapshot` under key `dbpro.native.er-layouts-v1`
+(`diagram/persistence.rs`), restored in `app_storage.rs`, written in `app_lifecycle.rs`.
+
+Fresh runtime evidence: `docs/plans/_audit-2026-10-13/captures/diagram_{1280x800,1440x900,1920x1080}.png` —
+10 seeded tables, orthogonal FK edges, minimap, zoom readout (heights host-capped at
+838 for the two larger widths). Live provider context: `pg_integration` 28/28 PASS on
+PostgreSQL 18.6 and `mysql_integration` 8/8 PASS on MySQL this run (`CAPTURE-EVIDENCE.md`),
+though the diagram still consumes the provider-neutral summary.
+
+Still open: owner pointer-level drag smoke (drag → save → relaunch → same position) in
+the live app, plus 2 P2 nits recorded in the slice report. State stays RUNTIME_VERIFY.

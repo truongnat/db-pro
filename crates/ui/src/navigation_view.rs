@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn draw_diagram_sidebar(ui: &mut egui::Ui, theme: DbProTheme, schema: &UiSchemaSummary) -> bool {
     draw_schema_map_section(ui, theme, schema);
     ui.add_space(12.0);
-    ui.separator();
+    Separator::horizontal(theme).show(ui);
     ui.add_space(12.0);
     ui.vertical(|ui| {
         section_label(ui, "NAVIGATION", theme);

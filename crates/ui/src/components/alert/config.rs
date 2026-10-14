@@ -47,12 +47,8 @@ pub const DIALOG_DESCRIPTION_SIZE: f32 = 13.0;
 pub const DIALOG_TITLE_GAP: f32 = 6.0;
 /// Gap before dialog actions, in egui points.
 pub const DIALOG_ACTIONS_GAP: f32 = 20.0;
-/// Dialog shadow offset, blur, and opacity.
-pub const DIALOG_SHADOW_OFFSET_Y: f32 = 8.0;
-pub const DIALOG_SHADOW_BLUR: f32 = 24.0;
-pub const DIALOG_SHADOW_OPACITY: u8 = 80;
-/// Backdrop opacity.
-pub const BACKDROP_OPACITY: u8 = 140;
+// Dialog shadow uses `DbProTheme::floating_shadow`; the backdrop uses the
+// `background.overlay` semantic role, so neither is component-owned.
 
 #[cfg(test)]
 mod tests {

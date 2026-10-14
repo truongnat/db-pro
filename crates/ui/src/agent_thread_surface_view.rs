@@ -27,12 +27,12 @@ impl AgentThreadSurfaceContext<'_> {
         // Reserve the composer's real height (label + 2-row input + action row +
         // frame margins ≈ 108pt); 86 undercut it and the frame bottom clipped the card.
         let messages_height = (ui.available_height() - 112.0).max(160.0);
-        let thread_scroll = egui::ScrollArea::vertical()
+        let thread_scroll = ScrollArea::new(self.theme)
             .id_salt("agent-thread-scroll")
             .max_height(messages_height)
             .auto_shrink([false, false])
             .stick_to_bottom(true)
-            .show(ui, |ui| {
+            .show_with_output(ui, |ui| {
                 if self.session.messages.is_empty()
                     && self.session.activities.is_empty()
                     && self.session.streaming_text.is_empty()
@@ -60,7 +60,7 @@ impl AgentThreadSurfaceContext<'_> {
             });
         crate::components::name_scroll_bars(ui.ctx(), thread_scroll.id, "Agent thread");
         ui.add_space(SPACE_XS);
-        ui.separator();
+        Separator::horizontal(self.theme).show(ui);
         ui.add_space(SPACE_XS);
         actions
     }
@@ -254,10 +254,10 @@ impl AgentThreadSurfaceContext<'_> {
                 .small()
                 .color(self.theme.text_secondary),
         );
-        let patch_scroll = egui::ScrollArea::vertical()
+        let patch_scroll = ScrollArea::new(self.theme)
             .max_height(120.0)
             .id_salt("patch-diff-scroll")
-            .show(ui, |ui| {
+            .show_with_output(ui, |ui| {
                 if !original.is_empty() {
                     ui.label(
                         RichText::new(format!("- {original}"))

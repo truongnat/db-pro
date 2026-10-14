@@ -19,6 +19,7 @@ rand.workspace = true
 tracing.workspace = true
 rust-i18n.workspace = true
 rust_xlsxwriter.workspace = true
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 criterion.workspace = true

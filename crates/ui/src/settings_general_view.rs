@@ -51,14 +51,18 @@ impl SettingsGeneralContext<'_> {
             }
         });
         ui.add_space(8.0);
-        ui.checkbox(
+        Checkbox::new(
             &mut self.preferences.settings.general.confirm_destructive_queries,
             "Confirm destructive queries",
-        );
-        ui.checkbox(
+            self.theme,
+        )
+        .show(ui);
+        Checkbox::new(
             &mut self.preferences.settings.general.restore_tabs_on_startup,
             "Restore query tabs on startup",
-        );
+            self.theme,
+        )
+        .show(ui);
     }
 
     fn draw_workspace_sessions(&mut self, ui: &mut egui::Ui) -> Vec<SettingsGeneralAction> {

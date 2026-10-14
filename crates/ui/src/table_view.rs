@@ -89,7 +89,7 @@ impl DbProApp {
         id: &'static str,
         draw: impl FnOnce(&mut Self, &mut egui::Ui),
     ) {
-        table_scroll_surface_view::draw(ui, id, |ui| draw(self, ui));
+        table_scroll_surface_view::draw(ui, id, self.theme, |ui| draw(self, ui));
     }
 
     fn apply_table_workspace_surface_action(

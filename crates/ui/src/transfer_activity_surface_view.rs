@@ -84,10 +84,12 @@ impl TransferActivityContext<'_> {
                     self.theme.warning,
                     "Production connection — confirm before applying INSERT SQL",
                 );
-                ui.checkbox(
+                Checkbox::new(
                     &mut self.management.synthetic_data.synthetic_production_confirm,
                     "I confirm seeding this Production database",
-                );
+                    self.theme,
+                )
+                .show(ui);
             }
             self.draw_synthetic_actions(ui, action);
             self.draw_synthetic_result(ui);
@@ -213,7 +215,7 @@ impl TransferActivityContext<'_> {
             if mask_selected != mask_previous {
                 self.management.masking.masking_rule = MASK_RULES[mask_selected].0;
             }
-            ui.checkbox(&mut self.management.masking.masking_keyed, "Keyed hash");
+            Checkbox::new(&mut self.management.masking.masking_keyed, "Keyed hash", self.theme).show(ui);
             if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                 let names: Vec<String> = self
                     .table_details
@@ -256,17 +258,27 @@ impl TransferActivityContext<'_> {
         );
         ui.horizontal(|ui| {
             ui.label("Source");
-            ui.text_edit_singleline(&mut self.management.transfer.source_connection_id);
+            crate::components::input::Input::new(&mut self.management.transfer.source_connection_id, "conn id", self.theme)
+                .width(160.0)
+                .show(ui);
             ui.label("Target");
-            ui.text_edit_singleline(&mut self.management.transfer.target_connection_id);
+            crate::components::input::Input::new(&mut self.management.transfer.target_connection_id, "conn id", self.theme)
+                .width(160.0)
+                .show(ui);
         });
         ui.horizontal(|ui| {
             ui.label("Tables");
-            ui.text_edit_singleline(&mut self.management.transfer.copy_tables);
+            crate::components::input::Input::new(&mut self.management.transfer.copy_tables, "schema.table…", self.theme)
+                .width(160.0)
+                .show(ui);
             ui.label("Format");
-            ui.text_edit_singleline(&mut self.management.transfer.copy_format);
+            crate::components::input::Input::new(&mut self.management.transfer.copy_format, "csv or json", self.theme)
+                .width(120.0)
+                .show(ui);
             ui.label("Conflict");
-            ui.text_edit_singleline(&mut self.management.transfer.copy_conflict);
+            crate::components::input::Input::new(&mut self.management.transfer.copy_conflict, "abort / skip / replace", self.theme)
+                .width(140.0)
+                .show(ui);
         });
         ui.add_space(SPACE_SM);
     }

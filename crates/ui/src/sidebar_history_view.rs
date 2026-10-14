@@ -205,7 +205,7 @@ impl SidebarHistoryContext<'_> {
                 );
             }
             ui.add_space(SPACE_XXS);
-            egui::ScrollArea::vertical().max_height(96.0).show(ui, |ui| {
+            ScrollArea::new(self.theme).max_height(96.0).show(ui, |ui| {
                 ui.add(
                     egui::Label::new(
                         RichText::new(&entry.sql)

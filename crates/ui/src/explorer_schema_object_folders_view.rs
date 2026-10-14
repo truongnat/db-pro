@@ -10,6 +10,7 @@ use super::{
     context_action_menu, ctx_menu_item, DbProTheme, SchemaExplorerState, SchemaObjectSelection, UiFunctionSummary,
     UiTriggerSummary, UiViewSummary,
 };
+use crate::components::Separator;
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -18,6 +19,7 @@ pub(super) enum SchemaObjectFolderAction {
     OpenQuery(String),
     ModifyView(UiViewSummary),
     DropObject { schema: String, name: String, kind: String },
+    ToggleTrigger { schema: String, table: String, name: String, enable: bool },
     CopyName(String),
     RefreshSchema,
 }
@@ -25,11 +27,27 @@ pub(super) enum SchemaObjectFolderAction {
 pub(super) struct SchemaObjectFoldersView<'a> {
     theme: DbProTheme,
     explorer: &'a SchemaExplorerState,
+    trigger_toggle_unavailable_reason: Option<String>,
 }
 
 impl<'a> SchemaObjectFoldersView<'a> {
-    pub(super) fn new(theme: DbProTheme, explorer: &'a SchemaExplorerState) -> Self {
-        Self { theme, explorer }
+    pub(super) fn new(
+        theme: DbProTheme,
+        explorer: &'a SchemaExplorerState,
+        trigger_toggle_unavailable_reason: Option<String>,
+    ) -> Self {
+        Self {
+            theme,
+            explorer,
+            trigger_toggle_unavailable_reason,
+        }
+    }
+
+    /// Shared schema/search predicate — mirrors the old `filter_by_schema`
+    /// semantics without materialising a `Vec` before the folder-open check.
+    fn object_in_scope(&self, schema: &str, item_schema: &str, name: &str, search_query: &str) -> bool {
+        let schema_matches = self.explorer.schema.schemas.is_empty() || schema.is_empty() || item_schema == schema;
+        schema_matches && (search_query.is_empty() || self.explorer.explorer_filter.name_matches(name, search_query))
     }
 
     pub(super) fn draw_views(
@@ -37,21 +55,9 @@ impl<'a> SchemaObjectFoldersView<'a> {
         ui: &mut egui::Ui,
         schema: &str,
         search_query: &str,
-        _count: usize,
     ) -> Vec<SchemaObjectFolderAction> {
-        let views: Vec<_> = self
-            .explorer
-            .filter_by_schema(&self.explorer.schema.views, schema, |view| &view.schema)
-            .into_iter()
-            .filter(|v| {
-                search_query.is_empty()
-                    || self
-                        .explorer
-                        .explorer_filter
-                        .name_matches(&v.name, search_query)
-            })
-            .collect();
-        let count = views.len();
+        let in_scope = |view: &&UiViewSummary| self.object_in_scope(schema, &view.schema, &view.name, search_query);
+        let count = self.explorer.schema.views.iter().filter(in_scope).count();
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_views_folder", schema));
@@ -72,7 +78,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 }),
             },
             |ui| {
-                for view in &views {
+                for view in self.explorer.schema.views.iter().filter(in_scope) {
                     actions.extend(self.draw_view_row(ui, view));
                 }
             },
@@ -86,21 +92,11 @@ impl<'a> SchemaObjectFoldersView<'a> {
         ui: &mut egui::Ui,
         schema: &str,
         search_query: &str,
-        _count: usize,
     ) -> Vec<SchemaObjectFolderAction> {
-        let functions: Vec<_> = self
-            .explorer
-            .filter_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema)
-            .into_iter()
-            .filter(|f| {
-                search_query.is_empty()
-                    || self
-                        .explorer
-                        .explorer_filter
-                        .name_matches(&f.name, search_query)
-            })
-            .collect();
-        let count = functions.len();
+        let in_scope = |function: &&UiFunctionSummary| {
+            self.object_in_scope(schema, &function.schema, &function.name, search_query)
+        };
+        let count = self.explorer.schema.functions.iter().filter(in_scope).count();
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_functions_folder", schema));
@@ -121,7 +117,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 }),
             },
             |ui| {
-                for function in &functions {
+                for function in self.explorer.schema.functions.iter().filter(in_scope) {
                     actions.extend(self.draw_function_row(ui, function));
                 }
             },
@@ -135,21 +131,10 @@ impl<'a> SchemaObjectFoldersView<'a> {
         ui: &mut egui::Ui,
         schema: &str,
         search_query: &str,
-        _count: usize,
     ) -> Vec<SchemaObjectFolderAction> {
-        let triggers: Vec<_> = self
-            .explorer
-            .filter_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema)
-            .into_iter()
-            .filter(|t| {
-                search_query.is_empty()
-                    || self
-                        .explorer
-                        .explorer_filter
-                        .name_matches(&t.name, search_query)
-            })
-            .collect();
-        let count = triggers.len();
+        let in_scope =
+            |trigger: &&UiTriggerSummary| self.object_in_scope(schema, &trigger.schema, &trigger.name, search_query);
+        let count = self.explorer.schema.triggers.iter().filter(in_scope).count();
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_triggers_folder", schema));
@@ -170,7 +155,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 }),
             },
             |ui| {
-                for trigger in &triggers {
+                for trigger in self.explorer.schema.triggers.iter().filter(in_scope) {
                     actions.extend(self.draw_trigger_row(ui, trigger));
                 }
             },
@@ -191,13 +176,30 @@ impl<'a> SchemaObjectFoldersView<'a> {
         let theme = self.theme;
         let schema = schema.to_owned();
         context_action_menu(ui, response, theme, |ui, close_menu| {
-            if ctx_menu_item(ui, Some(Icon::RefreshCw), "Refresh Schema", None, theme.text_primary, theme).clicked()
+            if ctx_menu_item(
+                ui,
+                Some(Icon::RefreshCw),
+                "Refresh Schema",
+                None,
+                theme.text_primary,
+                theme,
+            )
+            .clicked()
             {
                 actions.push(SchemaObjectFolderAction::RefreshSchema);
                 *close_menu = true;
             }
-            ui.separator();
-            if ctx_menu_item(ui, Some(Icon::Copy), "Copy Schema Name", None, theme.text_primary, theme).clicked() {
+            Separator::horizontal(theme).show(ui);
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Copy),
+                "Copy Schema Name",
+                None,
+                theme.text_primary,
+                theme,
+            )
+            .clicked()
+            {
                 actions.push(SchemaObjectFolderAction::CopyName(schema));
                 *close_menu = true;
             }
@@ -226,28 +228,31 @@ impl<'a> SchemaObjectFoldersView<'a> {
             modify_label: Some("Modify View (Workbench)..."),
             drop_label: Some("Drop View..."),
             copy_label: "Copy View Name",
+            trigger_toggle_label: None,
+            trigger_toggle_unavailable_reason: None,
         }
         .draw(ui);
 
         actions
             .into_iter()
-            .map(|action| match action {
-                SchemaObjectRowAction::Open => SchemaObjectFolderAction::Open(SchemaObjectActivation {
+            .filter_map(|action| match action {
+                SchemaObjectRowAction::Open => Some(SchemaObjectFolderAction::Open(SchemaObjectActivation {
                     selection: SchemaObjectSelection::View(view.name.clone()),
                     schema: view.schema.clone(),
                     name: view.name.clone(),
                     kind: "view".to_owned(),
-                }),
+                })),
                 SchemaObjectRowAction::OpenQuery => {
-                    SchemaObjectFolderAction::OpenQuery(format!("SELECT *\nFROM {from}\nLIMIT 100;"))
+                    Some(SchemaObjectFolderAction::OpenQuery(format!("SELECT *\nFROM {from}\nLIMIT 100;")))
                 }
-                SchemaObjectRowAction::Modify => SchemaObjectFolderAction::ModifyView(view_clone.clone()),
-                SchemaObjectRowAction::Drop => SchemaObjectFolderAction::DropObject {
+                SchemaObjectRowAction::Modify => Some(SchemaObjectFolderAction::ModifyView(view_clone.clone())),
+                SchemaObjectRowAction::Drop => Some(SchemaObjectFolderAction::DropObject {
                     schema: schema.clone(),
                     name: name.clone(),
                     kind: "VIEW".to_owned(),
-                },
-                SchemaObjectRowAction::CopyName => SchemaObjectFolderAction::CopyName(view.name.clone()),
+                }),
+                SchemaObjectRowAction::ToggleTrigger => None,
+                SchemaObjectRowAction::CopyName => Some(SchemaObjectFolderAction::CopyName(view.name.clone())),
             })
             .collect()
     }
@@ -286,6 +291,8 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 modify_label: None,
                 drop_label: None,
                 copy_label: "Copy Routine Name",
+                trigger_toggle_label: None,
+                trigger_toggle_unavailable_reason: None,
             },
             SchemaObjectActivation {
                 selection: SchemaObjectSelection::Function {
@@ -308,7 +315,12 @@ impl<'a> SchemaObjectFoldersView<'a> {
             self.explorer.selected_schema_object.as_ref(),
             Some(SchemaObjectSelection::Trigger(name)) if name == &trigger.name
         );
-        let label = format!("{} · {}", trigger.name, trigger.event);
+        let label = format!(
+            "{} · {} · {}",
+            trigger.name,
+            trigger.event,
+            if trigger.enabled { "Enabled" } else { "Disabled" }
+        );
         let schema = trigger.schema.clone();
         let name = trigger.name.clone();
         let actions = SchemaObjectRowContext {
@@ -324,6 +336,11 @@ impl<'a> SchemaObjectFoldersView<'a> {
             modify_label: None,
             drop_label: Some("Drop Trigger..."),
             copy_label: "Copy Trigger Name",
+            trigger_toggle_label: trigger_toggle_menu_label(
+                trigger.enabled,
+                self.trigger_toggle_unavailable_reason.is_none(),
+            ),
+            trigger_toggle_unavailable_reason: self.trigger_toggle_unavailable_reason.as_deref(),
         }
         .draw(ui);
 
@@ -336,12 +353,17 @@ impl<'a> SchemaObjectFoldersView<'a> {
                     name: trigger.name.clone(),
                     kind: "trigger".to_owned(),
                 })),
-                SchemaObjectRowAction::OpenQuery => None,
-                SchemaObjectRowAction::Modify => None,
+                SchemaObjectRowAction::OpenQuery | SchemaObjectRowAction::Modify => None,
                 SchemaObjectRowAction::Drop => Some(SchemaObjectFolderAction::DropObject {
                     schema: schema.clone(),
                     name: name.clone(),
                     kind: "TRIGGER".to_owned(),
+                }),
+                SchemaObjectRowAction::ToggleTrigger => Some(SchemaObjectFolderAction::ToggleTrigger {
+                    schema: trigger.schema.clone(),
+                    table: trigger.table_name.clone(),
+                    name: trigger.name.clone(),
+                    enable: !trigger.enabled,
                 }),
                 SchemaObjectRowAction::CopyName => Some(SchemaObjectFolderAction::CopyName(trigger.name.clone())),
             })
@@ -362,9 +384,31 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 SchemaObjectRowAction::Open => Some(SchemaObjectFolderAction::Open(activation.clone())),
                 SchemaObjectRowAction::OpenQuery => query.clone().map(SchemaObjectFolderAction::OpenQuery),
                 SchemaObjectRowAction::Modify => None,
+                SchemaObjectRowAction::ToggleTrigger => None,
                 SchemaObjectRowAction::Drop => None,
                 SchemaObjectRowAction::CopyName => Some(SchemaObjectFolderAction::CopyName(activation.name.clone())),
             })
             .collect()
+    }
+}
+fn trigger_toggle_menu_label(enabled: bool, supported: bool) -> Option<&'static str> {
+    if !supported {
+        None
+    } else if enabled {
+        Some("Disable Trigger")
+    } else {
+        Some("Enable Trigger")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::trigger_toggle_menu_label;
+
+    #[test]
+    fn trigger_toggle_menu_offers_only_supported_inverse_action() {
+        assert_eq!(trigger_toggle_menu_label(true, true), Some("Disable Trigger"));
+        assert_eq!(trigger_toggle_menu_label(false, true), Some("Enable Trigger"));
+        assert_eq!(trigger_toggle_menu_label(true, false), None);
     }
 }

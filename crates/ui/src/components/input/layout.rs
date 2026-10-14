@@ -30,11 +30,20 @@ pub(crate) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChrome
         FieldChrome::Disabled | FieldChrome::Rest => return,
         FieldChrome::Error => Stroke::new(ERROR_STROKE_WIDTH, theme.danger),
         FieldChrome::Focus => Stroke::new(FOCUS_STROKE_WIDTH, theme.border_focus),
+        FieldChrome::Bordered => Stroke::new(BORDER_STROKE_WIDTH, theme.border_default),
         FieldChrome::Hover => {
             let hover = hover_t(ui.ctx(), id.with("input_hover"), true);
             Stroke::new(
                 BORDER_STROKE_WIDTH,
-                lerp_color(egui::Color32::TRANSPARENT, theme.border_strong, hover),
+                lerp_color(
+                    if state.bordered {
+                        theme.border_default
+                    } else {
+                        egui::Color32::TRANSPARENT
+                    },
+                    theme.border_strong,
+                    hover,
+                ),
             )
         }
     };

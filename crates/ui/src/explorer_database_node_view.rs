@@ -5,6 +5,7 @@
 
 use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
 use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme};
+use crate::components::Separator;
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -78,7 +79,7 @@ impl DatabaseNodeContext<'_> {
                 actions.push(DatabaseNodeAction::RefreshSchema);
                 *close_menu = true;
             }
-            ui.separator();
+            Separator::horizontal(self.theme).show(ui);
             if ctx_menu_item(
                 ui,
                 Some(Icon::Copy),

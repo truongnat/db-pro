@@ -37,10 +37,10 @@ pub(super) fn draw_toolbar(
                         .font(font_caption())
                         .color(context.theme.warning),
                 );
-                ui.separator();
+                Separator::vertical(context.theme).show(ui);
             }
             draw_filter_controls(context, ui);
-            ui.separator();
+            Separator::vertical(context.theme).show(ui);
             draw_copy_actions(context, ui, &mut action);
             draw_inspect_actions(context, ui, &mut action);
             if !context.feedback.copy_status.is_empty() {

@@ -1,84 +1,39 @@
-/// Layout width specifications for connection dialog rows.
-pub struct ProfileRowWidths {
-    pub name_w: f32,
-    pub group_w: f32,
-    pub fav_w: f32,
-}
-
-pub struct EnvRowWidths {
-    pub env_w: f32,
-    pub ro_w: f32,
-}
-
-pub struct ServerRowWidths {
-    pub host_w: f32,
-    pub port_w: f32,
-}
-
-pub struct SshRowWidths {
-    pub host_w: f32,
-    pub port_w: f32,
-    pub user_w: f32,
-    pub key_w: f32,
-}
-
-pub struct SqliteFileRowWidths {
-    pub input_w: f32,
-    pub button_w: f32,
-}
-
-/// Calculate 4-column card width for database engine selection.
-pub fn calculate_engine_card_width(available_width: f32, gap: f32) -> f32 {
-    ((available_width - 3.0 * gap) / 4.0).max(40.0)
-}
-
-/// Calculate General Profile row 1 widths (Name: 52%, Group: 36%, Favorite: 12%).
-pub fn calculate_profile_row_widths(available_width: f32, gap: f32) -> ProfileRowWidths {
-    let total = (available_width - 2.0 * gap).max(0.0);
-    ProfileRowWidths {
-        name_w: total * 0.52,
-        group_w: total * 0.36,
-        fav_w: total * 0.12,
+/// Column widths for one form row: `weights[i]/sum(weights)` of the space left
+/// after `gap * (n-1)` inter-cell spacing. Relative weights only — `[2, 1]` is
+/// a 2:1 split. Returns one width per weight.
+pub fn row_widths(available_width: f32, gap: f32, weights: &[f32]) -> Vec<f32> {
+    let count = weights.len().max(1);
+    let total = (available_width - gap * (count.saturating_sub(1)) as f32).max(0.0);
+    let weight_sum: f32 = weights.iter().sum();
+    if weight_sum <= 0.0 {
+        return vec![total / count as f32; count];
     }
+    weights.iter().map(|w| total * w / weight_sum).collect()
 }
 
-/// Calculate Environment row widths (Env: 55%, Safety: 45%).
-pub fn calculate_env_row_widths(available_width: f32, gap: f32) -> EnvRowWidths {
-    let total = (available_width - gap).max(0.0);
-    EnvRowWidths {
-        env_w: total * 0.55,
-        ro_w: total * 0.45,
-    }
-}
-
-/// Calculate Server row widths (Host: 68%, Port: 32%).
-pub fn calculate_server_row_widths(available_width: f32, gap: f32) -> ServerRowWidths {
-    let total = (available_width - gap).max(0.0);
-    ServerRowWidths {
-        host_w: total * 0.68,
-        port_w: total * 0.32,
-    }
-}
-
-/// Calculate 2 equal columns width (50% each).
-pub fn calculate_half_row_width(available_width: f32, gap: f32) -> f32 {
-    ((available_width - gap) * 0.5).max(0.0)
-}
-
-/// Calculate SSH tunnel row widths (Host: 38%, Port: 14%, User: 20%, Key: 28%).
-pub fn calculate_ssh_row_widths(available_width: f32, gap: f32) -> SshRowWidths {
-    let total = (available_width - 3.0 * gap).max(0.0);
-    SshRowWidths {
-        host_w: total * 0.38,
-        port_w: total * 0.14,
-        user_w: total * 0.20,
-        key_w: total * 0.28,
-    }
-}
-
-/// Calculate SQLite file picker row widths (Browse button: 110px).
-pub fn calculate_sqlite_file_row_widths(available_width: f32, gap: f32) -> SqliteFileRowWidths {
+/// Widths for the SQLite database-file row (input + trailing Browse button).
+pub fn sqlite_file_row(available_width: f32, gap: f32) -> (f32, f32) {
     let button_w = 110.0;
     let input_w = (available_width - button_w - gap).max(120.0);
-    SqliteFileRowWidths { input_w, button_w }
+    (input_w, button_w)
+}
+
+
+/// Render `cells` side-by-side, each pinned to its share of the row.
+///
+/// Cells take `Box<dyn FnOnce(&mut Ui)>` so callers can pass one-off component
+/// closures without tripping the borrow checker on `self` fields.
+pub fn form_row(ui: &mut egui::Ui, widths: &[f32], cells: Vec<Box<dyn FnOnce(&mut egui::Ui) + '_>>, gap: f32) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = gap;
+        for (width, cell) in widths.iter().copied().zip(cells) {
+            // allocate_ui pins the cell to exactly `width` — ui.scope would leave
+            // the child's max_rect at the remaining row width.
+            ui.allocate_ui_with_layout(
+                egui::vec2(width, ui.available_height()),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| cell(ui),
+            );
+        }
+    });
 }

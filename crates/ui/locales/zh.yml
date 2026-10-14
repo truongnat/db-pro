@@ -62,6 +62,7 @@ connection:
   delete_folder_warning: "该文件夹中的查询将移至未归类状态。"
   cloud_presets_title: "云服务预设 & URI 导入"
   apply_preset: "应用预设"
+  cloud_preset_placeholder: "选择云服务预设…"
   token_session_warning: "令牌仅在当前会话有效 — 绝不作为长期密码存储"
   paste_uri: "粘贴连接 URI"
   import_uri: "从 URI 导入"

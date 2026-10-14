@@ -176,7 +176,7 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                         .color(theme.text_muted),
                 );
                 ui.add_space(2.0);
-                ui.separator();
+                Separator::horizontal(*theme).show(ui);
                 for col in columns.iter().take(MAX_HOVER_COLUMN_ROWS) {
                     draw_hover_column_row(ui, col, theme);
                 }

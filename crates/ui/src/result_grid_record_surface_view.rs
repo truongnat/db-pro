@@ -14,7 +14,7 @@ pub(super) enum RecordInspectorAction {
 pub(super) fn draw_record(context: &RecordInspectorContext<'_>, ui: &mut egui::Ui) -> Option<RecordInspectorAction> {
     let mut action = None;
     let columns = [TableColumn::fixed("Field", 200.0), TableColumn::new("Value")];
-    egui::ScrollArea::vertical().id_salt("single_record_fields").show(ui, |ui| {
+    ScrollArea::new(context.theme).id_salt("single_record_fields").show(ui, |ui| {
         Table::new(&columns, context.theme).vertical_grid(true).show(
             ui,
             context.columns.len(),
@@ -91,7 +91,7 @@ pub(super) fn draw(context: &RecordInspectorContext<'_>, ui: &mut egui::Ui) -> O
             action = Some(RecordInspectorAction::Close);
         }
     });
-    egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
+    ScrollArea::new(context.theme).max_height(220.0).show(ui, |ui| {
         for (column_index, column) in context.columns.iter().enumerate() {
             if draw_row(
                 context,

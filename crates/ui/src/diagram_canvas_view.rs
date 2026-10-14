@@ -224,7 +224,7 @@ pub(super) fn draw_diagram_canvas(
                         ui.ctx().output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(name.clone())));
                         *close_menu = true;
                     }
-                    ui.separator();
+                    Separator::horizontal(theme).show(ui);
                 }
                 if ctx_menu_item(ui, Some(Icon::Maximize2), "Fit Diagram to View", None, theme.text_primary, theme)
                     .clicked()

@@ -123,7 +123,9 @@ impl TableWorkspaceSurfaceContext<'_> {
     fn draw_view_tabs(&self, ui: &mut egui::Ui) -> Vec<TableWorkspaceSurfaceAction> {
         let mut actions = Vec::new();
         table_band_frame(self.theme).show(ui, |ui| {
-            egui::ScrollArea::horizontal()
+            ScrollArea::new(self.theme)
+                .horizontal(true)
+                .vertical(false)
                 .id_salt("table-workspace-tabs")
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
@@ -182,41 +184,12 @@ pub(super) fn draw_metadata_filter_header_with_trailing(
     hint: &str,
     trailing: impl FnOnce(&mut egui::Ui),
 ) {
-    let height = crate::tokens::component::input::INPUT_HEIGHT_SM;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = SPACE_SM;
         ui.label(RichText::new(title).font(font_ui_label()).color(theme.text_secondary));
-        ui.scope(|ui| {
-            ui.visuals_mut().extreme_bg_color = theme.surface_editor;
-            ui.visuals_mut().widgets.inactive.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_default);
-            ui.visuals_mut().widgets.hovered.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_default);
-            ui.visuals_mut().widgets.active.bg_stroke = egui::Stroke::new(STROKE_THIN, theme.border_focus);
-            let edit = ui.add(
-                egui::TextEdit::singleline(search)
-                    .hint_text(RichText::new(hint).color(theme.text_muted))
-                    .font(font_ui_label())
-                    .desired_width(220.0)
-                    .min_size(egui::vec2(220.0, height - SPACE_XS * 2.0))
-                    .margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
-                    .vertical_align(egui::Align::Center)
-                    .text_color(theme.text_primary),
-            );
-            edit.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), format!("Search {title}"))
-            });
-        });
-        if !search.is_empty()
-            && Button::new(theme)
-                .icon(Icon::X)
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::IconSm)
-                .access_label("Clear filter")
-                .tooltip("Clear filter")
-                .show(ui)
-                .clicked()
-        {
-            search.clear();
-        }
+        crate::components::input::SearchInput::new(search, hint, theme)
+            .width(220.0)
+            .show(ui);
         ui.allocate_ui_with_layout(ui.available_size(), egui::Layout::right_to_left(egui::Align::Center), trailing);
     });
 }

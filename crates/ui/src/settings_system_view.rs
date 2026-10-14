@@ -28,14 +28,9 @@ impl SettingsSystemContext<'_> {
                 ui.label(RichText::new("Page size").color(self.theme.text_secondary));
                 ui.add(egui::DragValue::new(&mut self.preferences.settings.data_grid.page_size).range(25..=1_000));
             });
-            ui.checkbox(
-                &mut self.preferences.settings.data_grid.show_row_numbers,
-                "Show row numbers",
-            );
-            ui.checkbox(
-                &mut self.preferences.settings.data_grid.wrap_cell_text,
-                "Wrap cell text",
-            );
+            Checkbox::new(&mut self.preferences.settings.data_grid.show_row_numbers, "Show row numbers", self.theme)
+                .show(ui);
+            Checkbox::new(&mut self.preferences.settings.data_grid.wrap_cell_text, "Wrap cell text", self.theme).show(ui);
         });
     }
 
@@ -43,14 +38,18 @@ impl SettingsSystemContext<'_> {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "CONNECTIONS", self.theme);
             ui.add_space(10.0);
-            ui.checkbox(
+            Checkbox::new(
                 &mut self.preferences.settings.connections.auto_connect_last,
                 "Reconnect last connection on startup",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.connections.default_ssl_prefer,
                 "Prefer TLS for new server connections",
-            );
+                self.theme,
+            )
+            .show(ui);
             ui.label(
                 RichText::new("Passwords stay in secret storage — never written to settings JSON.")
                     .small()
@@ -63,11 +62,13 @@ impl SettingsSystemContext<'_> {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "AI PROVIDERS", self.theme);
             ui.add_space(10.0);
-            ui.checkbox(&mut self.preferences.settings.ai.enabled, "Enable Agent workspace");
-            ui.checkbox(
+            Checkbox::new(&mut self.preferences.settings.ai.enabled, "Enable Agent workspace", self.theme).show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.ai.auto_run_read_only,
                 "Allow Agent to auto-run read-only queries",
-            );
+                self.theme,
+            )
+            .show(ui);
             *self.agent_auto_run_read_only = self.preferences.settings.ai.auto_run_read_only;
             ui.label(
                 RichText::new(format!("Active provider: {}", self.agent_provider_label))
@@ -86,14 +87,18 @@ impl SettingsSystemContext<'_> {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "SECURITY", self.theme);
             ui.add_space(10.0);
-            ui.checkbox(
+            Checkbox::new(
                 &mut self.preferences.settings.security.redact_secrets_in_logs,
                 "Redact secrets in diagnostics and logs",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.security.lock_secret_export,
                 "Block secret export by default",
-            );
+                self.theme,
+            )
+            .show(ui);
         });
     }
 
@@ -101,14 +106,18 @@ impl SettingsSystemContext<'_> {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "ADVANCED", self.theme);
             ui.add_space(10.0);
-            ui.checkbox(
+            Checkbox::new(
                 &mut self.preferences.settings.advanced.verbose_runtime_log,
                 "Verbose runtime logging",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.advanced.experimental_features,
                 "Experimental features",
-            );
+                self.theme,
+            )
+            .show(ui);
             ui.label(
                 RichText::new(format!("Settings schema version {}", self.preferences.settings.version))
                     .small()

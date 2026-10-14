@@ -15,6 +15,13 @@ pub struct Textarea<'a> {
     placeholder: &'a str,
     min_rows: usize,
     max_chars: Option<usize>,
+    /// Render the text selectable-but-not-editable (egui `interactive(false)`),
+    /// for preview panes like the cell inspector's Pretty/Hex views.
+    read_only: bool,
+    /// Optional font override (e.g. monospace) for the editable text.
+    font: Option<egui::FontId>,
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
+    bordered: bool,
     theme: DbProTheme,
 }
 
@@ -26,6 +33,9 @@ impl<'a> Textarea<'a> {
             placeholder,
             min_rows: 3,
             max_chars: None,
+            read_only: false,
+            font: None,
+            bordered: false,
             theme,
         }
     }
@@ -42,6 +52,25 @@ impl<'a> Textarea<'a> {
 
     pub fn max_chars(mut self, max: usize) -> Self {
         self.max_chars = Some(max);
+        self
+    }
+
+    /// Render the buffer non-editable while staying selectable, for
+    /// inspector/preview surfaces (maps to `TextEdit::interactive(false)`).
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
+
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
+    pub fn bordered(mut self, bordered: bool) -> Self {
+        self.bordered = bordered;
+        self
+    }
+
+    /// Override the text font (e.g. monospace) for script/SQL buffers.
+    pub fn font(mut self, font: egui::FontId) -> Self {
+        self.font = Some(font);
         self
     }
 
@@ -76,15 +105,18 @@ impl<'a> Textarea<'a> {
                 ..Default::default()
             }
             .show(ui, |ui| {
-                ui.add(
-                    TextEdit::multiline(self.value)
-                        .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
-                        .desired_rows(self.min_rows)
-                        .desired_width(ui.available_width())
-                        .frame(egui::Frame::NONE)
-                        .margin(Margin::ZERO)
-                        .text_color(self.theme.text_primary),
-                )
+                let mut text_edit = TextEdit::multiline(self.value)
+                    .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
+                    .desired_rows(self.min_rows)
+                    .desired_width(ui.available_width())
+                    .frame(egui::Frame::NONE)
+                    .margin(Margin::ZERO)
+                    .interactive(!self.read_only)
+                    .text_color(self.theme.text_primary);
+                if let Some(font) = self.font {
+                    text_edit = text_edit.font(font);
+                }
+                ui.add(text_edit)
             });
 
             let edit_response = frame_output.inner;
@@ -101,6 +133,7 @@ impl<'a> Textarea<'a> {
                     hovered: frame_output.response.hovered() || edit_response.hovered(),
                     enabled: true,
                     has_error: false,
+                    bordered: self.bordered,
                 },
                 self.theme,
             );

@@ -95,17 +95,17 @@ impl ExplorerToolbarContext<'_> {
                     ui.radio_value(&mut filter.mode, mode, mode.label());
                 }
                 ui.add_space(SPACE_XS);
-                ui.separator();
+                Separator::horizontal(self.theme).show(ui);
                 ui.label(
                     RichText::new("Object kinds")
                         .font(font_caption())
                         .strong()
                         .color(self.theme.text_secondary),
                 );
-                ui.checkbox(&mut filter.tables, "Tables");
-                ui.checkbox(&mut filter.views, "Views");
-                ui.checkbox(&mut filter.functions, "Functions");
-                ui.checkbox(&mut filter.triggers, "Triggers");
+                Checkbox::new(&mut filter.tables, "Tables", self.theme).show(ui);
+                Checkbox::new(&mut filter.views, "Views", self.theme).show(ui);
+                Checkbox::new(&mut filter.functions, "Functions", self.theme).show(ui);
+                Checkbox::new(&mut filter.triggers, "Triggers", self.theme).show(ui);
                 ui.add_space(SPACE_XXS);
                 if ui
                     .link(RichText::new("Reset").font(font_caption()).color(self.theme.accent))

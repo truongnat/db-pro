@@ -28,6 +28,7 @@ pub(super) struct ExplorerSchemaTreeModel {
     pub(super) selected_table: Option<String>,
     pub(super) table_info: Option<UiTableInfo>,
     pub(super) functions_enabled: bool,
+    pub(super) trigger_toggle_unavailable_reason: Option<String>,
 }
 
 pub(super) struct ExplorerSchemaTreeView<'a> {
@@ -150,6 +151,7 @@ impl<'a> ExplorerSchemaTreeView<'a> {
             table_info: self.model.table_info.clone(),
             connection_id: self.model.connection_id.clone(),
             functions_enabled: self.model.functions_enabled,
+            trigger_toggle_unavailable_reason: self.model.trigger_toggle_unavailable_reason.clone(),
         };
         ExplorerSchemaObjectsView::new(self.theme, self.explorer, model)
             .draw(ui, schema)

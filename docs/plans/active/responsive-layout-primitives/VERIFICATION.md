@@ -48,3 +48,20 @@ Executed in the working tree based on HEAD `5b38eb6543d5fa66783fe7f772e52b976651
 - Native runtime captures/accessibility traversal at 1280×800, 1440×900, and 1920×1080 remain pending.
 - Existing uncommitted changes from prior UI work remain in the worktree and must be reviewed/separated before commit.
 - Public API and responsive geometry behavior are source/test verified; visual acceptance still requires runtime evidence.
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/03-data-grid-table-editor.md` verdict: **STALE-DOC** —
+the primitives are **fully landed on `main`** (no feature branch remains):
+`Container` + `ResponsiveGrid` implemented and exported
+(`components/responsive_layout/ui.rs:69-195`, `components/mod.rs:88`), consumed at
+6+ gallery call sites (`component_gallery_view.rs:257`,
+`component_gallery_inputs.rs:112`, …); 7 responsive-layout unit tests pass at HEAD.
+There are no separate Row/Col types — `ResponsiveGrid` covers the approved
+"equivalent responsive Grid API". The CHECKLIST task list, PLAN branch name and the
+"implementation has started" state note above are stale on the landing facts.
+
+Fresh captures exercising the primitives: `docs/plans/_audit-2026-10-13/captures/gallery_*.png`
+(3 sizes, Container/ResponsiveGrid consumers visible; heights capped at 838).
+Remaining per audit: independent review sign-off and sidebar open/closed captures
+at 3 widths around column transitions. State not changed by this note.

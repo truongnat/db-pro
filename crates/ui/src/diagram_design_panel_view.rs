@@ -185,7 +185,7 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             for effect in &ctx.diagram.design.preview_effects {
                 ui.label(RichText::new(effect).small().color(ctx.theme.text_secondary));
             }
-            egui::ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
+            ScrollArea::new(ctx.theme).max_height(140.0).show(ui, |ui| {
                 ui.label(RichText::new(&ctx.diagram.design.preview_sql).monospace());
             });
         }

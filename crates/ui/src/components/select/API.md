@@ -13,7 +13,7 @@ Select::new("connection.pool", &mut selected_index, &options)
 
 ## Builder and state
 
-- `Select::new(id_salt, selected, options)` receives a stable unique ID salt, a mutable `usize` index, and a borrowed list of `String` options.
+- `Select::new(id_salt, selected, options)` receives a stable hashable ID salt (`&str` or `egui::Id`), a mutable `usize` index, and a borrowed list of `String` options. `.selected_text(text)` overrides the trigger's displayed label while `options` still drives selection bookkeeping.
 - `.theme(theme)` supplies component theme values; `.label(text)` adds a visible and accessible name.
 - `.has_more(bool)` enables the extra paging row. `.load_more(&mut bool)` receives a request when that row is activated.
 - `.size(SelectSize::Default | SelectSize::Sm)` controls trigger dimensions. Default preserves the form height; Sm shares Button's compact height, font, icon and padding tokens.

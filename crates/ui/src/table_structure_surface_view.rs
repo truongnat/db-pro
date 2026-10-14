@@ -5,14 +5,25 @@
 use super::super::*;
 use crate::components::badge::{Badge, BadgeVariant};
 use crate::components::table::{Table, TableColumn};
+use crate::components::{Button, ButtonSize, ButtonVariant};
 use crate::UiTableColumn;
 use egui::RichText;
 use lucide_icons::Icon;
+
+/// Row-level intents emitted by the structure surface.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum TableStructureAction {
+    /// Route a column into the schema workbench's ALTER COLUMN planner.
+    AlterColumn(UiTableColumn),
+}
 
 pub(super) struct TableStructureContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) info: &'a UiTableInfo,
     pub(super) search: &'a mut String,
+    /// `Some(reason)` when the active provider cannot ALTER COLUMN — the row
+    /// action stays visible but disabled with the reason on hover.
+    pub(super) alter_column_limitation: Option<String>,
 }
 
 pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut egui::Ui) {
@@ -51,10 +62,10 @@ pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut 
 }
 
 impl TableStructureContext<'_> {
-    pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
+    pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Option<TableStructureAction> {
         self.draw_metrics(ui);
         ui.add_space(8.0);
-        self.draw_columns(ui);
+        self.draw_columns(ui)
     }
 
     fn draw_metrics(&self, ui: &mut egui::Ui) {
@@ -110,7 +121,8 @@ impl TableStructureContext<'_> {
         });
     }
 
-    fn draw_columns(&mut self, ui: &mut egui::Ui) {
+    fn draw_columns(&mut self, ui: &mut egui::Ui) -> Option<TableStructureAction> {
+        let mut action = None;
         Card::new(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             self.draw_columns_header(ui);
@@ -126,8 +138,9 @@ impl TableStructureContext<'_> {
                 .show(ui);
                 return;
             }
-            self.draw_column_table(ui, &matching_columns);
+            action = self.draw_column_table(ui, &matching_columns);
         });
+        action
     }
 
     fn draw_columns_header(&mut self, ui: &mut egui::Ui) {
@@ -160,7 +173,7 @@ impl TableStructureContext<'_> {
             .collect()
     }
 
-    fn draw_column_table(&self, ui: &mut egui::Ui, matching_columns: &[&UiTableColumn]) {
+    fn draw_column_table(&self, ui: &mut egui::Ui, matching_columns: &[&UiTableColumn]) -> Option<TableStructureAction> {
         let columns = [
             TableColumn::fixed("#", 46.0),
             TableColumn::new("Column Name").width(220.0),
@@ -168,8 +181,12 @@ impl TableStructureContext<'_> {
             TableColumn::fixed("Nullable", 110.0),
             TableColumn::fixed("Key", 90.0),
             TableColumn::new("Default Expression"),
+            TableColumn::fixed("Actions", 84.0),
         ];
-        egui::ScrollArea::horizontal()
+        let mut action = None;
+        ScrollArea::new(self.theme)
+            .horizontal(true)
+            .vertical(false)
             .id_salt("structure-cols-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -187,13 +204,22 @@ impl TableStructureContext<'_> {
                             .foreign_keys
                             .iter()
                             .any(|foreign_key| foreign_key.from_columns.contains(&column.name));
-                        self.draw_column_cell(ui, column, col_idx, is_fk);
+                        if let Some(cell_action) = self.draw_column_cell(ui, column, col_idx, is_fk) {
+                            action = Some(cell_action);
+                        }
                     },
                 );
             });
+        action
     }
 
-    fn draw_column_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn, col_idx: usize, is_fk: bool) {
+    fn draw_column_cell(
+        &self,
+        ui: &mut egui::Ui,
+        column: &UiTableColumn,
+        col_idx: usize,
+        is_fk: bool,
+    ) -> Option<TableStructureAction> {
         match col_idx {
             0 => self.draw_ordinal_cell(ui, column),
             1 => self.draw_name_cell(ui, column, is_fk),
@@ -201,8 +227,31 @@ impl TableStructureContext<'_> {
             3 => self.draw_nullable_cell(ui, column),
             4 => self.draw_key_cell(ui, column, is_fk),
             5 => self.draw_default_cell(ui, column),
+            6 => return self.draw_action_cell(ui, column),
             _ => {}
         }
+        None
+    }
+
+    fn draw_action_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) -> Option<TableStructureAction> {
+        let enabled = self.alter_column_limitation.is_none();
+        let mut response = ui
+            .add_enabled_ui(enabled, |ui| {
+                Button::new(self.theme)
+                    .text("Alter")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .icon(Icon::Pencil)
+                    .show(ui)
+            })
+            .response;
+        if let Some(reason) = &self.alter_column_limitation {
+            response = response.on_disabled_hover_text(reason);
+        }
+        if response.clicked() {
+            return Some(TableStructureAction::AlterColumn(column.clone()));
+        }
+        None
     }
 
     fn draw_ordinal_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) {

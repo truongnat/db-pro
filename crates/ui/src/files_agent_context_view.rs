@@ -102,7 +102,7 @@ impl<'a> FilesAgentContextView<'a> {
                             {
                                 actions.push(FilesAgentContextAction::ToggleSplitEditor);
                             }
-                            ui.separator();
+                            Separator::horizontal(self.theme).show(ui);
                             if Button::new(self.theme)
                                 .icon(Icon::Trash2)
                                 .text("Clear context")

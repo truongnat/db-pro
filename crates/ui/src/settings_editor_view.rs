@@ -52,14 +52,9 @@ impl SettingsEditorContext<'_> {
             ui.label(RichText::new("Tab width").color(self.theme.text_secondary));
             ui.add(egui::DragValue::new(&mut self.preferences.settings.editor.tab_width).range(2..=8));
         });
-        ui.checkbox(
-            &mut self.preferences.settings.editor.completion_enabled,
-            "Schema completion",
-        );
-        ui.checkbox(
-            &mut self.preferences.settings.editor.format_on_save,
-            "Format SQL on save",
-        );
+        Checkbox::new(&mut self.preferences.settings.editor.completion_enabled, "Schema completion", self.theme)
+            .show(ui);
+        Checkbox::new(&mut self.preferences.settings.editor.format_on_save, "Format SQL on save", self.theme).show(ui);
     }
 
     fn draw_prediction(&mut self, ui: &mut egui::Ui) {
@@ -98,39 +93,55 @@ impl SettingsEditorContext<'_> {
         ui.add_space(12.0);
         section_label(ui, "SQL LINT", self.theme);
         ui.add_space(6.0);
-        ui.checkbox(
+        Checkbox::new(
             &mut self.preferences.settings.editor.lint.enabled,
             "Enable SQL lint warnings",
-        );
+            self.theme,
+        )
+        .show(ui);
         ui.add_enabled_ui(self.preferences.settings.editor.lint.enabled, |ui| {
-            ui.checkbox(
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.select_star,
                 "Warn on SELECT *",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.null_compare,
                 "Warn on = NULL / != NULL",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.delete_no_where,
                 "Warn on DELETE without WHERE",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.update_no_where,
                 "Warn on UPDATE without WHERE",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.order_by_ordinal,
                 "Warn on ORDER BY ordinal",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.comma_join,
                 "Warn on comma / cartesian joins",
-            );
-            ui.checkbox(
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
                 &mut self.preferences.settings.editor.lint.duplicate_alias,
                 "Warn on duplicate projection aliases",
-            );
+                self.theme,
+            )
+            .show(ui);
         });
         ui.label(
             RichText::new("Lint warnings stay local and never call AI or the network.")

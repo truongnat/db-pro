@@ -43,3 +43,15 @@ Result: PASS (partial), 4 executed checks passed, release binary built successfu
 ## Runtime
 
 Pending owner verification: open Query, type multilingual SQL continuously, open completion with `.` and `Ctrl/Cmd+Space`, filter with typing/backspace, inspect hover explanation, accept with Enter/Tab, save with `Ctrl/Cmd+S`, and verify scroll/caret behavior at required viewport sizes.
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/02-query-editor-workspace.md` verdict: **EVIDENCE_GAP**
+— all code claims verified at HEAD (`EditorInteractionPolicy`, version-bound
+completion `document_version`/`can_apply_to_version`, `scroll_caret_into_view`,
+caret blink, `Cmd+S` → `wants_save`, signature help), but runtime
+visual/interaction evidence is still unchecked. Static captures of the query
+editor landed this run (`docs/plans/_audit-2026-10-13/captures/query{,-light,-row-limit}_*.png`,
+`table-completion_*.png`); they render the shipped chrome but do not exercise
+typing, dot-completion, `Cmd+Space`, `Cmd+S`, or caret/scroll behavior — the owner
+verification list above remains the open gate. State stays IMPLEMENTING.

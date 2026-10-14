@@ -1275,6 +1275,7 @@ dependencies = [
  "db-pro-core",
  "eframe",
  "egui",
+ "image",
  "lucide-icons",
  "rand 0.8.7",
  "rust-i18n",

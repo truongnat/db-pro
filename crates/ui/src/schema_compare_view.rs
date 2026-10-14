@@ -1,5 +1,5 @@
 use super::*;
-use egui::{Pos2, Rect, CornerRadius, Vec2};
+use egui::{CornerRadius, Pos2, Rect, Vec2};
 
 pub(super) struct SchemaCompareViewContext<'a> {
     pub(super) theme: DbProTheme,
@@ -22,7 +22,12 @@ pub(super) fn draw_schema_compare_sidebar(
     context: &mut SchemaCompareViewContext<'_>,
     ui: &mut egui::Ui,
 ) -> Option<SchemaCompareAction> {
-    ui.label(RichText::new("SCHEMA COMPARE").font(font_caption()).strong().color(context.theme.text_secondary));
+    ui.label(
+        RichText::new("SCHEMA COMPARE")
+            .font(font_caption())
+            .strong()
+            .color(context.theme.text_secondary),
+    );
     ui.add_space(6.0);
     ui.label(
         RichText::new("Snapshot the loaded schema, then re-introspect and diff.")
@@ -130,7 +135,7 @@ pub(super) fn draw_schema_compare(
     };
 
     let mut action = None;
-    egui::ScrollArea::vertical().show(ui, |ui| {
+    ScrollArea::new(context.theme).show(ui, |ui| {
         // Summary header chips
         let total_diffs = diff.tables_only_in_source.len()
             + diff.tables_only_in_target.len()
@@ -141,6 +146,9 @@ pub(super) fn draw_schema_compare(
             + diff.column_changes.len();
 
         ui.horizontal(|ui| {
+            // The shell zeroes workspace item_spacing — the count chips must
+            // space explicitly or they render as one fused label.
+            ui.spacing_mut().item_spacing.x = SPACE_SM;
             let added = diff.tables_only_in_target.len()
                 + diff.views_only_in_target.len()
                 + diff.functions_only_in_target.len();
@@ -152,20 +160,44 @@ pub(super) fn draw_schema_compare(
                 RichText::new(format!("{total_diffs} total difference(s)"))
                     .small()
                     .strong()
-                    .color(if total_diffs > 0 { context.theme.accent } else { context.theme.success }),
+                    .color(if total_diffs > 0 {
+                        context.theme.accent
+                    } else {
+                        context.theme.success
+                    }),
             );
-            ui.label(RichText::new("·").small().color(context.theme.text_muted));
-            ui.label(RichText::new(format!("{added} Added")).small().color(context.theme.success));
-            ui.label(RichText::new("·").small().color(context.theme.text_muted));
-            ui.label(RichText::new(format!("{changed} Changed")).small().color(context.theme.warning));
-            ui.label(RichText::new("·").small().color(context.theme.text_muted));
-            ui.label(RichText::new(format!("{removed} Removed")).small().color(context.theme.danger));
+            ui.label(
+                RichText::new(format!("{added} Added"))
+                    .small()
+                    .color(context.theme.success),
+            );
+            ui.label(
+                RichText::new(format!("{changed} Changed"))
+                    .small()
+                    .color(context.theme.warning),
+            );
+            ui.label(
+                RichText::new(format!("{removed} Removed"))
+                    .small()
+                    .color(context.theme.danger),
+            );
+
         });
         ui.add_space(8.0);
 
         for (title, items, is_added, is_removed) in [
-            ("Tables only in snapshot (Removed in current)", &diff.tables_only_in_source, false, true),
-            ("Tables only in current (Added in current)", &diff.tables_only_in_target, true, false),
+            (
+                "Tables only in snapshot (Removed in current)",
+                &diff.tables_only_in_source,
+                false,
+                true,
+            ),
+            (
+                "Tables only in current (Added in current)",
+                &diff.tables_only_in_target,
+                true,
+                false,
+            ),
             ("Views only in snapshot", &diff.views_only_in_source, false, true),
             ("Views only in current", &diff.views_only_in_target, true, false),
             ("Routines only in snapshot", &diff.functions_only_in_source, false, true),
@@ -177,6 +209,7 @@ pub(super) fn draw_schema_compare(
             }
             card_frame(context.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = SPACE_XS;
                     let badge_text = if is_added {
                         format!("+{}", items.len())
                     } else if is_removed {
@@ -197,8 +230,14 @@ pub(super) fn draw_schema_compare(
                 ui.add_space(4.0);
                 for item in items {
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = SPACE_XS;
                         ui.label(RichText::new("•").color(context.theme.text_muted));
-                        ui.label(RichText::new(item).small().monospace().color(context.theme.text_secondary));
+                        ui.label(
+                            RichText::new(item)
+                                .small()
+                                .monospace()
+                                .color(context.theme.text_secondary),
+                        );
                     });
                 }
             });
@@ -210,7 +249,7 @@ pub(super) fn draw_schema_compare(
             ui.add_space(8.0);
         }
 
-        ui.separator();
+        Separator::horizontal(context.theme).show(ui);
         ui.add_space(8.0);
         section_label(ui, "MIGRATION PLAN", context.theme);
         let current_target = format!("{} · {}", context.connection_name, context.active_schema);
@@ -240,9 +279,11 @@ pub(super) fn draw_schema_compare(
                     );
                     ui.label(
                         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        RichText::new("Plan cannot execute against a divergent target. Re-plan or switch the active session.")
-                            .small()
-                            .color(context.theme.warning),
+                        RichText::new(
+                            "Plan cannot execute against a divergent target. Re-plan or switch the active session.",
+                        )
+                        .small()
+                        .color(context.theme.warning),
                     );
                 });
             }
@@ -280,11 +321,21 @@ pub(super) fn draw_schema_compare(
                     }
                 };
                 ui.horizontal(|ui| {
-                    let galley = ui.painter().layout_no_wrap(risk_label.to_owned(), font_caption(), risk_color);
+                    let galley = ui
+                        .painter()
+                        .layout_no_wrap(risk_label.to_owned(), font_caption(), risk_color);
                     // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                    let r = Rect::from_min_size(Pos2::new(ui.cursor().min.x, ui.cursor().min.y + 1.0), Vec2::new(galley.size().x + 6.0, 15.0));
-                    ui.painter().rect_filled(r, CornerRadius::same(RADIUS_XS as u8), risk_bg);
-                    ui.painter().galley(Pos2::new(r.left() + 3.0, r.top() + 1.0), galley, egui::Color32::PLACEHOLDER);
+                    let r = Rect::from_min_size(
+                        Pos2::new(ui.cursor().min.x, ui.cursor().min.y + 1.0),
+                        Vec2::new(galley.size().x + 6.0, 15.0),
+                    );
+                    ui.painter()
+                        .rect_filled(r, CornerRadius::same(RADIUS_XS as u8), risk_bg);
+                    ui.painter().galley(
+                        Pos2::new(r.left() + 3.0, r.top() + 1.0),
+                        galley,
+                        egui::Color32::PLACEHOLDER,
+                    );
                     ui.add_space(r.width() + 4.0);
                     ui.label(
                         RichText::new(format!("{} · {}", op.id, op.sql))
@@ -299,7 +350,11 @@ pub(super) fn draw_schema_compare(
             ui.add_space(8.0);
             Card::new(context.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Generated Migration DDL").strong().color(context.theme.text_primary));
+                    ui.label(
+                        RichText::new("Generated Migration DDL")
+                            .strong()
+                            .color(context.theme.text_primary),
+                    );
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                         if Button::new(context.theme)
                             .icon(Icon::Copy)
@@ -311,7 +366,9 @@ pub(super) fn draw_schema_compare(
                         {
                             let sql = context.compare.migration_preview_sql.clone();
                             ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(sql)));
-                            context.feedback.set_runtime_message("Copied migration SQL to clipboard");
+                            context
+                                .feedback
+                                .set_runtime_message("Copied migration SQL to clipboard");
                         }
                     });
                 });
@@ -330,10 +387,12 @@ pub(super) fn draw_schema_compare(
                 .as_ref()
                 .is_some_and(|plan| plan.has_destructive)
             {
-                ui.checkbox(
+                Checkbox::new(
                     &mut context.compare.migration_confirm_destructive,
                     "Confirm destructive operations (never auto-applied)",
-                );
+                    context.theme,
+                )
+                .show(ui);
             }
             let target_mismatch = context
                 .compare
@@ -355,7 +414,7 @@ pub(super) fn draw_schema_compare(
                 action = Some(SchemaCompareAction::ApplyMigration);
             }
         }
-        ui.separator();
+        Separator::horizontal(context.theme).show(ui);
         ui.add_space(8.0);
         ui.label(
             RichText::new(t!("compare.data_compare"))
@@ -446,13 +505,21 @@ pub(super) fn draw_schema_compare(
                 if include {
                     let (state_text, state_color) = match row.state {
                         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        db_pro_core::domain::cross_connection::DataRowState::Added => ("+ ADDED", context.theme.success),
+                        db_pro_core::domain::cross_connection::DataRowState::Added => {
+                            ("+ ADDED", context.theme.success)
+                        }
                         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        db_pro_core::domain::cross_connection::DataRowState::Removed => ("- REMOVED", context.theme.danger),
+                        db_pro_core::domain::cross_connection::DataRowState::Removed => {
+                            ("- REMOVED", context.theme.danger)
+                        }
                         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        db_pro_core::domain::cross_connection::DataRowState::Changed => ("~ CHANGED", context.theme.warning),
+                        db_pro_core::domain::cross_connection::DataRowState::Changed => {
+                            ("~ CHANGED", context.theme.warning)
+                        }
                         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        db_pro_core::domain::cross_connection::DataRowState::Equal => ("= EQUAL", context.theme.text_muted),
+                        db_pro_core::domain::cross_connection::DataRowState::Equal => {
+                            ("= EQUAL", context.theme.text_muted)
+                        }
                     };
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(state_text).small().strong().color(state_color));

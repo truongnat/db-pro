@@ -59,7 +59,7 @@ impl QueryActionsSurfaceContext<'_> {
                     );
                     ui.add_space(4.0);
                     self.draw_run_actions(ui, &mut actions);
-                    ui.separator();
+                    Separator::horizontal(self.theme).show(ui);
                     ui.label(RichText::new("Editor").small().strong().color(self.theme.text_muted));
                     ui.add_space(4.0);
                     self.draw_editor_actions(ui, &mut actions);

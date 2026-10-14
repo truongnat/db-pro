@@ -44,3 +44,22 @@
 - `evidence/structure-header-final-1280x800.png`: final-code native framebuffer, PNG integrity verified.
 - `evidence/structure-header-final-1920x1080.png`: final-code native framebuffer, PNG integrity verified.
 - Requested widths 1280/1440/1920 produced physical images 2560×1600, 2880×1676 and 3840×1676; larger heights capped to 838 logical pixels. Selected 1280 and 1920 captures inspected: input border/font/alignment, full long numeric values in wide layout and horizontal overflow in narrow layout. Static fixtures only; scrolling/key/pointer/provider interactions not exercised. The Foreign Keys fixture exposes an inherited narrow Action-cell wrap/clip limitation; this header task does not modify it.
+
+## Audit evidence update — 2026-10-13
+
+`docs/plans/_audit-2026-10-13/03-data-grid-table-editor.md` verdict: **EVIDENCE_GAP**
+(implementation verified in code; loading/error/empty + interactive evidence still
+open). Confirmed at HEAD: BigDecimal extrema ordering, `profile_text_width` +
+`TableColumn::content_width`, horizontal scroll, sample-scoped labels, dedicated
+empty states, theme-only colors; the 3 profile render tests pass
+(`cargo test -p db-pro-ui --lib profile`).
+
+**Stale-fact correction:** the "992 passed / 2 failed" suite totals above are stale —
+`explicit_disable_selection_is_preserved_on_submit` and
+`new_postgresql_connection_defaults_to_tls_require` **both PASS at HEAD** (audit
+re-ran them); they are no longer baseline failures to attribute.
+
+Fresh captures: `docs/plans/_audit-2026-10-13/captures/table-profile_*.png` and
+`table-structure_*.png` at 3 sizes (heights capped at 838 for 1440/1920). Remaining:
+loading/error/empty capture matrix, hover-disclosure + h-scroll interaction,
+VoiceOver pass. State stays RUNTIME_VERIFY.

@@ -133,7 +133,7 @@ impl SidebarDataContext<'_> {
                 actions.push(SidebarDataAction::OpenQuery(table.to_owned()));
                 *close_menu = true;
             }
-            ui.separator();
+            Separator::horizontal(self.theme).show(ui);
             if ctx_menu_item(
                 ui,
                 Some(Icon::Pin),

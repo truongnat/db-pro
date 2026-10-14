@@ -26,7 +26,13 @@ pub(super) fn draw_dependency_navigator(context: &mut SchemaWorkbenchSecondaryCo
     ui.add_space(4.0);
     ui.horizontal(|ui| {
         ui.label("Filter");
-        ui.text_edit_singleline(&mut context.workbench.dependency_filter);
+        crate::components::input::SearchInput::new(
+            &mut context.workbench.dependency_filter,
+            "from, relation, to…",
+            context.theme,
+        )
+        .width(220.0)
+        .show(ui);
     });
     ui.add_space(6.0);
     let filter = context.workbench.dependency_filter.to_ascii_lowercase();

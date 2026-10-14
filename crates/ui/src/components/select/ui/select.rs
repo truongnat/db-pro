@@ -1,20 +1,20 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use egui::{Frame, Id, Rect, Response, RichText, Sense, Stroke, Ui};
+use egui::{Frame, Id, Response, RichText, Sense, Stroke, TextureId, Ui};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
 use crate::components::animation::{hover_t, lerp_color};
 use crate::components::interact::{combo_box_info, paint_focus_ring};
-use crate::components::overlay::{floating_surface, screen_rect};
+use crate::components::overlay::screen_rect;
 use crate::DbProTheme;
 
 use super::super::handler::{
-    calculate_menu_geometry, menu_min_content_width, menu_surface_margin, navigate_selection, selected_label,
-    selection_from_click, should_close_for_key, should_close_on_outside_click, should_request_load_more,
-    should_toggle_popup, trigger_accessibility_label, trigger_content_width, trigger_inner_margin, trigger_text_width,
-    NavigationKeys, PopupBounds,
+    calculate_menu_geometry, menu_min_content_width, navigate_selection, selected_label,
+    selection_from_click, should_close_for_key, should_request_load_more,
+    trigger_accessibility_label, trigger_content_width, trigger_inner_margin, trigger_text_width,
+    NavigationKeys,
 };
 use super::option::{paint_option, SelectOption};
 use crate::tokens::{FONT_SIZE_CAPTION, ICON_TEXT_GAP, SPACE_XS};
@@ -37,11 +37,18 @@ pub enum SelectVariant {
 // load-more row is deliberately outside that index domain, so activating it requests data without
 // changing selection or dismissing the popup.
 pub struct Select<'a> {
-    id_salt: &'a str,
+    id_salt: Id,
     label: Option<Cow<'a, str>>,
     selected: &'a mut usize,
     options: &'a [String],
+    /// Overrides the trigger text so callers storing keys/values can still
+    /// show a friendly label (or raw value) without reordering `options`.
+    selected_text: Option<Cow<'a, str>>,
     width: Option<f32>,
+    /// Per-option leading icons (e.g. brand marks); same indexing as `options`.
+    option_icons: Option<&'a [Option<egui::TextureId>]>,
+    /// Per-option disabled flags; same indexing as `options`.
+    option_disabled: Option<&'a [bool]>,
     has_more: bool,
     load_more: Option<&'a mut bool>,
     theme: DbProTheme,
@@ -50,19 +57,35 @@ pub struct Select<'a> {
 }
 
 impl<'a> Select<'a> {
-    pub fn new(id_salt: &'a str, selected: &'a mut usize, options: &'a [String]) -> Self {
+    /// `id_salt` accepts any hashable value; `egui::Id` salts keep a shared
+    /// popup namespace with callers that build cell/row IDs dynamically.
+    pub fn new(
+        id_salt: impl std::hash::Hash + std::fmt::Debug,
+        selected: &'a mut usize,
+        options: &'a [String],
+    ) -> Self {
         Self {
-            id_salt,
+            id_salt: Id::new(id_salt),
             label: None,
             selected,
             options,
+            selected_text: None,
             width: None,
+            option_icons: None,
+            option_disabled: None,
             has_more: false,
             load_more: None,
             theme: DbProTheme::default(),
             size: SelectSize::default(),
             variant: SelectVariant::default(),
         }
+    }
+
+    /// Show `text` on the trigger instead of the label at `selected`.
+    /// Selection bookkeeping still uses `options`; this only changes display.
+    pub fn selected_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
+        self.selected_text = Some(text.into());
+        self
     }
 
     pub fn theme(mut self, theme: DbProTheme) -> Self {
@@ -97,6 +120,19 @@ impl<'a> Select<'a> {
 
     pub fn load_more(mut self, requested: &'a mut bool) -> Self {
         self.load_more = Some(requested);
+        self
+    }
+
+    /// Provide one optional texture per option (same order as `options`) to
+    /// paint a leading icon in the popup rows.
+    pub fn option_icons(mut self, icons: &'a [Option<TextureId>]) -> Self {
+        self.option_icons = Some(icons);
+        self
+    }
+
+    /// Mark per-option rows as non-interactive (e.g. "coming soon" entries).
+    pub fn option_disabled(mut self, flags: &'a [bool]) -> Self {
+        self.option_disabled = Some(flags);
         self
     }
 
@@ -142,10 +178,13 @@ impl<'a> Select<'a> {
                 ui.add_space(SPACE_XS);
             }
 
-            let current_text = selected_label(self.options, *self.selected);
+            let current_text = match &self.selected_text {
+                Some(text) => text.clone().into_owned(),
+                None => selected_label(self.options, *self.selected).to_owned(),
+            };
 
             // Comment: Stable identity preserves egui popup state across frames.
-            let popup_id = Id::new(self.id_salt);
+            let popup_id = self.id_salt;
             let is_open = egui::Popup::is_id_open(ui.ctx(), popup_id);
 
             let ghost = self.variant == SelectVariant::Ghost;
@@ -183,7 +222,7 @@ impl<'a> Select<'a> {
                             text_ui.set_min_width(text_width);
                             text_ui.add(
                                 egui::Label::new(
-                                    RichText::new(current_text)
+                                    RichText::new(&current_text)
                                         .size(font_size)
                                         .color(self.theme.text_primary),
                                 )
@@ -192,7 +231,7 @@ impl<'a> Select<'a> {
                             )
                         },
                     );
-                    text_response.inner.on_hover_text(current_text);
+                    text_response.inner.on_hover_text(&current_text);
                     ui.add_space(ICON_TEXT_GAP);
                     ui.label(
                         RichText::new(char::from(icon).to_string())
@@ -204,15 +243,16 @@ impl<'a> Select<'a> {
             .response;
 
             let response = trigger_btn.interact(Sense::click());
-            let info_label = trigger_accessibility_label(self.label.as_deref(), current_text);
+            let info_label = trigger_accessibility_label(self.label.as_deref(), &current_text);
             response.widget_info(|| combo_box_info(true, &info_label));
-            // Comment: Keyboard activation requires trigger focus; pointer clicks are independent.
+            // Pointer clicks are handled by egui::Popup::menu below (it toggles
+            // on response.clicked()); only keyboard activation needs a manual
+            // toggle so we never double-toggle on the same press.
             let keyboard_toggle =
                 ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
-            if should_toggle_popup(response.clicked(), response.has_focus(), keyboard_toggle) {
+            if response.has_focus() && keyboard_toggle && !response.clicked() {
                 egui::Popup::toggle_id(ui.ctx(), popup_id);
             }
-
             let hover = hover_t(
                 ui.ctx(),
                 response.id.with("hover"),
@@ -245,8 +285,8 @@ impl<'a> Select<'a> {
                 paint_focus_ring(ui, response.rect, f32::from(rounding.nw), self.theme);
             }
 
-            if egui::Popup::is_id_open(ui.ctx(), popup_id) {
-                self.show_menu(ui, popup_id, response.rect);
+            if egui::Popup::is_id_open(ui.ctx(), popup_id) || response.clicked() {
+                self.show_menu(ui, popup_id, &response);
             }
 
             response
@@ -254,11 +294,12 @@ impl<'a> Select<'a> {
         .inner
     }
 
-    fn show_menu(self, ui: &mut Ui, popup_id: Id, parent_rect: Rect) {
+    fn show_menu(self, ui: &mut Ui, popup_id: Id, response: &egui::Response) {
         // Flow comment:
         // 1. Read keyboard input, navigate real options, and close on Enter/Escape.
-        // 2. Position the popup, then render options and the separate load-more action.
-        // 3. Dismiss only when a click lands outside both trigger and popup.
+        // 2. Render the menu through egui::Popup so the area stays open across
+        //    frames (keep_popup_open), inherits the trigger's layer (so it sits
+        //    above modal dialog cards), and closes on outside clicks/Esc.
         let key_actions = ui.input(|input| {
             (
                 input.key_pressed(egui::Key::Escape),
@@ -281,74 +322,79 @@ impl<'a> Select<'a> {
         }
 
         let screen = screen_rect(ui);
-        // Block comment: Geometry is resolved before creating the foreground area, allowing the menu
-        // to flip or clamp within available screen space.
-        let geo = calculate_menu_geometry(screen, parent_rect, self.options.len(), self.has_more);
+        // Block comment: Geometry (width + max visible rows) is resolved before
+        // handing off to egui's popup anchor, which flips/clamps the position.
+        let geo = calculate_menu_geometry(screen, response.rect, self.options.len(), self.has_more);
 
-        let area_resp = egui::Area::new(popup_id)
-            .fixed_pos(geo.menu_pos)
-            .order(egui::Order::Foreground)
-            .show(ui.ctx(), |ui| {
-                floating_surface(
-                    self.theme,
-                    f32::from(ui.style().visuals.window_corner_radius.nw),
-                    menu_surface_margin(ui.spacing().menu_margin.leftf()),
-                )
-                .show(ui, |ui| {
-                    ui.set_min_width(menu_min_content_width(geo.menu_width));
-                    ui.set_max_width(geo.menu_width);
-                    egui::ScrollArea::vertical()
-                        .id_salt(popup_id.with("scroll"))
-                        .max_height(geo.max_height)
-                        .auto_shrink([false, true])
-                        .show(ui, |ui| {
-                            for (idx, opt) in self.options.iter().enumerate() {
-                                let clicked = paint_option(
-                                    ui,
-                                    SelectOption {
-                                        label: opt,
-                                        selected: idx == *self.selected,
-                                        theme: self.theme,
-                                    },
-                                )
-                                .clicked();
-                                if let Some(selected) = selection_from_click(clicked, idx) {
-                                    *self.selected = selected;
-                                    egui::Popup::close_all(ui.ctx());
+        let popup_resp = egui::Popup::menu(response)
+            .width(geo.menu_width)
+            .frame(crate::components::overlay::floating_surface(
+                self.theme,
+                f32::from(ui.style().visuals.window_corner_radius.nw),
+                super::super::handler::menu_surface_margin(ui.spacing().menu_margin.leftf()),
+            ))
+            .show(|ui| {
+                ui.set_max_height(geo.max_height);
+                egui::ScrollArea::vertical()
+                    .id_salt(popup_id.with("scroll"))
+                    .max_height(geo.max_height)
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        ui.set_min_width(menu_min_content_width(geo.menu_width));
+                        for (idx, opt) in self.options.iter().enumerate() {
+                            let clicked = paint_option(
+                                ui,
+                                SelectOption {
+                                    label: opt,
+                                    selected: idx == *self.selected,
+                                    theme: self.theme,
+                                    icon: self.option_icons.and_then(|icons| icons.get(idx).copied().flatten()),
+                                    disabled: self
+                                        .option_disabled
+                                        .and_then(|flags| flags.get(idx))
+                                        .copied()
+                                        .unwrap_or(false),
+                                },
+                            )
+                            .clicked();
+                            if let Some(selected) = selection_from_click(clicked, idx) {
+                                *self.selected = selected;
+                                egui::Popup::close_all(ui.ctx());
+                            }
+                        }
+                        // Comment: This action row leaves selection and popup state unchanged.
+                        if self.has_more {
+                            let load = paint_option(
+                                ui,
+                                SelectOption {
+                                    label: "Load more…",
+                                    selected: false,
+                                    theme: self.theme,
+                                    icon: None,
+                                    disabled: false,
+                                },
+                            );
+                            if should_request_load_more(load.clicked(), self.has_more) {
+                                if let Some(flag) = self.load_more {
+                                    *flag = true;
                                 }
                             }
-                            // Comment: This action row leaves selection and popup state unchanged.
-                            if self.has_more {
-                                let load = paint_option(
-                                    ui,
-                                    SelectOption {
-                                        label: "Load more…",
-                                        selected: false,
-                                        theme: self.theme,
-                                    },
-                                );
-                                if should_request_load_more(load.clicked(), self.has_more) {
-                                    if let Some(flag) = self.load_more {
-                                        *flag = true;
-                                    }
-                                }
-                            }
-                        });
-                });
+                        }
+                    });
             });
-
-        // Comment: Test both rectangles to preserve clicks on the trigger and inside the popup.
-        if let Some(pos) = ui.input(|input| input.pointer.interact_pos()) {
-            if should_close_on_outside_click(
-                ui.input(|input| input.pointer.any_click()),
-                pos,
-                PopupBounds {
-                    trigger: parent_rect,
-                    menu: area_resp.response.rect,
-                },
-            ) {
-                egui::Popup::close_all(ui.ctx());
+            if std::env::var_os("DB_PRO_DEBUG_SELECT").is_some() {
+                let pl = popup_resp.as_ref().map(|r| r.response.layer_id);
+                let at = ui
+                    .ctx()
+                    .layer_id_at(egui::pos2(geo.menu_pos.x + 20.0, geo.menu_pos.y + 10.0));
+                eprintln!("[menu] open={} shown={} layer={pl:?} at_menu_pos={at:?}",
+                    egui::Popup::is_id_open(ui.ctx(), popup_id), popup_resp.is_some());
             }
+        // A modal dialog keeps its card layer raised via `move_to_top`, which
+        // outranks the menu's own Foreground area. Re-raise the menu above the
+        // trigger's layer so it paints (and receives input) on top.
+        if let Some(popup_layer) = popup_resp.as_ref().map(|r| r.response.layer_id) {
+            ui.ctx().memory_mut(|m| m.areas_mut().move_to_top(popup_layer));
         }
     }
 }

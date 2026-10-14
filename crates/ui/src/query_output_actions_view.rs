@@ -60,7 +60,7 @@ pub(super) fn draw_explain_pane(
                 context.execution.explain_analyze_confirmed = false;
                 action = Some(QueryOutputAction::ExplainAnalyze);
             }
-            ui.checkbox(&mut context.execution.explain_show_raw_json, "Raw JSON");
+            Checkbox::new(&mut context.execution.explain_show_raw_json, "Raw JSON", context.theme).show(ui);
             if let Some(plan) = context.session.active_explain_plan() {
                 if Button::new(context.theme)
                     .text("Copy plan")
@@ -83,10 +83,12 @@ pub(super) fn draw_explain_pane(
                 )
                 .color(context.theme.warning),
             );
-            ui.checkbox(
+            Checkbox::new(
                 &mut context.execution.explain_analyze_confirmed,
                 "I understand this will execute the query",
-            );
+                context.theme,
+            )
+            .show(ui);
             if Button::new(context.theme)
                 .text("Run EXPLAIN ANALYZE")
                 .variant(ButtonVariant::Default)
@@ -101,7 +103,7 @@ pub(super) fn draw_explain_pane(
         ui.add_space(8.0);
         if let Some(plan_json) = context.session.active_explain_plan() {
             if context.execution.explain_show_raw_json {
-                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).max_height(300.0).show(ui, |ui| {
                     ui.label(RichText::new(plan_json).monospace().color(context.theme.text_secondary));
                 });
             } else if let Some(plan) = db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json) {
@@ -119,7 +121,7 @@ pub(super) fn draw_explain_pane(
                 }
                 ui.add_space(6.0);
                 let tree = crate::components::explain::PlanNode::from_query_plan(&plan.root);
-                egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).max_height(320.0).show(ui, |ui| {
                     ExplainPlanTree::new(&tree, bounded_explain_metric(plan.display_total_ms()), context.theme)
                         .has_runtime_stats(plan.has_runtime_stats)
                         .planning_time(plan.planning_time_ms.map(bounded_explain_metric))
@@ -131,7 +133,7 @@ pub(super) fn draw_explain_pane(
                         .small()
                         .color(context.theme.text_muted),
                 );
-                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).max_height(300.0).show(ui, |ui| {
                     ui.label(RichText::new(plan_json).monospace().color(context.theme.text_secondary));
                 });
             }
@@ -213,7 +215,7 @@ pub(super) fn draw_history_pane(
             )
             .show(ui);
         } else {
-            egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+            ScrollArea::new(context.theme).max_height(320.0).show(ui, |ui| {
                 for entry in filtered_entries {
                     egui::Frame::NONE
                         .fill(context.theme.surface_panel)

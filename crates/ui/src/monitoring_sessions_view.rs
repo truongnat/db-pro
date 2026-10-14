@@ -35,7 +35,7 @@ impl MonitoringSessionsContext<'_> {
     fn draw_filter(&mut self, ui: &mut egui::Ui) {
         section_label(ui, "SESSIONS", self.theme);
         ui.add_space(SPACE_SM);
-        ui.checkbox(self.filter_active_only, "Active queries only");
+        Checkbox::new(self.filter_active_only, "Active queries only", self.theme).show(ui);
         ui.add_space(SPACE_SM);
     }
 

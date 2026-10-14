@@ -383,49 +383,6 @@ pub fn menu_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProT
     )
 }
 
-pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(label.into().size(12.0).color(theme.text_secondary))
-            .min_size(egui::vec2(0.0, 24.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-
-pub fn compact_button_enabled(ui: &mut Ui, label: impl Into<RichText>, enabled: bool, theme: DbProTheme) -> Response {
-    ui.add_enabled(
-        enabled,
-        Button::new(label.into().size(12.0).color(theme.text_secondary))
-            .min_size(egui::vec2(0.0, 24.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-
-pub fn compact_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(icon_layout(icon, label, theme.text_secondary))
-            .min_size(egui::vec2(0.0, 24.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-pub fn compact_button_with_icon_enabled(
-    ui: &mut Ui,
-    icon: Icon,
-    label: &str,
-    enabled: bool,
-    theme: DbProTheme,
-) -> Response {
-    ui.add_enabled(
-        enabled,
-        Button::new(icon_layout(icon, label, theme.text_secondary))
-            .min_size(egui::vec2(0.0, 24.0))
-            .corner_radius(CornerRadius::same(7.0 as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-
 pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(label.into().color(theme.text_inverse).strong())
@@ -449,33 +406,6 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, active: bool, theme: DbProTheme) -> 
     } else {
         ui.add(button)
     }
-}
-
-pub fn compact_icon_button(ui: &mut Ui, icon: Icon, theme: DbProTheme) -> Response {
-    ui.add_sized(
-        [24.0, 24.0],
-        Button::new(
-            RichText::new(char::from(icon).to_string())
-                .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
-                .color(theme.text_muted),
-        )
-        .corner_radius(CornerRadius::same(7.0 as u8))
-        .stroke(Stroke::NONE),
-    )
-}
-
-pub fn compact_icon_button_enabled(ui: &mut Ui, icon: Icon, enabled: bool, theme: DbProTheme) -> Response {
-    ui.add_enabled(
-        enabled,
-        Button::new(
-            RichText::new(char::from(icon).to_string())
-                .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
-                .color(theme.text_muted),
-        )
-        .min_size(egui::vec2(24.0, 24.0))
-        .corner_radius(CornerRadius::same(7.0 as u8))
-        .stroke(Stroke::NONE),
-    )
 }
 
 pub fn badge(ui: &mut Ui, text: &str, fill: Color32, foreground: Color32) {
@@ -916,11 +846,11 @@ pub fn toast(ui: &mut Ui, level: UiLevel, message: &str, theme: DbProTheme) -> e
         Stroke::new(1.0, theme.border_subtle),
         egui::StrokeKind::Inside,
     );
-    // Subtle elevation shadow.
+    // Subtle elevation shadow (theme-aware alpha via the shared elevation recipe).
     ui.painter().rect_filled(
         rect.translate(egui::vec2(0.0, 2.0)),
         rounding,
-        Color32::from_black_alpha(20),
+        theme.floating_shadow().color,
     );
     // Accent strip.
     let strip_width = 3.0;

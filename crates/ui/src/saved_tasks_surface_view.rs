@@ -31,7 +31,7 @@ impl SavedTasksSurfaceContext<'_> {
         if self.saved_tasks.draft.is_some() {
             self.draw_draft_form(ui, &mut action);
             ui.add_space(10.0);
-            ui.separator();
+            Separator::horizontal(self.theme).show(ui);
             ui.add_space(8.0);
         }
         if self.saved_tasks.store.tasks.is_empty() {
@@ -56,10 +56,7 @@ impl SavedTasksSurfaceContext<'_> {
         let Some(task_id) = self.saved_tasks.pending_destructive_task_id else {
             return;
         };
-        ui.checkbox(
-            &mut self.saved_tasks.confirm_destructive,
-            "Confirm destructive task run",
-        );
+        Checkbox::new(&mut self.saved_tasks.confirm_destructive, "Confirm destructive task run", self.theme).show(ui);
         if self.saved_tasks.confirm_destructive && primary_button(ui, "Run destructive task", self.theme).clicked() {
             *action = Some(SavedTasksSurfaceAction::RunTask(task_id));
         }
@@ -142,7 +139,7 @@ impl SavedTasksSurfaceContext<'_> {
                 custom_format,
             } => {
                 Input::new(output_path, "Output path", theme).show(ui);
-                ui.checkbox(custom_format, "Custom (pg_dump -Fc) format");
+                Checkbox::new(custom_format, "Custom (pg_dump -Fc) format", theme).show(ui);
             }
             SavedTaskPayload::Export { table, format } => {
                 let mut table_text = table.clone().unwrap_or_default();
@@ -281,7 +278,7 @@ impl SavedTasksSurfaceContext<'_> {
         if self.saved_tasks.store.runs.is_empty() {
             return;
         }
-        ui.separator();
+        Separator::horizontal(self.theme).show(ui);
         ui.add_space(6.0);
         section_label(ui, "RECENT RUNS", self.theme);
         for run in self.saved_tasks.store.runs.iter().take(12) {

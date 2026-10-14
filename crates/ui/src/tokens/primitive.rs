@@ -196,6 +196,11 @@ pub mod light {
     pub const PURPLE_700: Color32 = Color32::from_rgb(126, 34, 206); // #7e22ce
     pub const CYAN_700: Color32 = Color32::from_rgb(14, 116, 144); // #0e7490
 
+    // Categorical data-viz hues (chart series). Deep tints read on white
+    // surfaces; series order lives in `semantic::Chart`.
+    pub const CHART_RED_600: Color32 = Color32::from_rgb(220, 38, 38); // #dc2626
+    pub const CHART_PURPLE_600: Color32 = Color32::from_rgb(147, 51, 234); // #9333ea
+
     /// Modal scrim: black at ~15% so the dialog stays the brightest surface.
     pub const SCRIM: Color32 = Color32::from_black_alpha(38);
 }
@@ -230,6 +235,15 @@ pub mod dark {
     // SQL syntax hues.
     pub const PURPLE_400: Color32 = Color32::from_rgb(199, 146, 234); // #c792ea
     pub const CYAN_300: Color32 = Color32::from_rgb(137, 221, 255); // #89ddff
+
+    // Categorical data-viz hues (chart series). Brighter tints stay legible
+    // against the charcoal canvas; series order lives in `semantic::Chart`.
+    pub const CHART_BLUE_400: Color32 = Color32::from_rgb(66, 133, 244); // #4285f4
+    pub const CHART_RED_400: Color32 = Color32::from_rgb(219, 68, 55); // #db4437
+    pub const CHART_YELLOW_400: Color32 = Color32::from_rgb(244, 180, 0); // #f4b400
+    pub const CHART_GREEN_500: Color32 = Color32::from_rgb(15, 157, 88); // #0f9d58
+    pub const CHART_PURPLE_400: Color32 = Color32::from_rgb(171, 71, 188); // #ab47bc
+    pub const CHART_CYAN_500: Color32 = Color32::from_rgb(0, 172, 193); // #00acc1
 
     /// Modal scrim: black at ~29% to dim the workstation surfaces.
     pub const SCRIM: Color32 = Color32::from_black_alpha(74);

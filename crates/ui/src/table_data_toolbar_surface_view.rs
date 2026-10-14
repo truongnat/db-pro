@@ -238,7 +238,7 @@ impl TableDataToolbarContext<'_> {
                             );
                         });
                     });
-                let cond_edit = egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft)
+                let cond_edit = egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft) // ui-rules: WHERE editor needs TextEditOutput.cursor_range for the completion popup and paints frameless inside the allocated toolbar rect
                     .hint_text(
                         RichText::new(
                             self.column_suggestions
@@ -534,7 +534,7 @@ fn draw_column_suggestion_popup(
             }
             .show(ui, |ui| {
                 ui.set_width(popup_width - 8.0);
-                egui::ScrollArea::vertical()
+                ScrollArea::new(theme)
                     .max_height(visible_rows as f32 * 28.0)
                     .show(ui, |ui| {
                         for (index, column) in candidates.iter().enumerate() {

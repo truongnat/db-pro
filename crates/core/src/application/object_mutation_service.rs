@@ -35,6 +35,9 @@ impl ObjectMutationService {
         ) && matches!(
             request.action,
             ObjectAction::Create | ObjectAction::Alter | ObjectAction::Drop
+        ) || matches!(
+            (&request.definition, request.action),
+            (ObjectDefinition::Column(_), ObjectAction::Alter)
         );
         let effects = describe_effects(request);
         let fingerprint = fingerprint(&statements);
@@ -57,6 +60,23 @@ impl ObjectMutationService {
 
 fn unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
     let driver = request.driver.to_ascii_lowercase();
+    if matches!(
+        (&request.definition, request.action),
+        (
+            ObjectDefinition::Trigger(_),
+            ObjectAction::Enable | ObjectAction::Disable
+        )
+    ) && !(driver.contains("postgres") || driver == "pg")
+    {
+        let reason = if driver.contains("sqlite") {
+            "SQLite cannot enable or disable individual triggers"
+        } else if driver.contains("mysql") {
+            "MySQL does not support enabling or disabling individual triggers"
+        } else {
+            "trigger enable/disable is not enabled for this provider"
+        };
+        return Some(reason.into());
+    }
     if driver.contains("sqlite") {
         return sqlite_unsupported_reason(request);
     }
@@ -93,6 +113,9 @@ fn sqlite_unsupported_reason(request: &ObjectMutationRequest) -> Option<String> 
             Some("SQLite CREATE/DROP DATABASE is not supported in this workbench".into())
         }
         (ObjectDefinition::Comment(_), _) => Some("SQLite COMMENT ON is not supported".into()),
+        (ObjectDefinition::Column(_), ObjectAction::Alter) => {
+            Some("SQLite cannot ALTER COLUMN type, nullability, or default without a table rebuild".into())
+        }
         _ => None,
     }
 }
@@ -146,7 +169,53 @@ mod tests {
             format!("${index}")
         }
         fn quote_identifier(&self, name: &str) -> String {
-            format!("\"{name}\"")
+            format!("\"{}\"", name.replace('"', "\"\""))
+        }
+    }
+    fn trigger_request(driver: &str, action: ObjectAction) -> ObjectMutationRequest {
+        ObjectMutationRequest {
+            action,
+            target: None,
+            definition: ObjectDefinition::Trigger(TriggerDefinition {
+                schema: "odd schema".into(),
+                table: "order\"items".into(),
+                name: "trig\"ger".into(),
+                timing: String::new(),
+                event: String::new(),
+                body: String::new(),
+            }),
+            options: MutationOptions::default(),
+            driver: driver.into(),
+        }
+    }
+
+    #[test]
+    fn plans_postgres_trigger_enable_and_disable_with_quoted_identifiers() {
+        for (action, keyword) in [(ObjectAction::Enable, "ENABLE"), (ObjectAction::Disable, "DISABLE")] {
+            let preview = ObjectMutationService::plan(&trigger_request("postgresql", action), &PgDialect).unwrap();
+            assert_eq!(
+                preview.statements,
+                vec![format!(
+                    "ALTER TABLE \"odd schema\".\"order\"\"items\" {keyword} TRIGGER \"trig\"\"ger\""
+                )]
+            );
+            assert!(preview.unsupported_reason.is_none());
+        }
+    }
+
+    #[test]
+    fn sqlite_and_mysql_trigger_toggle_plans_emit_no_sql() {
+        for (driver, reason) in [
+            ("sqlite", "SQLite cannot enable or disable individual triggers"),
+            (
+                "mysql",
+                "MySQL does not support enabling or disabling individual triggers",
+            ),
+        ] {
+            let preview =
+                ObjectMutationService::plan(&trigger_request(driver, ObjectAction::Disable), &PgDialect).unwrap();
+            assert!(preview.statements.is_empty());
+            assert_eq!(preview.unsupported_reason.as_deref(), Some(reason));
         }
     }
 
@@ -449,5 +518,68 @@ mod tests {
         };
         let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
         assert!(preview.unsupported_reason.unwrap().contains("SQLite"));
+    }
+
+    fn column_alter_request(driver: &str) -> ObjectMutationRequest {
+        ObjectMutationRequest {
+            action: ObjectAction::Alter,
+            target: None,
+            definition: ObjectDefinition::Column(ColumnDefinition {
+                schema: "public".into(),
+                table: "users".into(),
+                name: "email".into(),
+                data_type: "VARCHAR(320)".into(),
+                nullable: false,
+                default: Some("'x'".into()),
+                is_pk: false,
+                new_name: None,
+            }),
+            options: MutationOptions::default(),
+            driver: driver.to_owned(),
+        }
+    }
+
+    #[test]
+    fn plans_column_alter_postgres_combined_clauses() {
+        let preview = ObjectMutationService::plan(&column_alter_request("postgresql"), &PgDialect).unwrap();
+        assert!(preview.unsupported_reason.is_none());
+        assert!(preview.long_running);
+        assert_eq!(preview.safety, "mutating");
+        let sql = &preview.statements[0];
+        assert!(sql.contains("ALTER TABLE \"public\".\"users\""));
+        assert!(sql.contains("ALTER COLUMN \"email\" TYPE VARCHAR(320)"));
+        assert!(sql.contains("ALTER COLUMN \"email\" SET NOT NULL"));
+        assert!(sql.contains("ALTER COLUMN \"email\" SET DEFAULT 'x'"));
+    }
+
+    #[test]
+    fn plans_column_alter_mysql_modify_column() {
+        let preview = ObjectMutationService::plan(&column_alter_request("mysql"), &PgDialect).unwrap();
+        assert!(preview.unsupported_reason.is_none());
+        assert!(preview.statements[0].contains("MODIFY COLUMN \"email\" VARCHAR(320) NOT NULL DEFAULT 'x'"));
+    }
+
+    #[test]
+    fn blocks_column_alter_on_sqlite_with_reason() {
+        let preview = ObjectMutationService::plan(&column_alter_request("sqlite"), &PgDialect).unwrap();
+        let reason = preview.unsupported_reason.unwrap();
+        assert!(reason.contains("ALTER COLUMN"));
+        assert!(preview.statements.is_empty());
+    }
+
+    #[test]
+    fn column_alter_sqlserver_rejects_default_change() {
+        let err = ObjectMutationService::plan(&column_alter_request("sqlserver"), &PgDialect).unwrap_err();
+        assert!(matches!(err, MutationError::Unsupported { .. }));
+    }
+
+    #[test]
+    fn column_alter_requires_type_and_names() {
+        let mut request = column_alter_request("postgresql");
+        if let ObjectDefinition::Column(def) = &mut request.definition {
+            def.data_type = "  ".into();
+        }
+        let err = ObjectMutationService::plan(&request, &PgDialect).unwrap_err();
+        assert!(matches!(err, MutationError::Validation { .. }));
     }
 }

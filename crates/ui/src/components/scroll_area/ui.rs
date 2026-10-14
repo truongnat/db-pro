@@ -7,6 +7,9 @@ pub struct ScrollArea {
     vertical: bool,
     auto_shrink: [bool; 2],
     max_height: Option<f32>,
+    id_salt: Option<egui::Id>,
+    stick_to_bottom: Option<bool>,
+    vertical_scroll_offset: Option<f32>,
     // Retained as part of the stable constructor contract; ScrollArea currently uses egui's
     // native visuals directly and has no theme-specific paint decisions.
     #[allow(dead_code)]
@@ -20,6 +23,9 @@ impl ScrollArea {
             vertical: config::DEFAULT_VERTICAL,
             auto_shrink: config::DEFAULT_AUTO_SHRINK,
             max_height: None,
+            id_salt: None,
+            stick_to_bottom: None,
+            vertical_scroll_offset: None,
             theme,
         }
     }
@@ -45,18 +51,73 @@ impl ScrollArea {
         self.max_height = Some(max_height);
         self
     }
+    pub fn id_salt(mut self, id_salt: impl Into<egui::Id>) -> Self {
+        self.id_salt = Some(id_salt.into());
+        self
+    }
+    pub fn stick_to_bottom(mut self, stick_to_bottom: bool) -> Self {
+        self.stick_to_bottom = Some(stick_to_bottom);
+        self
+    }
+    pub fn vertical_scroll_offset(mut self, offset: f32) -> Self {
+        self.vertical_scroll_offset = Some(offset);
+        self
+    }
 
-    pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-        // The handler owns the axis-ordering decision; this layer only constructs and
-        // renders egui's native scroll container with the selected presentation settings.
+    fn build(&self) -> egui::ScrollArea {
+        // The handler owns the axis-ordering decision; this layer only applies the
+        // selected presentation settings on egui's native scroll container.
         let mut area = egui::ScrollArea::new(handler::scroll_axes(self.horizontal, self.vertical))
             .auto_shrink(self.auto_shrink)
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded);
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden);
         if let Some(max_height) = self.max_height {
             area = area.max_height(max_height);
         }
-        let output = area.show(ui, add_contents);
-        output.inner
+        if let Some(id_salt) = self.id_salt {
+            area = area.id_salt(id_salt);
+        }
+        if let Some(stick_to_bottom) = self.stick_to_bottom {
+            area = area.stick_to_bottom(stick_to_bottom);
+        }
+        if let Some(offset) = self.vertical_scroll_offset {
+            area = area.vertical_scroll_offset(offset);
+        }
+        area
+    }
+
+    pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+        self.show_with_output(ui, add_contents).inner
+    }
+
+    /// Variant of [`ScrollArea::show`] for callers that need the scroll-area id
+    /// (e.g. to name the native scroll bars via [`name_scroll_bars`]).
+    pub fn show_with_output<R>(
+        self,
+        ui: &mut Ui,
+        add_contents: impl FnOnce(&mut Ui) -> R,
+    ) -> egui::scroll_area::ScrollAreaOutput<R> {
+        self.build().show(ui, add_contents)
+    }
+
+    /// Virtualized rows variant matching `egui::ScrollArea::show_rows`.
+    pub fn show_rows(
+        self,
+        ui: &mut Ui,
+        row_height_sans_spacing: f32,
+        total_rows: usize,
+        add_contents: impl FnOnce(&mut Ui, std::ops::Range<usize>),
+    ) -> egui::scroll_area::ScrollAreaOutput<()> {
+        self.build()
+            .show_rows(ui, row_height_sans_spacing, total_rows, add_contents)
+    }
+
+    /// Viewport variant matching `egui::ScrollArea::show_viewport`.
+    pub fn show_viewport<R>(
+        self,
+        ui: &mut Ui,
+        add_contents: impl FnOnce(&mut Ui, egui::Rect) -> R,
+    ) -> egui::scroll_area::ScrollAreaOutput<R> {
+        self.build().show_viewport(ui, add_contents)
     }
 }
 

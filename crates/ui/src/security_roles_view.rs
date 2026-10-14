@@ -91,7 +91,7 @@ impl SecurityRolesContext<'_> {
         ui.label(RichText::new("CREATE ROLE").font(font_caption()).strong().color(self.theme.text_secondary));
         ui.add_space(SPACE_SM);
         Input::new(&mut self.state.security_new_role, "role name", self.theme).show(ui);
-        ui.checkbox(&mut self.state.security_new_role_login, "LOGIN");
+        Checkbox::new(&mut self.state.security_new_role_login, "LOGIN", self.theme).show(ui);
         if Button::new(self.theme)
             .icon(Icon::Plus)
             .text("Create role")

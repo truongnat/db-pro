@@ -142,6 +142,15 @@ pub struct Syntax {
     pub variable: Color32,
 }
 
+/// Categorical chart series colors (data viz; not interactive UI roles).
+/// Ordered: the first unnamed series takes `series[0]`, the next `series[1]`,
+/// and so on; renderers index it with `i % series.len()`.
+#[derive(Debug, Clone, Copy)]
+pub struct Chart {
+    /// Categorical series palette, legible on the theme's chart surface.
+    pub series: [Color32; 6],
+}
+
 /// Full role set for one theme. Built once per theme construction; `DbProTheme`
 /// flattens it into its existing public fields for compatibility.
 #[derive(Debug, Clone, Copy)]
@@ -152,6 +161,7 @@ pub struct SemanticTokens {
     pub accent: Accent,
     pub status: Status,
     pub syntax: Syntax,
+    pub chart: Chart,
 }
 
 impl StatusRole {
@@ -221,6 +231,16 @@ impl SemanticTokens {
                 punctuation: light::NEUTRAL_600,
                 variable: light::NEUTRAL_900,
             },
+            chart: Chart {
+                series: [
+                    light::BLUE_700,
+                    light::CHART_RED_600,
+                    light::AMBER_600,
+                    light::GREEN_600,
+                    light::CHART_PURPLE_600,
+                    light::CYAN_700,
+                ],
+            },
         }
     }
 
@@ -278,6 +298,16 @@ impl SemanticTokens {
                 operator: dark::NEUTRAL_200,
                 punctuation: dark::NEUTRAL_450,
                 variable: dark::NEUTRAL_50,
+            },
+            chart: Chart {
+                series: [
+                    dark::CHART_BLUE_400,
+                    dark::CHART_RED_400,
+                    dark::CHART_YELLOW_400,
+                    dark::CHART_GREEN_500,
+                    dark::CHART_PURPLE_400,
+                    dark::CHART_CYAN_500,
+                ],
             },
         }
     }

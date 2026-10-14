@@ -71,8 +71,6 @@ pub(crate) struct SchemaExplorerState {
     pub(super) recent_tables: Vec<String>,
     pub(super) selected_schema_object: Option<SchemaObjectSelection>,
     pub(super) schema_object_view: SchemaObjectView,
-    pub(super) connections_pane_height: f32,
-    pub(super) schemas_pane_height: f32,
 }
 
 impl Default for SchemaExplorerState {
@@ -91,8 +89,6 @@ impl Default for SchemaExplorerState {
             recent_tables: Vec::new(),
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
-            connections_pane_height: 160.0,
-            schemas_pane_height: 90.0,
         }
     }
 }
@@ -109,22 +105,6 @@ impl SchemaExplorerState {
         self.selected_table = None;
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
-    }
-
-    pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
-        if self.schema.schemas.is_empty() || schema.is_empty() {
-            all.to_vec()
-        } else {
-            all.iter().filter(|item| schema_of(item) == schema).cloned().collect()
-        }
-    }
-
-    pub(super) fn count_by_schema<T>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> usize {
-        if self.schema.schemas.is_empty() || schema.is_empty() {
-            all.len()
-        } else {
-            all.iter().filter(|item| schema_of(item) == schema).count()
-        }
     }
 
     pub(super) fn matching_table_count(&self, schema: &str, query: &str) -> usize {
@@ -237,8 +217,6 @@ mod tests {
         assert!(state.selected_table.is_none());
         assert!(state.schema_request.is_none());
         assert_eq!(state.schema_object_view, SchemaObjectView::Definition);
-        assert_eq!(state.connections_pane_height, 160.0);
-        assert_eq!(state.schemas_pane_height, 90.0);
     }
 
     #[test]

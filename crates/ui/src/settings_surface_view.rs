@@ -104,7 +104,7 @@ impl SettingsSurfaceContext<'_> {
             egui::vec2(content_width, available_height),
             egui::Layout::top_down(egui::Align::Min),
             |ui| {
-                egui::ScrollArea::vertical()
+                ScrollArea::new(*self.theme)
                     .id_salt("settings-content")
                     .auto_shrink([false, false])
                     .show(ui, |ui| self.draw_content(ui, actions));
@@ -128,7 +128,7 @@ impl SettingsSurfaceContext<'_> {
                 .color(self.theme.text_muted),
         );
         ui.add_space(SPACE_LG);
-        ui.separator();
+        Separator::horizontal(*self.theme).show(ui);
         ui.add_space(SPACE_LG);
         ui.label(
             egui::RichText::new(self.selected.label())

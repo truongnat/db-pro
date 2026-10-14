@@ -15,6 +15,8 @@ pub struct SearchInput<'a> {
     placeholder: &'a str,
     shortcut: Option<&'a str>,
     width: Option<f32>,
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
+    bordered: bool,
     theme: DbProTheme,
 }
 
@@ -25,6 +27,7 @@ impl<'a> SearchInput<'a> {
             placeholder,
             shortcut: None,
             width: None,
+            bordered: false,
             theme,
         }
     }
@@ -36,6 +39,12 @@ impl<'a> SearchInput<'a> {
 
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
+    pub fn bordered(mut self, bordered: bool) -> Self {
+        self.bordered = bordered;
         self
     }
 
@@ -144,6 +153,7 @@ impl<'a> SearchInput<'a> {
                 hovered: frame_output.response.hovered() || edit_response.hovered(),
                 enabled: true,
                 has_error: false,
+                bordered: self.bordered,
             },
             self.theme,
         );

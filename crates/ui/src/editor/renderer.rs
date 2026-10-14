@@ -97,7 +97,7 @@ pub struct SqlEditor<'a> {
     pub search_query: &'a str,
     pub active_search_match_index: usize,
     pub completion_open: bool,
-    pub rich_hover_open: bool,
+    pub rich_hover: Option<HoveredSqlToken>,
     pub snippet_active: bool,
     pub snippet_range: Option<(usize, usize)>,
     pub auto_focus: bool,
@@ -186,7 +186,7 @@ impl<'a> SqlEditor<'a> {
             search_query: "",
             active_search_match_index: 0,
             completion_open: false,
-            rich_hover_open: false,
+            rich_hover: None,
             snippet_active: false,
             snippet_range: None,
             auto_focus: false,
@@ -212,8 +212,10 @@ impl<'a> SqlEditor<'a> {
         self
     }
 
-    pub fn with_rich_hover_open(mut self, rich_hover_open: bool) -> Self {
-        self.rich_hover_open = rich_hover_open;
+    /// Confirmed (delay-filtered) hover token. The anchor's card is drawn by
+    /// the caller; the editor paints occurrence highlights for the symbol.
+    pub fn with_rich_hover(mut self, token: Option<HoveredSqlToken>) -> Self {
+        self.rich_hover = token;
         self
     }
 
@@ -399,11 +401,13 @@ impl<'a> SqlEditor<'a> {
         response
     }
 
-    /// Current-line wash, search matches, execution range, selection and
-    /// delimiter pairing — all the "where am I" paint, drawn under the text.
+    /// Current-line wash, search matches, execution range, hover symbol
+    /// occurrences, selection and delimiter pairing — all the "where am I"
+    /// paint, drawn under the text.
     fn paint_highlights(&self, ui: &Ui, frame: &EditorFrame) {
         self.paint_current_line(ui, frame);
         self.paint_search_and_execution(ui, frame);
+        self.paint_hover_occurrences(ui, frame);
         self.paint_selection_fill(ui, frame);
         self.paint_delimiter_marks(ui, frame);
     }
@@ -488,6 +492,53 @@ impl<'a> SqlEditor<'a> {
                     CornerRadius::same(1.0 as u8),
                     self.theme.accent.linear_multiply(0.08),
                 );
+            }
+        }
+    }
+
+    /// Every other occurrence of the confirmed-hover symbol, washed in accent.
+    /// Runs only while the rich-hover card owns a token (500 ms FSM upstream).
+    fn paint_hover_occurrences(&self, ui: &Ui, frame: &EditorFrame) {
+        let Some(token) = self.rich_hover else {
+            return;
+        };
+        // Same viewport window the text pass paints (incl. its ±2-line overscan)
+        // so off-screen tokens cost no rects and the pass stays cheap.
+        let first_visible_line =
+            (((frame.scroll.y - PADDING_TOP) / frame.line_height).floor() as isize).max(0) as usize;
+        let first_visible_line = first_visible_line.saturating_sub(2);
+        let last_visible_line =
+            ((((frame.scroll.y + frame.viewport.height() - PADDING_TOP) / frame.line_height).ceil() as usize) + 2)
+                .min(frame.line_count);
+        let visible_start = self.buffer.line_start_offset(first_visible_line);
+        let visible_end = if last_visible_line >= self.buffer.line_count() {
+            self.buffer.len_bytes()
+        } else {
+            self.buffer.line_start_offset(last_visible_line)
+        };
+        for (start, end) in hover_occurrence_ranges(
+            self.buffer.text(),
+            token.range,
+            frame.tokens,
+            visible_start,
+            visible_end,
+        ) {
+            for occ_rect in self.range_to_screen_rects(
+                self.buffer,
+                start,
+                end,
+                frame.rect.min,
+                frame.gutter_w,
+                frame.line_height,
+                frame.char_width,
+            ) {
+                if occ_rect.intersects(frame.viewport) {
+                    ui.painter().rect_filled(
+                        occ_rect,
+                        CornerRadius::same(2.0 as u8),
+                        self.theme.accent.linear_multiply(0.22),
+                    );
+                }
             }
         }
     }
@@ -704,7 +755,7 @@ impl<'a> SqlEditor<'a> {
                 if let Some(pos) = pointer_pos {
                     // A diagnostic tooltip must not fight the completion popup or the
                     // delayed rich-hover card — those popups own the hover real estate.
-                    if d_rect.contains(pos) && !self.completion_open && !self.rich_hover_open {
+                    if d_rect.contains(pos) && !self.completion_open && self.rich_hover.is_none() {
                         let _ = egui::Tooltip::always_open(
                             ui.ctx().clone(),
                             ui.layer_id(),
@@ -1620,6 +1671,51 @@ impl<'a> SqlEditor<'a> {
             self.selection.collapse_to_active();
         }
     }
+}
+
+/// Byte ranges of every token spelling the same word as the confirmed-hover
+/// token, inside the painted window `[window_start, window_end)`. The anchor
+/// token itself is excluded — the pointer already marks it. Matching is
+/// Unicode-lowercase-insensitive so `USERS` and `users` agree.
+fn hover_occurrence_ranges(
+    text: &str,
+    anchor: (usize, usize),
+    tokens: &[SyntaxToken],
+    window_start: usize,
+    window_end: usize,
+) -> Vec<(usize, usize)> {
+    let Some(target) = text.get(anchor.0..anchor.1) else {
+        return Vec::new();
+    };
+    if target.is_empty() {
+        return Vec::new();
+    }
+    let mut ranges = Vec::new();
+    for token in tokens {
+        if token.range.1 <= window_start {
+            continue;
+        }
+        if token.range.0 >= window_end {
+            break;
+        }
+        if token.range == anchor {
+            continue;
+        }
+        let Some(slice) = text.get(token.range.0..token.range.1) else {
+            continue;
+        };
+        if str_eq_ignore_case(slice, target) {
+            ranges.push(token.range);
+        }
+    }
+    ranges
+}
+
+/// Allocation-free Unicode case-insensitive equality.
+fn str_eq_ignore_case(a: &str, b: &str) -> bool {
+    a.chars()
+        .flat_map(char::to_lowercase)
+        .eq(b.chars().flat_map(char::to_lowercase))
 }
 
 fn layout_line(

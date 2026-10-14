@@ -161,7 +161,7 @@ impl SecurityRlsContext<'_> {
             "roles (comma; empty=PUBLIC)",
             self.theme,
         ).show(ui);
-        ui.checkbox(&mut self.state.security_rls_restrictive, "Restrictive");
+        Checkbox::new(&mut self.state.security_rls_restrictive, "Restrictive", self.theme).show(ui);
         Input::new(&mut self.state.security_rls_using, "USING expression", self.theme).show(ui);
         Input::new(
             &mut self.state.security_rls_with_check,
@@ -201,10 +201,12 @@ impl SecurityRlsContext<'_> {
                     .monospace()
                     .color(self.theme.text_primary),
             );
-            ui.checkbox(
+            Checkbox::new(
                 &mut self.state.security_rls_confirm_apply,
                 "I understand this changes data visibility immediately",
-            );
+                self.theme,
+            )
+            .show(ui);
             if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
                 actions.push(SecurityRlsAction::ApplyPreview);
             }

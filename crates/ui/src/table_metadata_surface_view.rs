@@ -48,7 +48,9 @@ impl TableMetadataContext<'_> {
                 TableColumn::new("Target Columns / Expression").width(320.0),
                 TableColumn::new("Details"),
             ];
-            egui::ScrollArea::horizontal()
+            ScrollArea::new(self.theme)
+                .horizontal(true)
+                .vertical(false)
                 .id_salt("constraints-table-scroll")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -107,7 +109,9 @@ impl TableMetadataContext<'_> {
             TableColumn::new("Object Name").width(220.0),
             TableColumn::new("Relationship Details"),
         ];
-        egui::ScrollArea::horizontal()
+        ScrollArea::new(self.theme)
+            .horizontal(true)
+            .vertical(false)
             .id_salt("dependencies-table-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -175,7 +179,7 @@ impl TableMetadataContext<'_> {
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 ui.label(RichText::new(format!("{matching} of {total}")).font(font_ui_label()).color(self.theme.text_muted))
                     .on_hover_text(format!("{matching} of {total} dependencies match the current filters"));
-                ui.separator();
+                Separator::vertical(self.theme).show(ui);
                 for (value, label) in [
                     ("all", "All"),
                     ("depends_on", "Depends On (Outgoing)"),

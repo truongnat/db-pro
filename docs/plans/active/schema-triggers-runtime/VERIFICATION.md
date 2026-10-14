@@ -1,8 +1,8 @@
 # S4 — Schema Triggers Runtime Verification
 
-State: COMPLETE (all implementation, frontend, and test items done; CI passing)
+State: IMPLEMENTED IN SOURCE; focused checks and live-provider verification pending.
 
-## CI Evidence
+## Historical CI evidence (predates the native lifecycle implementation)
 
 | Check | Run | Result |
 |---|---|---|
@@ -38,17 +38,19 @@ the header portion.
 
 | Provider | Introspection | CREATE | DROP | DDL viewer | Enable/Disable |
 |---|---|---|---|---|---|
-| PostgreSQL | DONE (source-level) | existing | existing | DONE (reconstructed from parts) | DONE (ALTER TABLE ENABLE/DISABLE TRIGGER) |
-| SQLite | DONE (source + test) | existing | existing | DONE (full SQL from sqlite_master) | N/A (no disable mechanism) |
-
+| PostgreSQL | Source + unit mapping tests | existing | existing | DONE | Implemented via typed mutation; focused checks/live PG pending |
+| SQLite | source + integration test | existing | existing | DONE | Unsupported; capability-gated and mutation planner emits no SQL |
+| MySQL | existing | existing | existing | existing | Unsupported; capability-gated and mutation planner emits no SQL |
+| SQL Server | existing | existing | existing | existing | Unsupported; no SQL builder, capability reason shown |
 ## DDL viewer integration
 
 `get_table_ddl` now appends trigger definitions after the CREATE TABLE statement.
 - SQLite: uses full CREATE TRIGGER SQL from `sqlite_master`
 - PostgreSQL: reconstructs from timing/event/action_statement parts
 
-## Trigger enable/disable toggle
+- Native Explorer trigger rows display introspected Enabled/Disabled state.
+- PostgreSQL exposes Enable/Disable through the context menu; other providers show a disabled reason.
+- Actions create typed `ObjectMutationRequest`s and flow through Schema Workbench preview/apply and `UiCommand::ExecuteDdl`.
+- Capability-gated by `CapabilityFeature::TriggerEnableDisable`.
 
-- Frontend TriggerRow shows Enable/Disable button for PostgreSQL connections
-- Capability-gated via `supportsTriggerToggle` in DdlCapabilities
-- SQLite connections do not show the toggle (not supported)
+Focused tests/checks and native UI captures are pending.
