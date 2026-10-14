@@ -4,16 +4,9 @@ use super::*;
 #[path = "constants.rs"]
 mod constants;
 use constants::*;
+pub(crate) use constants::WelcomeAction;
 use egui::RichText;
 use lucide_icons::Icon;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum WelcomeAction {
-    NewConnection,
-    NewQuery,
-    ToggleAgent,
-    OpenDiagram,
-}
-
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let top_space = (ui.available_height() * HEADER_TOP_RATIO).max(SPACE_MD);
     ui.add_space(top_space);

@@ -25,3 +25,13 @@ pub(super) const WIDE_GRID_WIDTH: f32 = 620.0;
 /// Lower bound for the description wrap width so degenerate narrow cards can
 /// never request a zero-width layout.
 pub(super) const MIN_DESC_WRAP_WIDTH: f32 = 10.0;
+
+/// Quick-action intents the welcome cards emit; the workspace shell maps each
+/// to a navigation/mutation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WelcomeAction {
+    NewConnection,
+    NewQuery,
+    ToggleAgent,
+    OpenDiagram,
+}
