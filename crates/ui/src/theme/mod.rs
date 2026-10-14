@@ -1,3 +1,6 @@
+pub(crate) mod text_selection_style;
+pub mod tokens;
+
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
@@ -22,10 +25,10 @@ const EGUI_WINDOW_MARGIN: f32 = SPACE_MD;
 const EGUI_MENU_MARGIN: f32 = SPACE_XS;
 const EGUI_INDENT: f32 = SPACE_MD;
 
-const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
-const INTER_REGULAR_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular-ext.ttf");
-const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
-const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Medium-ext.ttf");
+const INTER_REGULAR: &[u8] = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
+const INTER_REGULAR_EXT: &[u8] = include_bytes!("../../assets/fonts/Inter-Regular-ext.ttf");
+const INTER_MEDIUM: &[u8] = include_bytes!("../../assets/fonts/Inter-Medium.ttf");
+const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../../assets/fonts/Inter-Medium-ext.ttf");
 
 /// Product-owned visual tokens for the native shell.
 ///

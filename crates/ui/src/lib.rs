@@ -16,9 +16,13 @@ mod policy;
 pub mod query;
 mod result_grid;
 mod runtime;
-mod text_selection_style;
+mod text_selection_style {
+    pub(crate) use crate::theme::text_selection_style::*;
+}
 mod theme;
-pub mod tokens;
+pub mod tokens {
+    pub use crate::theme::tokens::*;
+}
 
 pub use i18n::UiLanguage;
 
