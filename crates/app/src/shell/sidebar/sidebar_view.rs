@@ -59,7 +59,7 @@ impl DbProApp {
             .auto_shrink([false, false])
             .max_height(scroll_h)
             .show(ui, |ui| {
-                ui.add_space(4.0);
+                ui.add_space(SPACE_XS);
                 self.draw_sidebar_activity_body(ui);
             });
     }

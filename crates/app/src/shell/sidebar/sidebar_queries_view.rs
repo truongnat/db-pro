@@ -41,7 +41,7 @@ impl SidebarQueriesContext<'_> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
             ui.label(
-                RichText::new(format!("OPEN QUERIES ({})", self.documents.len()))
+                RichText::new(t!("sidebar.open_queries", n = self.documents.len()))
                     .font(font_caption())
                     .strong()
                     .color(self.theme.text_secondary),
@@ -101,7 +101,7 @@ impl SidebarQueriesContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Copy),
-                "Duplicate query",
+                t!("sidebar.duplicate_query").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -114,7 +114,7 @@ impl SidebarQueriesContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Pencil),
-                "Rename tab",
+                t!("sidebar.rename_tab").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -128,7 +128,7 @@ impl SidebarQueriesContext<'_> {
                 && ctx_menu_item(
                     ui,
                     Some(Icon::Trash2),
-                    "Close query",
+                    t!("sidebar.close_query").as_ref(),
                     None,
                     self.theme.danger,
                     self.theme,

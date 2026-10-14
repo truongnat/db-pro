@@ -3,6 +3,7 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 //! Saved-query library and local history sidebar rendering.
 use super::*;
+use super::sidebar_constants::{LOCAL_HISTORY_LIMIT, LOCAL_HISTORY_TITLE_CHARS};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,13 +33,16 @@ impl SidebarQueryLibraryContext<'_> {
             return self.draw_empty_saved_queries(ui);
         }
 
-        let mut groups: Vec<(String, Vec<UiSavedQuerySummary>)> = Vec::new();
+        // Group by folder name without cloning the summaries — the grouping
+        // is per-frame view work, so it borrows.
+        let unfiled = t!("sidebar.unfiled");
+        let mut groups: Vec<(&str, Vec<&UiSavedQuerySummary>)> = Vec::new();
         for query in self.saved_queries {
-            let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
-            if let Some((_, queries)) = groups.iter_mut().find(|(name, _)| name == &folder) {
-                queries.push(query.clone());
+            let folder = query.folder.as_deref().unwrap_or(unfiled.as_ref());
+            if let Some((_, queries)) = groups.iter_mut().find(|(name, _)| *name == folder) {
+                queries.push(query);
             } else {
-                groups.push((folder, vec![query.clone()]));
+                groups.push((folder, vec![query]));
             }
         }
 
@@ -56,9 +60,9 @@ impl SidebarQueryLibraryContext<'_> {
         }
 
         let mut actions = Vec::new();
-        for query in self.history.iter().rev().take(15) {
+        for query in self.history.iter().rev().take(LOCAL_HISTORY_LIMIT) {
             let first_line = query.lines().next().unwrap_or("query").trim();
-            let display = crate::components::truncate_ellipsis(first_line, 26);
+            let display = crate::components::truncate_ellipsis(first_line, LOCAL_HISTORY_TITLE_CHARS);
             if sidebar_item(ui, Icon::History, &display, false, self.theme)
                 .on_hover_text(query)
                 .clicked()
@@ -76,7 +80,7 @@ impl SidebarQueryLibraryContext<'_> {
         query_id: &str,
     ) -> Option<SidebarQueryLibraryAction> {
         let mut action = None;
-        ui.colored_label(self.theme.warning, "Delete this saved query?");
+        ui.colored_label(self.theme.warning, t!("sidebar.delete_saved_prompt").as_ref());
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .text(t!("sidebar.confirm_delete").as_ref())
@@ -135,8 +139,8 @@ impl SidebarQueryLibraryContext<'_> {
     fn draw_saved_query_folder(
         &self,
         ui: &mut egui::Ui,
-        folder: String,
-        queries: Vec<UiSavedQuerySummary>,
+        folder: &str,
+        queries: Vec<&UiSavedQuerySummary>,
     ) -> Vec<SidebarQueryLibraryAction> {
         let folder_id = self
             .query_folders
@@ -146,26 +150,26 @@ impl SidebarQueryLibraryContext<'_> {
         let mut actions = Vec::new();
         let header = egui::collapsing_header::CollapsingState::load_with_default_open(
             ui.ctx(),
-            ui.make_persistent_id(("saved-query-folder", folder.as_str())),
+            ui.make_persistent_id(("saved-query-folder", folder)),
             true,
         )
         .show_header(ui, |ui| {
-            ui.label(icon_text(Icon::FolderOpen, &folder, self.theme.text_primary));
+            ui.label(icon_text(Icon::FolderOpen, folder, self.theme.text_primary));
             ui.label(
-                RichText::new(format!("{} queries", queries.len()))
+                RichText::new(t!("sidebar.folder_count", n = queries.len()))
                     .small()
                     .color(self.theme.text_muted),
             );
         });
         let (_, header_response, _) = header.body(|ui| {
-            for query in &queries {
+            for query in queries {
                 actions.extend(self.draw_saved_query_entry(ui, query));
             }
         });
         let theme = self.theme;
         context_action_menu(ui, &header_response.response, theme, |ui, close_menu| {
             if folder_id.is_some()
-                && ctx_menu_item(ui, Some(Icon::Trash2), "Delete folder", None, theme.danger, theme).clicked()
+                && ctx_menu_item(ui, Some(Icon::Trash2), t!("sidebar.delete_folder").as_ref(), None, theme.danger, theme).clicked()
             {
                 actions.push(SidebarQueryLibraryAction::RequestDeleteFolder(folder_id.clone()));
                 *close_menu = true;
@@ -195,7 +199,7 @@ impl SidebarQueryLibraryContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::FileCode2),
-                "Open as new query",
+                t!("sidebar.open_as_new").as_ref(),
                 Some("⏎"),
                 self.theme.text_primary,
                 self.theme,
@@ -208,7 +212,7 @@ impl SidebarQueryLibraryContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::ArrowRight),
-                "Insert into current query",
+                t!("sidebar.insert_into_current").as_ref(),
                 Some("⌥⏎"),
                 self.theme.text_primary,
                 self.theme,
@@ -221,7 +225,7 @@ impl SidebarQueryLibraryContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Copy),
-                "Copy SQL",
+                t!("sidebar.copy_sql").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -238,7 +242,7 @@ impl SidebarQueryLibraryContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Pencil),
-                "Rename query",
+                t!("sidebar.rename_query").as_ref(),
                 None,
                 self.theme.text_primary,
                 self.theme,
@@ -251,7 +255,7 @@ impl SidebarQueryLibraryContext<'_> {
             if ctx_menu_item(
                 ui,
                 Some(Icon::Trash2),
-                "Delete query",
+                t!("sidebar.delete_query").as_ref(),
                 None,
                 self.theme.danger,
                 self.theme,

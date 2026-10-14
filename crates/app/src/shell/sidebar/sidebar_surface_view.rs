@@ -1,7 +1,7 @@
 //! Sidebar shell layout, chrome and resize interaction.
 use super::super::*;
 use super::sidebar_chrome_view::{SidebarChromeAction, SidebarChromeContext};
-use super::sidebar_constants::SIDEBAR_CLIP_BLEED;
+use super::sidebar_constants::{RESIZE_GRIP_MIN, SIDEBAR_CLIP_BLEED};
 use egui::{vec2, Pos2, Rect, Sense, Stroke};
 
 
@@ -126,7 +126,7 @@ fn draw_resize_handle(
     egui_context: &egui::Context,
     panel: &SidebarPanel,
 ) -> Option<f32> {
-    let grip = egui_context.global_style().interaction.resize_grab_radius_side.max(5.0);
+    let grip = egui_context.global_style().interaction.resize_grab_radius_side.max(RESIZE_GRIP_MIN);
     let edge_x = panel.left + context.sidebar_width;
     let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), panel.y_range);
     let id = egui::Id::new("dbpro_sidebar_resize");
@@ -155,17 +155,17 @@ fn draw_resize_handle(
         egui_context.request_repaint();
     }
     let painter = egui_context.layer_painter(egui::LayerId::background());
-    let line_x = painter.round_to_pixel_center(edge_x - 1.0);
+    let line_x = painter.round_to_pixel_center(edge_x - STROKE_THIN);
     painter.vline(line_x, panel.y_range, resize_stroke(context.theme, hovering, dragging));
     width
 }
 
 fn resize_stroke(theme: DbProTheme, hovering: bool, dragging: bool) -> Stroke {
     if dragging {
-        Stroke::new(1.5, theme.accent)
+        Stroke::new(STROKE_FOCUS, theme.accent)
     } else if hovering {
-        Stroke::new(1.0, theme.accent)
+        Stroke::new(STROKE_THIN, theme.accent)
     } else {
-        Stroke::new(1.0, theme.border_subtle)
+        Stroke::new(STROKE_THIN, theme.border_subtle)
     }
 }

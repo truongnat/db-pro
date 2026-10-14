@@ -54,3 +54,18 @@ pub(super) const STATUS_DOT_RADIUS: f32 = 3.0;
 pub(super) const DETAILS_MAX_HEIGHT: f32 = crate::tokens::SPACE_6XL * 1.5;
 /// Outcome filter select width: fits "Cancelled" at BODY_SM.
 pub(super) const FILTER_SELECT_WIDTH: f32 = crate::tokens::SPACE_6XL + crate::tokens::SPACE_2XL;
+
+// --- Query library ----------------------------------------------------------
+
+/// Most-recent local history entries listed in the sidebar; the full list is
+/// one level deeper in the History activity.
+pub(super) const LOCAL_HISTORY_LIMIT: usize = 15;
+/// Characters kept of a history row's first line in the library list.
+pub(super) const LOCAL_HISTORY_TITLE_CHARS: usize = 26;
+
+// --- Resize grip ------------------------------------------------------------
+
+/// Minimum hit width around the sidebar edge for resizing — egui's global
+/// resize grab radius can be configured below finger-friendly bounds, so the
+/// grip never shrinks under this floor.
+pub(super) const RESIZE_GRIP_MIN: f32 = 5.0;
