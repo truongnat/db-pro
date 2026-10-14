@@ -9,24 +9,27 @@ use super::sidebar_query_library_view::SidebarQueryLibraryAction;
 use super::*;
 
 impl DbProApp {
+    /// The queries/history surfaces read the same session slices; build the
+    /// context once here so the two draw paths cannot drift apart.
+    fn queries_surface_context(&self) -> SidebarQueriesSurfaceContext<'_> {
+        SidebarQueriesSurfaceContext {
+            theme: self.theme,
+            documents: &self.query.session.documents,
+            active_tab: self.workspace.active_tab,
+            active_document_index: self.query.session.active_document_index,
+            saved_queries: &self.query.library.saved_queries,
+            query_folders: &self.query.library.query_folders,
+            history: &self.query.editor.query_history,
+            history_entries: &self.query.editor.query_history_entries,
+            catalog: &self.connection.catalog,
+            history_outcome_filter: self.query.editor.history_outcome_filter,
+            history_selected_id: self.query.editor.history_selected_id.as_deref(),
+            saved_query_delete_id: self.overlay.saved_query_delete_id.as_deref(),
+        }
+    }
+
     pub(super) fn draw_queries(&mut self, ui: &mut egui::Ui) {
-        let actions = {
-            let context = SidebarQueriesSurfaceContext {
-                theme: self.theme,
-                documents: &self.query.session.documents,
-                active_tab: self.workspace.active_tab,
-                active_document_index: self.query.session.active_document_index,
-                saved_queries: &self.query.library.saved_queries,
-                query_folders: &self.query.library.query_folders,
-                history: &self.query.editor.query_history,
-                history_entries: &self.query.editor.query_history_entries,
-                catalog: &self.connection.catalog,
-                history_outcome_filter: self.query.editor.history_outcome_filter,
-                history_selected_id: self.query.editor.history_selected_id.as_deref(),
-                saved_query_delete_id: self.overlay.saved_query_delete_id.as_deref(),
-            };
-            context.draw(ui)
-        };
+        let actions = self.queries_surface_context().draw(ui);
         for action in actions {
             match action {
                 SidebarQueriesSurfaceAction::OpenQuery(action) => self.apply_sidebar_query_action(action),
@@ -91,12 +94,12 @@ impl DbProApp {
                     self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
                     self.workspace.active_tab = WorkspaceTab::Query;
                     self.workspace.activity = Activity::Queries;
-                    self.feedback.runtime_message = format!("Query ready for {table}");
+                    self.feedback.runtime_message = t!("sidebar.query_ready", table = table.as_str()).into_owned();
                 }
                 SidebarDataAction::TogglePinned(table) => self.toggle_pinned_table(table),
                 SidebarDataAction::RemoveRecent(table) => {
                     self.schema.explorer.remove_recent_table(&table);
-                    self.feedback.runtime_message = format!("Removed {table} from recent");
+                    self.feedback.runtime_message = t!("sidebar.removed_recent", table = table.as_str()).into_owned();
                 }
             }
         }
@@ -129,7 +132,7 @@ impl DbProApp {
                 }
                 SidebarProblemsAction::Select(entry) => {
                     self.query.editor.problems_selected = Some((entry.document_id, entry.diagnostic_index));
-                    if entry.document_index == usize::MAX {
+                    if entry.document_index == crate::app::problems_view::FILE_BACKED_DOCUMENT_INDEX {
                         self.open_workspace_sql_file(entry.document_title);
                         self.workspace.files.select_panel_tab(FilesPanelTab::Search);
                     } else {
@@ -147,21 +150,7 @@ impl DbProApp {
     }
 
     pub(super) fn draw_history(&mut self, ui: &mut egui::Ui) {
-        let context = SidebarQueriesSurfaceContext {
-            theme: self.theme,
-            documents: &self.query.session.documents,
-            active_tab: self.workspace.active_tab,
-            active_document_index: self.query.session.active_document_index,
-            saved_queries: &self.query.library.saved_queries,
-            query_folders: &self.query.library.query_folders,
-            history: &self.query.editor.query_history,
-            history_entries: &self.query.editor.query_history_entries,
-            catalog: &self.connection.catalog,
-            history_outcome_filter: self.query.editor.history_outcome_filter,
-            history_selected_id: self.query.editor.history_selected_id.as_deref(),
-            saved_query_delete_id: self.overlay.saved_query_delete_id.as_deref(),
-        };
-        for action in context.draw_history(ui) {
+        for action in self.queries_surface_context().draw_history(ui) {
             match action {
                 SidebarQueriesSurfaceAction::History(action) => self.apply_sidebar_history_action(ui, action),
                 SidebarQueriesSurfaceAction::Library(action) => self.apply_sidebar_query_library_action(ui, action),
@@ -184,16 +173,11 @@ impl DbProApp {
                 self.query.editor.history_selected_id = id;
             }
             sidebar_history_view::SidebarHistoryAction::OpenAsNewQuery(sql) => {
-                let mut doc = crate::query::query_document::QueryDocument::new("query", "History replay", sql);
-                doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
-                doc.schema = Some(self.active_schema().to_owned());
-                self.query.session.documents.push(doc);
-                self.query.session.active_document_index = self.query.session.documents.len().saturating_sub(1);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_sql_document(t!("sidebar.history_replay_title").as_ref(), sql);
             }
             sidebar_history_view::SidebarHistoryAction::CopySql(sql) => {
                 ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(sql)));
-                self.feedback.runtime_message = "Copied SQL from history".to_owned();
+                self.feedback.runtime_message = t!("sidebar.copied_sql").into_owned();
             }
         }
     }
@@ -202,12 +186,7 @@ impl DbProApp {
         match action {
             SidebarQueryLibraryAction::NewQuery => self.new_query_document(),
             SidebarQueryLibraryAction::OpenQuery(sql) => {
-                let mut doc = crate::query::query_document::QueryDocument::new("query", "Saved Query", sql);
-                doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
-                doc.schema = Some(self.active_schema().to_owned());
-                self.query.session.documents.push(doc);
-                self.query.session.active_document_index = self.query.session.documents.len().saturating_sub(1);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_sql_document(t!("sidebar.saved_query_title").as_ref(), sql);
             }
             SidebarQueryLibraryAction::OpenHistory(sql) => {
                 self.set_active_query_text(sql);
@@ -219,7 +198,7 @@ impl DbProApp {
             }
             SidebarQueryLibraryAction::CopySql { name, sql } => {
                 ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(sql)));
-                self.feedback.runtime_message = format!("Copied SQL for `{name}`");
+                self.feedback.runtime_message = t!("sidebar.copied_sql_named", name = name.as_str()).into_owned();
             }
             SidebarQueryLibraryAction::Rename(query) => self.rename_saved_query(&query),
             SidebarQueryLibraryAction::RequestDelete(id) => {
@@ -240,10 +219,22 @@ impl DbProApp {
         }
     }
 
+    /// New untitled query document carrying `sql`, bound to the active
+    /// connection/schema and focused. Shared by history replay and saved-query
+    /// open so both paths stay identical.
+    fn open_sql_document(&mut self, title: &str, sql: String) {
+        let mut doc = crate::query::query_document::QueryDocument::new("query", title, sql);
+        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        doc.schema = Some(self.active_schema().to_owned());
+        self.query.session.documents.push(doc);
+        self.query.session.active_document_index = self.query.session.documents.len().saturating_sub(1);
+        self.workspace.active_tab = WorkspaceTab::Query;
+    }
+
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
         let request_id = self.next_request_id();
         let name = if self.query.library.query_folder.trim().is_empty() {
-            format!("{} (renamed)", query.name)
+            t!("sidebar.renamed_suffix", name = query.name.as_str()).into_owned()
         } else {
             self.query.library.query_folder.trim().to_owned()
         };

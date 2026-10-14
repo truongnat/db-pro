@@ -1,6 +1,12 @@
 //! Problem list helpers and diagnostics summary export.
 use super::*;
 
+/// `ProblemEntry::document_index` for diagnostics that live on a workspace
+/// file, not a query document. `usize::MAX` is impossible as a real index —
+/// `documents` can't grow that far — so it doubles as the "file-backed"
+/// marker the sidebar checks before navigating.
+pub(crate) const FILE_BACKED_DOCUMENT_INDEX: usize = usize::MAX;
+
 impl DbProApp {
     pub(crate) fn collect_problem_entries(&self) -> Vec<ProblemEntry> {
         let mut entries = Vec::new();
@@ -35,7 +41,7 @@ impl DbProApp {
                 ide_workspace::WorkspaceDiagnosticSeverity::Warning => crate::editor::DiagnosticSeverity::Warning,
             };
             entries.push(ProblemEntry {
-                document_index: usize::MAX,
+                document_index: FILE_BACKED_DOCUMENT_INDEX,
                 document_id: format!("{}::{}", diagnostic.root_id, diagnostic.relative_path),
                 document_title: diagnostic.relative_path.clone(),
                 diagnostic_index: index,
