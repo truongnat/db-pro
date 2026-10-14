@@ -10,8 +10,15 @@ pub(super) enum WelcomeAction {
     OpenDiagram,
 }
 
+/// Fraction of the leftover height (after reserving the content block) used as
+/// top padding so the header sits slightly above vertical center.
+const TOP_SPACE_RATIO: f32 = 0.4;
+/// Approximate height the welcome content occupies; the space above it is
+/// distributed via TOP_SPACE_RATIO.
+const WELCOME_BLOCK_HEIGHT: f32 = 400.0;
+
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
-    let top_space = ((ui.available_height() - 400.0) * 0.4).max(SPACE_MD);
+    let top_space = ((ui.available_height() - WELCOME_BLOCK_HEIGHT) * TOP_SPACE_RATIO).max(SPACE_MD);
     ui.add_space(top_space);
 
     ui.vertical_centered(|ui| {
@@ -80,14 +87,25 @@ fn welcome_items() -> [WelcomeItem; 4] {
     ]
 }
 
-const CARD_GAP: f32 = 12.0;
+const CARD_GAP: f32 = SPACE_MD;
 const CARD_HEIGHT: f32 = 64.0;
+/// Width above which the four cards lay out in a 2x2 grid instead of stacking.
+const WIDE_BREAKPOINT: f32 = 620.0;
+const STACKED_SIDE_INSET: f32 = 32.0;
+const MIN_CONTAINER_WIDTH: f32 = 280.0;
+const TITLE_DESC_GAP: f32 = 2.0;
+/// Floor for the description wrap width so narrow cards never wrap to zero.
+const MIN_DESC_WRAP_WIDTH: f32 = 10.0;
 
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let items = welcome_items();
     let avail_width = ui.available_width();
-    let is_wide = avail_width >= 620.0;
-    let container_width = if is_wide { 620.0 } else { (avail_width - 32.0).max(280.0) };
+    let is_wide = avail_width >= WIDE_BREAKPOINT;
+    let container_width = if is_wide {
+        WIDE_BREAKPOINT
+    } else {
+        (avail_width - STACKED_SIDE_INSET).max(MIN_CONTAINER_WIDTH)
+    };
     let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
     let mut triggered = None;
@@ -198,7 +216,7 @@ fn draw_card_item(
     );
 
     let text_x = rect.left() + SPACE_MD + ICON_DEFAULT + SPACE_SM;
-    let max_text_w = (rect.right() - SPACE_MD - text_x).max(10.0);
+    let max_text_w = (rect.right() - SPACE_MD - text_x).max(MIN_DESC_WRAP_WIDTH);
 
     let title_job = egui::text::LayoutJob::simple_singleline(
         item.title.to_string(),
@@ -218,12 +236,12 @@ fn draw_card_item(
 
     let title_h = title_galley.size().y;
     let desc_h = desc_galley.size().y;
-    let total_h = title_h + 2.0 + desc_h;
+    let total_h = title_h + TITLE_DESC_GAP + desc_h;
     let text_top = (rect.center().y - total_h * 0.5).round();
 
     ui.painter().galley(egui::pos2(text_x, text_top), title_galley, theme.text_primary);
     ui.painter().galley(
-        egui::pos2(text_x, text_top + title_h + 2.0),
+        egui::pos2(text_x, text_top + title_h + TITLE_DESC_GAP),
         desc_galley,
         theme.text_secondary,
     );
