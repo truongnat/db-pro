@@ -416,25 +416,25 @@ mod result_grid_toolbar_view;
 pub(crate) mod result_grid_view;
 #[path = "../runtime/runtime_event_handlers.rs"]
 mod runtime_event_handlers;
-#[path = "../shell/sidebar_activities_view.rs"]
+#[path = "../shell/sidebar/sidebar_activities_view.rs"]
 mod sidebar_activities_view;
-#[path = "../shell/sidebar_chrome_view.rs"]
+#[path = "../shell/sidebar/sidebar_chrome_view.rs"]
 mod sidebar_chrome_view;
-#[path = "../shell/sidebar_data_view.rs"]
+#[path = "../shell/sidebar/sidebar_data_view.rs"]
 mod sidebar_data_view;
-#[path = "../shell/sidebar_history_view.rs"]
+#[path = "../shell/sidebar/sidebar_history_view.rs"]
 mod sidebar_history_view;
-#[path = "../shell/sidebar_problems_view.rs"]
+#[path = "../shell/sidebar/sidebar_problems_view.rs"]
 mod sidebar_problems_view;
-#[path = "../shell/sidebar_queries_surface_view.rs"]
+#[path = "../shell/sidebar/sidebar_queries_surface_view.rs"]
 mod sidebar_queries_surface_view;
-#[path = "../shell/sidebar_queries_view.rs"]
+#[path = "../shell/sidebar/sidebar_queries_view.rs"]
 mod sidebar_queries_view;
-#[path = "../shell/sidebar_query_library_view.rs"]
+#[path = "../shell/sidebar/sidebar_query_library_view.rs"]
 mod sidebar_query_library_view;
-#[path = "../shell/sidebar_query_shortcuts_view.rs"]
+#[path = "../shell/sidebar/sidebar_query_shortcuts_view.rs"]
 mod sidebar_query_shortcuts_view;
-#[path = "../shell/sidebar_view.rs"]
+#[path = "../shell/sidebar/sidebar_view.rs"]
 mod sidebar_view;
 #[path = "../tools/tools_hub_surface_view.rs"]
 mod tools_hub_surface_view;
@@ -561,13 +561,13 @@ mod security_rls_view;
 mod security_role_details_view;
 #[path = "../security/security_roles_view.rs"]
 mod security_roles_view;
-#[path = "../shell/shell_chrome_view.rs"]
+#[path = "../shell/chrome/shell_chrome_view.rs"]
 mod shell_chrome_view;
-#[path = "../shell/shell_frame_view.rs"]
+#[path = "../shell/chrome/shell_frame_view.rs"]
 mod shell_frame_view;
-#[path = "../shell/shell_statusbar_view.rs"]
+#[path = "../shell/chrome/shell_statusbar_view.rs"]
 mod shell_statusbar_view;
-#[path = "../shell/shell_topbar_view.rs"]
+#[path = "../shell/chrome/shell_topbar_view.rs"]
 mod shell_topbar_view;
 #[path = "../table/table_ddl_surface_view.rs"]
 mod table_ddl_surface_view;
