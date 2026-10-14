@@ -1142,86 +1142,95 @@ fn finding_spacing_outliers(widgets: &[(&WidgetGeometry, Rect)], findings: &mut 
         if members.len() < 4 {
             continue;
         }
-        // Audit each axis: consecutive x-overlapping pairs in y, and
-        // y-overlapping pairs in x.
-        for horizontal in [false, true] {
-            let mut run: Vec<(&WidgetGeometry, Rect)> = members.clone();
-            run.sort_by(|a, b| {
-                let key = |r: &Rect| if horizontal { r.min.x } else { r.min.y };
-                key(&a.1).partial_cmp(&key(&b.1)).unwrap_or(std::cmp::Ordering::Equal)
-            });
-            // Cross-axis uniformity: stacked rows share a height; a mixed-size
-            // group is not a repeated pattern, so there is no rhythm to break.
-            let cross = |r: &Rect| if horizontal { r.width() } else { r.height() };
-            let c0 = cross(&run[0].1);
-            if !run.iter().all(|(_, r)| (cross(r) - c0).abs() <= UNIFORM_TOL_PX) {
-                continue;
-            }
-            let mut gaps: Vec<(f32, &WidgetGeometry)> = Vec::new();
-            for pair in run.windows(2) {
-                let cross_overlap = if horizontal {
-                    overlap(pair[0].1.min.y, pair[0].1.max.y, pair[1].1.min.y, pair[1].1.max.y)
-                } else {
-                    overlap(pair[0].1.min.x, pair[0].1.max.x, pair[1].1.min.x, pair[1].1.max.x)
-                };
-                if cross_overlap <= 0.0 {
-                    continue;
-                }
-                let gap = if horizontal {
-                    pair[1].1.min.x - pair[0].1.max.x
-                } else {
-                    pair[1].1.min.y - pair[0].1.max.y
-                };
-                gaps.push((gap, pair[1].0));
-            }
-            let positive: Vec<f32> = gaps.iter().map(|(g, _)| *g).filter(|g| *g >= 0.0).collect();
-            if positive.len() < 3 {
-                continue;
-            }
-            let mut buckets: Vec<(f32, usize)> = Vec::new();
-            for g in &positive {
-                match buckets.iter_mut().find(|(x, _)| (x - g).abs() <= 0.5) {
-                    Some((x, n)) => {
-                        *x = (*x * *n as f32 + g) / (*n as f32 + 1.0);
-                        *n += 1;
-                    }
-                    None => buckets.push((*g, 1)),
-                }
-            }
-            let Some(&(mode, mode_n)) = buckets.iter().max_by_key(|(_, n)| n) else {
-                continue;
+        spacing_outlier_group(members, findings);
+    }
+}
+
+/// Audit one same-(layer, parent) group along both axes for a gap that
+/// deviates from the group's dominant rhythm.
+fn spacing_outlier_group(members: &[(&WidgetGeometry, Rect)], findings: &mut Vec<ScreenFinding>) {
+    for horizontal in [false, true] {
+        let mut run: Vec<(&WidgetGeometry, Rect)> = members.to_vec();
+        run.sort_by(|a, b| {
+            let key = |r: &Rect| if horizontal { r.min.x } else { r.min.y };
+            key(&a.1).partial_cmp(&key(&b.1)).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        // Cross-axis uniformity: stacked rows share a height; a mixed-size
+        // group is not a repeated pattern, so there is no rhythm to break.
+        let cross = |r: &Rect| if horizontal { r.width() } else { r.height() };
+        let c0 = cross(&run[0].1);
+        if !run.iter().all(|(_, r)| (cross(r) - c0).abs() <= UNIFORM_TOL_PX) {
+            continue;
+        }
+        let mut gaps: Vec<(f32, &WidgetGeometry)> = Vec::new();
+        for pair in run.windows(2) {
+            let cross_overlap = if horizontal {
+                overlap(pair[0].1.min.y, pair[0].1.max.y, pair[1].1.min.y, pair[1].1.max.y)
+            } else {
+                overlap(pair[0].1.min.x, pair[0].1.max.x, pair[1].1.min.x, pair[1].1.max.x)
             };
-            if (mode_n as f32 / positive.len() as f32) < RHYTHM_MAJORITY {
-                continue; // no dominant rhythm → nothing to deviate from
+            if cross_overlap <= 0.0 {
+                continue;
             }
-            let floor = (mode * OUTLIER_MULT).max(mode + OUTLIER_FLAT_PX);
-            for (idx, (gap, b)) in gaps.iter().enumerate() {
-                // Edge gaps are anchoring, not deviation: a bottom-pinned
-                // settings icon or right-aligned toolbar cluster ends a run
-                // with an intentional jump. Only interior gaps — siblings on
-                // both sides — can break the rhythm.
-                if idx == 0 || idx + 1 == gaps.len() {
-                    continue;
-                }
-                if *gap > floor {
-                    findings.push(ScreenFinding {
-                        rule: "screen.spacing_outlier",
-                        kind: FindingKind::Heuristic,
-                        severity: Severity::Warning,
-                        confidence: Confidence::Medium,
-                        widget_id: Some(b.id),
-                        widget_debug: Some(b.id_debug.clone()),
-                        region: None,
-                        evidence: format!(
-                            "{gap:.0}px gap vs the run's dominant {mode:.0}px rhythm ({:.0}% of {} uniform siblings)",
-                            mode_n as f32 / positive.len() as f32 * 100.0,
-                            positive.len()
-                        ),
-                    });
-                }
+            let gap = if horizontal {
+                pair[1].1.min.x - pair[0].1.max.x
+            } else {
+                pair[1].1.min.y - pair[0].1.max.y
+            };
+            gaps.push((gap, pair[1].0));
+        }
+        let positive: Vec<f32> = gaps.iter().map(|(g, _)| *g).filter(|g| *g >= 0.0).collect();
+        if positive.len() < 3 {
+            continue;
+        }
+        let Some((mode, mode_n)) = dominant_gap(&positive) else {
+            continue;
+        };
+        if (mode_n as f32 / positive.len() as f32) < RHYTHM_MAJORITY {
+            continue; // no dominant rhythm → nothing to deviate from
+        }
+        let floor = (mode * OUTLIER_MULT).max(mode + OUTLIER_FLAT_PX);
+        for (idx, (gap, b)) in gaps.iter().enumerate() {
+            // Edge gaps are anchoring, not deviation: a bottom-pinned
+            // settings icon or right-aligned toolbar cluster ends a run
+            // with an intentional jump. Only interior gaps — siblings on
+            // both sides — can break the rhythm.
+            if idx == 0 || idx + 1 == gaps.len() {
+                continue;
+            }
+            if *gap > floor {
+                findings.push(ScreenFinding {
+                    rule: "screen.spacing_outlier",
+                    kind: FindingKind::Heuristic,
+                    severity: Severity::Warning,
+                    confidence: Confidence::Medium,
+                    widget_id: Some(b.id),
+                    widget_debug: Some(b.id_debug.clone()),
+                    region: None,
+                    evidence: format!(
+                        "{gap:.0}px gap vs the run's dominant {mode:.0}px rhythm ({:.0}% of {} uniform siblings)",
+                        mode_n as f32 / positive.len() as f32 * 100.0,
+                        positive.len()
+                    ),
+                });
             }
         }
     }
+}
+
+/// Most common gap in 0.5px buckets; returns (mode gap, how many gaps hit it).
+fn dominant_gap(positive: &[f32]) -> Option<(f32, usize)> {
+    let mut buckets: Vec<(f32, usize)> = Vec::new();
+    for g in positive {
+        match buckets.iter_mut().find(|(x, _)| (x - g).abs() <= 0.5) {
+            Some((x, n)) => {
+                *x = (*x * *n as f32 + g) / (*n as f32 + 1.0);
+                *n += 1;
+            }
+            None => buckets.push((*g, 1)),
+        }
+    }
+    buckets.iter().max_by_key(|(_, n)| *n).copied()
 }
 
 /// Interactive controls packed under [`CONGESTION_GAP_PX`] on BOTH axes
@@ -1486,15 +1495,25 @@ mod tests {
         a.findings.iter().filter(|f| f.rule == rule).collect()
     }
 
+    /// Column layout knobs for the uniform-run fixture.
+    struct Column {
+        parent: u64,
+        x: f32,
+        y0: f32,
+        gap: f32,
+        size: egui::Vec2,
+        n: u64,
+    }
+
     /// A uniform n-item column, all in one parent — the rhythm-fixture base.
-    fn column(parent: u64, x: f32, y0: f32, gap: f32, w: f32, h: f32, n: u64) -> Vec<WidgetGeometry> {
-        (0..n)
+    fn column(c: Column) -> Vec<WidgetGeometry> {
+        (0..c.n)
             .map(|i| {
                 widget_at(
                     1000 + i,
                     1,
-                    parent,
-                    Rect::from_min_size(Pos2::new(x, y0 + i as f32 * (h + gap)), egui::vec2(w, h)),
+                    c.parent,
+                    Rect::from_min_size(Pos2::new(c.x, c.y0 + i as f32 * (c.size.y + c.gap)), c.size),
                 )
             })
             .collect()
@@ -1518,9 +1537,9 @@ mod tests {
         }
         // Rail: 7 items running down the left edge (55% of screen height —
         // tall enough to count as edge chrome, not a floating nav block).
-        ws.extend(column(200, 8.0, 48.0, 8.0, 120.0, 40.0, 7));
+        ws.extend(column(Column { parent: 200, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(120.0, 40.0), n: 7 }));
         // Content rows on the right.
-        ws.extend(column(300, 160.0, 48.0, 8.0, 200.0, 32.0, 5));
+        ws.extend(column(Column { parent: 300, x: 160.0, y0: 48.0, gap: 8.0, size: egui::vec2(200.0, 32.0), n: 5 }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         let kinds: Vec<_> = a.regions.iter().map(|r| r.kind.label()).collect();
@@ -1565,7 +1584,7 @@ mod tests {
 
     #[test]
     fn off_screen_flags_widget_outside_viewport() {
-        let mut ws = column(1, 8.0, 8.0, 8.0, 100.0, 32.0, 4);
+        let mut ws = column(Column { parent: 1, x: 8.0, y0: 8.0, gap: 8.0, size: egui::vec2(100.0, 32.0), n: 4 });
         // Interactive rect fully outside the 800×600 fixture screen.
         ws.push(widget_at(
             9,
@@ -1582,7 +1601,7 @@ mod tests {
 
     #[test]
     fn off_screen_ignores_widget_inside() {
-        let ws = column(1, 8.0, 8.0, 8.0, 100.0, 32.0, 4);
+        let ws = column(Column { parent: 1, x: 8.0, y0: 8.0, gap: 8.0, size: egui::vec2(100.0, 32.0), n: 4 });
         let a = analyze(ws, None);
         assert!(findings_for(&a, "screen.off_screen").is_empty());
     }
@@ -1671,9 +1690,9 @@ mod tests {
         let (scope, layer) = scope();
         let mut ws = Vec::new();
         // Side-anchored, non-grid panel occupying 62% of the screen width.
-        ws.extend(column(1, 8.0, 48.0, 8.0, 480.0, 30.0, 8));
+        ws.extend(column(Column { parent: 1, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(480.0, 30.0), n: 8 }));
         // Narrow content column on the right.
-        ws.extend(column(2, 540.0, 48.0, 8.0, 200.0, 30.0, 8));
+        ws.extend(column(Column { parent: 2, x: 540.0, y0: 48.0, gap: 8.0, size: egui::vec2(200.0, 30.0), n: 8 }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         let hits = findings_for(&a, "screen.layout_inversion");
@@ -1687,8 +1706,8 @@ mod tests {
         let ctx = egui::Context::default();
         let (scope, _l) = scope();
         let mut ws = Vec::new();
-        ws.extend(column(1, 8.0, 48.0, 8.0, 120.0, 30.0, 8));
-        ws.extend(column(2, 200.0, 48.0, 8.0, 500.0, 30.0, 8));
+        ws.extend(column(Column { parent: 1, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(120.0, 30.0), n: 8 }));
+        ws.extend(column(Column { parent: 2, x: 200.0, y0: 48.0, gap: 8.0, size: egui::vec2(500.0, 30.0), n: 8 }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         assert!(findings_for(&a, "screen.layout_inversion").is_empty());
@@ -1701,8 +1720,8 @@ mod tests {
         let (scope, _l) = scope();
         let mut ws = Vec::new();
         // Narrow left rail, content column flush to the right edge (200→800).
-        ws.extend(column(1, 8.0, 48.0, 8.0, 120.0, 30.0, 8));
-        ws.extend(column(2, 200.0, 48.0, 8.0, 600.0, 30.0, 8));
+        ws.extend(column(Column { parent: 1, x: 8.0, y0: 48.0, gap: 8.0, size: egui::vec2(120.0, 30.0), n: 8 }));
+        ws.extend(column(Column { parent: 2, x: 200.0, y0: 48.0, gap: 8.0, size: egui::vec2(600.0, 30.0), n: 8 }));
         let snap = snapshot(ws);
         let a = analyze_screen(&ctx, &snap, None, &scope);
         assert!(
@@ -1715,7 +1734,7 @@ mod tests {
     fn no_primary_needs_busy_fragmented_screen() {
         // Sparse screen: two small regions, little interactive coverage —
         // a welcome screen legitimately has no dominant region.
-        let ws = column(1, 100.0, 100.0, 8.0, 100.0, 28.0, 4);
+        let ws = column(Column { parent: 1, x: 100.0, y0: 100.0, gap: 8.0, size: egui::vec2(100.0, 28.0), n: 4 });
         let a = analyze(ws, None);
         assert!(findings_for(&a, "screen.no_primary_region").is_empty());
     }
@@ -1724,7 +1743,7 @@ mod tests {
     fn findings_report_kind_not_opinion() {
         // Every finding carries an explicit objective/heuristic split — the
         // contract that keeps measured defects separate from taste.
-        let mut ws = column(1, 8.0, 8.0, 8.0, 100.0, 32.0, 4);
+        let mut ws = column(Column { parent: 1, x: 8.0, y0: 8.0, gap: 8.0, size: egui::vec2(100.0, 32.0), n: 4 });
         ws.push(widget_at(
             9,
             1,
