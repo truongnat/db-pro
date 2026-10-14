@@ -42,7 +42,7 @@ impl SidebarChromeContext<'_> {
                 egui::WidgetInfo::labeled(
                     egui::WidgetType::Button,
                     ui.is_enabled(),
-                    format!("{} — Command Palette ({})", self.active_name, self.command_palette_shortcut),
+                    format!("{} — {}", self.active_name, t!("sidebar.command_palette_tip", key = self.command_palette_shortcut)),
                 )
             });
             if selector_response.hovered() {
@@ -52,20 +52,26 @@ impl SidebarChromeContext<'_> {
             }
 
             self.paint_selector_label(ui, selector_rect, SEARCH_SLOT_W);
-            if selector_response.clicked() {
+            if selector_response.has_focus() {
+                crate::components::interact::paint_focus_ring(ui, selector_rect, RADIUS_SM, self.theme);
+            }
+            let selector_keyboard = selector_response.has_focus()
+                && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
+            if selector_response.clicked() || selector_keyboard {
                 actions.push(SidebarChromeAction::OpenCommandPalette);
             }
             selector_response.on_hover_text(format!(
-                "{}\nCommand Palette ({})",
-                self.active_name, self.command_palette_shortcut
+                "{}\n{}",
+                self.active_name,
+                t!("sidebar.command_palette_tip", key = self.command_palette_shortcut)
             ));
 
             if Button::new(self.theme)
                 .icon(Icon::Plus)
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
-                .tooltip(format!("New Connection ({})", self.new_connection_shortcut))
-                .access_label(format!("New Connection ({})", self.new_connection_shortcut))
+                .tooltip(t!("sidebar.new_connection_tip", key = self.new_connection_shortcut).into_owned())
+                .access_label(t!("sidebar.new_connection_tip", key = self.new_connection_shortcut).into_owned())
                 .show(ui)
                 .clicked()
             {
@@ -123,10 +129,19 @@ impl SidebarChromeContext<'_> {
         let button_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), NEW_QUERY_HEIGHT));
         let response = ui.allocate_rect(button_rect, Sense::click());
         response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), "New Query")
+            egui::WidgetInfo::labeled(
+                egui::WidgetType::Button,
+                ui.is_enabled(),
+                t!("sidebar.new_query_a11y").into_owned(),
+            )
         });
+        if response.has_focus() {
+            crate::components::interact::paint_focus_ring(ui, button_rect, RADIUS_MD, self.theme);
+        }
         self.paint_new_query_button(ui, button_rect, response.hovered());
-        if response.clicked() {
+        let keyboard_activated = response.has_focus()
+            && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
+        if response.clicked() || keyboard_activated {
             actions.push(SidebarChromeAction::NewQuery);
         }
         response.on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -154,7 +169,7 @@ impl SidebarChromeContext<'_> {
         ui.painter().text(
             Pos2::new(left_center.x + SPACE_LG + 2.0, left_center.y),
             Align2::LEFT_CENTER,
-            "New query",
+            t!("sidebar.new_query").as_ref(),
             font_caption(),
             self.theme.text_primary,
         );

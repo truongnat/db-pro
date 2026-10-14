@@ -23,10 +23,10 @@ pub(super) struct SidebarQueriesContext<'a> {
 impl SidebarQueriesContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesAction> {
         let mut actions = self.draw_header(ui);
-        ui.add_space(8.0);
+        ui.add_space(SPACE_SM);
         if self.documents.is_empty() {
             ui.label(
-                RichText::new("No open queries — press + to start one")
+                RichText::new(t!("sidebar.no_open_queries"))
                     .small()
                     .color(self.theme.text_muted),
             );
@@ -51,8 +51,8 @@ impl SidebarQueriesContext<'_> {
                     .icon(Icon::FilePlus2)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("New scratch query")
-                    .access_label("New scratch query")
+                    .tooltip(t!("sidebar.new_scratch"))
+                    .access_label(t!("sidebar.new_scratch"))
                     .show(ui)
                     .clicked()
                 {
@@ -62,8 +62,8 @@ impl SidebarQueriesContext<'_> {
                     .icon(Icon::Plus)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
-                    .tooltip("New query")
-                    .access_label("New query")
+                    .tooltip(t!("sidebar.new_query"))
+                    .access_label(t!("sidebar.new_query"))
                     .show(ui)
                     .clicked()
                 {

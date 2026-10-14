@@ -26,7 +26,7 @@ impl SidebarProblemsContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarProblemsAction> {
         let mut actions = self.draw_header(ui);
         actions.extend(self.draw_filters(ui));
-        ui.add_space(8.0);
+        ui.add_space(SPACE_SM);
 
         let filtered: Vec<&ProblemEntry> = self
             .entries
@@ -42,7 +42,7 @@ impl SidebarProblemsContext<'_> {
         for entry in filtered {
             if last_document != Some(entry.document_index) {
                 last_document = Some(entry.document_index);
-                ui.add_space(6.0);
+                ui.add_space(SPACE_XS);
                 ui.label(
                     RichText::new(&entry.document_title)
                         .small()
@@ -135,13 +135,13 @@ impl SidebarProblemsContext<'_> {
     }
 
     fn draw_empty(&self, ui: &mut egui::Ui) {
-        ui.add_space(24.0);
+        ui.add_space(SPACE_2XL);
         ui.vertical_centered(|ui| {
             ui.label(icon_text(Icon::TriangleAlert, "", self.theme.text_muted));
-            ui.add_space(8.0);
-            ui.label(RichText::new("No problems in open documents").color(self.theme.text_secondary));
+            ui.add_space(SPACE_SM);
+            ui.label(RichText::new(t!("sidebar.no_problems")).color(self.theme.text_secondary));
             ui.label(
-                RichText::new("Lint, parser, and execution diagnostics appear here.")
+                RichText::new(t!("sidebar.problems_hint"))
                     .small()
                     .color(self.theme.text_muted),
             );
@@ -171,9 +171,9 @@ impl SidebarProblemsContext<'_> {
         }
         if entry.has_fix {
             ui.horizontal(|ui| {
-                ui.add_space(12.0);
+                ui.add_space(SPACE_MD);
                 if Button::new(self.theme)
-                    .text("Quick fix")
+                    .text(t!("sidebar.quick_fix").as_ref())
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)

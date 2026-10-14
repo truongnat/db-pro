@@ -39,7 +39,7 @@ impl SidebarQueriesSurfaceContext<'_> {
 
     pub(super) fn draw_history(&self, ui: &mut egui::Ui) -> Vec<SidebarQueriesSurfaceAction> {
         ui.label(
-            RichText::new("Queries you ran · newest first")
+            RichText::new(t!("sidebar.ran_recently"))
                 .small()
                 .color(self.theme.text_muted),
         );

@@ -15,17 +15,17 @@ pub(super) struct SidebarQueryShortcutsContext {
 impl SidebarQueryShortcutsContext {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryShortcutAction> {
         let mut actions = self.draw_snippets(ui);
-        ui.add_space(14.0);
-        ui.label(RichText::new("SCRATCH").font(font_caption()).strong().color(self.theme.text_secondary));
-        ui.add_space(6.0);
+        ui.add_space(SPACE_LG);
+        ui.label(RichText::new(t!("sidebar.scratch")).font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.add_space(SPACE_XS);
         ui.label(
-            RichText::new("Scratch tabs are disposable — use New scratch for throwaway SQL.")
+            RichText::new(t!("sidebar.scratch_hint"))
                 .small()
                 .color(self.theme.text_muted),
         );
         if Button::new(self.theme)
             .icon(Icon::FilePlus2)
-            .text("Open scratch SQL")
+            .text(t!("sidebar.open_scratch").as_ref())
             .variant(ButtonVariant::Secondary)
             .size(ButtonSize::Sm)
             .show(ui)
@@ -38,8 +38,8 @@ impl SidebarQueryShortcutsContext {
 
     fn draw_snippets(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryShortcutAction> {
         let mut actions = Vec::new();
-        ui.label(RichText::new("SNIPPETS").font(font_caption()).strong().color(self.theme.text_secondary));
-        ui.add_space(6.0);
+        ui.label(RichText::new(t!("sidebar.snippets")).font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.add_space(SPACE_XS);
         for (label, trigger, snippet) in query_snippets::builtin_sql_snippets() {
             let response = sidebar_item(ui, Icon::Braces, label, false, self.theme);
             ui.painter().text(

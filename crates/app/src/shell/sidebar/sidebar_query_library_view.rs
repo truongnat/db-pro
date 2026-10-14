@@ -51,7 +51,7 @@ impl SidebarQueryLibraryContext<'_> {
 
     pub(super) fn draw_local_history(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryLibraryAction> {
         if self.history.is_empty() {
-            ui.label(RichText::new("No queries run yet").small().color(self.theme.text_muted));
+            ui.label(RichText::new(t!("sidebar.no_ran_queries")).small().color(self.theme.text_muted));
             return Vec::new();
         }
 
@@ -65,7 +65,7 @@ impl SidebarQueryLibraryContext<'_> {
             {
                 actions.push(SidebarQueryLibraryAction::OpenHistory(query.clone()));
             }
-            ui.add_space(2.0);
+            ui.add_space(SPACE_XXS);
         }
         actions
     }
@@ -79,7 +79,7 @@ impl SidebarQueryLibraryContext<'_> {
         ui.colored_label(self.theme.warning, "Delete this saved query?");
         ui.horizontal(|ui| {
             if Button::new(self.theme)
-                .text("Confirm delete")
+                .text(t!("sidebar.confirm_delete").as_ref())
                 .variant(ButtonVariant::Destructive)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -109,17 +109,17 @@ impl SidebarQueryLibraryContext<'_> {
                         .font(font_icon(ICON_DEFAULT))
                         .color(self.theme.accent),
                 );
-                ui.add_space(6.0);
-                ui.label(RichText::new("No saved queries yet").strong());
+                ui.add_space(SPACE_XS);
+                ui.label(RichText::new(t!("sidebar.no_saved")).strong());
                 ui.label(
-                    RichText::new("Save a query to keep it close at hand.")
+                    RichText::new(t!("sidebar.save_hint"))
                         .small()
                         .color(self.theme.text_muted),
                 );
-                ui.add_space(8.0);
+                ui.add_space(SPACE_SM);
                 if Button::new(self.theme)
                     .icon(Icon::Plus)
-                    .text("New query")
+                    .text(t!("sidebar.new_query").as_ref())
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)

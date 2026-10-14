@@ -50,7 +50,7 @@ impl SidebarHistoryContext<'_> {
         }
         if shown == 0 {
             ui.label(
-                RichText::new("0 matching filters")
+                RichText::new(t!("sidebar.no_matching_filters"))
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
@@ -93,13 +93,13 @@ impl SidebarHistoryContext<'_> {
     fn draw_empty(&self, ui: &mut egui::Ui) {
         ui.add_space(SPACE_SM);
         ui.label(
-            RichText::new("No executions yet")
+            RichText::new(t!("sidebar.no_executions"))
                 .font(font_caption())
                 .strong()
                 .color(self.theme.text_secondary),
         );
         ui.label(
-            RichText::new("Run a query to see it here")
+            RichText::new(t!("sidebar.run_to_see"))
                 .font(font_caption())
                 .color(self.theme.text_muted),
         );
@@ -218,7 +218,7 @@ impl SidebarHistoryContext<'_> {
             ui.horizontal(|ui| {
                 if Button::new(self.theme)
                     .icon(Icon::ExternalLink)
-                    .text("Open as new query")
+                    .text(t!("sidebar.open_as_new").as_ref())
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)

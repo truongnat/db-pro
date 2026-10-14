@@ -23,10 +23,10 @@ impl SidebarDataContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SidebarDataAction> {
         let mut actions = Vec::new();
         self.draw_section_header(ui, "PINNED TABLES", self.pinned_tables.len());
-        ui.add_space(8.0);
+        ui.add_space(SPACE_SM);
         if self.pinned_tables.is_empty() {
             ui.label(
-                RichText::new("Pin tables from Explorer or Quick Open for fast reopen.")
+                RichText::new(t!("sidebar.pin_hint"))
                     .small()
                     .color(self.theme.text_muted),
             );
@@ -36,12 +36,12 @@ impl SidebarDataContext<'_> {
             }
         }
 
-        ui.add_space(16.0);
+        ui.add_space(SPACE_LG);
         self.draw_section_header(ui, "RECENT TABLES", self.recent_tables.len());
-        ui.add_space(8.0);
+        ui.add_space(SPACE_SM);
         if self.recent_tables.is_empty() {
             ui.label(
-                RichText::new("Tables you open appear here in most-recent order.")
+                RichText::new(t!("sidebar.recent_hint"))
                     .small()
                     .color(self.theme.text_muted),
             );
@@ -51,9 +51,9 @@ impl SidebarDataContext<'_> {
             }
         }
 
-        ui.add_space(12.0);
+        ui.add_space(SPACE_MD);
         ui.label(
-            RichText::new("Right-click for open, pin, or remove")
+            RichText::new(t!("sidebar.context_hint"))
                 .small()
                 .color(self.theme.text_muted),
         );
