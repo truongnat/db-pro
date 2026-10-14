@@ -402,13 +402,6 @@ fn trigger_toggle_menu_label(enabled: bool, supported: bool) -> Option<&'static 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::trigger_toggle_menu_label;
+#[path = "tests/explorer_schema_object_folders_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn trigger_toggle_menu_offers_only_supported_inverse_action() {
-        assert_eq!(trigger_toggle_menu_label(true, true), Some("Disable Trigger"));
-        assert_eq!(trigger_toggle_menu_label(false, true), Some("Enable Trigger"));
-        assert_eq!(trigger_toggle_menu_label(true, false), None);
-    }
-}

@@ -165,18 +165,6 @@ fn workbench_modes() -> [(SchemaWorkbenchMode, Icon, &'static str); 15] {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/schema_workbench_surface_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn workbench_surface_keeps_mode_selection_typed() {
-        assert_eq!(
-            SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::Docs),
-            SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::Docs)
-        );
-        assert_eq!(
-            SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::History),
-            SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::History)
-        );
-    }
-}

@@ -131,12 +131,6 @@ impl DirtyCloseDialogContext<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/query_save_dialog_surface_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn close_dialog_actions_are_distinct() {
-        assert_ne!(DirtyCloseDialogAction::Save, DirtyCloseDialogAction::Discard);
-        assert_ne!(SaveAsDialogAction::Save, SaveAsDialogAction::Cancel);
-    }
-}

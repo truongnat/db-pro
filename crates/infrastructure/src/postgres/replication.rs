@@ -298,11 +298,5 @@ fn cell_bool(cell: Option<&CellValue>) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn redact_helper_used() {
-        assert!(redact_conninfo("password=x").contains("[redacted]"));
-    }
-}
+#[path = "tests/replication_tests.rs"]
+mod tests;

@@ -293,16 +293,5 @@ fn parse_options(raw: String) -> Vec<FdwOption> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_options_redacts_password() {
-        let opts = parse_options("host=db,password=secret,port=5432".into());
-        assert_eq!(opts.len(), 3);
-        assert!(opts
-            .iter()
-            .any(|o| o.key == "password" && o.sensitive && o.value.is_empty()));
-        assert!(db_pro_core::domain::fdw::quote_ident("ok_name").is_ok());
-    }
-}
+#[path = "tests/fdw_tests.rs"]
+mod tests;

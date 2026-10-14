@@ -188,6 +188,38 @@ affected surface at 1280×800, 1440×900 and 1920×1080, in normal plus
 loading/error/empty states. The visual acceptance gate is defined in
 `docs/10-egui-native-migration-plan.md`.
 
+## Test file layout
+
+Tests never live in the same file as the code under test — no inline
+`#[cfg(test)] mod tests { … }` blocks.
+
+Every `#[cfg(test)] mod …` is declared with `#[path]` pointing into a `tests/`
+folder that sits next to the source it covers:
+
+```rust
+#[cfg(test)]
+#[path = "tests/table_fk_lookup_tests.rs"]
+mod tests;
+```
+
+```text
+crates/app/src/table/
+  table_fk_lookup.rs
+  tests/
+    table_fk_lookup_tests.rs   # `<stem>_tests.rs`, one file per source file
+```
+
+Rules:
+
+- New source file → its unit tests go to `tests/<stem>_tests.rs` beside it.
+- Name the test file after the source stem; keep `use super::*;` inside the
+  test file so private items stay reachable (`#[path]` preserves the module
+  hierarchy).
+- `include_str!` / `include_bytes!` paths inside a moved test are relative to
+  the test file itself — fix them when adding or relocating a test.
+- Integration-level `crates/*/tests/` dirs (cargo's own convention) are
+  unaffected; this rule covers unit tests inside `src/`.
+
 ## Module visibility (`crates/ui`)
 
 `crates/ui/src/lib.rs` declares the crate's public API with **named**

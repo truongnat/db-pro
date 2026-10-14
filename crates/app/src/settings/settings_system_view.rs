@@ -128,11 +128,6 @@ impl SettingsSystemContext<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/settings_system_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn system_context_exposes_only_supported_sections() {
-        assert_ne!(SettingsSection::DataGrid, SettingsSection::General);
-    }
-}

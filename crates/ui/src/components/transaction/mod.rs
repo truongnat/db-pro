@@ -13,7 +13,5 @@ pub enum TransactionAction {
 }
 
 #[cfg(test)]
-mod tests {
-    // Rendering coverage for this component remains in the component gallery tests.
-    // Pure interaction and state-transition coverage lives beside the handler code.
-}
+#[path = "tests/mod_tests.rs"]
+mod tests;

@@ -377,14 +377,6 @@ fn format_transfer_progress(job: &db_pro_core::domain::transfer::TransferJob) ->
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/transfer_activity_surface_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn action_enum_keeps_transfer_commands_explicit() {
-        assert_eq!(
-            TransferActivityAction::RunSyntheticTransfer { cancel_midway: true },
-            TransferActivityAction::RunSyntheticTransfer { cancel_midway: true }
-        );
-    }
-}

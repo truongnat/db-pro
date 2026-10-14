@@ -225,12 +225,6 @@ impl ExportDialogContext<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/query_dialog_surface_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn dialog_actions_keep_confirmation_boundaries_explicit() {
-        assert_ne!(DestructiveDialogAction::Confirm, DestructiveDialogAction::Cancel);
-        assert_ne!(ExportDialogAction::Export, ExportDialogAction::Overwrite);
-    }
-}

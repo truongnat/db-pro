@@ -30,17 +30,6 @@ impl Default for PreferencesState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::PreferencesState;
+#[path = "tests/preferences_state_tests.rs"]
+mod tests;
 
-    #[test]
-    fn default_preferences_are_light_and_non_predictive() {
-        let state = PreferencesState::default();
-
-        assert!(!state.dark_mode);
-        assert!(!state.reduce_motion);
-        assert!(state.keybindings_filter.is_empty());
-        assert!(state.keybinding_edit_id.is_none());
-        assert_eq!(state.prediction_mode, crate::editor::PredictionMode::Off);
-    }
-}

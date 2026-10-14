@@ -300,17 +300,6 @@ fn can_mutate_table_toolbar(connection_writable: bool, query_in_flight: bool) ->
 }
 
 #[cfg(test)]
-mod tests {
-    use super::can_mutate_table_toolbar;
+#[path = "tests/table_data_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn allows_toolbar_mutations_for_a_writable_idle_connection() {
-        assert!(can_mutate_table_toolbar(true, false));
-    }
-
-    #[test]
-    fn disables_mutations_without_write_access_or_while_query_runs() {
-        assert!(!can_mutate_table_toolbar(false, false));
-        assert!(!can_mutate_table_toolbar(true, true));
-    }
-}

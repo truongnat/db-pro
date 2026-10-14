@@ -49,14 +49,6 @@ impl QueryTransactionSurfaceContext<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/query_transaction_surface_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn transaction_actions_keep_runtime_effects_explicit() {
-        assert_ne!(
-            QueryTransactionAction::DismissDisconnectGuard,
-            QueryTransactionAction::Transaction(crate::components::TransactionAction::Commit)
-        );
-    }
-}

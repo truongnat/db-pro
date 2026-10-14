@@ -31,16 +31,6 @@ impl std::ops::DerefMut for WorkspaceFeatureState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::WorkspaceTab;
-    use super::WorkspaceFeatureState;
+#[path = "tests/workspace_feature_state_tests.rs"]
+mod tests;
 
-    #[test]
-    fn default_workspace_feature_owns_all_workspace_substates() {
-        let state = WorkspaceFeatureState::default();
-
-        assert_eq!(state.shell.active_tab, WorkspaceTab::Welcome);
-        assert!(state.files.ide_workspace.roots.is_empty());
-        assert!(state.sessions.selected_id.is_none());
-    }
-}

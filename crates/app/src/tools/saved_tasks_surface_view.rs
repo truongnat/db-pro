@@ -302,15 +302,6 @@ impl SavedTasksSurfaceContext<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/saved_tasks_surface_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn surface_action_keeps_task_identity_for_root_reduction() {
-        let id = Uuid::new_v4();
-        assert_eq!(
-            SavedTasksSurfaceAction::RunTask(id),
-            SavedTasksSurfaceAction::RunTask(id)
-        );
-    }
-}

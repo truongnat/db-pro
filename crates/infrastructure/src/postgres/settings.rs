@@ -164,14 +164,5 @@ fn now_ms() -> u64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_enumvals_postgres_array() {
-        assert_eq!(
-            parse_enumvals("{on,off}".into()).as_deref(),
-            Some(["on".to_owned(), "off".to_owned()].as_slice())
-        );
-    }
-}
+#[path = "tests/settings_tests.rs"]
+mod tests;

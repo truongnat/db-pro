@@ -51,13 +51,5 @@ pub const DIALOG_ACTIONS_GAP: f32 = 20.0;
 // `background.overlay` semantic role, so neither is component-owned.
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn dialog_outer_width_never_exceeds_viewport_budget() {
-        let narrow = (280.0 - DIALOG_VIEWPORT_INSET * 2.0).max(0.0);
-        assert!(narrow < DIALOG_MAX_WIDTH);
-        assert_eq!(DIALOG_PADDING, 20.0);
-    }
-}
+#[path = "tests/config_tests.rs"]
+mod tests;

@@ -260,31 +260,6 @@ fn split_alias_col(raw: &str) -> Option<(String, String)> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/visual_query_builder_state_tests.rs"]
+mod tests;
 
-    #[test]
-    fn default_state_has_safe_form_defaults() {
-        let state = VisualQueryBuilderState::default();
-
-        assert!(!state.open);
-        assert_eq!(state.where_op, "=");
-        assert_eq!(state.limit, "100");
-        assert!(state.model.tables.is_empty());
-    }
-
-    #[test]
-    fn add_table_and_preview_are_kept_in_one_transition() {
-        let mut state = VisualQueryBuilderState {
-            add_table: "public.users".into(),
-            ..Default::default()
-        };
-
-        state.add_selected_table(BuilderDialect::Postgres);
-
-        assert!(state.error.is_none());
-        assert_eq!(state.model.tables[0].alias, "use");
-        assert!(state.sql_preview.contains("FROM \"public\".\"users\""));
-        assert!(state.add_table.is_empty());
-    }
-}

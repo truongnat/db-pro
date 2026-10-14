@@ -138,18 +138,6 @@ pub fn probe_draft_diagnostics(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::build_connect_command;
-    use crate::{RequestId, UiCommand};
+#[path = "tests/logic_tests.rs"]
+mod tests;
 
-    #[test]
-    fn connect_command_keeps_connection_identity_explicit() {
-        assert!(matches!(
-            build_connect_command(RequestId(7), "conn-1".to_owned()),
-            UiCommand::Connect {
-                request_id: RequestId(7),
-                connection_id,
-            } if connection_id == "conn-1"
-        ));
-    }
-}

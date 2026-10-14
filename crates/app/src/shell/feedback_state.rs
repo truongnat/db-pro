@@ -27,15 +27,6 @@ impl FeedbackState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::FeedbackState;
+#[path = "tests/feedback_state_tests.rs"]
+mod tests;
 
-    #[test]
-    fn default_feedback_is_quiet() {
-        let state = FeedbackState::default();
-
-        assert!(state.runtime_message.is_empty());
-        assert!(state.copy_status.is_empty());
-        assert!(state.toasts.is_empty());
-    }
-}

@@ -152,26 +152,6 @@ fn activity_action(activity: Option<Activity>, hint: &str) -> Option<ActivityBar
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "tests/activity_bar_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn activity_clicks_emit_navigation_intents_without_mutating_state() {
-        assert!(matches!(
-            activity_action(Some(Activity::Queries), "SQL Scripts & Projects"),
-            Some(ActivityBarAction::OpenQuery)
-        ));
-        assert!(matches!(
-            activity_action(Some(Activity::Tools), "Tools & Management Hub"),
-            Some(ActivityBarAction::SelectActivity(Activity::Tools))
-        ));
-        assert!(matches!(
-            activity_action(Some(Activity::Explorer), "Database Navigator"),
-            Some(ActivityBarAction::SelectActivity(Activity::Explorer))
-        ));
-        assert!(matches!(
-            activity_action(None, "AI Copilot (Agent)"),
-            Some(ActivityBarAction::ToggleAgent)
-        ));
-    }
-}

@@ -287,13 +287,6 @@ pub(super) fn draw_history_pane(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::bounded_explain_metric;
+#[path = "tests/query_output_actions_view_tests.rs"]
+mod tests;
 
-    #[test]
-    fn explain_display_metrics_are_finite_and_bounded() {
-        assert_eq!(bounded_explain_metric(f64::MAX), f32::MAX);
-        assert_eq!(bounded_explain_metric(f64::NAN), 0.0);
-        assert_eq!(bounded_explain_metric(-1.0), 0.0);
-    }
-}
