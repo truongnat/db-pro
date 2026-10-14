@@ -250,3 +250,14 @@ welcome:
   ai_copilot_desc: "クエリ生成、スキーマ解説、SQLレビュー"
   er_diagram: "ERダイアグラムキャンバス"
   er_diagram_desc: "スキーマのテーブルとリレーションを可視化"
+
+diagram:
+  section_navigation: "ナビゲーション"
+  section_schema_map: "スキーママップ"
+  pan_hint: "ドラッグで移動、スクロールでズーム。テーブルをクリックで関係を固定、ダブルクリックで開きます。"
+  back_to_explorer: "エクスプローラーに戻る"
+  schema_map_summary: "テーブルと外部キー関係"
+  count_tables_one: "1 テーブル"
+  count_tables_other: "%{n} テーブル"
+  count_relationships_one: "1 リレーション"
+  count_relationships_other: "%{n} リレーション"

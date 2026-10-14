@@ -17,15 +17,6 @@ pub(crate) struct ExplorerConnectionContext<'a> {
     feedback: &'a mut FeedbackState,
 }
 
-// Helper struct retained for unit test verification and alternative table navigation transitions
-#[allow(dead_code)]
-pub(crate) struct TableSelectionContext<'a> {
-    schema: &'a mut SchemaExplorerState,
-    table: &'a mut TableEditorState,
-    workspace: &'a mut WorkspaceShellState,
-    feedback: &'a mut FeedbackState,
-}
-
 pub(crate) struct SchemaObjectActivationContext<'a> {
     explorer: &'a mut SchemaExplorerState,
     table: &'a mut TableEditorState,
@@ -105,45 +96,6 @@ impl<'a> SchemaObjectActivationContext<'a> {
     }
 }
 
-// Helper implementation retained for unit test verification and alternative table navigation transitions
-#[allow(dead_code)]
-impl<'a> TableSelectionContext<'a> {
-    pub(crate) fn new(
-        schema: &'a mut SchemaExplorerState,
-        table: &'a mut TableEditorState,
-        workspace: &'a mut WorkspaceShellState,
-        feedback: &'a mut FeedbackState,
-    ) -> Self {
-        Self {
-            schema,
-            table,
-            workspace,
-            feedback,
-        }
-    }
-
-    pub(crate) fn select(&mut self, table_name: &str, connection_id: Option<&str>, schema_name: &str) -> bool {
-        if self.schema.selected_table.as_deref() != Some(table_name) && !self.table.mutation.staged_changes.is_empty() {
-            self.feedback
-                .set_runtime_message("Apply or discard staged changes before opening another table");
-            return false;
-        }
-
-        let previous_scope =
-            super::TableDataState::layout_scope(connection_id, schema_name, self.schema.selected_table.as_deref());
-        self.table.data.persist_layout(previous_scope);
-        self.schema.selected_table = Some(table_name.to_owned());
-        self.schema.record_recent_table(table_name);
-        self.schema.selected_schema_object = None;
-        self.schema.schema_object_view = super::SchemaObjectView::Definition;
-        self.table.reset_workspace();
-        let next_scope = super::TableDataState::layout_scope(connection_id, schema_name, Some(table_name));
-        self.table.data.restore_layout(next_scope);
-        self.table.state.table_view = super::TableView::Data;
-        self.workspace.active_tab = super::WorkspaceTab::Table;
-        true
-    }
-}
 
 impl<'a> ExplorerConnectionContext<'a> {
     pub(crate) fn new(

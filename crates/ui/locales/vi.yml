@@ -250,3 +250,14 @@ welcome:
   ai_copilot_desc: "Sinh truy vấn, giải thích schema hoặc review SQL"
   er_diagram: "Canvas sơ đồ ER"
   er_diagram_desc: "Trực quan hóa bảng và quan hệ của schema"
+
+diagram:
+  section_navigation: "ĐIỀU HƯỚNG"
+  section_schema_map: "SƠ ĐỒ SCHEMA"
+  pan_hint: "Kéo để di chuyển, cuộn để thu phóng. Click vào bảng để ghim quan hệ; double-click để mở."
+  back_to_explorer: "Về Explorer"
+  schema_map_summary: "Các bảng và quan hệ khoá ngoại"
+  count_tables_one: "1 bảng"
+  count_tables_other: "%{n} bảng"
+  count_relationships_one: "1 quan hệ"
+  count_relationships_other: "%{n} quan hệ"

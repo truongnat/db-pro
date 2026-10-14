@@ -250,3 +250,14 @@ welcome:
   ai_copilot_desc: "쿼리 생성, 스키마 설명, SQL 검토"
   er_diagram: "ER 다이어그램 캔버스"
   er_diagram_desc: "스키마 테이블과 관계를 시각화"
+
+diagram:
+  section_navigation: "탐색"
+  section_schema_map: "스키마 맵"
+  pan_hint: "드래그로 이동, 스크롤로 확대/축소. 테이블 클릭 시 관계 고정, 더블 클릭으로 열기."
+  back_to_explorer: "탐색기로 돌아가기"
+  schema_map_summary: "테이블 및 외래 키 관계"
+  count_tables_one: "1개 테이블"
+  count_tables_other: "%{n}개 테이블"
+  count_relationships_one: "1개 관계"
+  count_relationships_other: "%{n}개 관계"

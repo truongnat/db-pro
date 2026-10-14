@@ -250,3 +250,14 @@ welcome:
   ai_copilot_desc: "生成查询、解释 schema 或审查 SQL"
   er_diagram: "ER 图画布"
   er_diagram_desc: "可视化 schema 表与关系"
+
+diagram:
+  section_navigation: "导航"
+  section_schema_map: "模式映射"
+  pan_hint: "拖动平移,滚动缩放。单击表固定关系;双击打开。"
+  back_to_explorer: "返回资源管理器"
+  schema_map_summary: "表与外键关系"
+  count_tables_one: "1 张表"
+  count_tables_other: "%{n} 张表"
+  count_relationships_one: "1 个关系"
+  count_relationships_other: "%{n} 个关系"

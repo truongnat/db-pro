@@ -250,3 +250,14 @@ welcome:
   ai_copilot_desc: "Generate queries, explain schema or review SQL"
   er_diagram: "ER Diagram Canvas"
   er_diagram_desc: "Visualize schema tables and relationships"
+
+diagram:
+  section_navigation: "NAVIGATION"
+  section_schema_map: "SCHEMA MAP"
+  pan_hint: "Drag to pan, scroll to zoom. Click a table to pin its relationships; double-click to open it."
+  back_to_explorer: "Back to Explorer"
+  schema_map_summary: "Tables and foreign-key relationships"
+  count_tables_one: "1 table"
+  count_tables_other: "%{n} tables"
+  count_relationships_one: "1 relationship"
+  count_relationships_other: "%{n} relationships"
