@@ -190,24 +190,23 @@ loading/error/empty states. The visual acceptance gate is defined in
 
 ## Module visibility (`crates/ui`)
 
-`crates/ui/src/lib.rs` is a pure barrel file: `pub use <module>::*;` for every
-feature module. A glob re-export lifts **every `pub` item** of a module to the
-crate's public API, so `pub` inside a feature module is a deliberate API
-decision, not a default.
+`crates/ui/src/lib.rs` declares the crate's public API with **named**
+`pub use` re-exports. The file is the API contract: an item only becomes
+`db_pro_ui::X` when it is listed there.
 
 Rules:
 
 - Default to `pub(crate)` (or `pub(super)` for sibling-only use) inside feature
-  modules. Reach for plain `pub` only when the item is part of the crate API
+  modules. Reach for plain `pub` only when the item is meant for the crate API
   (`DbProApp`, `DbProTheme`, `Ui*` protocol types, `TaskBridge`, `UiLanguage`,
   component/widget surface, bench-pinned helpers like `GridSelectionLookup`).
-- `pub mod` inside a feature module also becomes public API via the glob —
-  declare `mod` (private) unless the submodule itself is API.
 - Never mark something `pub` just to satisfy a cross-module import; use the
   narrowest visibility that compiles.
-- When a new item is meant to be public, re-export it through the module's
-  `mod.rs` so the crate root glob picks it up — do not add named exports to
-  `lib.rs`.
+- Adding a new public item: re-export it from the feature module's `mod.rs`,
+  then add it to the named `pub use` list in `lib.rs`. Do not use
+  `pub use x::*` in `lib.rs` — glob exports turn incidental `pub` items into
+  unreviewed public API.
+
 
 ## Rust quality gates
 
