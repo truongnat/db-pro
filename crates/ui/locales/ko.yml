@@ -336,3 +336,5 @@ sidebar:
   outcome_cancelled: "취소됨"
   started_at: "시작: %{at}"
   empty_sql: "(비어 있음)"
+  section_saved: "저장된 쿼리"
+  section_history: "기록"

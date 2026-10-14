@@ -336,3 +336,5 @@ sidebar:
   outcome_cancelled: "已取消"
   started_at: "开始: %{at}"
   empty_sql: "(空)"
+  section_saved: "已保存的查询"
+  section_history: "历史记录"

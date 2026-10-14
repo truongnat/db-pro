@@ -336,3 +336,5 @@ sidebar:
   outcome_cancelled: "キャンセル"
   started_at: "開始: %{at}"
   empty_sql: "(空)"
+  section_saved: "保存済みクエリ"
+  section_history: "履歴"

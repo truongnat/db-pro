@@ -336,3 +336,5 @@ sidebar:
   outcome_cancelled: "đã huỷ"
   started_at: "Bắt đầu: %{at}"
   empty_sql: "(trống)"
+  section_saved: "QUERY ĐÃ LƯU"
+  section_history: "LỊCH SỬ"

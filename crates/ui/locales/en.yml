@@ -336,3 +336,5 @@ sidebar:
   outcome_cancelled: "cancelled"
   started_at: "Started: %{at}"
   empty_sql: "(empty)"
+  section_saved: "SAVED QUERIES"
+  section_history: "HISTORY"

@@ -72,7 +72,7 @@ impl SidebarQueriesSurfaceContext<'_> {
     fn draw_library_sections(&self, ui: &mut egui::Ui, actions: &mut Vec<SidebarQueriesSurfaceAction>) {
         let library = self.library_context();
         ui.add_space(SPACE_MD);
-        section_label(ui, "SAVED QUERIES", self.theme);
+        section_label(ui, t!("sidebar.section_saved").as_ref(), self.theme);
         ui.add_space(SPACE_XS);
         actions.extend(
             library
@@ -81,7 +81,7 @@ impl SidebarQueriesSurfaceContext<'_> {
                 .map(SidebarQueriesSurfaceAction::Library),
         );
         ui.add_space(SPACE_MD);
-        section_label(ui, "HISTORY", self.theme);
+        section_label(ui, t!("sidebar.section_history").as_ref(), self.theme);
         ui.add_space(SPACE_XS);
         actions.extend(
             library
