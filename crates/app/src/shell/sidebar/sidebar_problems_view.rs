@@ -1,5 +1,6 @@
 //! Diagnostics/problems sidebar rendering and intent mapping.
 use super::*;
+use super::sidebar_constants::{SEVERITY_OPTIONS, SOURCE_OPTIONS};
 use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
@@ -84,13 +85,8 @@ impl SidebarProblemsContext<'_> {
     fn draw_filters(&self, ui: &mut egui::Ui) -> Vec<SidebarProblemsAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
-            const SEVERITY_OPTIONS: [(ProblemsSeverityFilter, &str); 3] = [
-                (ProblemsSeverityFilter::All, "All"),
-                (ProblemsSeverityFilter::Errors, "Errors"),
-                (ProblemsSeverityFilter::Warnings, "Warnings"),
-            ];
-            let severity_labels: Vec<String> = SEVERITY_OPTIONS.iter().map(|(_, label)| (*label).to_owned()).collect();
+            ui.spacing_mut().item_spacing.x = SPACE_XS;
+            let severity_labels: Vec<String> = SEVERITY_OPTIONS.iter().map(|(_, key)| t!(*key).into_owned()).collect();
             let mut severity_selected = SEVERITY_OPTIONS
                 .iter()
                 .position(|(filter, _)| *filter == self.severity_filter)
@@ -108,14 +104,7 @@ impl SidebarProblemsContext<'_> {
                 ));
             }
 
-            const SOURCE_OPTIONS: [(ProblemsSourceFilter, &str); 5] = [
-                (ProblemsSourceFilter::All, "All sources"),
-                (ProblemsSourceFilter::Parser, "Parser"),
-                (ProblemsSourceFilter::Lint, "Lint"),
-                (ProblemsSourceFilter::Delimiter, "Delimiter"),
-                (ProblemsSourceFilter::Database, "Database"),
-            ];
-            let source_labels: Vec<String> = SOURCE_OPTIONS.iter().map(|(_, label)| (*label).to_owned()).collect();
+            let source_labels: Vec<String> = SOURCE_OPTIONS.iter().map(|(_, key)| t!(*key).into_owned()).collect();
             let mut source_selected = SOURCE_OPTIONS
                 .iter()
                 .position(|(filter, _)| *filter == self.source_filter)

@@ -1,5 +1,6 @@
 //! Native sidebar chrome: connection launcher and primary query action.
 use super::*;
+use super::sidebar_constants::{MIN_SELECTOR_W, NEW_QUERY_HEIGHT, PLUS_SLOT_W, SEARCH_SLOT_W, SELECTOR_H};
 use egui::{vec2, Align2, CornerRadius, Pos2, Rect, Sense};
 use crate::components::feedback::{KBD_COMBO_GAP, KBD_FONT_SIZE, KBD_PAD_X, KBD_PAD_Y};
 use lucide_icons::Icon;
@@ -28,16 +29,6 @@ impl SidebarChromeContext<'_> {
     }
 
     fn draw_connection_launcher(&self, ui: &mut egui::Ui) -> Vec<SidebarChromeAction> {
-        /// IconSm button (26) plus the XS gap reserve — slot stays fixed so the
-        /// selector never jumps when the sidebar resizes.
-        const PLUS_SLOT_W: f32 = 28.0;
-        /// Selector strip height: one text line at BODY_SM in a compact rail.
-        const SELECTOR_H: f32 = SPACE_2XL;
-        /// Right-side search glyph slot.
-        const SEARCH_SLOT_W: f32 = SPACE_LG + SPACE_XXS;
-        /// Below this width the label would show a single glyph + ellipsis;
-        /// collapsing further is unreadable, so the floor wins over shrinking.
-        const MIN_SELECTOR_W: f32 = SPACE_6XL + SPACE_SM;
 
         let mut actions = Vec::new();
         ui.add_space(SPACE_SM);
@@ -132,8 +123,7 @@ impl SidebarChromeContext<'_> {
     }
 
     fn draw_new_query(&self, ui: &mut egui::Ui) -> Vec<SidebarChromeAction> {
-        const NEW_QUERY_HEIGHT: f32 = crate::tokens::component::button::BUTTON_HEIGHT_SM;
-        let mut actions = Vec::new();
+                let mut actions = Vec::new();
         let button_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), NEW_QUERY_HEIGHT));
         let response = ui.allocate_rect(button_rect, Sense::click());
         response.widget_info(|| {

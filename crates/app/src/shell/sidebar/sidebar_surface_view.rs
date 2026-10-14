@@ -1,9 +1,9 @@
 //! Sidebar shell layout, chrome and resize interaction.
 use super::super::*;
 use super::sidebar_chrome_view::{SidebarChromeAction, SidebarChromeContext};
+use super::sidebar_constants::SIDEBAR_CLIP_BLEED;
 use egui::{vec2, Pos2, Rect, Sense, Stroke};
 
-const SIDEBAR_CLIP_BLEED: f32 = 1.0;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum SidebarSurfaceAction {

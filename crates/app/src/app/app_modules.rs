@@ -416,6 +416,8 @@ mod result_grid_toolbar_view;
 pub(crate) mod result_grid_view;
 #[path = "../runtime/runtime_event_handlers.rs"]
 mod runtime_event_handlers;
+#[path = "../shell/sidebar/constants.rs"]
+mod sidebar_constants;
 #[path = "../shell/sidebar/sidebar_activities_view.rs"]
 mod sidebar_activities_view;
 #[path = "../shell/sidebar/sidebar_chrome_view.rs"]
