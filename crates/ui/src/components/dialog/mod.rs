@@ -2,7 +2,7 @@ pub mod config;
 pub mod frame;
 mod handler;
 pub mod layout;
-pub(crate) mod modal_guard;
+pub mod modal_guard;
 pub mod sheet;
 mod ui;
 

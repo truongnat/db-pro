@@ -2,7 +2,8 @@
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use db_pro_ui::{filtered_sorted_indexes, GridSelectionLookup, UiCell, UiColumn, UiQueryResult};
+use db_pro_app::{filtered_sorted_indexes, GridSelectionLookup};
+use db_pro_ui::{UiCell, UiColumn, UiQueryResult};
 
 fn million_row_result() -> UiQueryResult {
     UiQueryResult {

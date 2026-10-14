@@ -16,7 +16,7 @@ pub use runtime_connection_types::*;
 pub use runtime_query_types::*;
 pub use runtime_schema_types::*;
 pub use task_bridge::TaskBridge;
-pub(crate) use task_bridge::MAX_RUNTIME_EVENTS_PER_FRAME;
+pub use task_bridge::MAX_RUNTIME_EVENTS_PER_FRAME;
 
 #[cfg(test)]
 mod tests {

@@ -113,7 +113,7 @@ pub struct QueryDocument {
     pub analysis: SqlDocumentAnalysis,
     pub diagnostics: Vec<Diagnostic>,
     pub completion: CompletionState,
-    pub(crate) completion_due_at: Option<Instant>,
+    pub completion_due_at: Option<Instant>,
     /// Active `${n:placeholder}` stops. `$1` query parameters are not stops.
     pub snippet: Option<SnippetSession>,
     pub prediction: Option<EditPrediction>,

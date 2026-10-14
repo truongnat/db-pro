@@ -123,7 +123,7 @@ fn merge_temporal_date(date: SimpleDate, value: &str, date_only: bool) -> String
 }
 
 impl<'a> Calendar<'a> {
-    pub(crate) fn popup_position(anchor: Rect, screen: Rect, show_today: bool) -> Pos2 {
+    pub fn popup_position(anchor: Rect, screen: Rect, show_today: bool) -> Pos2 {
         let desired_position = Pos2::new(anchor.left(), anchor.bottom() + config::POPOVER_GAP);
         clamp_popup_to_screen(
             desired_position,

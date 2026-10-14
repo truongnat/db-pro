@@ -129,25 +129,13 @@ mod tests {
     }
 
     #[test]
-    fn primary_native_surfaces_do_not_reintroduce_raw_buttons() {
+    fn primary_widget_sources_do_not_reintroduce_raw_buttons() {
         let sources = [
-            include_str!("../schema/schema_workbench.rs"),
-            include_str!("../schema/schema_workbench_form.rs"),
-            include_str!("../schema/schema_object_view.rs"),
-            include_str!("../explorer/explorer_view.rs"),
-            include_str!("../result_grid/result_grid_edit.rs"),
-            include_str!("../tools/tasks_view.rs"),
-            include_str!("../query_workbench/query_output_view.rs"),
-            include_str!("../query_workbench/query_view.rs"),
-            include_str!("../result_grid/mod.rs"),
-            include_str!("../table/table_editor_view.rs"),
-            include_str!("../table/table_ddl_view.rs"),
-            include_str!("../table/table_metadata_view.rs"),
-            include_str!("../table/table_view.rs"),
-            include_str!("../connection/view.rs"),
-            include_str!("../query_workbench/query_dialogs_view.rs"),
-            include_str!("../files/files_activity_view.rs"),
-            include_str!("../agent/agent_view.rs"),
+            include_str!("button/ui/button.rs"),
+            include_str!("input/ui.rs"),
+            include_str!("select/ui.rs"),
+            include_str!("tabs/ui/mod.rs"),
+            include_str!("dialog/ui.rs"),
         ];
 
         for source in sources {

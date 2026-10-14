@@ -2,11 +2,12 @@ use std::error::Error;
 use std::sync::mpsc::{SyncSender, TrySendError};
 use std::thread;
 
+use db_pro_app::DbProApp;
 use db_pro_core::application::sql_builder::{FilterOp, SortClause, SortDir, TableFilter};
 use db_pro_core::domain::query::CellValue;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
-    DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft,
+    DbProTheme, RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft,
     UiConnectionSummary, UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryError,
     UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaColumn,
     UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableColumn, UiTableDataFilter,

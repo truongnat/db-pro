@@ -65,7 +65,7 @@ pub(super) fn register(ctx: &Context, id: Id) -> bool {
 /// registered this pass. `handle_shortcuts` runs in `prepare_frame` — before
 /// dialogs draw — so it must consult this instead of a hand-kept overlay
 /// blocklist, otherwise global chords and Esc leak through open modals.
-pub(crate) fn any_open(ctx: &Context) -> bool {
+pub fn any_open(ctx: &Context) -> bool {
     ctx.data(|d| {
         let cur: ModalStack = d.get_temp(stack_key()).unwrap_or_default();
         let pass = ctx.cumulative_pass_nr();

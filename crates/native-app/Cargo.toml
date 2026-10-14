@@ -18,6 +18,7 @@ capture = ["dep:image"]
 
 [dependencies]
 db-pro-core = { path = "../core" }
+db-pro-app = { path = "../app" }
 db-pro-ui = { path = "../ui" }
 db-pro-runtime = { path = "../runtime" }
 eframe = { version = "0.36.2", default-features = false, features = ["default_fonts", "glow", "wayland", "x11", "accesskit"] }

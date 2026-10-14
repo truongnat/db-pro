@@ -5,6 +5,7 @@ members = [
     "crates/infrastructure",
     "crates/runtime",
     "crates/ui",
+    "crates/app",
     "crates/native-app",
 ]
 

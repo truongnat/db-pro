@@ -1185,6 +1185,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
+name = "db-pro-app"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal 0.4.10",
+ "chrono",
+ "criterion",
+ "db-pro-core",
+ "db-pro-ui",
+ "eframe",
+ "egui",
+ "image",
+ "lucide-icons",
+ "rand 0.8.7",
+ "rust-i18n",
+ "rust_xlsxwriter",
+ "serde",
+ "serde_json",
+ "sqlparser",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "db-pro-core"
 version = "0.1.0"
 dependencies = [
@@ -1234,6 +1257,7 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "chrono",
+ "db-pro-app",
  "db-pro-core",
  "db-pro-runtime",
  "db-pro-ui",
@@ -1271,7 +1295,6 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal 0.4.10",
  "chrono",
- "criterion",
  "db-pro-core",
  "eframe",
  "egui",

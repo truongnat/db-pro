@@ -18,7 +18,7 @@ pub struct TaskBridge {
 /// Keeping this bound at the UI boundary prevents a burst of backend results
 /// from monopolising an egui frame. The caller requests another repaint when
 /// the batch reaches this limit.
-pub(crate) const MAX_RUNTIME_EVENTS_PER_FRAME: usize = 64;
+pub const MAX_RUNTIME_EVENTS_PER_FRAME: usize = 64;
 
 /// Capacity of the bounded native adapter queue between the worker and egui.
 pub(crate) const UI_EVENT_CHANNEL_CAPACITY: usize = 256;
