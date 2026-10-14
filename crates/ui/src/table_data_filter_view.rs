@@ -32,11 +32,24 @@ pub(super) fn draw_filter_chips(
                 format!(" {}", filter.value)
             };
             ui.label(format!("{} {}{}", filter.column, operator, value));
-            if ui.small_button("×").on_hover_text("Remove filter").clicked() {
+            if Button::new(context.theme)
+                .text("×")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .tooltip("Remove filter")
+                .show(ui)
+                .clicked()
+            {
                 action = Some(TableDataFilterAction::Remove(index));
             }
         }
-        if ui.small_button("Clear all").clicked() {
+        if Button::new(context.theme)
+            .text("Clear all")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             action = Some(TableDataFilterAction::ClearAll);
         }
     });

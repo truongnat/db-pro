@@ -19,12 +19,10 @@ pub(super) fn draw_diagram_empty_state(
     no_matches: bool,
 ) {
     let canvas_size = egui::vec2(ui.available_width(), ui.available_height().max(360.0));
-    egui::Frame {
-        fill: ctx.theme.surface_editor,
-        inner_margin: egui::Margin::ZERO,
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    let canvas_frame = egui::Frame::NONE // ui-rules: §5 canvas paint — ER empty-state canvas surface
+        .fill(ctx.theme.surface_editor)
+        .inner_margin(egui::Margin::ZERO);
+    canvas_frame.show(ui, |ui| {
         ui.set_min_size(canvas_size);
         let viewport = ErViewport::new(egui::Vec2::ZERO, 1.0, ui.max_rect().min);
         paint_diagram_grid(ui.painter(), &viewport, ui.max_rect(), ctx.theme);
@@ -91,12 +89,10 @@ pub(super) fn draw_diagram_canvas(
     let theme = ctx.theme;
     let mut action = None;
 
-    egui::Frame {
-        fill: theme.surface_editor,
-        inner_margin: egui::Margin::ZERO,
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    let canvas_frame = egui::Frame::NONE // ui-rules: §5 canvas paint — ER canvas surface for ui.allocate_painter
+        .fill(theme.surface_editor)
+        .inner_margin(egui::Margin::ZERO);
+    canvas_frame.show(ui, |ui| {
         let canvas_size = egui::vec2(ui.available_width(), ui.available_height().max(360.0));
         let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
         let viewport_rect = response.rect;
@@ -535,14 +531,7 @@ fn draw_minimap(
     minimap_ui.set_clip_rect(minimap_ui.clip_rect().intersect(minimap_rect));
     {
         let ui = &mut minimap_ui;
-        egui::Frame {
-            fill: theme.surface_floating,
-            inner_margin: egui::Margin::same(5.0 as i8),
-            corner_radius: egui::CornerRadius::same(6.0 as u8),
-            stroke: egui::Stroke::new(1.0, theme.border_subtle),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        crate::components::floating_surface(theme, 6.0, egui::Margin::same(5.0 as i8)).show(ui, |ui| {
             let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
             let map_rect = response.rect;
             let world = ctx.diagram.graph.world_bounds;

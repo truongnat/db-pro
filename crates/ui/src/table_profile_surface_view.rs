@@ -9,14 +9,7 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use egui::{Rect, CornerRadius, Vec2};
 
 pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult>, ui: &mut egui::Ui) {
-    egui::Frame {
-        fill: theme.surface_panel,
-        inner_margin: egui::Margin::same(SPACE_2XL as i8),
-        corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
-        stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    panel_frame(theme).show(ui, |ui| {
         let Some(result) = result else {
             EmptyState::new(
                 Icon::ChartColumn,

@@ -37,38 +37,32 @@ impl QueryActionsSurfaceContext<'_> {
         let menu_width = 264.0;
         let menu_position = egui::pos2((anchor.right() - menu_width).max(8.0), anchor.bottom() + 4.0);
         let mut actions = Vec::new();
-        let menu = egui::Area::new(egui::Id::new("query_actions_menu"))
+        let menu = FloatingPopup::new(egui::Id::new("query_actions_menu"), self.theme, menu_position)
             .order(egui::Order::Foreground)
-            .fixed_pos(menu_position)
             .constrain_to(ctx.content_rect().shrink(4.0))
+            .surface_elevated()
+            .radius(8.0)
+            .margin(egui::Margin::same(8.0 as i8))
+            .shadow(false)
             .show(ctx, |ui| {
-                egui::Frame {
-                    fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(8.0 as i8),
-                    corner_radius: egui::CornerRadius::same(8.0 as u8),
-                    stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-                    ..Default::default()
-                }
-                .show(ui, |ui| {
-                    ui.set_min_width(menu_width);
-                    ui.label(
-                        RichText::new("Query actions")
-                            .small()
-                            .strong()
-                            .color(self.theme.text_muted),
-                    );
-                    ui.add_space(4.0);
-                    self.draw_run_actions(ui, &mut actions);
-                    Separator::horizontal(self.theme).show(ui);
-                    ui.label(RichText::new("Editor").small().strong().color(self.theme.text_muted));
-                    ui.add_space(4.0);
-                    self.draw_editor_actions(ui, &mut actions);
-                    ui.label(
-                        RichText::new(format!("Editor font · {} px", self.editor.editor_font_size))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                });
+                ui.set_min_width(menu_width);
+                ui.label(
+                    RichText::new("Query actions")
+                        .small()
+                        .strong()
+                        .color(self.theme.text_muted),
+                );
+                ui.add_space(4.0);
+                self.draw_run_actions(ui, &mut actions);
+                Separator::horizontal(self.theme).show(ui);
+                ui.label(RichText::new("Editor").small().strong().color(self.theme.text_muted));
+                ui.add_space(4.0);
+                self.draw_editor_actions(ui, &mut actions);
+                ui.label(
+                    RichText::new(format!("Editor font · {} px", self.editor.editor_font_size))
+                        .small()
+                        .color(self.theme.text_muted),
+                );
             });
         let clicked_outside = ctx.input(|input| {
             input.pointer.any_click()

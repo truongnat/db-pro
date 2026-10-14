@@ -44,14 +44,7 @@ impl DestructiveDialogContext<'_> {
         if preview.chars().count() > 600 {
             preview = preview.chars().take(600).collect::<String>() + "…";
         }
-        egui::Frame {
-            fill: self.theme.surface_editor,
-            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.label(
                 RichText::new(preview)
                     .font(font_mono_sm())

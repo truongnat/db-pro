@@ -73,87 +73,79 @@ pub(super) fn draw_floating_completion_popup(
 
     let mut clicked_item = None;
 
-    let area_resp = egui::Area::new(egui::Id::new("floating_completion_popup"))
+    let area_resp = FloatingPopup::new(egui::Id::new("floating_completion_popup"), theme, popup_pos)
         .order(egui::Order::Foreground)
-        .fixed_pos(popup_pos)
+        .surface_panel()
+        .radius(10.0)
+        .margin(egui::Margin::symmetric(4.0 as i8, 4.0 as i8))
         .show(ctx, |ui| {
-            egui::Frame {
-                fill: theme.surface_panel,
-                corner_radius: egui::CornerRadius::same(10.0 as u8),
-                stroke: egui::Stroke::new(1.0, theme.border_default),
-                shadow: theme.floating_shadow(),
-                inner_margin: egui::Margin::symmetric(4.0 as i8, 4.0 as i8),
-                ..Default::default()
-            }
-            .show(ui, |ui| {
-                ui.set_width(popup_width);
-                ui.spacing_mut().item_spacing.y = 2.0;
+            ui.set_width(popup_width);
+            ui.spacing_mut().item_spacing.y = 2.0;
 
-                let prefix = doc.completion.query_prefix.clone();
-                let count = doc.completion.items.len();
-                let sel_idx = doc.completion.selected_index.min(count.saturating_sub(1));
-                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                let list_height = (count.min(COMPLETION_VISIBLE_ROWS) as f32 * COMPLETION_ROW_HEIGHT).max(COMPLETION_ROW_HEIGHT);
-                let click_idx = ScrollArea::new(theme)
-                    .max_height(list_height)
-                    .show_viewport(ui, |ui, viewport| {
-                        // Fixed content height keeps the scrollbar matched to the full list
-                        // while only the visible rows (plus overscan) are built.
-                        ui.spacing_mut().item_spacing.y = 0.0;
-                        ui.set_height(count as f32 * COMPLETION_ROW_HEIGHT);
-                        let scroll_y = viewport.min.y.max(0.0);
-                        let view_h = viewport.height().max(COMPLETION_ROW_HEIGHT);
-                        let first = (scroll_y / COMPLETION_ROW_HEIGHT).floor() as usize;
-                        let last = ((scroll_y + view_h) / COMPLETION_ROW_HEIGHT).ceil() as usize;
-                        let start = first.saturating_sub(COMPLETION_ROW_OVERSCAN).min(count);
-                        let end = last.saturating_add(COMPLETION_ROW_OVERSCAN).min(count);
-                        let top = ui.max_rect().top();
-                        let left = ui.max_rect().left();
-                        let width = ui.max_rect().width();
-                        let mut clicked = None;
-                        for idx in start..end {
-                            let rect = completion_row_rect(left, top, width, idx);
-                            if draw_completion_row(
-                                ui,
-                                rect,
-                                idx,
-                                &doc.completion.items[idx],
-                                idx == sel_idx,
-                                &prefix,
-                                theme,
-                            ) {
-                                clicked = Some(idx);
-                            }
+            let prefix = doc.completion.query_prefix.clone();
+            let count = doc.completion.items.len();
+            let sel_idx = doc.completion.selected_index.min(count.saturating_sub(1));
+            // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+            let list_height = (count.min(COMPLETION_VISIBLE_ROWS) as f32 * COMPLETION_ROW_HEIGHT).max(COMPLETION_ROW_HEIGHT);
+            let click_idx = ScrollArea::new(theme)
+                .max_height(list_height)
+                .show_viewport(ui, |ui, viewport| {
+                    // Fixed content height keeps the scrollbar matched to the full list
+                    // while only the visible rows (plus overscan) are built.
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    ui.set_height(count as f32 * COMPLETION_ROW_HEIGHT);
+                    let scroll_y = viewport.min.y.max(0.0);
+                    let view_h = viewport.height().max(COMPLETION_ROW_HEIGHT);
+                    let first = (scroll_y / COMPLETION_ROW_HEIGHT).floor() as usize;
+                    let last = ((scroll_y + view_h) / COMPLETION_ROW_HEIGHT).ceil() as usize;
+                    let start = first.saturating_sub(COMPLETION_ROW_OVERSCAN).min(count);
+                    let end = last.saturating_add(COMPLETION_ROW_OVERSCAN).min(count);
+                    let top = ui.max_rect().top();
+                    let left = ui.max_rect().left();
+                    let width = ui.max_rect().width();
+                    let mut clicked = None;
+                    for idx in start..end {
+                        let rect = completion_row_rect(left, top, width, idx);
+                        if draw_completion_row(
+                            ui,
+                            rect,
+                            idx,
+                            &doc.completion.items[idx],
+                            idx == sel_idx,
+                            &prefix,
+                            theme,
+                        ) {
+                            clicked = Some(idx);
                         }
-                        // Selection can sit outside the viewport after a key press. Build that
-                        // one row so scroll_to_me can bring it back; hover does not move it.
-                        if !(start..end).contains(&sel_idx) {
-                            let rect = completion_row_rect(left, top, width, sel_idx);
-                            if draw_completion_row(
-                                ui,
-                                rect,
-                                sel_idx,
-                                &doc.completion.items[sel_idx],
-                                true,
-                                &prefix,
-                                theme,
-                            ) {
-                                clicked = Some(sel_idx);
-                            }
+                    }
+                    // Selection can sit outside the viewport after a key press. Build that
+                    // one row so scroll_to_me can bring it back; hover does not move it.
+                    if !(start..end).contains(&sel_idx) {
+                        let rect = completion_row_rect(left, top, width, sel_idx);
+                        if draw_completion_row(
+                            ui,
+                            rect,
+                            sel_idx,
+                            &doc.completion.items[sel_idx],
+                            true,
+                            &prefix,
+                            theme,
+                        ) {
+                            clicked = Some(sel_idx);
                         }
-                        clicked
-                    })
-                    .inner;
-                if let Some(idx) = click_idx {
-                    clicked_item = doc.completion.items.get(idx).cloned();
-                }
-                if let Some(note) = doc.completion.current_item().and_then(completion_note) {
-                    ui.add_space(2.0);
-                    ui.add(
-                        egui::Label::new(RichText::new(note).font(font_caption()).color(theme.text_muted)).truncate(),
-                    );
-                }
-            });
+                    }
+                    clicked
+                })
+                .inner;
+            if let Some(idx) = click_idx {
+                clicked_item = doc.completion.items.get(idx).cloned();
+            }
+            if let Some(note) = doc.completion.current_item().and_then(completion_note) {
+                ui.add_space(2.0);
+                ui.add(
+                    egui::Label::new(RichText::new(note).font(font_caption()).color(theme.text_muted)).truncate(),
+                );
+            }
         });
 
     if let Some(item) = clicked_item {

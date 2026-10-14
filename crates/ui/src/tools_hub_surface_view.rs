@@ -219,16 +219,7 @@ impl ToolsHubContext<'_> {
             return;
         }
         let theme = self.theme;
-        let card_frame = egui::Frame {
-            fill: if is_active { theme.surface_active } else { theme.surface_panel },
-            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            stroke: egui::Stroke::new(
-                STROKE_THIN,
-                if is_active { theme.accent } else { theme.border_subtle },
-            ),
-            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-            ..Default::default()
-        };
+        let card_frame = selectable_card_frame(theme, is_active);
 
         let response = card_frame.show(ui, |ui| {
             ui.set_min_width(ui.available_width());

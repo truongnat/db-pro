@@ -163,10 +163,12 @@ fn draw_temporal(
             value,
             egui::vec2((ui.available_width() - button_width).max(40.0), ui.available_height()),
         );
-        let button = ui.add_sized(
-            egui::vec2(button_width, ui.available_height()),
-            egui::Button::new(icon_text(Icon::Calendar, "", theme.text_muted)).frame(false),
-        );
+        let button = Button::new(theme)
+            .icon(Icon::Calendar)
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::IconSm)
+            .access_label("Open date picker")
+            .show(ui);
         let popup_id = ui.id().with("date_picker_popup");
         if button.clicked() {
             egui::Popup::toggle_id(ui.ctx(), popup_id);
@@ -186,9 +188,9 @@ fn draw_temporal(
         let mut escape_pressed = false;
         if egui::Popup::is_id_open(ui.ctx(), popup_id) {
             let popup_pos = Calendar::popup_position(cell_rect, ui.ctx().content_rect(), true);
-            let popup = egui::Area::new(popup_id.with("area"))
+            let popup = FloatingPopup::new(popup_id.with("area"), theme, popup_pos)
                 .order(egui::Order::Foreground)
-                .fixed_pos(popup_pos)
+                .frameless()
                 .show(ui.ctx(), |ui| {
                     result_grid_date_picker_view::draw_calendar(ui, theme, date_only, value)
                 });

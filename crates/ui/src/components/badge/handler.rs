@@ -28,6 +28,17 @@ pub struct BadgePalette {
 }
 
 impl BadgePalette {
+    /// Soft-tinted palette for a single arbitrary theme color (syntax/status
+    /// chips that do not map onto a fixed [`BadgeVariant`]).
+    pub fn from_tint(color: Color32, theme: &DbProTheme) -> Self {
+        Self {
+            fill: theme.soft_tint(color),
+            text_color: color,
+            border_stroke: Stroke::NONE,
+            dot_color: color,
+        }
+    }
+
     pub fn from_variant(variant: BadgeVariant, theme: &DbProTheme) -> Self {
         match variant {
             BadgeVariant::Default => Self {

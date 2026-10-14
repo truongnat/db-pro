@@ -270,80 +270,74 @@ impl DbProApp {
 
     fn draw_gallery_header(&mut self, ui: &mut Ui) {
         let theme = self.theme;
-        egui::Frame::NONE
-            .fill(theme.surface_app)
-            .inner_margin(egui::Margin::symmetric(SPACE_LG as i8, SPACE_SM as i8))
-            .show(ui, |ui| {
-                ui.set_min_height(TOOLBAR_HEIGHT);
-                ui.horizontal(|ui| {
+        panel_frame(theme).show(ui, |ui| {
+            ui.set_min_height(TOOLBAR_HEIGHT);
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(char::from(Icon::Palette).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(theme.accent),
+                );
+                ui.add_space(SPACE_XS);
+                ui.vertical(|ui| {
                     ui.label(
-                        RichText::new(char::from(Icon::Palette).to_string())
-                            .font(font_icon(ICON_DEFAULT))
-                            .color(theme.accent),
+                        RichText::new("Component Gallery")
+                            .font(font_subheading())
+                            .color(theme.text_primary),
                     );
+                    ui.label(
+                        RichText::new("DB Pro workstation primitives")
+                            .font(font_caption())
+                            .color(theme.text_tertiary),
+                    );
+                });
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if Button::new(theme)
+                        .icon(if self.preferences.dark_mode {
+                            Icon::Sun
+                        } else {
+                            Icon::Moon
+                        })
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip(if self.preferences.dark_mode {
+                            "Preview light theme"
+                        } else {
+                            "Preview dark theme"
+                        })
+                        .access_label(if self.preferences.dark_mode {
+                            "Preview light theme"
+                        } else {
+                            "Preview dark theme"
+                        })
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.preferences.dark_mode = !self.preferences.dark_mode;
+                    }
+
                     ui.add_space(SPACE_XS);
-                    ui.vertical(|ui| {
-                        ui.label(
-                            RichText::new("Component Gallery")
-                                .font(font_subheading())
-                                .color(theme.text_primary),
-                        );
-                        ui.label(
-                            RichText::new("DB Pro workstation primitives")
-                                .font(font_caption())
-                                .color(theme.text_tertiary),
-                        );
-                    });
-
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if Button::new(theme)
-                            .icon(if self.preferences.dark_mode {
-                                Icon::Sun
-                            } else {
-                                Icon::Moon
-                            })
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::IconSm)
-                            .tooltip(if self.preferences.dark_mode {
-                                "Preview light theme"
-                            } else {
-                                "Preview dark theme"
-                            })
-                            .access_label(if self.preferences.dark_mode {
-                                "Preview light theme"
-                            } else {
-                                "Preview dark theme"
-                            })
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.preferences.dark_mode = !self.preferences.dark_mode;
-                        }
-
-                        ui.add_space(SPACE_XS);
-                        if Button::new(theme)
-                            .text("Reset")
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .icon(Icon::RotateCcw)
-                            .tooltip("Reset interactive component samples")
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.gallery_state = ComponentGalleryState::default();
-                        }
-                    });
+                    if Button::new(theme)
+                        .text("Reset")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::RotateCcw)
+                        .tooltip("Reset interactive component samples")
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.gallery_state = ComponentGalleryState::default();
+                    }
                 });
             });
+        });
     }
 
     fn draw_gallery_category_navigation(&mut self, ui: &mut Ui, available_height: f32) {
         let theme = self.theme;
-        egui::Frame::NONE
-            .fill(theme.surface_panel)
-            .inner_margin(egui::Margin::same(SPACE_SM as i8))
-            .show(ui, |ui| {
-                ui.vertical(|ui| {
+        sidebar_frame(theme).show(ui, |ui| {
+            ui.vertical(|ui| {
                 ui.set_min_size(egui::vec2(196.0, available_height));
                 ui.set_max_width(196.0);
 
@@ -400,8 +394,8 @@ impl DbProApp {
                         (GalleryCategory::Rendering, Icon::Eye, "Rendering diagnostics"),
                     ],
                 );
-                });
             });
+        });
     }
 
     fn draw_gallery_category_group(

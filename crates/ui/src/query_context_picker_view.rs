@@ -24,60 +24,35 @@ pub(super) fn draw_picker(
 ) -> Option<QueryContextPickerAction> {
     let mut action = None;
     let menu_position = egui::pos2(anchor.left(), anchor.bottom() + 4.0);
-    let menu = egui::Area::new(egui::Id::new("query_context_picker"))
+    let menu = FloatingPopup::new(egui::Id::new("query_context_picker"), context.theme, menu_position)
         .order(egui::Order::Foreground)
-        .fixed_pos(menu_position)
         .constrain_to(ctx.content_rect().shrink(4.0))
+        .surface_elevated()
+        .radius(8.0)
+        .margin(egui::Margin::same(8.0 as i8))
+        .shadow(false)
         .show(ctx, |ui| {
-            egui::Frame {
-                fill: context.theme.surface_elevated,
-                inner_margin: egui::Margin::same(8.0 as i8),
-                corner_radius: egui::CornerRadius::same(8.0 as u8),
-                stroke: egui::Stroke::new(1.0, context.theme.border_subtle),
-                ..Default::default()
-            }
-            .show(ui, |ui| {
-                ui.set_min_width(280.0);
-                ui.label(
-                    RichText::new("Connection")
-                        .small()
-                        .strong()
-                        .color(context.theme.text_muted),
-                );
-                ui.add_space(4.0);
-                ScrollArea::new(context.theme).max_height(180.0).show(ui, |ui| {
-                    for (id, name, environment) in context.connections {
-                        let selected = context.current_connection_id == Some(id.as_str());
-                        let label = if environment.is_empty() {
-                            name.clone()
-                        } else {
-                            format!("{name} · {environment}")
-                        };
-                        if crate::components::select::paint_option(
-                            ui,
-                            crate::components::select::SelectOption {
-                                label: &label,
-                                selected,
-                                theme: context.theme,
-                                icon: None,
-                                disabled: false,
-                            },
-                        )
-                        .clicked()
-                        {
-                            action = Some(QueryContextPickerAction::SelectConnection(id.clone()));
-                        }
-                    }
-                });
-                Separator::horizontal(context.theme).show(ui);
-                ui.label(RichText::new("Schema").small().strong().color(context.theme.text_muted));
-                ui.add_space(4.0);
-                for schema in context.available_schemas {
+            ui.set_min_width(280.0);
+            ui.label(
+                RichText::new("Connection")
+                    .small()
+                    .strong()
+                    .color(context.theme.text_muted),
+            );
+            ui.add_space(4.0);
+            ScrollArea::new(context.theme).max_height(180.0).show(ui, |ui| {
+                for (id, name, environment) in context.connections {
+                    let selected = context.current_connection_id == Some(id.as_str());
+                    let label = if environment.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{name} · {environment}")
+                    };
                     if crate::components::select::paint_option(
                         ui,
                         crate::components::select::SelectOption {
-                            label: schema,
-                            selected: context.current_schema == schema,
+                            label: &label,
+                            selected,
                             theme: context.theme,
                             icon: None,
                             disabled: false,
@@ -85,10 +60,29 @@ pub(super) fn draw_picker(
                     )
                     .clicked()
                     {
-                        action = Some(QueryContextPickerAction::SelectSchema(schema.clone()));
+                        action = Some(QueryContextPickerAction::SelectConnection(id.clone()));
                     }
                 }
             });
+            Separator::horizontal(context.theme).show(ui);
+            ui.label(RichText::new("Schema").small().strong().color(context.theme.text_muted));
+            ui.add_space(4.0);
+            for schema in context.available_schemas {
+                if crate::components::select::paint_option(
+                    ui,
+                    crate::components::select::SelectOption {
+                        label: schema,
+                        selected: context.current_schema == schema,
+                        theme: context.theme,
+                        icon: None,
+                        disabled: false,
+                    },
+                )
+                .clicked()
+                {
+                    action = Some(QueryContextPickerAction::SelectSchema(schema.clone()));
+                }
+            }
         });
 
     let clicked_outside = ctx.input(|input| {

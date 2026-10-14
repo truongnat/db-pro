@@ -32,13 +32,7 @@ where
 {
     let results_width = ui.max_rect().width();
     let mut action = None;
-    egui::Frame {
-        fill: context.theme.surface_editor,
-        inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    grid_frame(context.theme).show(ui, |ui| {
         ui.set_min_width(results_width.max(0.0));
         draw_result_selector(context, ui, &mut action);
         if let Some(result) = context.result {

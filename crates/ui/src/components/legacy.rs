@@ -1,5 +1,5 @@
 use crate::components::card::CARD_FRAME_STROKE_WIDTH;
-use crate::tokens::{CARD_INNER_PAD, SPACE_XS};
+use crate::tokens::{CARD_INNER_PAD, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
@@ -51,6 +51,16 @@ pub fn panel_frame(theme: DbProTheme) -> Frame {
         fill: theme.surface_panel,
         inner_margin: Margin::symmetric(12.0 as i8, 7.0 as i8),
         stroke: Stroke::new(1.0, theme.border_subtle),
+        ..Default::default()
+    }
+}
+
+/// Full-bleed application canvas. Root background for a whole workspace/settings
+/// surface: `surface_app` fill with no inset, stroke or radius — the caller owns
+/// the inner layout.
+pub fn app_frame(theme: DbProTheme) -> Frame {
+    Frame {
+        fill: theme.surface_app,
         ..Default::default()
     }
 }
@@ -160,7 +170,37 @@ pub fn tab_button(ui: &mut Ui, theme: DbProTheme, icon: Option<Icon>, label: &st
     resp
 }
 
+/// Fill role for [`shell_surface_frame`]. Callers pick a role, never a raw colour.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShellSurface {
+    /// Application canvas — top bar and settings body.
+    App,
+    /// Panel strip — status bar, output dock, tab strip, sidebar.
+    Panel,
+}
+
+/// Shell chrome surface frame: the fill comes from a [`ShellSurface`] role and the
+/// hairline border from the theme, so shell surfaces stop hand-building
+/// `egui::Frame` literals in view code. Layout owns the inset via `inner_margin`.
+pub fn shell_surface_frame(theme: DbProTheme, surface: ShellSurface, inner_margin: Margin, bordered: bool) -> Frame {
+    Frame {
+        fill: match surface {
+            ShellSurface::App => theme.surface_app,
+            ShellSurface::Panel => theme.surface_panel,
+        },
+        inner_margin,
+        stroke: if bordered {
+            Stroke::new(STROKE_THIN, theme.border_subtle)
+        } else {
+            Stroke::NONE
+        },
+        ..Default::default()
+    }
+}
+
 const LEGACY_CARD_FRAME_RADIUS: f32 = 8.0;
+/// Vertical inset of a row inside a floating list, in egui points.
+const LIST_ROW_PAD_Y: f32 = 3.0;
 
 pub fn card_frame(theme: DbProTheme) -> Frame {
     Frame {
@@ -169,6 +209,48 @@ pub fn card_frame(theme: DbProTheme) -> Frame {
         outer_margin: Margin::ZERO,
         corner_radius: CornerRadius::same(LEGACY_CARD_FRAME_RADIUS as u8),
         stroke: Stroke::new(CARD_FRAME_STROKE_WIDTH, theme.border_subtle),
+        ..Default::default()
+    }
+}
+
+/// Card container for a selectable/active row (tools hub, launcher grids):
+/// `surface_active` + accent border when active, quiet panel otherwise.
+pub fn selectable_card_frame(theme: DbProTheme, active: bool) -> Frame {
+    Frame {
+        fill: if active {
+            theme.surface_active
+        } else {
+            theme.surface_panel
+        },
+        inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+        stroke: Stroke::new(STROKE_THIN, if active { theme.accent } else { theme.border_subtle }),
+        corner_radius: CornerRadius::same(RADIUS_SM as u8),
+        ..Default::default()
+    }
+}
+
+/// Compact chip frame for inline editor prefixes (icon + keyword tag), e.g. the
+/// `WHERE` marker on the table-data condition editor.
+pub fn chip_frame(theme: DbProTheme) -> Frame {
+    Frame {
+        fill: theme.surface_2,
+        inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XXS as i8),
+        corner_radius: CornerRadius::same(RADIUS_XS as u8),
+        ..Default::default()
+    }
+}
+
+/// Row wash for a selectable row inside a floating list (suggestion/completion
+/// menus): accent wash when selected, transparent otherwise.
+pub fn list_row_frame(theme: DbProTheme, selected: bool) -> Frame {
+    Frame {
+        fill: if selected {
+            theme.accent_soft
+        } else {
+            Color32::TRANSPARENT
+        },
+        inner_margin: Margin::symmetric(SPACE_SM as i8, LIST_ROW_PAD_Y as i8),
+        corner_radius: CornerRadius::same(RADIUS_XS as u8),
         ..Default::default()
     }
 }

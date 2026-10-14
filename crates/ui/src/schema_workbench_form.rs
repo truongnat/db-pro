@@ -714,131 +714,127 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
     let mut move_up_idx = None;
     let mut move_down_idx = None;
 
-    egui::Frame::NONE
-        .fill(context.theme.surface_panel)
-        .corner_radius(egui::CornerRadius::same(6.0 as u8))
-        .inner_margin(egui::Margin::same(8.0 as i8))
-        .show(ui, |ui| {
-            // Header
+    panel_frame(context.theme).show(ui, |ui| {
+        // Header
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("#").small().color(context.theme.text_secondary));
+            ui.add_space(4.0);
+            ui.label(RichText::new("Column Name").small().strong().color(context.theme.text_secondary));
+            ui.add_space(75.0);
+            ui.label(RichText::new("Data Type").small().strong().color(context.theme.text_secondary));
+            ui.add_space(55.0);
+            ui.label(RichText::new("PK").small().strong().color(context.theme.text_secondary));
+            ui.add_space(10.0);
+            ui.label(RichText::new("Nullable").small().strong().color(context.theme.text_secondary));
+            ui.add_space(10.0);
+            ui.label(RichText::new("AutoInc").small().strong().color(context.theme.text_secondary));
+            ui.add_space(10.0);
+            ui.label(RichText::new("Default Expression").small().strong().color(context.theme.text_secondary));
+        });
+        Separator::horizontal(context.theme).show(ui);
+
+        let types = [
+            "BIGINT",
+            "INTEGER",
+            "SMALLINT",
+            "VARCHAR(255)",
+            "TEXT",
+            "BOOLEAN",
+            "TIMESTAMPTZ",
+            "TIMESTAMP",
+            "NUMERIC(12,2)",
+            "FLOAT8",
+            "JSONB",
+            "UUID",
+            "BYTEA",
+            "DATE",
+        ];
+
+        for idx in 0..col_count {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("#").small().color(context.theme.text_secondary));
-                ui.add_space(4.0);
-                ui.label(RichText::new("Column Name").small().strong().color(context.theme.text_secondary));
-                ui.add_space(75.0);
-                ui.label(RichText::new("Data Type").small().strong().color(context.theme.text_secondary));
-                ui.add_space(55.0);
-                ui.label(RichText::new("PK").small().strong().color(context.theme.text_secondary));
-                ui.add_space(10.0);
-                ui.label(RichText::new("Nullable").small().strong().color(context.theme.text_secondary));
-                ui.add_space(10.0);
-                ui.label(RichText::new("AutoInc").small().strong().color(context.theme.text_secondary));
-                ui.add_space(10.0);
-                ui.label(RichText::new("Default Expression").small().strong().color(context.theme.text_secondary));
-            });
-            Separator::horizontal(context.theme).show(ui);
+                ui.label(RichText::new(format!("{}", idx + 1)).small().color(context.theme.text_muted));
 
-            let types = [
-                "BIGINT",
-                "INTEGER",
-                "SMALLINT",
-                "VARCHAR(255)",
-                "TEXT",
-                "BOOLEAN",
-                "TIMESTAMPTZ",
-                "TIMESTAMP",
-                "NUMERIC(12,2)",
-                "FLOAT8",
-                "JSONB",
-                "UUID",
-                "BYTEA",
-                "DATE",
-            ];
+                let col = &mut context.workbench.table_columns[idx];
 
-            for idx in 0..col_count {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(format!("{}", idx + 1)).small().color(context.theme.text_muted));
+                // Name
+                crate::components::Input::new(&mut col.name, "column_name", context.theme)
+                    .width(150.0)
+                    .show(ui);
 
-                    let col = &mut context.workbench.table_columns[idx];
+                // Type select — same widget as every other picker
+                let type_salt = format!("col_type_{idx}");
+                let type_labels: Vec<String> = types.iter().map(|t| (*t).to_owned()).collect();
+                let mut type_selected = types.iter().position(|t| *t == col.data_type).unwrap_or(0);
+                let type_previous = type_selected;
+                crate::components::Select::new(&type_salt, &mut type_selected, &type_labels)
+                    .theme(context.theme)
+                    .width(120.0)
+                    .size(crate::components::SelectSize::Sm)
+                    .variant(crate::components::SelectVariant::Ghost)
+                    .show(ui);
+                if type_selected != type_previous {
+                    col.data_type = types[type_selected].to_owned();
+                }
 
-                    // Name
-                    crate::components::Input::new(&mut col.name, "column_name", context.theme)
-                        .width(150.0)
-                        .show(ui);
+                // PK
+                if Checkbox::new(&mut col.is_pk, "", context.theme).show(ui).changed() && col.is_pk {
+                    col.nullable = false;
+                }
 
-                    // Type select — same widget as every other picker
-                    let type_salt = format!("col_type_{idx}");
-                    let type_labels: Vec<String> = types.iter().map(|t| (*t).to_owned()).collect();
-                    let mut type_selected = types.iter().position(|t| *t == col.data_type).unwrap_or(0);
-                    let type_previous = type_selected;
-                    crate::components::Select::new(&type_salt, &mut type_selected, &type_labels)
-                        .theme(context.theme)
-                        .width(120.0)
-                        .size(crate::components::SelectSize::Sm)
-                        .variant(crate::components::SelectVariant::Ghost)
-                        .show(ui);
-                    if type_selected != type_previous {
-                        col.data_type = types[type_selected].to_owned();
-                    }
+                // Nullable
+                let can_be_nullable = !col.is_pk;
+                Checkbox::new(&mut col.nullable, "", context.theme)
+                    .enabled(can_be_nullable)
+                    .show(ui);
 
-                    // PK
-                    if Checkbox::new(&mut col.is_pk, "", context.theme).show(ui).changed() && col.is_pk {
-                        col.nullable = false;
-                    }
+                // Auto inc
+                Checkbox::new(&mut col.auto_increment, "", context.theme).show(ui);
 
-                    // Nullable
-                    let can_be_nullable = !col.is_pk;
-                    Checkbox::new(&mut col.nullable, "", context.theme)
-                        .enabled(can_be_nullable)
-                        .show(ui);
+                // Default
+                crate::components::Input::new(&mut col.default_expr, "default / expr", context.theme)
+                    .width(130.0)
+                    .show(ui);
 
-                    // Auto inc
-                    Checkbox::new(&mut col.auto_increment, "", context.theme).show(ui);
-
-                    // Default
-                    crate::components::Input::new(&mut col.default_expr, "default / expr", context.theme)
-                        .width(130.0)
-                        .show(ui);
-
-                    // Reorder & delete buttons — icon buttons, not glyph labels
-                    if idx > 0
-                        && Button::new(context.theme)
-                            .icon(Icon::ChevronUp)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::IconSm)
-                            .tooltip("Move column up")
-                            .access_label("Move column up")
-                            .show(ui)
-                            .clicked()
-                    {
-                        move_up_idx = Some(idx);
-                    }
-                    if idx + 1 < col_count
-                        && Button::new(context.theme)
-                            .icon(Icon::ChevronDown)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::IconSm)
-                            .tooltip("Move column down")
-                            .access_label("Move column down")
-                            .show(ui)
-                            .clicked()
-                    {
-                        move_down_idx = Some(idx);
-                    }
-                    if Button::new(context.theme)
-                        .icon(Icon::X)
+                // Reorder & delete buttons — icon buttons, not glyph labels
+                if idx > 0
+                    && Button::new(context.theme)
+                        .icon(Icon::ChevronUp)
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
-                        .tooltip("Remove column")
-                        .access_label("Remove column")
+                        .tooltip("Move column up")
+                        .access_label("Move column up")
                         .show(ui)
                         .clicked()
-                    {
-                        remove_idx = Some(idx);
-                    }
-                });
-                ui.add_space(2.0);
-            }
-        });
+                {
+                    move_up_idx = Some(idx);
+                }
+                if idx + 1 < col_count
+                    && Button::new(context.theme)
+                        .icon(Icon::ChevronDown)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Move column down")
+                        .access_label("Move column down")
+                        .show(ui)
+                        .clicked()
+                {
+                    move_down_idx = Some(idx);
+                }
+                if Button::new(context.theme)
+                    .icon(Icon::X)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Remove column")
+                    .access_label("Remove column")
+                    .show(ui)
+                    .clicked()
+                {
+                    remove_idx = Some(idx);
+                }
+            });
+            ui.add_space(2.0);
+        }
+    });
 
     if let Some(idx) = remove_idx {
         context.workbench.remove_table_column(idx);
@@ -901,32 +897,28 @@ pub(super) fn draw_workbench_preview(
     }
 
     ui.add_space(SPACE_SM);
-    egui::Frame::NONE
-        .fill(context.theme.surface_panel)
-        .corner_radius(egui::CornerRadius::same(6.0 as u8))
-        .inner_margin(egui::Margin::same(10.0 as i8))
-        .show(ui, |ui| {
-            if sql.trim().is_empty() {
-                ui.label(
-                    RichText::new("-- Click 'Plan create', 'Plan drop' or 'Plan rename' above to generate DDL")
-                        .color(context.theme.text_muted)
-                        .monospace(),
-                );
-            } else {
-                ScrollArea::new(context.theme)
-                    .max_height(220.0)
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::Label::new(
-                                RichText::new(&sql)
-                                    .color(context.theme.text_primary)
-                                    .monospace(),
-                            )
-                            .wrap(),
-                        );
-                    });
-            }
-        });
+    panel_frame(context.theme).show(ui, |ui| {
+        if sql.trim().is_empty() {
+            ui.label(
+                RichText::new("-- Click 'Plan create', 'Plan drop' or 'Plan rename' above to generate DDL")
+                    .color(context.theme.text_muted)
+                    .monospace(),
+            );
+        } else {
+            ScrollArea::new(context.theme)
+                .max_height(220.0)
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(&sql)
+                                .color(context.theme.text_primary)
+                                .monospace(),
+                        )
+                        .wrap(),
+                    );
+                });
+        }
+    });
 
     if context.workbench.apply_confirmation {
         let mut confirm_action = None;

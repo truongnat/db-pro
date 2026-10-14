@@ -8,7 +8,7 @@ pub use toast::{Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, To
 pub use tooltip::{Tooltip, TooltipPosition};
 pub use ui::{
     context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
-    Popover,
+    FloatingPopup, Popover,
 };
 
 pub(crate) use ui::screen_rect;

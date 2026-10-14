@@ -28,12 +28,12 @@ impl ShellStatusbarContext<'_> {
         let mut action = None;
         egui::Panel::bottom("statusbar")
             .exact_size(28.0)
-            .frame(egui::Frame {
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_XXS as i8),
-                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-                ..Default::default()
-            })
+            .frame(shell_surface_frame(
+                self.theme,
+                ShellSurface::Panel,
+                egui::Margin::symmetric(SPACE_MD as i8, SPACE_XXS as i8),
+                true,
+            ))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {

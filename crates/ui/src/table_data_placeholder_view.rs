@@ -19,14 +19,7 @@ pub(super) fn draw_placeholder(
     table_name: &str,
 ) -> Option<TableDataPlaceholderAction> {
     let mut action = None;
-    egui::Frame {
-        fill: context.theme.surface_panel,
-        inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
-        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
-        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    panel_frame(context.theme).show(ui, |ui| {
         ui.vertical_centered(|ui| {
             let failed = context.error.is_some();
             let empty = context.empty;

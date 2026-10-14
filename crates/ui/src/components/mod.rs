@@ -82,7 +82,8 @@ pub use logs::{LogEntry, LogLevel, LogViewer};
 pub use nav::{Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
 pub use overlay::{
     context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
-    Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
+    FloatingPopup, Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip,
+    TooltipPosition,
 };
 pub use radio_group::{RadioGroup, RadioGroupOption};
 pub use responsive_layout::{container_width, grid_metrics, Container, ContainerWidth, GridMetrics, ResponsiveGrid};
@@ -92,7 +93,9 @@ pub use selection::{Checkbox, Radio, Slider, Switch};
 pub use separator::{Separator, SeparatorOrientation};
 pub use sql_editor::{SqlEditorAction, SqlEditorToolbar};
 pub use table::{Table, TableColumn, TableColumnAlign};
-pub use tabs::{SegmentedTabs, UnderlineTabs};
+pub use tabs::{
+    draw_document_tab, DocumentTabAction, DocumentTabItem, SegmentedTabs, UnderlineTabs, DOCUMENT_TAB_HEIGHT,
+};
 pub use toggle::{Toggle, ToggleGroup, ToggleGroupItem, ToggleSize, ToggleVariant};
 pub use transaction::{DestructiveOperationDialog, TransactionAction, TransactionBar};
 pub use tree::{reveal_children, DatabaseTreeNode, TreeNodeKind};

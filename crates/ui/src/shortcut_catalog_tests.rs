@@ -44,7 +44,7 @@ fn press(app: &mut DbProApp, ctx: &egui::Context, key: egui::Key, modifiers: egu
     let mut editor_held_keyboard = false;
     let _ = crate::test_frame::frame(ctx, input, |ui| {
         let mut scratch = String::new();
-        ui.text_edit_singleline(&mut scratch).request_focus();
+        ui.text_edit_singleline(&mut scratch).request_focus(); // ui-rules: test harness focuses a raw single-line editor to model editor keyboard focus
         editor_held_keyboard = ui.ctx().egui_wants_keyboard_input();
         app.query.editor.query_editor_focused = true;
         app.handle_shortcuts(ui.ctx());
@@ -358,7 +358,7 @@ fn grid_frame(
     let _ = crate::test_frame::frame(ctx, input, |ui| {
         if text_focused {
             let mut scratch = String::new();
-            ui.text_edit_singleline(&mut scratch).request_focus();
+            ui.text_edit_singleline(&mut scratch).request_focus(); // ui-rules: test harness focuses a raw single-line editor to model editor keyboard focus
         }
         app.handle_shortcuts(ui.ctx());
         app.draw_result_grid(ui, result);

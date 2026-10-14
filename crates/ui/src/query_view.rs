@@ -185,7 +185,7 @@ impl DbProApp {
     }
 
     fn draw_visual_query_builder_surface(&mut self, ui: &mut egui::Ui) {
-        query_shell_surface_view::draw_visual_builder(ui, self.query.editor.visual_builder.open, |ui| {
+        query_shell_surface_view::draw_visual_builder(ui, self.theme, self.query.editor.visual_builder.open, |ui| {
             self.draw_visual_query_builder(ui)
         });
     }

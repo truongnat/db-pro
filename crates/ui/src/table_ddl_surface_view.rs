@@ -30,14 +30,7 @@ pub(super) struct DdlToolbarContext {
 
 pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Option<DdlToolbarAction> {
     let mut action = None;
-    egui::Frame {
-        fill: context.theme.surface_panel,
-        inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
-        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    panel_frame(context.theme).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = SPACE_SM;
             ui.label(
@@ -97,14 +90,7 @@ pub(super) struct DdlPlaceholderContext<'a> {
 }
 
 pub(super) fn draw_placeholder(context: &DdlPlaceholderContext<'_>, ui: &mut egui::Ui) {
-    egui::Frame {
-        fill: context.theme.surface_panel,
-        inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
-        stroke: egui::Stroke::new(STROKE_THIN, context.theme.border_subtle),
-        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    panel_frame(context.theme).show(ui, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(28.0);
             let failed = context.error.is_some();

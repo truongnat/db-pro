@@ -13,6 +13,8 @@ pub struct Badge<'a> {
     pub(crate) icon: Option<Icon>,
     pub(crate) theme: DbProTheme,
     pub(crate) compact: bool,
+    pub(crate) tint: Option<egui::Color32>,
+    pub(crate) font: Option<FontId>,
 }
 
 impl<'a> Badge<'a> {
@@ -24,11 +26,26 @@ impl<'a> Badge<'a> {
             icon: None,
             theme,
             compact: false,
+            tint: None,
+            font: None,
         }
     }
 
     pub fn variant(mut self, variant: BadgeVariant) -> Self {
         self.variant = variant;
+        self
+    }
+
+    /// Soft-tinted chip color: fill is `theme.soft_tint(color)` and the label is
+    /// drawn in `color`. Overrides the [`BadgeVariant`] palette.
+    pub fn tint(mut self, color: egui::Color32) -> Self {
+        self.tint = Some(color);
+        self
+    }
+
+    /// Overrides the label font (e.g. monospace for code chips).
+    pub fn font(mut self, font: FontId) -> Self {
+        self.font = Some(font);
         self
     }
 
@@ -48,11 +65,17 @@ impl<'a> Badge<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let palette = BadgePalette::from_variant(self.variant, &self.theme);
+        let palette = match self.tint {
+            Some(color) => BadgePalette::from_tint(color, &self.theme),
+            None => BadgePalette::from_variant(self.variant, &self.theme),
+        };
         let metrics = BadgeMetrics::from_compact(self.compact);
 
         let accessible_label = self.text.to_string();
-        let font_id = DbProTheme::ui_medium_font(metrics.font_size);
+        let font_id = self
+            .font
+            .clone()
+            .unwrap_or_else(|| DbProTheme::ui_medium_font(metrics.font_size));
         let text_galley = ui
             .painter()
             .layout_no_wrap(self.text.into_owned(), font_id, palette.text_color);

@@ -99,7 +99,13 @@ impl PendingChangesContext<'_> {
                     Separator::horizontal(self.theme).show(ui);
                     ui.horizontal(|ui| {
                         ui.label(format!("{} row group(s)", groups.len()));
-                        if ui.small_button("Discard All").clicked() {
+                        if Button::new(self.theme)
+                            .text("Discard All")
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(PendingChangesAction::RequestDiscardAll);
                         }
                     });
@@ -137,11 +143,23 @@ impl PendingChangesContext<'_> {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(group_label).strong());
             if let Some(identity) = &group.identity {
-                if ui.small_button("Revert Row").clicked() {
+                if Button::new(self.theme)
+                    .text("Revert Row")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(PendingChangesAction::RevertRow(identity.clone()));
                 }
             } else if let Some(local_id) = group.local_id {
-                if ui.small_button("Remove Insert").clicked() {
+                if Button::new(self.theme)
+                    .text("Remove Insert")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(PendingChangesAction::RemoveInsert(local_id));
                 }
             }
@@ -165,7 +183,13 @@ impl PendingChangesContext<'_> {
                             crate::cell_text(original),
                             crate::cell_text(value)
                         ));
-                        if ui.small_button("Revert Cell").clicked() {
+                        if Button::new(self.theme)
+                            .text("Revert Cell")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(PendingChangesAction::RevertCell(identity.clone(), *column_index));
                         }
                     });

@@ -29,12 +29,7 @@ impl AgentPanelSurfaceContext {
             .resizable(true)
             .default_size(self.default_width)
             .size_range(AGENT_MIN_WIDTH..=AGENT_MAX_WIDTH)
-            .frame(egui::Frame {
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_XS as i8),
-                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-                ..Default::default()
-            })
+            .frame(panel_frame(self.theme))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 content(ui);

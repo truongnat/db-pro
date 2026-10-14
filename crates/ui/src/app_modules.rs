@@ -621,8 +621,6 @@ mod shortcut_catalog_tests;
 mod transfer_activity_view;
 #[path = "workspace_feature_state.rs"]
 mod workspace_feature_state;
-#[path = "workspace_tab_primitives.rs"]
-mod workspace_tab_primitives;
 #[path = "workspace_tabs_surface_view.rs"]
 mod workspace_tabs_surface_view;
 #[path = "workspace_view.rs"]

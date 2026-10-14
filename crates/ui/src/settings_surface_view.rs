@@ -39,14 +39,7 @@ impl SettingsSurfaceContext<'_> {
         let available = ui.available_size();
         ui.set_min_size(available);
 
-        egui::Frame {
-            fill: self.theme.surface_app,
-            inner_margin: egui::Margin::ZERO,
-            outer_margin: egui::Margin::ZERO,
-            stroke: egui::Stroke::NONE,
-            corner_radius: egui::CornerRadius::ZERO,
-            ..Default::default()
-        }
+        app_frame(*self.theme)
         .show(ui, |ui| {
             ui.set_min_size(ui.available_size());
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
@@ -70,18 +63,7 @@ impl SettingsSurfaceContext<'_> {
             egui::vec2(nav_width, available_height),
             egui::Layout::top_down(egui::Align::Min),
             |ui| {
-                egui::Frame {
-                    fill: self.theme.surface_panel,
-                    inner_margin: egui::Margin {
-                        left: (SPACE_LG) as i8,
-                        right: (SPACE_LG) as i8,
-                        top: (SPACE_2XL) as i8,
-                        bottom: (SPACE_LG) as i8,
-                    },
-                    stroke: egui::Stroke::NONE,
-                    corner_radius: egui::CornerRadius::ZERO,
-                    ..Default::default()
-                }
+                sidebar_frame(*self.theme)
                 .show(ui, |ui| {
                     ui.set_min_size(ui.available_size());
                     actions.extend(self.draw_navigation(ui));

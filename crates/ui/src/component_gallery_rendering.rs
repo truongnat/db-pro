@@ -29,11 +29,8 @@ impl DbProApp {
             .small()
             .color(self.theme.text_tertiary),
         );
-        // ui-rules: egui reference baseline
-        ui.checkbox(
-            &mut self.gallery_state.show_linear_blend_reference,
-            "Show computed linear-light blend reference",
-        );
+        let blend_ref = &mut self.gallery_state.show_linear_blend_reference;
+        ui.checkbox(blend_ref, "Show computed linear-light blend reference"); // ui-rules: dev-only gallery reference baseline for the component comparison
         ui.add_space(SPACE_LG);
 
         self.draw_rendering_blend_samples(ui);
@@ -70,8 +67,7 @@ impl DbProApp {
             ("white", [255, 255, 255]),
         ];
 
-        // ui-rules: egui reference baseline
-        egui::ScrollArea::horizontal()
+        egui::ScrollArea::horizontal() // ui-rules: dev-only gallery reference baseline for the component comparison
             .id_salt("rendering_blend_samples")
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -96,11 +92,8 @@ impl DbProApp {
             "Each stroke is sized in physical pixels and converted to logical points using the live pixels_per_point.",
         );
 
-        // ui-rules: egui reference baseline
-        ui.checkbox(
-            &mut self.gallery_state.align_strokes_to_pixels,
-            "Align stroke centers to physical pixel centers",
-        );
+        let align_ref = &mut self.gallery_state.align_strokes_to_pixels;
+        ui.checkbox(align_ref, "Align stroke centers to physical pixel centers"); // ui-rules: dev-only gallery reference baseline for the component comparison
         let align_centers = self.gallery_state.align_strokes_to_pixels;
 
         let widths_px = [0.5_f32, 1.0, 1.5, 2.0];

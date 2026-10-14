@@ -165,15 +165,18 @@ fn draw_pending_change_summary(
     }
     Separator::vertical(context.theme).show(ui);
     let counts = context.staged_changes.counts();
-    if ui
-        .small_button(format!(
+    if Button::new(context.theme)
+        .text(format!(
             "{} pending · +{} ~{} -{}",
             counts.total(),
             counts.inserts,
             counts.updates,
             counts.deletes
         ))
-        .on_hover_text("Open pending changes")
+        .variant(ButtonVariant::Secondary)
+        .size(ButtonSize::Sm)
+        .tooltip("Open pending changes")
+        .show(ui)
         .clicked()
     {
         *action = Some(TableDataMutationToolbarAction::OpenPendingChanges);

@@ -18,13 +18,7 @@ pub(super) struct MonitoringHeaderContext<'a> {
 impl MonitoringHeaderContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<MonitoringHeaderAction> {
         let mut actions = Vec::new();
-        egui::Frame {
-            fill: self.theme.surface_elevated,
-            inner_margin: egui::Margin::same(SPACE_MD as i8),
-            corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            ..Default::default()
-        }
+        card_frame(self.theme)
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 self.draw_status(ui);

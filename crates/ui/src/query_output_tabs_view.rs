@@ -125,11 +125,6 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                     .output
                     .active_tab_for_document(context.session.active_document().map(|document| document.id.as_str()))
                     == tab;
-                let bg_color = if selected {
-                    context.theme.surface_active
-                } else {
-                    egui::Color32::TRANSPARENT
-                };
                 let text_color = if selected {
                     context.theme.text_primary
                 } else {
@@ -141,42 +136,38 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                     context.theme.text_muted
                 };
 
-                let response = egui::Frame::NONE
-                    .fill(bg_color)
-                    .corner_radius(egui::CornerRadius::same(RADIUS_SM as u8))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                let response = tab_frame(context.theme, selected).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(char::from(icon).to_string())
+                                .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                                .color(icon_color),
+                        );
+                        if !icon_only {
+                            ui.add_space(2.0);
                             ui.label(
-                                RichText::new(char::from(icon).to_string())
-                                    .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
-                                    .color(icon_color),
+                                RichText::new(label).font(font_ui_label()).color(text_color),
                             );
-                            if !icon_only {
-                                ui.add_space(2.0);
-                                ui.label(
-                                    RichText::new(label).font(font_ui_label()).color(text_color),
-                                );
-                            }
-                            if tab == OutputTab::Results {
-                                if let Some(result) = context.session.active_result() {
-                                    badge(
-                                        ui,
-                                        &result.row_count.to_string(),
-                                        context.theme.accent_soft,
-                                        context.theme.accent,
-                                    );
-                                }
-                            } else if tab == OutputTab::Messages && !context.session.active_messages().is_empty() {
+                        }
+                        if tab == OutputTab::Results {
+                            if let Some(result) = context.session.active_result() {
                                 badge(
                                     ui,
-                                    &context.session.active_messages().len().to_string(),
-                                    context.theme.surface_hover,
-                                    context.theme.text_muted,
+                                    &result.row_count.to_string(),
+                                    context.theme.accent_soft,
+                                    context.theme.accent,
                                 );
                             }
-                        });
+                        } else if tab == OutputTab::Messages && !context.session.active_messages().is_empty() {
+                            badge(
+                                ui,
+                                &context.session.active_messages().len().to_string(),
+                                context.theme.surface_hover,
+                                context.theme.text_muted,
+                            );
+                        }
                     });
+                });
 
                 let response = response.response.interact(egui::Sense::click());
                 response.widget_info(|| {

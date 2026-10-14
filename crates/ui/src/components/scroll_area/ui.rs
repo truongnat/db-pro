@@ -7,7 +7,12 @@ pub struct ScrollArea {
     vertical: bool,
     auto_shrink: [bool; 2],
     max_height: Option<f32>,
-    id_salt: Option<egui::Id>,
+    // egui wraps whatever we pass in `IdSalt::new(...)`, so the caller's salt
+    // must reach egui unchanged — storing `egui::Id`/`IdSalt` here would
+    // re-hash it and land state under a different id (broke navigator scroll
+    // test after the 0.36 upgrade). `AsIdSalt` is not dyn compatible, so the
+    // salt is carried as an applier closure.
+    id_salt: Option<Box<dyn FnOnce(egui::ScrollArea) -> egui::ScrollArea>>,
     stick_to_bottom: Option<bool>,
     vertical_scroll_offset: Option<f32>,
     // Retained as part of the stable constructor contract; ScrollArea currently uses egui's
@@ -51,8 +56,8 @@ impl ScrollArea {
         self.max_height = Some(max_height);
         self
     }
-    pub fn id_salt(mut self, id_salt: impl Into<egui::Id>) -> Self {
-        self.id_salt = Some(id_salt.into());
+    pub fn id_salt(mut self, id_salt: impl egui::AsIdSalt + 'static) -> Self {
+        self.id_salt = Some(Box::new(move |area| area.id_salt(id_salt)));
         self
     }
     pub fn stick_to_bottom(mut self, stick_to_bottom: bool) -> Self {
@@ -64,7 +69,7 @@ impl ScrollArea {
         self
     }
 
-    fn build(&self) -> egui::ScrollArea {
+    fn build(self) -> egui::ScrollArea {
         // The handler owns the axis-ordering decision; this layer only applies the
         // selected presentation settings on egui's native scroll container.
         let mut area = egui::ScrollArea::new(handler::scroll_axes(self.horizontal, self.vertical))
@@ -73,8 +78,8 @@ impl ScrollArea {
         if let Some(max_height) = self.max_height {
             area = area.max_height(max_height);
         }
-        if let Some(id_salt) = self.id_salt {
-            area = area.id_salt(id_salt);
+        if let Some(apply) = self.id_salt {
+            area = apply(area);
         }
         if let Some(stick_to_bottom) = self.stick_to_bottom {
             area = area.stick_to_bottom(stick_to_bottom);

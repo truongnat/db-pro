@@ -92,7 +92,9 @@ impl ExplorerToolbarContext<'_> {
                         .color(self.theme.text_secondary),
                 );
                 for mode in ExplorerMatchMode::ALL {
-                    ui.radio_value(&mut filter.mode, mode, mode.label());
+                    if Radio::new(filter.mode == mode, mode.label(), self.theme).show(ui).clicked() {
+                        filter.mode = mode;
+                    }
                 }
                 ui.add_space(SPACE_XS);
                 Separator::horizontal(self.theme).show(ui);

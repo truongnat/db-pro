@@ -43,13 +43,7 @@ impl AgentSettingsContext<'_> {
         let mut actions = Vec::new();
         let theme = self.theme;
         ui.add_space(8.0);
-        egui::Frame {
-            fill: theme.surface_panel,
-            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
-            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-            ..Default::default()
-        }
+        panel_frame(theme)
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.horizontal(|ui| {

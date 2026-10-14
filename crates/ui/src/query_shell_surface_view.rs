@@ -1,7 +1,7 @@
 //! Query-shell layout policies.
 use super::*;
 
-pub(super) fn draw_visual_builder<F>(ui: &mut egui::Ui, open: bool, draw_builder: F)
+pub(super) fn draw_visual_builder<F>(ui: &mut egui::Ui, theme: DbProTheme, open: bool, draw_builder: F)
 where
     F: FnOnce(&mut egui::Ui),
 {
@@ -9,9 +9,15 @@ where
         return;
     }
     ui.add_space(SPACE_XS);
-    egui::CollapsingHeader::new("Visual query builder")
-        .default_open(true)
+    // The disclosure's own expanded state is separate from `open` (which gates the
+    // whole section); persist it across frames so collapsing the header sticks.
+    let id = egui::Id::new("query_visual_builder_disclosure");
+    let mut expanded = ui.data(|data| data.get_temp::<bool>(id)).unwrap_or(true);
+    let _ = Collapsible::new(&mut expanded, theme)
+        .id(id)
+        .title("Visual query builder")
         .show(ui, draw_builder);
+    ui.data_mut(|data| data.insert_temp(id, expanded));
     ui.add_space(SPACE_XS);
 }
 

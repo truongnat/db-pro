@@ -90,7 +90,7 @@ fn interact_resize_handle(
     cursor: egui::CursorIcon,
     index: usize,
 ) {
-    egui::Area::new(egui::Id::new(("frameless_window_resize", index)))
+    egui::Area::new(egui::Id::new(("frameless_window_resize", index))) // ui-rules: §5 non-widget paint — invisible OS window-resize hit region (needs Area sense/default_size), not a themed surface a component can express
         .order(egui::Order::Foreground)
         .fixed_pos(rect.min)
         .default_size(rect.size())
@@ -157,12 +157,12 @@ impl ShellTopbarContext<'_> {
         let modifier = primary_modifier_label();
         egui::Panel::top("topbar")
             .exact_size(38.0)
-            .frame(egui::Frame {
-                fill: self.theme.surface_app,
-                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, 4),
-                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-                ..Default::default()
-            })
+            .frame(shell_surface_frame(
+                self.theme,
+                ShellSurface::App,
+                egui::Margin::symmetric(SPACE_MD as i8, SPACE_XS as i8),
+                true,
+            ))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {

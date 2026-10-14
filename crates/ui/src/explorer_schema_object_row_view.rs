@@ -1,7 +1,7 @@
 //! Shared interaction boundary for schema-object rows in the explorer.
 
 use super::explorer_tree::{draw_codex_tree_row, CodexTreeRow};
-use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, DbProTheme};
+use super::{context_action_menu, ctx_menu_item, is_context_menu_triggered, Button, ButtonSize, DbProTheme};
 use eframe::egui;
 use lucide_icons::Icon;
 
@@ -118,7 +118,11 @@ impl SchemaObjectRowContext<'_> {
                     *close_menu = true;
                 }
             } else if let Some(reason) = self.trigger_toggle_unavailable_reason {
-                ui.add_enabled(false, egui::Button::new(format!("Enable/Disable unavailable: {reason}")));
+                Button::new(self.theme)
+                    .text(format!("Enable/Disable unavailable: {reason}"))
+                    .size(ButtonSize::Sm)
+                    .enabled(false)
+                    .show(ui);
             }
             menu.add_item(
                 ui,

@@ -514,17 +514,20 @@ struct ErToggleButton<'a> {
     selected: bool,
 }
 
-/// Hop depth toggle. Selected state uses the soft accent, not egui's text-selection blue.
+/// Hop depth toggle. Selected state uses `ButtonVariant::Secondary` — the same
+/// pressed treatment as the design-mode toggle — so the active depth reads as
+/// selected in both themes.
 fn hop_button(ui: &mut egui::Ui, toggle: ErToggleButton<'_>, theme: DbProTheme) -> egui::Response {
-    let fill = if toggle.selected { theme.accent_soft } else { egui::Color32::TRANSPARENT };
-    let color = if toggle.selected { theme.accent } else { theme.text_secondary };
-    ui.add(
-        egui::Button::new(egui::RichText::new(toggle.label).size(12.0).color(color))
-            .fill(fill)
-            .min_size(egui::vec2(0.0, 24.0))
-            .corner_radius(egui::CornerRadius::same(7.0 as u8))
-            .stroke(egui::Stroke::NONE),
-    )
+    let variant = if toggle.selected {
+        ButtonVariant::Secondary
+    } else {
+        ButtonVariant::Ghost
+    };
+    Button::new(theme)
+        .text(toggle.label)
+        .variant(variant)
+        .size(ButtonSize::Sm)
+        .show(ui)
 }
 
 
@@ -1079,14 +1082,7 @@ pub(super) fn draw_diagram_zoom_controls(
     controls_ui.set_clip_rect(controls_ui.clip_rect().intersect(controls_rect));
     {
         let ui = &mut controls_ui;
-        egui::Frame {
-            fill: theme.surface_floating,
-            inner_margin: egui::Margin::symmetric(5.0 as i8, 4.0 as i8),
-            corner_radius: egui::CornerRadius::same(6.0 as u8),
-            stroke: egui::Stroke::new(1.0, theme.border_subtle),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        crate::components::floating_surface(theme, 6.0, egui::Margin::symmetric(5.0 as i8, 4.0 as i8)).show(ui, |ui| {
             ui.horizontal(|ui| {
                 if Button::new(theme)
                     .icon(Icon::Minus)

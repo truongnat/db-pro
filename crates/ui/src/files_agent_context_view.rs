@@ -33,13 +33,7 @@ pub(super) struct FilesAgentContextView<'a> {
 impl<'a> FilesAgentContextView<'a> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<FilesAgentContextAction> {
         let mut actions = Vec::new();
-        egui::Frame {
-            fill: self.theme.surface_elevated,
-            stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_SM as i8),
-            corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
-            ..Default::default()
-        }
+        card_frame(self.theme)
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(

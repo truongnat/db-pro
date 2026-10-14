@@ -1,8 +1,6 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use super::workspace_tab_primitives::TAB_HEIGHT;
-use super::workspace_tab_primitives::{draw_workspace_tab_item, WorkspaceTabItem};
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,22 +53,15 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         // Keep a small gutter around the strip and between independent tab targets.
         let tabs_width = ui.available_width();
         ui.set_min_width(tabs_width);
-        egui::Frame {
-            fill: self.theme.surface_panel,
-            inner_margin: egui::Margin {
-                left: (SPACE_SM) as i8,
-                right: (SPACE_SM) as i8,
-                top: (SPACE_XS) as i8,
-                bottom: (SPACE_XS) as i8,
-            },
-            stroke: egui::Stroke::NONE,
-            corner_radius: egui::CornerRadius::ZERO,
-            outer_margin: egui::Margin::ZERO,
-            ..Default::default()
-        }
+        shell_surface_frame(
+            self.theme,
+            ShellSurface::Panel,
+            egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+            false,
+        )
         .show(ui, |ui| {
             let inner = ui.max_rect();
-            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(TAB_HEIGHT)));
+            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(DOCUMENT_TAB_HEIGHT)));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, 0.0);
 
@@ -125,10 +116,10 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         // 1. Welcome Tab
         if self.workspace.welcome_open {
             let welcome_selected = self.workspace.active_tab == WorkspaceTab::Welcome;
-            let welcome_action = draw_workspace_tab_item(
+            let welcome_action = draw_document_tab(
                 ui,
                 self.theme,
-                WorkspaceTabItem {
+                DocumentTabItem {
                     selected: welcome_selected,
                     icon: Icon::House,
                     title: "Welcome",
@@ -218,10 +209,10 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 .is_some_and(QueryDocument::is_dirty);
             let icon = if is_running { Icon::Loader } else { Icon::FileCode2 };
 
-            let action = draw_workspace_tab_item(
+            let action = draw_document_tab(
                 ui,
                 self.theme,
-                WorkspaceTabItem {
+                DocumentTabItem {
                     selected,
                     icon,
                     title,
@@ -386,10 +377,10 @@ impl<'a> WorkspaceTabsViewContext<'a> {
             let unsaved = !self.table.mutation.staged_changes.is_empty();
             let mut close_table = false;
             let mut refresh_table = false;
-            let table_action = draw_workspace_tab_item(
+            let table_action = draw_document_tab(
                 ui,
                 self.theme,
-                WorkspaceTabItem {
+                DocumentTabItem {
                     selected,
                     icon: Icon::Table2,
                     title: &table_name,
@@ -485,10 +476,10 @@ impl<'a> WorkspaceTabsViewContext<'a> {
             };
             let selected = self.workspace.active_tab == WorkspaceTab::SchemaObject;
             let mut close_obj = false;
-            let obj_action = draw_workspace_tab_item(
+            let obj_action = draw_document_tab(
                 ui,
                 self.theme,
-                WorkspaceTabItem {
+                DocumentTabItem {
                     selected,
                     icon,
                     title: &name,
@@ -551,10 +542,10 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         }
 
         let mut close_requested = false;
-        let action = draw_workspace_tab_item(
+        let action = draw_document_tab(
             ui,
             self.theme,
-            WorkspaceTabItem {
+            DocumentTabItem {
                 selected: self.workspace.active_tab == tab,
                 icon,
                 title,

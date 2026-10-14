@@ -105,13 +105,7 @@ impl AgentThreadSurfaceContext<'_> {
         for message in &self.session.messages {
             let is_user = message.role == AgentRole::User;
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-                egui::Frame {
-                    fill: if is_user { self.theme.surface_elevated } else { self.theme.surface_panel },
-                    inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
-                    corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-                    stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-                    ..Default::default()
-                }
+                agent_message_frame(self.theme, is_user)
                 .show(ui, |ui| {
                     ui.label(RichText::new(message.content.clone()).color(self.theme.text_primary));
                 });
@@ -119,13 +113,7 @@ impl AgentThreadSurfaceContext<'_> {
             ui.add_space(SPACE_XS);
         }
         if !self.session.streaming_text.is_empty() {
-            egui::Frame {
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
-                corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-                ..Default::default()
-            }
+            agent_message_frame(self.theme, false)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = SPACE_XXS;

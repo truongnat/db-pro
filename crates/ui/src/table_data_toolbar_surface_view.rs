@@ -218,26 +218,22 @@ impl TableDataToolbarContext<'_> {
         let output = editor_ui
             .horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = SPACE_XS;
-                egui::Frame::NONE
-                    .fill(self.theme.surface_2)
-                    .corner_radius(egui::CornerRadius::same(2.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XXS as i8))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing.x = SPACE_XXS;
-                            ui.label(
-                                RichText::new(char::from(Icon::ListFilter).to_string())
-                                    .font(font_icon(ICON_XS))
-                                    .color(self.theme.accent),
-                            );
-                            ui.label(
-                                RichText::new("WHERE")
-                                    .font(font_caption())
-                                    .strong()
-                                    .color(self.theme.text_primary),
-                            );
-                        });
+                chip_frame(self.theme).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = SPACE_XXS;
+                        ui.label(
+                            RichText::new(char::from(Icon::ListFilter).to_string())
+                                .font(font_icon(ICON_XS))
+                                .color(self.theme.accent),
+                        );
+                        ui.label(
+                            RichText::new("WHERE")
+                                .font(font_caption())
+                                .strong()
+                                .color(self.theme.text_primary),
+                        );
                     });
+                });
                 let cond_edit = egui::TextEdit::singleline(&mut self.data_query.sql_condition_draft) // ui-rules: WHERE editor needs TextEditOutput.cursor_range for the completion popup and paints frameless inside the allocated toolbar rect
                     .hint_text(
                         RichText::new(
@@ -520,63 +516,45 @@ fn draw_column_suggestion_popup(
         8.0,
     );
     let mut clicked = None;
-    egui::Area::new(egui::Id::new("table_data_column_suggestions"))
-        .order(egui::Order::Foreground)
-        .fixed_pos(position)
+    FloatingPopup::new(egui::Id::new("table_data_column_suggestions"), theme, position)
+        .surface_panel()
+        .radius(RADIUS_SM)
+        .margin(egui::Margin::same(SPACE_XS as i8))
         .show(ctx, |ui| {
-            egui::Frame {
-                fill: theme.surface_panel,
-                corner_radius: egui::CornerRadius::same(6.0 as u8),
-                stroke: egui::Stroke::new(1.0, theme.border_default),
-                shadow: theme.floating_shadow(),
-                inner_margin: egui::Margin::same(4.0 as i8),
-                ..Default::default()
-            }
-            .show(ui, |ui| {
-                ui.set_width(popup_width - 8.0);
-                ScrollArea::new(theme)
-                    .max_height(visible_rows as f32 * 28.0)
-                    .show(ui, |ui| {
-                        for (index, column) in candidates.iter().enumerate() {
-                            let selected = index == selected_index;
-                            let background = if selected {
-                                theme.accent_soft
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            };
-                            let row = egui::Frame::NONE
-                                .fill(background)
-                                .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                                .inner_margin(egui::Margin::symmetric(8.0 as i8, 3.0 as i8))
-                                .show(ui, |ui| {
-                                    ui.set_width(popup_width - 24.0);
-                                    ui.horizontal(|ui| {
-                                        ui.label(
-                                            RichText::new(&column.name)
-                                                .font(egui::FontId::monospace(12.0))
-                                                .color(theme.text_primary),
-                                        );
-                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            if column.is_primary_key {
-                                                ui.label(RichText::new("PK").small().color(theme.warning));
-                                            }
-                                            ui.label(RichText::new(&column.data_type).small().color(theme.text_muted));
-                                        });
-                                    });
+            ui.set_width(popup_width - 8.0);
+            ScrollArea::new(theme)
+                .max_height(visible_rows as f32 * 28.0)
+                .show(ui, |ui| {
+                    for (index, column) in candidates.iter().enumerate() {
+                        let selected = index == selected_index;
+                        let row = list_row_frame(theme, selected).show(ui, |ui| {
+                            ui.set_width(popup_width - 24.0);
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(&column.name)
+                                        .font(egui::FontId::monospace(12.0))
+                                        .color(theme.text_primary),
+                                );
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    if column.is_primary_key {
+                                        ui.label(RichText::new("PK").small().color(theme.warning));
+                                    }
+                                    ui.label(RichText::new(&column.data_type).small().color(theme.text_muted));
                                 });
-                            if ui
-                                .interact(
-                                    row.response.rect,
-                                    egui::Id::new(("table_data_column_suggestion", index)),
-                                    egui::Sense::click(),
-                                )
-                                .clicked()
-                            {
-                                clicked = Some(index);
-                            }
+                            });
+                        });
+                        if ui
+                            .interact(
+                                row.response.rect,
+                                egui::Id::new(("table_data_column_suggestion", index)),
+                                egui::Sense::click(),
+                            )
+                            .clicked()
+                        {
+                            clicked = Some(index);
                         }
-                    });
-            });
+                    }
+                });
         });
     clicked
 }

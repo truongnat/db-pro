@@ -117,13 +117,7 @@ impl FilesSurfaceContext<'_> {
     }
 
     fn draw_workspace_card(&self, ui: &mut egui::Ui, actions: &mut Vec<FilesSurfaceAction>) {
-        egui::Frame {
-            fill: self.theme.surface_elevated,
-            stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_SM as i8),
-            corner_radius: egui::CornerRadius::same(RADIUS_MD as u8),
-            ..Default::default()
-        }
+        card_frame(self.theme)
         .show(ui, |ui| {
             let active_root_name = self.workspace.roots.get(self.workspace.active_root).map(|root| {
                 root.path
@@ -298,20 +292,12 @@ impl FilesSurfaceContext<'_> {
             ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, 0.0);
             for (tab, icon, label) in tabs {
                 let is_active = self.selected_tab == tab;
-                let bg_color = if is_active {
-                    self.theme.surface_active
-                } else {
-                    egui::Color32::TRANSPARENT
-                };
                 let icon_color = if is_active {
                     self.theme.accent
                 } else {
                     self.theme.text_muted
                 };
-                let response = egui::Frame::NONE
-                    .fill(bg_color)
-                    .corner_radius(egui::CornerRadius::same(RADIUS_SM as u8))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
+                let response = tab_frame(self.theme, is_active)
                     .show(ui, |ui| {
                         ui.label(
                             RichText::new(char::from(icon).to_string())

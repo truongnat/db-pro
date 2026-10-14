@@ -27,14 +27,7 @@ pub(super) struct TableStructureContext<'a> {
 }
 
 pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut egui::Ui) {
-    egui::Frame {
-        fill: theme.surface_panel,
-        inner_margin: egui::Margin::symmetric(SPACE_MD as i8, SPACE_SM as i8),
-        stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
-        corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
+    panel_frame(theme).show(ui, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(28.0);
             let failed = error.is_some();
@@ -69,14 +62,7 @@ impl TableStructureContext<'_> {
     }
 
     fn draw_metrics(&self, ui: &mut egui::Ui) {
-        egui::Frame {
-            fill: self.theme.surface_panel,
-            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        panel_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
                 ui.label(

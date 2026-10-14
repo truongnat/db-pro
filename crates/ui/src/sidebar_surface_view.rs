@@ -49,19 +49,10 @@ fn draw_panel(context: &SidebarSurfaceContext<'_>, ui: &mut egui::Ui) -> Sidebar
         .resizable(false)
         .exact_size(context.sidebar_width)
         .show_separator_line(false)
-        .frame(egui::Frame {
-            fill: context.theme.surface_panel,
-            inner_margin: egui::Margin::ZERO,
-            outer_margin: egui::Margin::ZERO,
-            stroke: egui::Stroke::NONE,
-            corner_radius: egui::CornerRadius::ZERO,
-            shadow: egui::Shadow::NONE,
-        })
+        .frame(shell_surface_frame(context.theme, ShellSurface::Panel, egui::Margin::ZERO, false))
         .show(ui, |ui| {
             let panel_origin = ui.max_rect().min;
             let full = Rect::from_min_size(panel_origin, vec2(context.sidebar_width, ui.max_rect().height()));
-            ui.painter()
-                .rect_filled(full, egui::CornerRadius::ZERO, context.theme.surface_panel);
             ui.allocate_rect(full, Sense::hover());
             (full, ui.layer_id())
         });

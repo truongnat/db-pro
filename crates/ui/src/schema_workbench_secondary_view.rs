@@ -153,71 +153,66 @@ pub(super) fn draw_execution_history(
     }
 
     for entry in &context.workbench.history {
-        egui::Frame::NONE
-            .fill(context.theme.surface_panel)
-            .stroke(egui::Stroke::new(1.0, context.theme.border_subtle))
-            .corner_radius(egui::CornerRadius::same(6.0 as u8))
-            .inner_margin(egui::Margin::same(10.0 as i8))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(&entry.timestamp).small().color(context.theme.text_muted));
-                    badge(
-                        ui,
-                        &entry.object_kind,
-                        context.theme.surface_app,
-                        context.theme.text_secondary,
-                    );
-                    ui.label(RichText::new(&entry.object_name).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if entry.success {
-                            badge(
-                                ui,
-                                "SUCCESS",
-                                context.theme.success_soft(),
-                                context.theme.success,
-                            );
-                        } else {
-                            badge(
-                                ui,
-                                "FAILED",
-                                context.theme.danger_soft(),
-                                context.theme.danger,
-                            );
-                        }
+        card_frame(context.theme).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(&entry.timestamp).small().color(context.theme.text_muted));
+                badge(
+                    ui,
+                    &entry.object_kind,
+                    context.theme.surface_app,
+                    context.theme.text_secondary,
+                );
+                ui.label(RichText::new(&entry.object_name).strong());
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if entry.success {
                         badge(
                             ui,
-                            &entry.safety,
-                            context.theme.accent_soft,
-                            context.theme.accent,
+                            "SUCCESS",
+                            context.theme.success_soft(),
+                            context.theme.success,
                         );
-                    });
-                });
-                ui.add_space(4.0);
-                CodeBlock::new(&entry.sql, context.theme).language("sql").show(ui);
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    if Button::new(context.theme)
-                        .icon(Icon::Code2)
-                        .text("Open in SQL editor")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Secondary)
-                        .show(ui)
-                        .clicked()
-                    {
-                        action = Some(SchemaWorkbenchSecondaryAction::OpenSqlAsQuery(entry.sql.clone()));
+                    } else {
+                        badge(
+                            ui,
+                            "FAILED",
+                            context.theme.danger_soft(),
+                            context.theme.danger,
+                        );
                     }
-                    if Button::new(context.theme)
-                        .icon(Icon::Copy)
-                        .text("Copy SQL")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Ghost)
-                        .show(ui)
-                        .clicked()
-                    {
-                        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(entry.sql.clone())));
-                    }
+                    badge(
+                        ui,
+                        &entry.safety,
+                        context.theme.accent_soft,
+                        context.theme.accent,
+                    );
                 });
             });
+            ui.add_space(4.0);
+            CodeBlock::new(&entry.sql, context.theme).language("sql").show(ui);
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                if Button::new(context.theme)
+                    .icon(Icon::Code2)
+                    .text("Open in SQL editor")
+                    .size(ButtonSize::Sm)
+                    .variant(ButtonVariant::Secondary)
+                    .show(ui)
+                    .clicked()
+                {
+                    action = Some(SchemaWorkbenchSecondaryAction::OpenSqlAsQuery(entry.sql.clone()));
+                }
+                if Button::new(context.theme)
+                    .icon(Icon::Copy)
+                    .text("Copy SQL")
+                    .size(ButtonSize::Sm)
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
+                    ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(entry.sql.clone())));
+                }
+            });
+        });
         ui.add_space(SPACE_SM);
     }
     action

@@ -29,14 +29,7 @@ impl ExplorerSchemaFeedbackContext<'_> {
 
     fn draw_error(&self, ui: &mut egui::Ui, error: &str) -> Vec<ExplorerSchemaFeedbackAction> {
         let mut actions = Vec::new();
-        egui::Frame {
-            fill: self.theme.surface_panel,
-            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        card_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(Icon::TriangleAlert).to_string())
@@ -73,14 +66,7 @@ impl ExplorerSchemaFeedbackContext<'_> {
     }
 
     fn draw_loading(&self, ui: &mut egui::Ui) {
-        egui::Frame {
-            fill: self.theme.surface_panel,
-            inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            corner_radius: egui::CornerRadius::same(RADIUS_SM as u8),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        card_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 if self.reduce_motion {
                     ui.label(

@@ -27,21 +27,15 @@ fn draw_hover_column_row(ui: &mut egui::Ui, col: &HoverColumn, theme: &DbProThem
         ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
         // PK badge
         if col.is_primary_key {
-            egui::Frame::NONE
-                .fill(theme.soft_tint(theme.warning))
-                .corner_radius(egui::CornerRadius::same(3.0 as u8))
-                .inner_margin(egui::Margin::symmetric(3.0 as i8, 1.0 as i8))
-                .show(ui, |ui| {
-                    ui.label(RichText::new("PK").font(FontId::monospace(8.5)).color(theme.warning));
-                });
+            Badge::new("PK", *theme)
+                .tint(theme.warning)
+                .font(FontId::monospace(8.5))
+                .show(ui);
         } else if col.is_foreign_key {
-            egui::Frame::NONE
-                .fill(theme.soft_tint(theme.info))
-                .corner_radius(egui::CornerRadius::same(3.0 as u8))
-                .inner_margin(egui::Margin::symmetric(3.0 as i8, 1.0 as i8))
-                .show(ui, |ui| {
-                    ui.label(RichText::new("FK").font(FontId::monospace(8.5)).color(theme.info));
-                });
+            Badge::new("FK", *theme)
+                .tint(theme.info)
+                .font(FontId::monospace(8.5))
+                .show(ui);
         } else {
             ui.add_space(24.0);
         }
@@ -104,21 +98,15 @@ pub(super) fn draw_rich_hover_popup(
         10.0,
     );
 
-    egui::Area::new(egui::Id::new(("sql_rich_hover", token_range)))
+    FloatingPopup::new(egui::Id::new(("sql_rich_hover", token_range)), *theme, position)
         .order(egui::Order::Tooltip)
-        .fixed_pos(position)
         .interactable(true) // Allow text selection / copy
+        .surface_panel()
+        .radius(8.0)
+        .margin(egui::Margin::same(10.0 as i8))
         .show(ctx, |ui| {
-            egui::Frame::NONE
-                .fill(theme.surface_panel)
-                .stroke(egui::Stroke::new(1.0, theme.border_default))
-                .corner_radius(egui::CornerRadius::same(8.0 as u8))
-                .shadow(theme.floating_shadow())
-                .inner_margin(egui::Margin::same(10.0 as i8))
-                .show(ui, |ui| {
-                    ui.set_max_width(popup_width);
-                    draw_rich_hover_content(ui, help, theme);
-                });
+            ui.set_max_width(popup_width);
+            draw_rich_hover_content(ui, help, theme);
         });
 }
 
@@ -140,17 +128,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 } else {
                     ("TABLE", theme.accent)
                 };
-                egui::Frame::NONE
-                    .fill(theme.soft_tint(badge_color))
-                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new(badge_text)
-                                .font(FontId::monospace(9.0))
-                                .color(badge_color),
-                        );
-                    });
+                Badge::new(badge_text, *theme)
+                    .tint(badge_color)
+                    .font(FontId::monospace(9.0))
+                    .show(ui);
                 ui.label(
                     RichText::new(qualified_name)
                         .font(FontId::monospace(13.0))
@@ -229,13 +210,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
             // Type badge + name
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                egui::Frame::NONE
-                    .fill(theme.soft_tint(theme.code_type))
-                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                    .show(ui, |ui| {
-                        ui.label(RichText::new("COL").font(FontId::monospace(9.0)).color(theme.code_type));
-                    });
+                Badge::new("COL", *theme)
+                    .tint(theme.code_type)
+                    .font(FontId::monospace(9.0))
+                    .show(ui);
                 ui.label(
                     RichText::new(qualified_name)
                         .font(FontId::monospace(13.0))
@@ -248,40 +226,23 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
                 // Type chip
-                egui::Frame::NONE
-                    .fill(theme.soft_tint(theme.code_type))
-                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new(data_type)
-                                .font(FontId::monospace(10.5))
-                                .color(theme.code_type),
-                        );
-                    });
+                Badge::new(data_type.as_str(), *theme)
+                    .tint(theme.code_type)
+                    .font(FontId::monospace(10.5))
+                    .show(ui);
                 // Null chip
                 let null_color = if *nullable { theme.text_muted } else { theme.warning };
                 let null_text = if *nullable { "nullable" } else { "not null" };
-                egui::Frame::NONE
-                    .fill(theme.soft_tint(null_color))
-                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                    .show(ui, |ui| {
-                        ui.label(RichText::new(null_text).font(FontId::monospace(10.0)).color(null_color));
-                    });
+                Badge::new(null_text, *theme)
+                    .tint(null_color)
+                    .font(FontId::monospace(10.0))
+                    .show(ui);
                 // PK chip
                 if *is_primary_key {
-                    egui::Frame::NONE
-                        .fill(theme.soft_tint(theme.warning))
-                        .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                        .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                        .show(ui, |ui| {
-                            ui.label(
-                                RichText::new("primary key")
-                                    .font(FontId::monospace(10.0))
-                                    .color(theme.warning),
-                            );
-                        });
+                    Badge::new("primary key", *theme)
+                        .tint(theme.warning)
+                        .font(FontId::monospace(10.0))
+                        .show(ui);
                 }
             });
 
@@ -310,17 +271,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
         } => {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                egui::Frame::NONE
-                    .fill(theme.soft_tint(theme.code_function))
-                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new("FN")
-                                .font(FontId::monospace(9.0))
-                                .color(theme.code_function),
-                        );
-                    });
+                Badge::new("FN", *theme)
+                    .tint(theme.code_function)
+                    .font(FontId::monospace(9.0))
+                    .show(ui);
                 ui.label(
                     RichText::new(label)
                         .font(FontId::monospace(12.5))
@@ -366,17 +320,10 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
             // Header row
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                egui::Frame::NONE
-                    .fill(theme.soft_tint(theme.code_keyword))
-                    .corner_radius(egui::CornerRadius::same(4.0 as u8))
-                    .inner_margin(egui::Margin::symmetric(5.0 as i8, 2.0 as i8))
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new("SQL")
-                                .font(FontId::monospace(9.0))
-                                .color(theme.code_keyword),
-                        );
-                    });
+                Badge::new("SQL", *theme)
+                    .tint(theme.code_keyword)
+                    .font(FontId::monospace(9.0))
+                    .show(ui);
                 ui.label(
                     RichText::new(keyword.as_str())
                         .font(FontId::monospace(13.0))
@@ -395,21 +342,17 @@ fn draw_rich_hover_content(ui: &mut egui::Ui, help: &RichHoverHelp, theme: &DbPr
                 ui.add_space(6.0);
                 ui.label(RichText::new("Example").small().strong().color(theme.text_muted));
                 ui.add_space(2.0);
-                egui::Frame::NONE
-                    .fill(theme.editor_gutter_fill())
-                    .corner_radius(egui::CornerRadius::same(5.0 as u8))
-                    .inner_margin(egui::Margin::same(6.0 as i8))
-                    .show(ui, |ui| {
-                        ui.set_width(ui.available_width());
-                        ui.add(
-                            egui::Label::new(
-                                RichText::new(ex.as_str())
-                                    .font(FontId::monospace(11.0))
-                                    .color(theme.text_secondary),
-                            )
-                            .wrap(),
-                        );
-                    });
+                Card::new(*theme).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(ex.as_str())
+                                .font(FontId::monospace(11.0))
+                                .color(theme.text_secondary),
+                        )
+                        .wrap(),
+                    );
+                });
             }
         }
 
@@ -433,42 +376,36 @@ pub(super) fn draw_signature_help(
         ctx.content_rect(),
         10.0,
     );
-    egui::Area::new(egui::Id::new("sql_signature_help"))
+    FloatingPopup::new(egui::Id::new("sql_signature_help"), *theme, position)
         .order(egui::Order::Foreground)
-        .fixed_pos(position)
         .interactable(false)
+        .surface_panel()
+        .radius(7.0)
+        .margin(egui::Margin::same(8.0 as i8))
         .show(ctx, |ui| {
-            egui::Frame::NONE
-                .fill(theme.surface_panel)
-                .stroke(egui::Stroke::new(1.0, theme.border_default))
-                .corner_radius(egui::CornerRadius::same(7.0 as u8))
-                .shadow(theme.floating_shadow())
-                .inner_margin(egui::Margin::same(8.0 as i8))
-                .show(ui, |ui| {
-                    ui.set_width(POPUP_WIDTH);
-                    ui.label(
-                        RichText::new(&signature.label)
-                            .font(FontId::monospace(12.0))
-                            .color(theme.text_primary),
-                    );
-                    if !signature.parameters.is_empty() {
-                        ui.horizontal_wrapped(|ui| {
-                            for (index, parameter) in signature.parameters.iter().enumerate() {
-                                let color = if index == signature.active_parameter {
-                                    theme.accent
-                                } else {
-                                    theme.text_muted
-                                };
-                                ui.label(RichText::new(parameter).font(FontId::monospace(11.0)).color(color));
-                            }
-                        });
+            ui.set_width(POPUP_WIDTH);
+            ui.label(
+                RichText::new(&signature.label)
+                    .font(FontId::monospace(12.0))
+                    .color(theme.text_primary),
+            );
+            if !signature.parameters.is_empty() {
+                ui.horizontal_wrapped(|ui| {
+                    for (index, parameter) in signature.parameters.iter().enumerate() {
+                        let color = if index == signature.active_parameter {
+                            theme.accent
+                        } else {
+                            theme.text_muted
+                        };
+                        ui.label(RichText::new(parameter).font(FontId::monospace(11.0)).color(color));
                     }
-                    ui.label(
-                        RichText::new(&signature.documentation)
-                            .small()
-                            .color(theme.text_secondary),
-                    );
                 });
+            }
+            ui.label(
+                RichText::new(&signature.documentation)
+                    .small()
+                    .color(theme.text_secondary),
+            );
         });
 }
 

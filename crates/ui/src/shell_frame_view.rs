@@ -13,25 +13,12 @@ pub(super) fn draw_central_panel<F>(ui: &mut egui::Ui, context: &ShellFrameConte
 where
     F: FnOnce(&mut egui::Ui),
 {
+    let surface = if context.settings_mode { ShellSurface::App } else { ShellSurface::Panel };
+    // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
+    // `pad_right` so the body lines up with the navigator across the divider.
+    let split_inset = if context.settings_mode { 0 } else { SHELL_SPLIT_INSET as i8 };
     egui::CentralPanel::default()
-        .frame(egui::Frame {
-            // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
-            // `pad_right` so the body lines up with the navigator across the divider.
-            fill: if context.settings_mode {
-                context.theme.surface_app
-            } else {
-                context.theme.surface_panel
-            },
-            inner_margin: egui::Margin {
-                left: if context.settings_mode { 0 } else { SHELL_SPLIT_INSET as i8 },
-                right: if context.settings_mode { 0 } else { SHELL_SPLIT_INSET as i8 },
-                top: 0,
-                bottom: 0,
-            },
-            outer_margin: egui::Margin::ZERO,
-            stroke: egui::Stroke::NONE,
-            ..Default::default()
-        })
+        .frame(shell_surface_frame(context.theme, surface, egui::Margin::symmetric(split_inset, 0), false))
         .show(ui, |ui| {
             ui.set_min_size(ui.available_size());
             ui.spacing_mut().item_spacing = egui::Vec2::ZERO;

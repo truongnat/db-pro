@@ -1,28 +1,38 @@
-use super::*;
+//! Workspace document tab chrome.
+//!
+//! `SegmentedTabs` and `UnderlineTabs` cover plain label tracks. A workspace
+//! document tab additionally carries an icon, an unsaved dot, a close target and
+//! a context menu, so it lives here as its own component instead of a hand-built
+//! widget inside the workspace view.
 
-pub(super) struct WorkspaceTabItem<'a> {
-    pub(super) selected: bool,
-    pub(super) icon: Icon,
-    pub(super) title: &'a str,
-    pub(super) unsaved: bool,
-    pub(super) show_close: bool,
+use crate::components::overlay::{context_action_menu, is_context_menu_triggered};
+use crate::tokens::{font_body, font_ui_label, ICON_XS, RADIUS_SM, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN};
+use crate::DbProTheme;
+use lucide_icons::Icon;
+
+pub struct DocumentTabItem<'a> {
+    pub selected: bool,
+    pub icon: Icon,
+    pub title: &'a str,
+    pub unsaved: bool,
+    pub show_close: bool,
 }
 
-pub(super) struct TabChromeAction {
-    pub(super) clicked: bool,
-    pub(super) close_clicked: bool,
+pub struct DocumentTabAction {
+    pub clicked: bool,
+    pub close_clicked: bool,
 }
 
-pub(super) const TAB_MIN_WIDTH: f32 = 72.0;
-pub(super) const TAB_MAX_WIDTH: f32 = 220.0;
-pub(super) const TAB_TITLE_MAX_WIDTH: f32 = 160.0;
-pub(super) const TAB_HEIGHT: f32 = 32.0;
+const TAB_MIN_WIDTH: f32 = 72.0;
+const TAB_MAX_WIDTH: f32 = 220.0;
+const TAB_TITLE_MAX_WIDTH: f32 = 160.0;
+pub const DOCUMENT_TAB_HEIGHT: f32 = 32.0;
 const TAB_PAD_X: f32 = SPACE_MD;
 const TAB_ICON_SIZE: f32 = ICON_XS;
 const TAB_CLOSE_SIZE: f32 = 16.0;
 const TAB_TITLE_INSET: f32 = TAB_PAD_X + TAB_ICON_SIZE + SPACE_XS;
 
-pub(super) fn truncate_tab_title(
+fn truncate_tab_title(
     ui: &egui::Ui,
     title: &str,
     font_id: egui::FontId,
@@ -60,12 +70,12 @@ pub(super) fn truncate_tab_title(
     format!("{visible}…")
 }
 
-pub(super) fn draw_workspace_tab_item(
+pub fn draw_document_tab(
     ui: &mut egui::Ui,
     theme: DbProTheme,
-    item: WorkspaceTabItem<'_>,
+    item: DocumentTabItem<'_>,
     context_menu: impl FnOnce(&mut egui::Ui, &mut bool),
-) -> TabChromeAction {
+) -> DocumentTabAction {
     let font_id = if item.selected { font_ui_label() } else { font_body() };
     let text_color = if item.selected {
         theme.text_primary
@@ -77,7 +87,11 @@ pub(super) fn draw_workspace_tab_item(
     let full_title_galley = ui
         .painter()
         .layout_no_wrap(item.title.to_owned(), font_id.clone(), text_color);
-    let close_slot = if item.show_close { TAB_CLOSE_SIZE + SPACE_SM } else { 0.0 };
+    let close_slot = if item.show_close {
+        TAB_CLOSE_SIZE + SPACE_SM
+    } else {
+        0.0
+    };
     let unsaved_slot = if item.unsaved { SPACE_MD } else { 0.0 };
     let title_width = full_title_galley.size().x.min(TAB_TITLE_MAX_WIDTH);
     let item_width =
@@ -86,7 +100,7 @@ pub(super) fn draw_workspace_tab_item(
     let display_title = truncate_tab_title(ui, item.title, font_id.clone(), text_color, title_available_width);
     let title_galley = ui.painter().layout_no_wrap(display_title, font_id, text_color);
 
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, TAB_HEIGHT), egui::Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, DOCUMENT_TAB_HEIGHT), egui::Sense::click());
     resp.widget_info(|| {
         egui::WidgetInfo::selected(
             egui::WidgetType::SelectableLabel,
@@ -118,7 +132,9 @@ pub(super) fn draw_workspace_tab_item(
             rect,
             rounding,
             theme.surface_app,
-            egui::Stroke::new(STROKE_THIN, theme.border_subtle), egui::StrokeKind::Inside);
+            egui::Stroke::new(STROKE_THIN, theme.border_subtle),
+            egui::StrokeKind::Inside,
+        );
     } else if hovered {
         ui.painter().rect_filled(rect, rounding, theme.surface_hover);
     }
@@ -157,8 +173,11 @@ pub(super) fn draw_workspace_tab_item(
         let close_hovered = pointer_pos.is_some_and(|p| close_rect.contains(p));
 
         if close_hovered {
-            ui.painter()
-                .rect_filled(close_rect, egui::CornerRadius::same(RADIUS_SM as u8), theme.surface_hover);
+            ui.painter().rect_filled(
+                close_rect,
+                egui::CornerRadius::same(RADIUS_SM as u8),
+                theme.surface_hover,
+            );
         }
 
         let close_color = if close_hovered {
@@ -184,7 +203,7 @@ pub(super) fn draw_workspace_tab_item(
 
     let middle_clicked = resp.middle_clicked();
 
-    TabChromeAction {
+    DocumentTabAction {
         clicked: resp.clicked() && !close_clicked && !context_clicked,
         close_clicked: close_clicked || (middle_clicked && item.show_close),
     }
@@ -208,10 +227,10 @@ mod tests {
             theme.apply(&ctx);
             let output = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    draw_workspace_tab_item(
+                    draw_document_tab(
                         ui,
                         theme,
-                        WorkspaceTabItem {
+                        DocumentTabItem {
                             selected: true,
                             icon: Icon::FileCode,
                             title,
@@ -230,7 +249,7 @@ mod tests {
                     _ => None,
                 })
                 .expect("selected tab background");
-            assert_eq!(tab.height(), TAB_HEIGHT);
+            assert_eq!(tab.height(), DOCUMENT_TAB_HEIGHT);
             assert!(tab.width() <= TAB_MAX_WIDTH);
             let label = output
                 .shapes

@@ -23,6 +23,131 @@ pub fn floating_surface(theme: DbProTheme, corner_radius: f32, margin: Margin) -
     }
 }
 
+/// A positioned, themed floating surface for anchored popups whose visibility is
+/// driven by external state (completion lists, hover/signature help, find bars,
+/// pickers) rather than by a click-triggered widget.
+///
+/// Wraps `egui::Area` so views never call the raw widget, and owns the surface
+/// styling so every popup shares one token-derived frame contract. `show`
+/// returns the `InnerResponse` so callers can hit-test the popup rect.
+pub struct FloatingPopup {
+    id: egui::Id,
+    order: Order,
+    position: Pos2,
+    constrain_to: Option<Rect>,
+    interactable: bool,
+    theme: DbProTheme,
+    fill: Color32,
+    stroke: Stroke,
+    radius: f32,
+    margin: Margin,
+    shadow: bool,
+    frameless: bool,
+}
+
+impl FloatingPopup {
+    /// Defaults to the floating surface: `surface_floating` fill, `border_subtle`
+    /// outline, `floating_shadow`, and the standard popover radius/margin.
+    pub fn new(id: egui::Id, theme: DbProTheme, position: Pos2) -> Self {
+        Self {
+            id,
+            order: Order::Foreground,
+            position,
+            constrain_to: None,
+            interactable: true,
+            theme,
+            fill: theme.surface_floating,
+            stroke: Stroke::new(1.0, theme.border_subtle),
+            radius: config::POPOVER_RADIUS,
+            margin: Margin::same(10.0 as i8),
+            shadow: true,
+            frameless: false,
+        }
+    }
+
+    pub fn order(mut self, order: Order) -> Self {
+        self.order = order;
+        self
+    }
+
+    pub fn constrain_to(mut self, rect: Rect) -> Self {
+        self.constrain_to = Some(rect);
+        self
+    }
+
+    pub fn interactable(mut self, interactable: bool) -> Self {
+        self.interactable = interactable;
+        self
+    }
+
+    /// `surface_panel` fill with a `border_default` outline.
+    pub fn surface_panel(mut self) -> Self {
+        self.fill = self.theme.surface_panel;
+        self.stroke = Stroke::new(1.0, self.theme.border_default);
+        self
+    }
+
+    /// `surface_elevated` fill with a `border_subtle` outline.
+    pub fn surface_elevated(mut self) -> Self {
+        self.fill = self.theme.surface_elevated;
+        self.stroke = Stroke::new(1.0, self.theme.border_subtle);
+        self
+    }
+
+    pub fn radius(mut self, radius: f32) -> Self {
+        self.radius = radius;
+        self
+    }
+
+    pub fn margin(mut self, margin: Margin) -> Self {
+        self.margin = margin;
+        self
+    }
+
+    /// Toggles the floating shadow (on by default).
+    pub fn shadow(mut self, shadow: bool) -> Self {
+        self.shadow = shadow;
+        self
+    }
+
+    /// Renders content directly in the `Area`, without a themed frame (for
+    /// popups that paint their own surface, e.g. the calendar date picker).
+    pub fn frameless(mut self) -> Self {
+        self.frameless = true;
+        self
+    }
+
+    pub fn show<R>(self, ctx: &egui::Context, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
+        let mut area = Area::new(self.id)
+            .order(self.order)
+            .fixed_pos(self.position)
+            .interactable(self.interactable);
+        if let Some(rect) = self.constrain_to {
+            area = area.constrain_to(rect);
+        }
+        let frame = Frame {
+            fill: self.fill,
+            stroke: self.stroke,
+            inner_margin: self.margin,
+            corner_radius: CornerRadius::same(self.radius as u8),
+            shadow: if self.shadow {
+                self.theme.floating_shadow()
+            } else {
+                Default::default()
+            },
+            ..Default::default()
+        };
+        let frameless = self.frameless;
+        area.show(ctx, |ui| {
+            if frameless {
+                add_contents(ui)
+            } else {
+                frame.show(ui, add_contents).inner
+            }
+        })
+    }
+}
+
 pub struct Popover<'a> {
     open: &'a mut bool,
     theme: DbProTheme,

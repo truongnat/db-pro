@@ -27,24 +27,9 @@ pub(super) fn draw_activity_bar(ui: &mut egui::Ui, context: &ActivityBarContext)
         .resizable(false)
         .exact_size(48.0)
         .show_separator_line(false)
-        .frame(egui::Frame {
-            fill: context.theme.surface_panel,
-            inner_margin: egui::Margin::ZERO,
-            outer_margin: egui::Margin::ZERO,
-            stroke: egui::Stroke::NONE,
-            corner_radius: egui::CornerRadius::ZERO,
-            shadow: egui::Shadow::NONE,
-        })
+        .frame(activity_bar_frame(context.theme))
         .show(ui, |ui| {
             let full = ui.max_rect();
-            ui.painter()
-                .rect_filled(full, egui::CornerRadius::ZERO, context.theme.surface_panel);
-            let line_x = ui.painter().round_to_pixel_center(full.right() - 1.0);
-            ui.painter().vline(
-                line_x,
-                full.y_range(),
-                egui::Stroke::new(1.0, context.theme.border_subtle),
-            );
 
             ui.vertical_centered(|ui| {
                 action = draw_activity_buttons(ui, context);
@@ -128,49 +113,21 @@ fn draw_rail_icon_button(
     hint: &str,
     theme: DbProTheme,
 ) -> bool {
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(36.0, 34.0), egui::Sense::click());
-    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), hint));
-    let hovered = resp.hovered();
-
-    if active {
-        ui.painter().rect_filled(
-            rect,
-            egui::CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8),
-            theme.surface_active,
-        );
-        // Left accent indicator pill on the panel edge (Stitch 2px active pill)
-        let bar_left = ui.max_rect().left();
-        let bar_rect = egui::Rect::from_min_max(
-            egui::pos2(bar_left, rect.center().y - 9.0),
-            egui::pos2(bar_left + 2.0, rect.center().y + 9.0),
-        );
-        ui.painter().rect_filled(bar_rect, egui::CornerRadius::same(1.0 as u8), theme.accent);
-    } else if hovered {
-        ui.painter().rect_filled(
-            rect,
-            egui::CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8),
-            theme.surface_hover,
-        );
-    }
-
-    let icon_color = if active {
-        theme.accent
-    } else if hovered {
-        theme.text_primary
+    // `Secondary` is the shared selected treatment (same as the diagram mode
+    // toggles); `Ghost` is the quiet rest state.
+    let variant = if active {
+        ButtonVariant::Secondary
     } else {
-        theme.text_muted
+        ButtonVariant::Ghost
     };
-
-    ui.painter().text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        char::from(icon).to_string(),
-        font_icon(16.5),
-        icon_color,
-    );
-
-    resp.clicked()
+    Button::new(theme)
+        .icon(icon)
+        .variant(variant)
+        .size(ButtonSize::IconSm)
+        .tooltip(hint)
+        .access_label(hint)
+        .show(ui)
+        .clicked()
 }
 
 fn draw_settings_button(ui: &mut egui::Ui, context: &ActivityBarContext) -> bool {

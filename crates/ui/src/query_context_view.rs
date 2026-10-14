@@ -209,21 +209,7 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -
         context.theme.text_secondary
     };
 
-    let chip_fill = if context.connected {
-        egui::Color32::TRANSPARENT
-    } else {
-        context.theme.warning_soft()
-    };
-    let chip_stroke = if context.connected {
-        context.theme.border_subtle
-    } else {
-        context.theme.warning
-    };
-    let response = egui::Frame::NONE
-        .fill(chip_fill)
-        .corner_radius(egui::CornerRadius::same(RADIUS_SM as u8))
-        .inner_margin(egui::Margin::symmetric((SPACE_XS + 2.0) as i8, 2))
-        .stroke(egui::Stroke::new(1.0, chip_stroke))
+    let response = card_frame(context.theme)
         .show(ui, |ui| {
             // cc-scan:allow TOO_MANY_PARAMS — context params passed through
             draw_context_chip_contents(context, ui, is_production, &chip_text, color)
