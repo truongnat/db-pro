@@ -12,7 +12,7 @@
 
 use std::path::PathBuf;
 
-use db_pro_ui::DbProApp;
+use db_pro_app::DbProApp;
 use eframe::egui;
 
 /// Environment variable naming the PNG to write.
@@ -476,7 +476,7 @@ impl CaptureApp {
                 .map(|image| {
                     let target = std::env::var_os("DB_PRO_REVIEW_DIR")
                         .map(std::path::PathBuf::from)
-                        .map(|d| d.join(format!("{}.png", db_pro_ui::DbProApp::audit_scenario())));
+                        .map(|d| d.join(format!("{}.png", db_pro_app::DbProApp::audit_scenario())));
                     target.map(|p| self.write_png_to(&p, &image)).unwrap_or(false)
                 })
                 .unwrap_or(false);
