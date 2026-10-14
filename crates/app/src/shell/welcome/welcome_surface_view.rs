@@ -1,12 +1,82 @@
 //! A modern ChatGPT-inspired introduction with interactive quick-action cards.
+use std::borrow::Cow;
+
 use super::*;
 
 #[path = "constants.rs"]
 mod constants;
 use constants::*;
 pub(crate) use constants::WelcomeAction;
-use egui::RichText;
+use egui::{text::LayoutJob, RichText};
 use lucide_icons::Icon;
+
+/// egui temp store key: the translated card items, invalidated per locale so a
+/// language switch re-reads the catalog without allocating four Strings and
+/// eight `t!` lookups every frame.
+const ITEMS_CACHE_ID: &str = "welcome/items";
+
+struct WelcomeItem {
+    icon: Icon,
+    title: Cow<'static, str>,
+    desc: Cow<'static, str>,
+    action: WelcomeAction,
+}
+
+impl Clone for WelcomeItem {
+    fn clone(&self) -> Self {
+        Self {
+            icon: self.icon,
+            title: self.title.clone(),
+            desc: self.desc.clone(),
+            action: self.action,
+        }
+    }
+}
+
+/// Rebuild the card list only when the active locale changes; the translated
+/// strings are cheap to clone (`Cow`) after the first lookup.
+fn welcome_items(ctx: &egui::Context) -> [WelcomeItem; 4] {
+    let locale = rust_i18n::locale().to_string();
+    ctx.data_mut(|data| {
+        let cached = data
+            .get_temp::<(Cow<'static, str>, [WelcomeItem; 4])>(egui::Id::new(ITEMS_CACHE_ID))
+            .filter(|(cached_locale, _)| *cached_locale == locale);
+        match cached {
+            Some((_, items)) => items,
+            None => {
+                let items = [
+                    WelcomeItem {
+                        icon: Icon::Plus,
+                        title: t!("welcome.new_connection"),
+                        desc: t!("welcome.new_connection_desc"),
+                        action: WelcomeAction::NewConnection,
+                    },
+                    WelcomeItem {
+                        icon: Icon::FileCode2,
+                        title: t!("welcome.new_query"),
+                        desc: t!("welcome.new_query_desc"),
+                        action: WelcomeAction::NewQuery,
+                    },
+                    WelcomeItem {
+                        icon: Icon::Sparkles,
+                        title: t!("welcome.ai_copilot"),
+                        desc: t!("welcome.ai_copilot_desc"),
+                        action: WelcomeAction::ToggleAgent,
+                    },
+                    WelcomeItem {
+                        icon: Icon::Workflow,
+                        title: t!("welcome.er_diagram"),
+                        desc: t!("welcome.er_diagram_desc"),
+                        action: WelcomeAction::OpenDiagram,
+                    },
+                ];
+                data.insert_temp(egui::Id::new(ITEMS_CACHE_ID), (locale.clone(), items.clone()));
+                items
+            }
+        }
+    })
+}
+
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let top_space = (ui.available_height() * HEADER_TOP_RATIO).max(SPACE_MD);
     ui.add_space(top_space);
@@ -26,59 +96,23 @@ fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
             .color(theme.accent),
     );
     ui.add_space(SPACE_MD);
-    ui.label(RichText::new(t!("welcome.title").to_string()).font(font_display()).color(theme.text_primary));
+    ui.label(RichText::new(t!("welcome.title")).font(font_display()).color(theme.text_primary));
     ui.add_space(SPACE_XS);
     ui.label(
-        RichText::new(t!("welcome.tagline").to_string())
+        RichText::new(t!("welcome.tagline"))
             .font(font_body())
             .color(theme.text_secondary),
     );
     ui.add_space(SPACE_XS);
     ui.label(
-        RichText::new(t!("welcome.drivers").to_string())
+        RichText::new(t!("welcome.drivers"))
             .font(font_caption())
             .color(theme.text_muted),
     );
 }
 
-struct WelcomeItem {
-    icon: Icon,
-    title: String,
-    desc: String,
-    action: WelcomeAction,
-}
-
-fn welcome_items() -> [WelcomeItem; 4] {
-    [
-        WelcomeItem {
-            icon: Icon::Plus,
-            title: t!("welcome.new_connection").to_string(),
-            desc: t!("welcome.new_connection_desc").to_string(),
-            action: WelcomeAction::NewConnection,
-        },
-        WelcomeItem {
-            icon: Icon::FileCode2,
-            title: t!("welcome.new_query").to_string(),
-            desc: t!("welcome.new_query_desc").to_string(),
-            action: WelcomeAction::NewQuery,
-        },
-        WelcomeItem {
-            icon: Icon::Sparkles,
-            title: t!("welcome.ai_copilot").to_string(),
-            desc: t!("welcome.ai_copilot_desc").to_string(),
-            action: WelcomeAction::ToggleAgent,
-        },
-        WelcomeItem {
-            icon: Icon::Workflow,
-            title: t!("welcome.er_diagram").to_string(),
-            desc: t!("welcome.er_diagram_desc").to_string(),
-            action: WelcomeAction::OpenDiagram,
-        },
-    ]
-}
-
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
-    let items = welcome_items();
+    let items = welcome_items(ui.ctx());
     let avail_width = ui.available_width();
     let is_wide = avail_width >= WIDE_GRID_MIN_WIDTH;
     let container_width = if is_wide {
@@ -93,11 +127,12 @@ fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAct
         ui.add_space(side_margin);
         ui.vertical(|ui| {
             ui.set_width(container_width);
-            if is_wide {
-                triggered = draw_wide_rows(theme, ui, container_width, &items);
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_MD, SPACE_MD);
+            triggered = if is_wide {
+                draw_wide_rows(theme, ui, container_width, &items)
             } else {
-                triggered = draw_stacked_rows(theme, ui, container_width, &items);
-            }
+                draw_stacked_rows(theme, ui, container_width, &items)
+            };
         });
     });
     triggered
@@ -112,26 +147,15 @@ fn draw_wide_rows(
     let card_w = ((width - SPACE_MD) * 0.5).floor();
     let card_size = egui::vec2(card_w, CARD_HEIGHT);
     let mut action = None;
-
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = SPACE_MD;
-        if let Some(act) = draw_card_item(theme, ui, card_size, &items[0]) {
-            action = Some(act);
-        }
-        if let Some(act) = draw_card_item(theme, ui, card_size, &items[1]) {
-            action = Some(act);
-        }
-    });
-    ui.add_space(SPACE_MD);
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = SPACE_MD;
-        if let Some(act) = draw_card_item(theme, ui, card_size, &items[2]) {
-            action = Some(act);
-        }
-        if let Some(act) = draw_card_item(theme, ui, card_size, &items[3]) {
-            action = Some(act);
-        }
-    });
+    for row in items.chunks(2) {
+        ui.horizontal(|ui| {
+            for item in row {
+                if let Some(act) = draw_card_item(theme, ui, card_size, item) {
+                    action = Some(act);
+                }
+            }
+        });
+    }
     action
 }
 
@@ -142,14 +166,9 @@ fn draw_stacked_rows(
     items: &[WelcomeItem; 4],
 ) -> Option<WelcomeAction> {
     let card_size = egui::vec2(width, CARD_HEIGHT);
-    let mut action = None;
-    for item in items {
-        if let Some(act) = draw_card_item(theme, ui, card_size, item) {
-            action = Some(act);
-        }
-        ui.add_space(SPACE_MD);
-    }
-    action
+    items
+        .iter()
+        .find_map(|item| draw_card_item(theme, ui, card_size, item))
 }
 
 fn draw_card_item(
@@ -160,6 +179,14 @@ fn draw_card_item(
 ) -> Option<WelcomeAction> {
     let (rect, mut response) = ui.allocate_exact_size(card_size, egui::Sense::click());
     response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let title = item.title.as_ref();
+    // Screen-reader name: "Title — description"; mirrors the visual card text.
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("{title} — {}", item.desc))
+    });
+    // Keyboard activation: egui focus + Enter/Space behaves like a click.
+    let keyboard_activated = response.has_focus()
+        && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
     let hovered = response.hovered();
 
     let bg = if hovered {
@@ -198,21 +225,21 @@ fn draw_card_item(
     let text_x = rect.left() + SPACE_MD + ICON_DEFAULT + SPACE_SM;
     let max_text_w = (rect.right() - SPACE_MD - text_x).max(MIN_DESC_WRAP_WIDTH);
 
-    let title_job = egui::text::LayoutJob::simple_singleline(
-        item.title.to_string(),
-        font_ui_label(),
-        theme.text_primary,
-    );
-    let title_galley = ui.fonts_mut(|f| f.layout_job(title_job));
-
-    let mut desc_job = egui::text::LayoutJob::simple(
-        item.desc.to_string(),
-        font_caption(),
-        theme.text_secondary,
-        max_text_w,
-    );
-    desc_job.wrap.max_width = max_text_w;
-    let desc_galley = ui.fonts_mut(|f| f.layout_job(desc_job));
+    let title_galley = ui.fonts_mut(|f| {
+        f.layout_job(LayoutJob::simple_singleline(
+            title.to_owned(),
+            font_ui_label(),
+            theme.text_primary,
+        ))
+    });
+    let desc_galley = ui.fonts_mut(|f| {
+        f.layout_job(LayoutJob::simple(
+            item.desc.to_string(),
+            font_caption(),
+            theme.text_secondary,
+            max_text_w,
+        ))
+    });
 
     let title_h = title_galley.size().y;
     let desc_h = desc_galley.size().y;
@@ -226,7 +253,7 @@ fn draw_card_item(
         theme.text_secondary,
     );
 
-    if response.clicked() {
+    if response.clicked() || keyboard_activated {
         Some(item.action)
     } else {
         None

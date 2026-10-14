@@ -28,7 +28,7 @@ pub use agent::{
 };
 pub use app::result_grid_view::GridSelectionLookup;
 pub use app::{ComponentGalleryState, DbProApp};
-pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
+pub(crate) use policy::ColumnWritePolicy;
 pub use result_grid::{
     cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes, grid_column_window,
     grid_keyboard_selection, GridColumnWindow, GridProjectionCache, GridProjectionKey,

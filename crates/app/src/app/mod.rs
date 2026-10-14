@@ -11,10 +11,7 @@ use lucide_icons::Icon;
 use self::connection::ConnectionFeatureState;
 pub(crate) use self::connection::{ConnectionCatalogState, ConnectionDialogState, ConnectionLifecycleState};
 use crate::{
-    agent::{
-        respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
-        AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
-    },
+    agent::{AgentContext, AgentMessage, AgentProvider, AgentRole, OfflineAgentProvider},
     policy::{ColumnWriteBlock, ColumnWritePolicy},
     result_grid::{GridProjectionCache, GridProjectionKey},
 };
