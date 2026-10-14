@@ -154,14 +154,27 @@ fn foreign_key_lookup_edits_and_opens_referenced_row() {
     app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
     assert_eq!(app.table.editing.data_editing_cell, Some((0, 1)));
     assert_eq!(app.table.editing.fk_lookup_column.as_deref(), Some("customer_id"));
-    assert!(app.foreign_key_value_choices(&result, 1).is_none());
+    // Editing an FK column dispatches the destination key lookup…
+    let lookup_request = app
+        .table
+        .editing
+        .pending_fk_lookup_request
+        .expect("fk lookup request pending");
+    match command_rx.try_recv().expect("fk lookup sql dispatched") {
+        UiCommand::RunQuery { request_id, sql, .. } => {
+            assert_eq!(request_id, lookup_request);
+            assert!(sql.contains(r#""customers""#), "{sql}");
+        }
+        command => panic!("expected RunQuery, got {command:?}"),
+    }
+    // …and until it returns, no select values are offered.
+    assert!(app.table.editing.fk_lookup_options.is_empty());
 
     app.apply_foreign_key_lookup("customer_id", &customer_ids());
     assert_eq!(
-        app.foreign_key_value_choices(&result, 1).as_deref(),
-        Some(["1".to_owned(), "2".to_owned(), "3".to_owned()].as_slice())
+        app.table.editing.fk_lookup_options,
+        ["1".to_owned(), "2".to_owned(), "3".to_owned()]
     );
-    assert!(app.foreign_key_value_choices(&result, 2).is_none());
 
     app.table.editing.data_edit_value = "9".to_owned();
     assert!(

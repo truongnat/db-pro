@@ -192,8 +192,6 @@ mod tests {
 
     #[test]
     fn click_actions_require_valid_ui_signals() {
-        let parent = Rect::from_min_size(Pos2::ZERO, egui::vec2(100.0, 30.0));
-        let popup = Rect::from_min_size(Pos2::new(0.0, 40.0), egui::vec2(100.0, 60.0));
         assert_eq!(selection_from_click(true, 2), Some(2));
         assert_eq!(selection_from_click(false, 2), None);
         assert!(should_request_load_more(true, true));

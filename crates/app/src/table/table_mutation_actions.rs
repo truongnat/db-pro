@@ -15,16 +15,6 @@ impl DbProApp {
         table_editor_context::can_mutate_active_connection(&self.connection.catalog, &self.connection.lifecycle)
     }
 
-    pub(crate) fn can_edit_table_rows(&self) -> bool {
-        !self.table.data_query.inline_query_result
-            && self.table.data_query.inline_query_request.is_none()
-            && table_editor_context::can_edit_table_rows(
-            &self.table.state,
-            &self.connection.catalog,
-            &self.connection.lifecycle,
-        )
-    }
-
     pub(crate) fn edit_surface(&self) -> table_editor_context::RowEditSurface {
         if self.workspace.active_tab == WorkspaceTab::SchemaObject
             && matches!(
@@ -221,19 +211,34 @@ impl DbProApp {
                 .clear_error_for_identity(&identity, Some(column_index));
         }
         if let Some(column_name) = result.columns.get(column_index).map(|column| column.name.clone()) {
-            let is_fk = self
-                .table
-                .state
-                .table_info
-                .as_ref()
-                .and_then(|info| table_fk_lookup::foreign_key_for_column(info, &column_name))
-                .is_some();
-            if is_fk {
+            let lookup = self.foreign_key_lookup_sql(&column_name);
+            if let Some(sql) = lookup {
                 self.table.editing.fk_lookup_column = Some(column_name);
                 self.table.editing.fk_lookup_options.clear();
+                // Fetch the destination key list so the cell editor can offer
+                // it as a select. Without an active connection there is nowhere
+                // to run it — the column stays editable as plain text.
+                self.table.editing.pending_fk_lookup_request = self
+                    .connection
+                    .lifecycle
+                    .active_connection_id()
+                    .map(str::to_owned)
+                    .and_then(|connection_id| {
+                        let request_id = self.next_request_id();
+                        let dispatched = self.dispatch_command(UiCommand::RunQuery {
+                            request_id,
+                            connection_id,
+                            sql,
+                            params: Vec::new(),
+                            schema: None,
+                            session_id: None,
+                        });
+                        dispatched.then_some(request_id)
+                    });
             } else if self.table.editing.fk_lookup_column.is_some() {
                 self.table.editing.fk_lookup_column = None;
                 self.table.editing.fk_lookup_options.clear();
+                self.table.editing.pending_fk_lookup_request = None;
             }
         }
         self.table.editing.data_editing_cell = Some((row_index, column_index));

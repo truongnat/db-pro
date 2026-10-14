@@ -25,6 +25,11 @@ pub(crate) struct TableEditingState {
     pub(super) insert_row_discard_confirmation: bool,
     pub(super) fk_lookup_column: Option<String>,
     pub(super) fk_lookup_options: Vec<String>,
+    /// Request id of the in-flight `SELECT <fk cols> FROM <ref table>` issued
+    /// when a foreign-key cell edit begins. `on_query_completed` consumes it
+    /// and fills `fk_lookup_options`; cleared on failure, cell change, or when
+    /// the edited column is not a foreign key.
+    pub(super) pending_fk_lookup_request: Option<crate::RequestId>,
 }
 
 impl Default for TableEditingState {
@@ -45,6 +50,7 @@ impl Default for TableEditingState {
             insert_row_discard_confirmation: false,
             fk_lookup_column: None,
             fk_lookup_options: Vec::new(),
+            pending_fk_lookup_request: None,
         }
     }
 }

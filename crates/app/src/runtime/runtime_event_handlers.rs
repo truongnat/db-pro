@@ -72,6 +72,17 @@ impl DbProApp {
 
     pub(super) fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
         self.query.execution.settle_transaction_request(request_id, true);
+        if self.table.editing.pending_fk_lookup_request == Some(request_id) {
+            self.table.editing.pending_fk_lookup_request = None;
+            // The response belongs to whichever FK column the grid was editing
+            // when the lookup was dispatched; a newer edit on another column
+            // replaces the column name but keeps the same pending id, so
+            // applying to the current `fk_lookup_column` is the latest intent.
+            if let Some(column) = self.table.editing.fk_lookup_column.clone() {
+                self.apply_foreign_key_lookup(&column, &result);
+            }
+            return;
+        }
         let mut context = query_result_events::QueryResultContext {
             query_session: &mut self.query.session,
             query_editor: &mut self.query.editor,
@@ -111,6 +122,14 @@ impl DbProApp {
         {
             self.feedback
                 .set_runtime_message(format!("Could not load connections · {message}"));
+            return;
+        }
+        if self.table.editing.pending_fk_lookup_request == Some(request_id) {
+            // Lookup died — leave the cell editable as plain text rather than
+            // blocking the editor on a select that will never populate.
+            self.table.editing.pending_fk_lookup_request = None;
+            self.feedback
+                .set_runtime_message(format!("Could not load foreign key values · {message}"));
             return;
         }
         self.query.execution.settle_transaction_request(request_id, false);

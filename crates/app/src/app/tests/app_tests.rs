@@ -721,7 +721,19 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
         ..Default::default()
     };
 
-    assert!(!app.can_edit_table_rows());
+    // No identity key → every row edit is refused with a reason; there is no
+    // separate "can edit" gate anymore (`result_edit_reason` is the gate).
+    let result = UiQueryResult {
+        columns: vec![crate::UiColumn {
+            name: "id".to_owned(),
+            data_type: "integer".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![vec![UiCell::Number("1".to_owned())]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+    assert!(app.result_edit_reason(&result).is_some());
 }
 
 /// The edit entry point refuses a column the write policy blocks, and says why.

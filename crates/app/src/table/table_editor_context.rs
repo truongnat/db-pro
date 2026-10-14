@@ -18,14 +18,6 @@ pub(crate) fn can_mutate_active_connection(
             .is_some_and(|connection| !connection.readonly)
 }
 
-pub(crate) fn can_edit_table_rows(
-    table_state: &TableState,
-    catalog: &ConnectionCatalogState,
-    lifecycle: &ConnectionLifecycleState,
-) -> bool {
-    can_mutate_active_connection(catalog, lifecycle) && table_state.has_primary_key()
-}
-
 pub(crate) const VIEW_ROWS_READ_ONLY: &str = "Views are read-only. Open the base table to edit rows.";
 pub(crate) const INLINE_SQL_READ_ONLY: &str = "Inline SQL results are read-only.";
 
