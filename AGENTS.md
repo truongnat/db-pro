@@ -188,6 +188,27 @@ affected surface at 1280×800, 1440×900 and 1920×1080, in normal plus
 loading/error/empty states. The visual acceptance gate is defined in
 `docs/10-egui-native-migration-plan.md`.
 
+## Module visibility (`crates/ui`)
+
+`crates/ui/src/lib.rs` is a pure barrel file: `pub use <module>::*;` for every
+feature module. A glob re-export lifts **every `pub` item** of a module to the
+crate's public API, so `pub` inside a feature module is a deliberate API
+decision, not a default.
+
+Rules:
+
+- Default to `pub(crate)` (or `pub(super)` for sibling-only use) inside feature
+  modules. Reach for plain `pub` only when the item is part of the crate API
+  (`DbProApp`, `DbProTheme`, `Ui*` protocol types, `TaskBridge`, `UiLanguage`,
+  component/widget surface, bench-pinned helpers like `GridSelectionLookup`).
+- `pub mod` inside a feature module also becomes public API via the glob —
+  declare `mod` (private) unless the submodule itself is API.
+- Never mark something `pub` just to satisfy a cross-module import; use the
+  narrowest visibility that compiles.
+- When a new item is meant to be public, re-export it through the module's
+  `mod.rs` so the crate root glob picks it up — do not add named exports to
+  `lib.rs`.
+
 ## Rust quality gates
 
 ```bash
