@@ -1,19 +1,27 @@
-// Layout constants for the welcome surface. Kept in a dedicated module so the
-// view reads named intent instead of bare numbers.
+// Layout constants for the welcome surface. Named intent only — spacing values
+// come from the shared scale (crate::tokens), not local pixel picks.
 
-/// Fraction of the leftover height (after reserving the content block) used as
-/// top padding so the header sits slightly above vertical center.
-pub(super) const TOP_SPACE_RATIO: f32 = 0.4;
-/// Approximate height the welcome content occupies; the space above it is
-/// distributed via TOP_SPACE_RATIO.
-pub(super) const WELCOME_BLOCK_HEIGHT: f32 = 400.0;
+/// Vertical anchor for the hero block: the header lands at ~35% of the
+/// available height instead of optical center, matching product landing pages.
+pub(super) const HEADER_TOP_RATIO: f32 = 0.35;
 
-pub(super) const CARD_GAP: f32 = crate::tokens::SPACE_MD;
+/// Fixed height of each quick-action card. Chosen once for scanability: two
+/// text lines (title + caption) with icon plus padding fit comfortably.
 pub(super) const CARD_HEIGHT: f32 = 64.0;
-/// Width above which the four cards lay out in a 2x2 grid instead of stacking.
-pub(super) const WIDE_BREAKPOINT: f32 = 620.0;
-pub(super) const STACKED_SIDE_INSET: f32 = 32.0;
-pub(super) const MIN_CONTAINER_WIDTH: f32 = 280.0;
-pub(super) const TITLE_DESC_GAP: f32 = 2.0;
-/// Floor for the description wrap width so narrow cards never wrap to zero.
+
+/// Minimum width one card needs to stay readable; below it the grid collapses
+/// to a single stacked column. Also doubles as the container floor on very
+/// narrow viewports.
+pub(super) const MIN_CARD_WIDTH: f32 = 280.0;
+
+/// Width at which the 2-column grid becomes viable: two minimum cards plus the
+/// gap between them. Derived, not tuned per-eyeball.
+pub(super) const WIDE_GRID_MIN_WIDTH: f32 = 2.0 * MIN_CARD_WIDTH + crate::tokens::SPACE_MD;
+
+/// Total width the 2-column grid caps at — wider viewports keep the grid
+/// centered instead of stretching cards into banners.
+pub(super) const WIDE_GRID_WIDTH: f32 = 620.0;
+
+/// Lower bound for the description wrap width so degenerate narrow cards can
+/// never request a zero-width layout.
 pub(super) const MIN_DESC_WRAP_WIDTH: f32 = 10.0;

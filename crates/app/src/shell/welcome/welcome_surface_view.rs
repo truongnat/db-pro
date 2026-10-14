@@ -15,7 +15,7 @@ pub(super) enum WelcomeAction {
 }
 
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
-    let top_space = ((ui.available_height() - WELCOME_BLOCK_HEIGHT) * TOP_SPACE_RATIO).max(SPACE_MD);
+    let top_space = (ui.available_height() * HEADER_TOP_RATIO).max(SPACE_MD);
     ui.add_space(top_space);
 
     ui.vertical_centered(|ui| {
@@ -87,11 +87,11 @@ fn welcome_items() -> [WelcomeItem; 4] {
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let items = welcome_items();
     let avail_width = ui.available_width();
-    let is_wide = avail_width >= WIDE_BREAKPOINT;
+    let is_wide = avail_width >= WIDE_GRID_MIN_WIDTH;
     let container_width = if is_wide {
-        WIDE_BREAKPOINT
+        WIDE_GRID_WIDTH
     } else {
-        (avail_width - STACKED_SIDE_INSET).max(MIN_CONTAINER_WIDTH)
+        (avail_width - SPACE_XL).max(MIN_CARD_WIDTH)
     };
     let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
@@ -116,12 +116,12 @@ fn draw_wide_rows(
     width: f32,
     items: &[WelcomeItem; 4],
 ) -> Option<WelcomeAction> {
-    let card_w = ((width - CARD_GAP) * 0.5).floor();
+    let card_w = ((width - SPACE_MD) * 0.5).floor();
     let card_size = egui::vec2(card_w, CARD_HEIGHT);
     let mut action = None;
 
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = CARD_GAP;
+        ui.spacing_mut().item_spacing.x = SPACE_MD;
         if let Some(act) = draw_card_item(theme, ui, card_size, &items[0]) {
             action = Some(act);
         }
@@ -129,9 +129,9 @@ fn draw_wide_rows(
             action = Some(act);
         }
     });
-    ui.add_space(CARD_GAP);
+    ui.add_space(SPACE_MD);
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = CARD_GAP;
+        ui.spacing_mut().item_spacing.x = SPACE_MD;
         if let Some(act) = draw_card_item(theme, ui, card_size, &items[2]) {
             action = Some(act);
         }
@@ -154,7 +154,7 @@ fn draw_stacked_rows(
         if let Some(act) = draw_card_item(theme, ui, card_size, item) {
             action = Some(act);
         }
-        ui.add_space(CARD_GAP);
+        ui.add_space(SPACE_MD);
     }
     action
 }
@@ -223,12 +223,12 @@ fn draw_card_item(
 
     let title_h = title_galley.size().y;
     let desc_h = desc_galley.size().y;
-    let total_h = title_h + TITLE_DESC_GAP + desc_h;
+    let total_h = title_h + SPACE_XXS + desc_h;
     let text_top = (rect.center().y - total_h * 0.5).round();
 
     ui.painter().galley(egui::pos2(text_x, text_top), title_galley, theme.text_primary);
     ui.painter().galley(
-        egui::pos2(text_x, text_top + title_h + TITLE_DESC_GAP),
+        egui::pos2(text_x, text_top + title_h + SPACE_XXS),
         desc_galley,
         theme.text_secondary,
     );
