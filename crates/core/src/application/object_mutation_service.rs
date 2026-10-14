@@ -533,6 +533,7 @@ mod tests {
                 default: Some("'x'".into()),
                 is_pk: false,
                 new_name: None,
+                origin_name: None,
             }),
             options: MutationOptions::default(),
             driver: driver.to_owned(),

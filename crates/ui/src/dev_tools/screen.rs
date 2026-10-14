@@ -759,47 +759,59 @@ fn classify(
 ///
 /// A toolbar of varied-size buttons produces none of the three.
 fn is_grid_like(_ctx: &egui::Context, widgets: &[(&WidgetGeometry, Rect)], idx: &[usize]) -> bool {
+    grid_size_signature(widgets, idx)
+        || grid_banding_signature(widgets, idx)
+        || grid_stride_signature(widgets, idx)
+}
+
+/// Size signature: no parent structure needed — a region where ≥75% of
+/// members share one rect size is a dense uniform surface. Mixed-size
+/// toolbars and panels cannot reach that share.
+fn grid_size_signature(widgets: &[(&WidgetGeometry, Rect)], idx: &[usize]) -> bool {
     use std::collections::HashMap;
-    // Size signature: no parent structure needed — a region where ≥75% of
-    // members share one rect size is a dense uniform surface. Mixed-size
-    // toolbars and panels cannot reach that share.
-    if idx.len() >= GRID_MIN_ITEMS {
-        let mut sizes: HashMap<(i64, i64), usize> = HashMap::new();
+    if idx.len() < GRID_MIN_ITEMS {
+        return false;
+    }
+    let mut sizes: HashMap<(i64, i64), usize> = HashMap::new();
+    for &i in idx {
+        let r = widgets[i].1;
+        *sizes
+            .entry(((r.width() * 2.0) as i64, (r.height() * 2.0) as i64))
+            .or_default() += 1;
+    }
+    let modal = sizes.values().copied().max().unwrap_or(0);
+    modal >= GRID_MIN_ITEMS && modal * 4 >= idx.len() * 3
+}
+
+/// Banding signature: rows/columns of cells sharing one min edge. Two or
+/// more stripes of ≥4 aligned widgets covering ≥60% of members is a data
+/// table pattern; scattered mixed layout cannot reach it.
+fn grid_banding_signature(widgets: &[(&WidgetGeometry, Rect)], idx: &[usize]) -> bool {
+    use std::collections::HashMap;
+    if idx.len() < GRID_MIN_ITEMS {
+        return false;
+    }
+    let banded = |vertical: bool| -> bool {
+        let mut lines: HashMap<i64, usize> = HashMap::new();
         for &i in idx {
             let r = widgets[i].1;
-            *sizes
-                .entry(((r.width() * 2.0) as i64, (r.height() * 2.0) as i64))
-                .or_default() += 1;
+            let edge = if vertical {
+                (r.min.y * 2.0) as i64
+            } else {
+                (r.min.x * 2.0) as i64
+            };
+            *lines.entry(edge).or_default() += 1;
         }
-        let modal = sizes.values().copied().max().unwrap_or(0);
-        if modal >= GRID_MIN_ITEMS && modal * 4 >= idx.len() * 3 {
-            return true;
-        }
-    }
-    // Banding signature: rows/columns of cells sharing one min edge. Two or
-    // more stripes of ≥4 aligned widgets covering ≥60% of members is a data
-    // table pattern; scattered mixed layout cannot reach it.
-    if idx.len() >= GRID_MIN_ITEMS {
-        let banded = |vertical: bool| -> bool {
-            let mut lines: HashMap<i64, usize> = HashMap::new();
-            for &i in idx {
-                let r = widgets[i].1;
-                let edge = if vertical {
-                    (r.min.y * 2.0) as i64
-                } else {
-                    (r.min.x * 2.0) as i64
-                };
-                *lines.entry(edge).or_default() += 1;
-            }
-            let stripes = lines.values().filter(|&&n| n >= 4).count();
-            let covered: usize = lines.values().filter(|&&n| n >= 4).sum();
-            stripes >= 2 && covered * 5 >= idx.len() * 3
-        };
-        if banded(true) || banded(false) {
-            return true;
-        }
-    }
-    // Stride signature: same-parent run of same-size siblings on a pitch.
+        let stripes = lines.values().filter(|&&n| n >= 4).count();
+        let covered: usize = lines.values().filter(|&&n| n >= 4).sum();
+        stripes >= 2 && covered * 5 >= idx.len() * 3
+    };
+    banded(true) || banded(false)
+}
+
+/// Stride signature: same-parent run of same-size siblings on a pitch.
+fn grid_stride_signature(widgets: &[(&WidgetGeometry, Rect)], idx: &[usize]) -> bool {
+    use std::collections::HashMap;
     let mut by_parent: HashMap<Id, Vec<usize>> = HashMap::new();
     for &i in idx {
         by_parent.entry(widgets[i].0.parent_id).or_default().push(i);

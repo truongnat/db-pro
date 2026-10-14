@@ -245,10 +245,6 @@ impl DbProApp {
         connection_status::connection_indicator(&self.connection.lifecycle, connection, self.theme)
     }
 
-    pub(super) fn primary_modifier_pressed(input: &egui::InputState) -> bool {
-        input.modifiers.command || input.modifiers.ctrl || input.modifiers.mac_cmd
-    }
-
     fn primary_modifier_label() -> &'static str {
         if cfg!(target_os = "macos") {
             "⌘"
