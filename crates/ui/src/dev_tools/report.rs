@@ -110,18 +110,32 @@ fn verdict_str(v: Verdict) -> &'static str {
 /// Render an `AuditReport` to schema-v1 JSON. Pure function — no IO, so unit
 /// tests exercise the whole shape.
 pub fn render_report(report: &AuditReport, _ctx: &egui::Context, rc: &ReportContext) -> serde_json::Value {
+    serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "meta": report_meta(report, rc),
+        "signature": report_signature(report, rc),
+        "summary": report_summary(report),
+        "rules": report_rules_json(report),
+        "issues": report_issues_json(report),
+        "screen": report.screen.as_ref().map(render_screen),
+    })
+}
+
+fn report_signature(report: &AuditReport, rc: &ReportContext) -> Signature {
     let mut widget_ids: Vec<u64> = report.widget_ids.iter().copied().collect();
     widget_ids.sort_unstable();
-    let signature = Signature {
+    Signature {
         schema_version: SCHEMA_VERSION,
         scenario: rc.scenario.clone(),
         fixture: rc.fixture,
         viewport: rc.viewport.clone(),
         theme: rc.theme_label.clone(),
         widget_ids,
-    };
+    }
+}
 
-    let rules: Vec<serde_json::Value> = report
+fn report_rules_json(report: &AuditReport) -> Vec<serde_json::Value> {
+    report
         .rules
         .iter()
         .map(|r| {
@@ -137,9 +151,11 @@ pub fn render_report(report: &AuditReport, _ctx: &egui::Context, rc: &ReportCont
                 },
             })
         })
-        .collect();
+        .collect()
+}
 
-    let issues: Vec<serde_json::Value> = report
+fn report_issues_json(report: &AuditReport) -> Vec<serde_json::Value> {
+    report
         .issues
         .iter()
         .map(|i| {
@@ -153,47 +169,42 @@ pub fn render_report(report: &AuditReport, _ctx: &egui::Context, rc: &ReportCont
                 "evidence": i.evidence,
             })
         })
-        .collect();
+        .collect()
+}
 
-    let errors = report.issues.iter().filter(|i| i.severity == Severity::Error).count();
-    let warnings = report.issues.iter().filter(|i| i.severity == Severity::Warning).count();
-    let fail_rules = report.rules.iter().filter(|r| r.verdict() == Verdict::Fail).count();
-
+fn report_meta(report: &AuditReport, rc: &ReportContext) -> serde_json::Value {
     serde_json::json!({
-        "schema_version": SCHEMA_VERSION,
-        "meta": {
-            "tool": "db-pro-ui-audit",
-            "binary": "db-pro-native",
-            "viewport": rc.viewport,
-            "theme": rc.theme_label,
-            "scenario": rc.scenario,
-            "fixture": rc.fixture,
-            "frames": rc.frames,
-            "layout_fingerprint": report.layout_fingerprint,
-            "fail_policy": FailPolicy::from_env().label(),
-            "os": std::env::consts::OS,
-            "timestamp": std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
+        "tool": "db-pro-ui-audit",
+        "binary": "db-pro-native",
+        "viewport": rc.viewport,
+        "theme": rc.theme_label,
+        "scenario": rc.scenario,
+        "fixture": rc.fixture,
+        "frames": rc.frames,
+        "layout_fingerprint": report.layout_fingerprint,
+        "fail_policy": FailPolicy::from_env().label(),
+        "os": std::env::consts::OS,
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    })
+}
+
+fn report_summary(report: &AuditReport) -> serde_json::Value {
+    let verdicts = |v: Verdict| report.rules.iter().filter(|r| r.verdict() == v).count();
+    serde_json::json!({
+        "widgets": report.widget_count,
+        "rules": report.rules.len(),
+        "issues": report.issues.len(),
+        "errors": report.issues.iter().filter(|i| i.severity == Severity::Error).count(),
+        "warnings": report.issues.iter().filter(|i| i.severity == Severity::Warning).count(),
+        "verdicts": {
+            "pass": verdicts(Verdict::Pass),
+            "fail": verdicts(Verdict::Fail),
+            "skip": verdicts(Verdict::Skipped),
+            "not_applicable": verdicts(Verdict::NotApplicable),
         },
-        "signature": signature,
-        "summary": {
-            "widgets": report.widget_count,
-            "rules": report.rules.len(),
-            "issues": report.issues.len(),
-            "errors": errors,
-            "warnings": warnings,
-            "verdicts": {
-                "pass": report.rules.iter().filter(|r| r.verdict() == Verdict::Pass).count(),
-                "fail": fail_rules,
-                "skip": report.rules.iter().filter(|r| r.verdict() == Verdict::Skipped).count(),
-                "not_applicable": report.rules.iter().filter(|r| r.verdict() == Verdict::NotApplicable).count(),
-            },
-        },
-        "rules": rules,
-        "issues": issues,
-        "screen": report.screen.as_ref().map(render_screen),
     })
 }
 

@@ -153,16 +153,27 @@ impl DevToolsState {
         self.paint_highlight(ctx);
         let report = audit::run_audit(ctx, &snapshot, semantic.as_ref());
         self.audit_frames += 1;
-        // Wait for warm data: a widget set plus the accesskit tree (which lags
-        // a frame or two). Fall back after 60 frames so the dump can't miss.
-        // Warm = the audited snapshot is STABLE (same layout fingerprint two
-        // frames in a row — an Area's first-paint sizing pass registers
-        // children `enabled=false`, so emitting on a fixed frame number could
-        // audit that fake snapshot) AND the accesskit tree has data (it lags
-        // a frame or two). 120-frame fallback covers accesskit-off.
-        // Snapshots describe the previous pass, so a surface opened this frame
-        // only shows up next frame: a change can never hide inside a run of
-        // three identical fingerprints — one matching frame isn't enough.
+        let warm = self.audit_pipeline_warm(&report);
+        self.maybe_dump_audit(&report, &snapshot, warm);
+        self.maybe_emit_headless(&report, ctx, warm, theme);
+        self.prev_audit = self.audit.replace(report);
+
+        if !self.open {
+            // Headless: pipeline ran, emission captured — no inspector window.
+            return;
+        }
+        self.draw_inspector_window(ctx, &snapshot, theme);
+    }
+
+    /// Warm = the audited snapshot is STABLE (same layout fingerprint two
+    /// frames in a row — an Area's first-paint sizing pass registers
+    /// children `enabled=false`, so emitting on a fixed frame number could
+    /// audit that fake snapshot) AND the accesskit tree has data (it lags
+    /// a frame or two). 120-frame fallback covers accesskit-off.
+    /// Snapshots describe the previous pass, so a surface opened this frame
+    /// only shows up next frame: a change can never hide inside a run of
+    /// three identical fingerprints — one matching frame isn't enough.
+    fn audit_pipeline_warm(&mut self, report: &AuditReport) -> bool {
         let stable = self
             .audit
             .as_ref()
@@ -174,53 +185,56 @@ impl DevToolsState {
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(1);
-        let warm = report.widget_count >= ready_min
+        report.widget_count >= ready_min
             && (self.stable_streak >= 2 || self.audit_frames > 30)
             && (report
                 .rules
                 .iter()
                 .any(|r| r.rule_id == "semantic.missing_name" && r.stats.evaluated > 0)
-                || self.audit_frames > 120);
+                || self.audit_frames > 120)
+    }
+
+    fn maybe_dump_audit(&mut self, report: &AuditReport, snapshot: &GeometrySnapshot, warm: bool) {
         if !self.audit_dumped && warm && std::env::var_os(AUDIT_DUMP_ENV).is_some_and(|v| !v.is_empty() && v != "0") {
             self.audit_dumped = true;
-            dump_audit_issues(&report, &snapshot);
+            dump_audit_issues(report, snapshot);
         }
-        // Headless mode (`DB_PRO_AUDIT_JSON`): render the report the frame the
-        // pipeline goes warm — the capture driver collects it via
-        // `take_audit_emission` and exits with the verdict code.
-        if self.pending_audit.is_none() && warm && std::env::var_os(report::OUTPUT_ENV).is_some_and(|v| !v.is_empty()) {
-            let rc = report::ReportContext {
-                viewport: std::env::var("DB_PRO_WINDOW_SIZE").unwrap_or_else(|_| "unknown".to_owned()),
-                fixture: audit_fixture_enabled(),
-                frames: self.audit_frames as u32,
-                scenario: std::env::var(report::SCENARIO_ENV).unwrap_or_else(|_| "shell".to_owned()),
-                theme_label: if theme.dark_mode {
-                    "Dark".to_owned()
-                } else {
-                    "Light".to_owned()
-                },
-            };
-            let mut json = report::render_report(&report, ctx, &rc);
-            if let Some(base) = std::env::var_os(report::BASELINE_ENV) {
-                if let Ok(sig) = serde_json::from_value::<report::Signature>(json["signature"].clone()) {
-                    let diff =
-                        report::diff_with_baseline(std::path::Path::new(&base), &sig, &report::issue_keys(&report));
-                    json["baseline"] = match diff {
-                        Ok(d) => d.to_json(),
-                        Err(e) => serde_json::json!({"comparable": false, "error": e}),
-                    };
-                } else {
-                    json["baseline"] = serde_json::json!({"comparable": false, "reason": "no local signature"});
-                }
-            }
-            self.pending_audit = Some((json, report::exit_code(&report)));
-        }
-        self.prev_audit = self.audit.replace(report);
+    }
 
-        if !self.open {
-            // Headless: pipeline ran, emission captured — no inspector window.
+    /// Headless mode (`DB_PRO_AUDIT_JSON`): render the report the frame the
+    /// pipeline goes warm — the capture driver collects it via
+    /// `take_audit_emission` and exits with the verdict code.
+    fn maybe_emit_headless(&mut self, report: &AuditReport, ctx: &egui::Context, warm: bool, theme: DbProTheme) {
+        if self.pending_audit.is_some() || !warm || std::env::var_os(report::OUTPUT_ENV).is_none_or(|v| v.is_empty()) {
             return;
         }
+        let rc = report::ReportContext {
+            viewport: std::env::var("DB_PRO_WINDOW_SIZE").unwrap_or_else(|_| "unknown".to_owned()),
+            fixture: audit_fixture_enabled(),
+            frames: self.audit_frames as u32,
+            scenario: std::env::var(report::SCENARIO_ENV).unwrap_or_else(|_| "shell".to_owned()),
+            theme_label: if theme.dark_mode {
+                "Dark".to_owned()
+            } else {
+                "Light".to_owned()
+            },
+        };
+        let mut json = report::render_report(report, ctx, &rc);
+        if let Some(base) = std::env::var_os(report::BASELINE_ENV) {
+            if let Ok(sig) = serde_json::from_value::<report::Signature>(json["signature"].clone()) {
+                let diff = report::diff_with_baseline(std::path::Path::new(&base), &sig, &report::issue_keys(report));
+                json["baseline"] = match diff {
+                    Ok(d) => d.to_json(),
+                    Err(e) => serde_json::json!({"comparable": false, "error": e}),
+                };
+            } else {
+                json["baseline"] = serde_json::json!({"comparable": false, "reason": "no local signature"});
+            }
+        }
+        self.pending_audit = Some((json, report::exit_code(report)));
+    }
+
+    fn draw_inspector_window(&mut self, ctx: &egui::Context, snapshot: &GeometrySnapshot, theme: DbProTheme) {
         let mut open = self.open;
         Window::new("🛠 Inspector")
             .id(inspector_id())
@@ -235,13 +249,13 @@ impl DevToolsState {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         ui.spacing_mut().item_spacing.y = 4.0;
-                        draw_selected_section(ui, ctx, &mut self.selected, &snapshot, theme);
+                        draw_selected_section(ui, ctx, &mut self.selected, snapshot, theme);
                         draw_audit_section(
                             ui,
                             self.audit.as_ref(),
                             self.prev_audit.as_ref(),
                             &mut self.selected,
-                            &snapshot,
+                            snapshot,
                             theme,
                         );
                         draw_widget_hits(ui, ctx, theme);
@@ -626,13 +640,6 @@ fn paint_screen_fixture(ctx: &egui::Context, mode: &str) {
             let rail_w = if ugly { w * 0.62 } else { w * 0.18 };
             // Each zone is its own Ui with an explicit id_salt → distinct
             // parent_id per zone, the analyzer's pane boundary signal.
-            // `allocate_rect` + `widget_info` registers a named interactive
-            // widget under the zone ui (unlike `put`, which wraps every
-            // widget in its own anonymous child Ui).
-            let place = |zone: &mut Ui, rect: egui::Rect, name: &str| {
-                let resp = zone.allocate_rect(rect, egui::Sense::click());
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, name.to_owned()));
-            };
             let zones: [(egui::Rect, &str); 4] = [
                 (egui::Rect::from_min_size(frame.min, egui::vec2(w, 36.0)), "bar"),
                 (
@@ -656,85 +663,91 @@ fn paint_screen_fixture(ctx: &egui::Context, mode: &str) {
             ];
             for (rect, name) in zones {
                 let mut zone = ui.new_child(egui::UiBuilder::new().id_salt(egui::Id::new(name)).max_rect(rect));
-                match name {
-                    "bar" => {
-                        for i in 0..4 {
-                            place(
-                                &mut zone,
-                                egui::Rect::from_min_size(
-                                    rect.min + egui::vec2(8.0 + i as f32 * 88.0, 4.0),
-                                    egui::vec2(80.0, 28.0),
-                                ),
-                                &format!("bar{i}"),
-                            );
-                        }
-                    }
-                    "rail" => {
-                        // Varied heights keep the rail non-grid-like — a
-                        // navigation panel of mixed sections, which is what
-                        // makes the ugly variant's dominance measurable.
-                        let mut y = rect.min.y + 8.0;
-                        for i in 0..6 {
-                            let h = 28.0 + (i % 3) as f32 * 14.0;
-                            place(
-                                &mut zone,
-                                egui::Rect::from_min_size(Pos2::new(rect.min.x + 8.0, y), egui::vec2(rail_w - 16.0, h)),
-                                &format!("rail{i}"),
-                            );
-                            y += h + 8.0;
-                        }
-                    }
-                    "content" => {
-                        let mut y = rect.min.y + 8.0;
-                        for i in 0..5 {
-                            if i > 0 {
-                                y += if ugly && i == 3 { 100.0 } else { 8.0 };
-                            }
-                            place(
-                                &mut zone,
-                                egui::Rect::from_min_size(
-                                    Pos2::new(rect.min.x + 8.0, y),
-                                    egui::vec2(rect.width() - 16.0, 32.0),
-                                ),
-                                &format!("row{i}"),
-                            );
-                            y += 32.0;
-                        }
-                    }
-                    "status" => {
-                        for i in 0..2 {
-                            place(
-                                &mut zone,
-                                egui::Rect::from_min_size(
-                                    rect.min + egui::vec2(8.0 + i as f32 * 108.0, 2.0),
-                                    egui::vec2(100.0, 24.0),
-                                ),
-                                &format!("status{i}"),
-                            );
-                        }
-                    }
-                    _ => {}
-                }
+                paint_fixture_zone(&mut zone, rect, name, rail_w, ugly);
             }
             if ugly {
-                // Interactive widget fully outside the fixture screen —
-                // the off-screen finding's fixture evidence.
-                let mut stray = ui.new_child(egui::UiBuilder::new().id_salt(egui::Id::new("stray")).max_rect(
-                    egui::Rect::from_min_size(
-                        Pos2::new(frame.max.x + 20.0, frame.min.y + 40.0),
-                        egui::vec2(80.0, 28.0),
-                    ),
-                ));
-                let resp = stray.allocate_rect(
-                    egui::Rect::from_min_size(
-                        Pos2::new(frame.max.x + 20.0, frame.min.y + 40.0),
-                        egui::vec2(80.0, 28.0),
-                    ),
-                    egui::Sense::click(),
-                );
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "offscreen".to_owned()));
+                fixture_offscreen_widget(ui, frame);
             }
         });
+}
+
+/// `allocate_rect` + `widget_info` registers a named interactive widget
+/// under the zone ui (unlike `put`, which wraps every widget in its own
+/// anonymous child Ui).
+fn fixture_place(zone: &mut Ui, rect: egui::Rect, name: &str) {
+    let resp = zone.allocate_rect(rect, egui::Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, name.to_owned()));
+}
+
+fn paint_fixture_zone(zone: &mut Ui, rect: egui::Rect, name: &str, rail_w: f32, ugly: bool) {
+    match name {
+        "bar" => {
+            for i in 0..4 {
+                fixture_place(
+                    zone,
+                    egui::Rect::from_min_size(
+                        rect.min + egui::vec2(8.0 + i as f32 * 88.0, 4.0),
+                        egui::vec2(80.0, 28.0),
+                    ),
+                    &format!("bar{i}"),
+                );
+            }
+        }
+        "rail" => {
+            // Varied heights keep the rail non-grid-like — a navigation panel
+            // of mixed sections, which is what makes the ugly variant's
+            // dominance measurable.
+            let mut y = rect.min.y + 8.0;
+            for i in 0..6 {
+                let h = 28.0 + (i % 3) as f32 * 14.0;
+                fixture_place(
+                    zone,
+                    egui::Rect::from_min_size(Pos2::new(rect.min.x + 8.0, y), egui::vec2(rail_w - 16.0, h)),
+                    &format!("rail{i}"),
+                );
+                y += h + 8.0;
+            }
+        }
+        "content" => {
+            let mut y = rect.min.y + 8.0;
+            for i in 0..5 {
+                if i > 0 {
+                    y += if ugly && i == 3 { 100.0 } else { 8.0 };
+                }
+                fixture_place(
+                    zone,
+                    egui::Rect::from_min_size(Pos2::new(rect.min.x + 8.0, y), egui::vec2(rect.width() - 16.0, 32.0)),
+                    &format!("row{i}"),
+                );
+                y += 32.0;
+            }
+        }
+        "status" => {
+            for i in 0..2 {
+                fixture_place(
+                    zone,
+                    egui::Rect::from_min_size(
+                        rect.min + egui::vec2(8.0 + i as f32 * 108.0, 2.0),
+                        egui::vec2(100.0, 24.0),
+                    ),
+                    &format!("status{i}"),
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Interactive widget fully outside the fixture screen — the off-screen
+/// finding's fixture evidence.
+fn fixture_offscreen_widget(ui: &mut Ui, frame: egui::Rect) {
+    let rect = egui::Rect::from_min_size(
+        Pos2::new(frame.max.x + 20.0, frame.min.y + 40.0),
+        egui::vec2(80.0, 28.0),
+    );
+    let mut stray = ui.new_child(egui::UiBuilder::new().id_salt(egui::Id::new("stray")).max_rect(rect));
+    let resp = stray.allocate_rect(rect, egui::Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "offscreen".to_owned()));
 }
 
 /// Audit results: per-rule PASS/issue tallies + a clickable issue list.
@@ -1047,18 +1060,7 @@ mod tests {
     #[test]
     fn inspector_window_draws_and_closes() {
         let ctx = egui::Context::default();
-        let mut state = DevToolsState {
-            open: true,
-            selected: None,
-            pending_pick: None,
-            audit: None,
-            prev_audit: None,
-            audit_dumped: false,
-            audit_frames: 0,
-            pending_audit: None,
-            fixture_painted: false,
-            stable_streak: 0,
-        };
+        let mut state = open_inspector_state();
         let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ui| {
             state.draw(ui.ctx(), DbProTheme::dark());
         });
@@ -1066,15 +1068,7 @@ mod tests {
 
         let mut closed = DevToolsState {
             open: false,
-            selected: None,
-            pending_pick: None,
-            audit: None,
-            prev_audit: None,
-            audit_dumped: false,
-            audit_frames: 0,
-            pending_audit: None,
-            fixture_painted: false,
-            stable_streak: 0,
+            ..DevToolsState::default()
         };
         let out = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ui| {
             closed.draw(ui.ctx(), DbProTheme::dark());
@@ -1091,17 +1085,9 @@ mod tests {
         std::env::remove_var(PICK_ENV);
     }
 
-    fn plain_input(ctx_size: egui::Vec2) -> egui::RawInput {
-        egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, ctx_size)),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn draw_populates_audit_report() {
-        let ctx = egui::Context::default();
-        let mut state = DevToolsState {
+    /// Open-inspector state for tests — no pending pick, no audit cache.
+    fn open_inspector_state() -> DevToolsState {
+        DevToolsState {
             open: true,
             selected: None,
             pending_pick: None,
@@ -1112,7 +1098,20 @@ mod tests {
             pending_audit: None,
             fixture_painted: false,
             stable_streak: 0,
-        };
+        }
+    }
+
+    fn plain_input(ctx_size: egui::Vec2) -> egui::RawInput {
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, ctx_size)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn draw_populates_audit_report() {
+        let ctx = egui::Context::default();
+        let mut state = open_inspector_state();
         // Pass 1 registers widgets; pass 2 audits them.
         for _ in 0..2 {
             let _ = crate::test_frame::frame(&ctx, plain_input(egui::vec2(800.0, 600.0)), |ui| {
@@ -1255,18 +1254,7 @@ mod tests {
     #[test]
     fn pointer_press_pins_the_widget_under_the_click() {
         let ctx = egui::Context::default();
-        let mut state = DevToolsState {
-            open: true,
-            selected: None,
-            pending_pick: None,
-            audit: None,
-            prev_audit: None,
-            audit_dumped: false,
-            audit_frames: 0,
-            pending_audit: None,
-            fixture_painted: false,
-            stable_streak: 0,
-        };
+        let mut state = open_inspector_state();
 
         // Paint the button in the same pass the press lands — picks resolve
         // against the previous pass's widgets, so the target must exist there.
@@ -1309,18 +1297,8 @@ mod tests {
     #[test]
     fn selection_survives_pointer_move_and_escape_clears() {
         let ctx = egui::Context::default();
-        let mut state = DevToolsState {
-            open: true,
-            selected: None,
-            pending_pick: Some(Pos2::new(140.0, 112.0)),
-            audit: None,
-            prev_audit: None,
-            audit_dumped: false,
-            audit_frames: 0,
-            pending_audit: None,
-            fixture_painted: false,
-            stable_streak: 0,
-        };
+        let mut state = open_inspector_state();
+        state.pending_pick = Some(Pos2::new(140.0, 112.0));
 
         // Pass 1 paints the target; the pending pick resolves on the next pass
         // once the widget exists in prev_pass.
@@ -1390,18 +1368,7 @@ mod tests {
     #[test]
     fn inspector_widgets_are_not_pickable() {
         let ctx = egui::Context::default();
-        let mut state = DevToolsState {
-            open: true,
-            selected: None,
-            pending_pick: None,
-            audit: None,
-            prev_audit: None,
-            audit_dumped: false,
-            audit_frames: 0,
-            pending_audit: None,
-            fixture_painted: false,
-            stable_streak: 0,
-        };
+        let mut state = open_inspector_state();
 
         // Pass 1 draws the inspector itself plus a background button.
         let _ = crate::test_frame::frame(&ctx, plain_input(egui::vec2(800.0, 600.0)), |ui| {
@@ -1486,42 +1453,21 @@ mod tests {
         );
     }
 
-    #[test]
-    fn selection_follows_the_widget_after_scrolling() {
-        let ctx = egui::Context::default();
-        let mut state = DevToolsState {
-            open: true,
-            selected: None,
-            pending_pick: None,
-            audit: None,
-            prev_audit: None,
-            audit_dumped: false,
-            audit_frames: 0,
-            pending_audit: None,
-            fixture_painted: false,
-            stable_streak: 0,
-        };
+    fn draw_test_scroller(ui: &mut Ui) {
+        egui::ScrollArea::vertical()
+            .id_salt("geom_scroll_test")
+            .max_height(100.0)
+            .show(ui, |ui| {
+                for i in 0..40 {
+                    let _ = ui.button(format!("row {i}"));
+                }
+            });
+    }
 
-        let draw_scroller = |ui: &mut Ui| {
-            egui::ScrollArea::vertical()
-                .id_salt("geom_scroll_test")
-                .max_height(100.0)
-                .show(ui, |ui| {
-                    for i in 0..40 {
-                        let _ = ui.button(format!("row {i}"));
-                    }
-                });
-        };
-
-        // Pass 1: draw scroller + inspector.
-        let _ = crate::test_frame::frame(&ctx, plain_input(egui::vec2(800.0, 600.0)), |ui| {
-            draw_scroller(ui);
-            state.draw(ui.ctx(), DbProTheme::dark());
-        });
-
-        // Pick the 2nd visible row — `widget_info`/`label` is only recorded
-        // for interacted widgets, so locate by sense + vertical position.
-        let snapshot = GeometrySnapshot::collect(&ctx, inspector_id());
+    /// The second visible clickable row — `widget_info`/`label` is only
+    /// recorded for interacted widgets, so locate by sense + position.
+    fn second_scrolled_row_center(ctx: &egui::Context) -> Pos2 {
+        let snapshot = GeometrySnapshot::collect(ctx, inspector_id());
         let mut rows: Vec<_> = snapshot
             .layers
             .iter()
@@ -1535,14 +1481,27 @@ mod tests {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         let row = rows.get(1).expect("a visible scrolled row must exist");
-        let center = row.to_global_rect(&ctx).center();
+        row.to_global_rect(ctx).center()
+    }
+
+    #[test]
+    fn selection_follows_the_widget_after_scrolling() {
+        let ctx = egui::Context::default();
+        let mut state = open_inspector_state();
+
+        // Pass 1: draw scroller + inspector.
+        let _ = crate::test_frame::frame(&ctx, plain_input(egui::vec2(800.0, 600.0)), |ui| {
+            draw_test_scroller(ui);
+            state.draw(ui.ctx(), DbProTheme::dark());
+        });
+        let center = second_scrolled_row_center(&ctx);
         state.pending_pick = Some(center);
 
         // Pass 2: the pending pick resolves against pass-1 widgets. Picking a
         // row's rect may pin the row's inner Ui or the row itself — the
         // contract is that *a* widget covering the point is pinned.
         let _ = crate::test_frame::frame(&ctx, plain_input(egui::vec2(800.0, 600.0)), |ui| {
-            draw_scroller(ui);
+            draw_test_scroller(ui);
             state.draw(ui.ctx(), DbProTheme::dark());
         });
         let picked = state.selected.as_ref().expect("pending pick must pin a widget");
@@ -1566,7 +1525,7 @@ mod tests {
                 ..Default::default()
             },
             |ui| {
-                draw_scroller(ui);
+                draw_test_scroller(ui);
                 state.draw(ui.ctx(), DbProTheme::dark());
             },
         );
