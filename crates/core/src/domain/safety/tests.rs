@@ -40,10 +40,18 @@ fn classify_insert_is_write() {
 }
 
 #[test]
-fn classify_update_is_write() {
+fn classify_update_with_where_is_write() {
+    assert_eq!(
+        classify_statement_safety("UPDATE t SET x = 1 WHERE id = 2"),
+        Some(StatementSafety::Write)
+    );
+}
+
+#[test]
+fn classify_update_without_where_is_destructive() {
     assert_eq!(
         classify_statement_safety("UPDATE t SET x = 1"),
-        Some(StatementSafety::Write)
+        Some(StatementSafety::Destructive)
     );
 }
 
@@ -77,6 +85,64 @@ fn delete_identifier_containing_where_is_still_destructive() {
         classify_statement_safety("DELETE FROM t RETURNING $tag$ WHERE $tag$"),
         Some(StatementSafety::Destructive)
     );
+}
+
+#[test]
+fn delete_and_update_with_tautology_where_are_destructive() {
+    for sql in [
+        "DELETE FROM t WHERE true",
+        "DELETE FROM t WHERE 1 = 1",
+        "DELETE FROM t WHERE 1=1",
+        "DELETE FROM t WHERE ( 1 = 1 )",
+        "DELETE FROM t WHERE '' = ''",
+        "DELETE FROM t WHERE 1 = 1 -- always",
+        "UPDATE t SET x = 1 WHERE true",
+        "UPDATE t SET x = 1 WHERE 1 = 1",
+    ] {
+        assert_eq!(
+            classify_statement_safety(sql),
+            Some(StatementSafety::Destructive),
+            "{sql}"
+        );
+    }
+}
+
+#[test]
+fn delete_and_update_with_real_where_stay_writes() {
+    for sql in [
+        "DELETE FROM t WHERE id = 1",
+        "DELETE FROM t WHERE name = 'x' RETURNING id",
+        "UPDATE t SET x = 1 WHERE id = 2",
+        "UPDATE t SET x = 1 WHERE true AND id = 2",
+    ] {
+        assert_eq!(
+            classify_statement_safety(sql),
+            Some(StatementSafety::Write),
+            "{sql}"
+        );
+    }
+}
+
+#[test]
+fn select_into_is_ddl_not_read() {
+    assert_eq!(
+        classify_statement_safety("SELECT * INTO backup FROM users"),
+        Some(StatementSafety::Ddl)
+    );
+    assert_eq!(
+        classify_statement_safety("SELECT id FROM t"),
+        Some(StatementSafety::Read)
+    );
+}
+
+#[test]
+fn privilege_and_maintenance_verbs_are_gated() {
+    for sql in ["GRANT SELECT ON t TO r", "REVOKE ALL ON t FROM r", "SECURITY LABEL FOR p ON t IS 'x'"] {
+        assert_eq!(classify_statement_safety(sql), Some(StatementSafety::Ddl), "{sql}");
+    }
+    for sql in ["VACUUM FULL t", "CLUSTER t USING idx", "REINDEX TABLE t", "DISCARD ALL"] {
+        assert_eq!(classify_statement_safety(sql), Some(StatementSafety::Destructive), "{sql}");
+    }
 }
 
 #[test]
@@ -165,7 +231,7 @@ fn classify_with_select_is_read() {
 #[test]
 fn classify_with_update_is_write() {
     assert_eq!(
-        classify_statement_safety("WITH cte AS (SELECT id FROM t) UPDATE t SET x = 1"),
+        classify_statement_safety("WITH cte AS (SELECT id FROM t) UPDATE t SET x = 1 WHERE id = 1"),
         Some(StatementSafety::Write)
     );
 }
@@ -435,7 +501,7 @@ fn script_safety_takes_the_most_dangerous_statement() {
         Some(StatementSafety::Destructive)
     );
     assert_eq!(
-        classify_script_safety("SELECT 1; UPDATE t SET a = 1"),
+        classify_script_safety("SELECT 1; UPDATE t SET a = 1 WHERE id = 1"),
         Some(StatementSafety::Write)
     );
     assert_eq!(

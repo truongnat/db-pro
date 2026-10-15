@@ -15,6 +15,8 @@ pub(crate) struct TableEventTransition {
 pub(crate) enum TableFailureTransition {
     Handled,
     StagedApplyFailed,
+    /// The failed request was a workbench/table ExecuteDdl run.
+    DdlFailed,
 }
 
 /// Routes a table-related failure to the matching request slot.
@@ -80,7 +82,7 @@ pub(crate) fn handle_table_request_failure(
         let formatted = format!("DDL execution failed · {message}");
         feedback.set_runtime_message(formatted.clone());
         feedback.show_error_toast(formatted);
-        return Some(TableFailureTransition::Handled);
+        return Some(TableFailureTransition::DdlFailed);
     }
     None
 }

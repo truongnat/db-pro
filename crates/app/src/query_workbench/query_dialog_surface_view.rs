@@ -58,6 +58,14 @@ impl DestructiveDialogContext<'_> {
                     .color(self.theme.text_secondary),
             );
         });
+        if !self.pending.target_label().is_empty() {
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new(format!("Runs on: {}", self.pending.target_label()))
+                    .strong()
+                    .color(self.theme.warning),
+            );
+        }
         ui.add_space(SPACE_SM);
         ui.colored_label(
             self.theme.warning,

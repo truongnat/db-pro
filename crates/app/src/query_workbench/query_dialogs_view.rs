@@ -130,6 +130,23 @@ impl DbProApp {
         else {
             return;
         };
+        // EXPLAIN ANALYZE executes its inner statement: a destructive one must go
+        // through the same confirmation gate as a direct run, not just a checkbox.
+        let held_destructive = request.analyze
+            && request.analyze_executes
+            && db_pro_core::domain::safety::classify_script_safety(&request.sql)
+                == Some(db_pro_core::domain::safety::StatementSafety::Destructive);
+        if held_destructive {
+            let version = self.query.session.active_buffer_version();
+            self.hold_destructive_run(
+                &request.sql,
+                PendingDestructiveRunOrigin::ExplainAnalyze,
+                (0, request.sql.len()),
+                version,
+                false,
+            );
+            return;
+        }
         let request_id = self.next_request_id();
         let command = UiCommand::ExplainQuery {
             request_id,

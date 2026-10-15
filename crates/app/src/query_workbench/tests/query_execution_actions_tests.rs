@@ -22,10 +22,49 @@
         let mut feedback = FeedbackState::default();
         let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "PostgreSQL");
 
-        assert!(context.hold_destructive_run("DROP TABLE users", (0, 16), 0, false));
-        assert!(context.take_pending_destructive_run().is_some());
+        assert!(context.hold_destructive_run(
+            "DROP TABLE users",
+            PendingDestructiveRunOrigin::QueryEditor,
+            "conn · public".to_owned(),
+            (0, 16),
+            0,
+            false
+        ));
+        let pending = context.take_pending_destructive_run().expect("held run");
+        assert_eq!(pending.origin(), PendingDestructiveRunOrigin::QueryEditor);
+        assert_eq!(pending.target_label(), "conn · public");
         assert!(session.active_running_request().is_none());
         assert!(feedback.runtime_message.contains("held for confirmation"));
+    }
+
+    #[test]
+    fn a_second_destructive_run_never_overwrites_the_held_one() {
+        let mut session = QuerySessionState::default();
+        let mut editor = QueryEditorState::default();
+        let mut policy = QueryExecutionPolicyState::default();
+        let mut feedback = FeedbackState::default();
+        let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "PostgreSQL");
+
+        assert!(context.hold_destructive_run(
+            "DROP TABLE first",
+            PendingDestructiveRunOrigin::QueryEditor,
+            "conn".to_owned(),
+            (0, 16),
+            0,
+            false
+        ));
+        // A second destructive dispatch while the prompt is open must not replace it.
+        assert!(context.hold_destructive_run(
+            "DROP TABLE second",
+            PendingDestructiveRunOrigin::InlineQuery,
+            "conn".to_owned(),
+            (0, 17),
+            0,
+            false
+        ));
+        let pending = context.take_pending_destructive_run().expect("held run");
+        assert_eq!(pending.sql(), "DROP TABLE first");
+        assert_eq!(pending.origin(), PendingDestructiveRunOrigin::QueryEditor);
     }
 
     #[test]

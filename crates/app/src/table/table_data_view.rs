@@ -248,7 +248,7 @@ impl DbProApp {
             return;
         }
         let execution_range = (0, sql.len());
-        if self.hold_destructive_run(&sql, execution_range, 0, false) {
+        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::InlineQuery, execution_range, 0, false) {
             self.table.data_query.pending_inline_query_confirmation = true;
             return;
         }

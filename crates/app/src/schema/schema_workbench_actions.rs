@@ -144,7 +144,10 @@ impl DbProApp {
             sql: request.sql,
         };
         if self.dispatch_command(command) {
-            self.schema.workbench.record_execution(&kind, &name, &sql, &safety, true);
+            // The entry starts as pending (success=false) and is patched by the DdlCompleted /
+            // failure event — dispatching only proves the command was queued.
+            let index = self.schema.workbench.record_execution(&kind, &name, &sql, &safety, false);
+            self.schema.workbench.pending_execution = Some((request_id, index));
             self.table.state.ddl_execution_request = Some(request_id);
             self.feedback.runtime_message = "Applying schema mutation…".into();
         }

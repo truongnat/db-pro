@@ -121,12 +121,21 @@ impl DbProApp {
         false
     }
 
-    fn toggle_focused_comment(&mut self) {
-        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
+    /// SQL dialect for editor features. `numbered_parameters` is a placeholder-style
+    /// capability, not a dialect — MySQL/SQL Server would be mis-formatted as SQLite.
+    fn editor_dialect(&self) -> crate::editor::SqlDialect {
+        let driver = self.active_driver();
+        if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
             crate::editor::SqlDialect::Postgres
-        } else {
+        } else if driver.eq_ignore_ascii_case("sqlite") {
             crate::editor::SqlDialect::SQLite
-        };
+        } else {
+            crate::editor::SqlDialect::Generic
+        }
+    }
+
+    fn toggle_focused_comment(&mut self) {
+        let dialect = self.editor_dialect();
         let index = self.query.session.active_document_index;
         if let Some(document) = self.query.session.documents.get_mut(index) {
             query_view::toggle_query_comment(document, dialect);
@@ -174,11 +183,7 @@ impl DbProApp {
     }
 
     fn format_focused_query(&mut self) {
-        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
-            crate::editor::SqlDialect::Postgres
-        } else {
-            crate::editor::SqlDialect::SQLite
-        };
+        let dialect = self.editor_dialect();
         let index = self.query.session.active_document_index;
         if let Some(document) = self.query.session.documents.get_mut(index) {
             query_view::format_query_document(document, dialect);
@@ -250,7 +255,7 @@ impl DbProApp {
         // tasks and other send_query_run callers keep their exact text.
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let version = self.query.session.active_buffer_version();
-        if self.hold_destructive_run(&sql, execution_range, version, false) {
+        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, execution_range, version, false) {
             return false;
         }
         self.send_query_run(connection_id, sql, execution_range, version, false)
@@ -291,7 +296,7 @@ impl DbProApp {
         }
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let version = self.query.session.active_buffer_version();
-        if self.hold_destructive_run(&sql, execution_range, version, true) {
+        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, execution_range, version, true) {
             return;
         }
         self.send_query_run(connection_id, sql, execution_range, version, true);
@@ -307,45 +312,72 @@ impl DbProApp {
     pub(super) fn hold_destructive_run(
         &mut self,
         sql: &str,
+        origin: PendingDestructiveRunOrigin,
         execution_range: (usize, usize),
         version: u64,
         all_statements: bool,
     ) -> bool {
+        // Resolve the connection the prompt names at hold time: confirming later may look
+        // at a different active connection, and the dialog must show what will execute.
+        let target_label = match origin {
+            PendingDestructiveRunOrigin::InlineQuery => self.active_connection_name().to_owned(),
+            PendingDestructiveRunOrigin::QueryEditor | PendingDestructiveRunOrigin::ExplainAnalyze => {
+                let schema = self.active_schema();
+                if schema.is_empty() {
+                    self.active_connection_name().to_owned()
+                } else {
+                    format!("{} · {schema}", self.active_connection_name())
+                }
+            }
+        };
         self.query_execution_context()
-            .hold_destructive_run(sql, execution_range, version, all_statements)
+            .hold_destructive_run(sql, origin, target_label, execution_range, version, all_statements)
     }
 
     /// Send the statement the user confirmed. The text and the buffer version are the ones
     /// the prompt displayed, so a confirmation can never execute something the user did
     /// not see.
     pub(super) fn confirm_pending_destructive_run(&mut self) {
-        let Some(pending) = self.query_execution_context().take_pending_destructive_run() else {
+        // Peek before taking: without a connection the pending run must stay held so the
+        // statement is not silently lost.
+        let Some(pending) = self.query.execution.pending_destructive_run() else {
             return;
         };
-        if self.table.data_query.pending_inline_query_confirmation {
-            self.table.data_query.pending_inline_query_confirmation = false;
-            let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {
-                self.feedback.runtime_message = "Create or select a connection first".to_owned();
-                return;
-            };
-            self.send_table_data_query_run(connection_id, pending.sql().to_owned());
-            return;
-        }
-        let Some(connection_id) = self
-            .active_query_connection_id()
-            .map(String::from)
-            .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
-        else {
+        let origin = pending.origin();
+        let sql = pending.sql().to_owned();
+        let execution_range = pending.execution_range();
+        let version = pending.version();
+        let all_statements = pending.all_statements();
+        let connection_id = match origin {
+            PendingDestructiveRunOrigin::InlineQuery => self
+                .active_connection()
+                .map(|connection| connection.id.clone()),
+            PendingDestructiveRunOrigin::QueryEditor | PendingDestructiveRunOrigin::ExplainAnalyze => self
+                .active_query_connection_id()
+                .map(String::from)
+                .or_else(|| self.active_connection().map(|connection| connection.id.clone())),
+        };
+        let Some(connection_id) = connection_id else {
             self.feedback.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
-        self.send_query_run(
-            connection_id,
-            pending.sql().to_owned(),
-            pending.execution_range(),
-            pending.version(),
-            pending.all_statements(),
-        );
+        if self.query_execution_context().take_pending_destructive_run().is_none() {
+            return;
+        }
+        self.table.data_query.pending_inline_query_confirmation = false;
+        // Route by the origin the hold was created with — the confirm target cannot drift
+        // to whichever flag happened to be set at confirm time.
+        match origin {
+            PendingDestructiveRunOrigin::InlineQuery => {
+                self.send_table_data_query_run(connection_id, sql);
+            }
+            PendingDestructiveRunOrigin::ExplainAnalyze => {
+                self.send_explain_run(connection_id, sql, true);
+            }
+            PendingDestructiveRunOrigin::QueryEditor => {
+                self.send_query_run(connection_id, sql, execution_range, version, all_statements);
+            }
+        }
     }
 
     /// Drop a held destructive statement without executing it.
@@ -380,6 +412,45 @@ impl DbProApp {
         } else {
             None
         }
+    }
+
+    /// Dispatch `ExplainQuery` for an EXPLAIN ANALYZE the user just confirmed through the
+    /// destructive-run dialog. Skips `prepare` — the pending run already proved the gate.
+    pub(crate) fn send_explain_run(&mut self, connection_id: String, sql: String, analyze: bool) -> bool {
+        let request = query_explain_actions::PreparedExplainRequest {
+            connection_id,
+            sql,
+            params: Vec::new(),
+            analyze,
+            analyze_executes: true,
+            document_index: self.query.session.active_document_index,
+        };
+        let request_id = self.next_request_id();
+        let command = UiCommand::ExplainQuery {
+            request_id,
+            connection_id: request.connection_id.clone(),
+            sql: request.sql.clone(),
+            params: request.params.clone(),
+            analyze: request.analyze,
+            schema: self.query.session.active_schema().map(str::to_owned),
+            session_id: self.query.session.active_document().map(|document| document.id.clone()),
+        };
+        if !self.dispatch_command(command) {
+            return false;
+        }
+        if let Some(document) = self.query.session.documents.get_mut(request.document_index) {
+            document.explain_request = Some(request_id);
+            document.explain_plan = None;
+        }
+        self.query.execution.pending_explain_analyze = false;
+        self.query.execution.explain_analyze_confirmed = false;
+        self.query.output.set_active_for_optional_document(
+            self.query.session.active_document().map(|document| document.id.as_str()),
+            OutputTab::Explain,
+        );
+        self.feedback
+            .set_runtime_message("EXPLAIN ANALYZE running (query executes)…");
+        true
     }
 
     pub(crate) fn send_table_data_query_run(&mut self, connection_id: String, sql: String) -> bool {

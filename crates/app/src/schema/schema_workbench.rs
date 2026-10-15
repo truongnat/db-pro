@@ -109,6 +109,9 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) docs_format_html: bool,
     pub(super) dependency_filter: String,
     pub(super) history: Vec<DdlExecutionHistoryEntry>,
+    /// Workbench-dispatched ExecuteDdl request awaiting its terminal event, and the
+    /// history index `record_execution` returned for it (pending entries sit at index 0).
+    pub(super) pending_execution: Option<(crate::RequestId, usize)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -189,12 +192,15 @@ impl Default for SchemaWorkbenchState {
             docs_format_html: false,
             dependency_filter: String::new(),
             history: Vec::new(),
+            pending_execution: None,
         }
     }
 }
 
 impl SchemaWorkbenchState {
-    pub(super) fn record_execution(&mut self, kind: &str, name: &str, sql: &str, safety: &str, success: bool) {
+    /// Record a dispatched run as pending (`success=false`) and return its history index so the
+    /// completion/failure event can patch the entry with the real outcome.
+    pub(super) fn record_execution(&mut self, kind: &str, name: &str, sql: &str, safety: &str, success: bool) -> usize {
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         self.history.insert(0, DdlExecutionHistoryEntry {
             timestamp,
@@ -207,6 +213,23 @@ impl SchemaWorkbenchState {
         if self.history.len() > 100 {
             self.history.truncate(100);
         }
+        0
+    }
+
+    /// Patch the pending history entry with the terminal outcome for `request_id`.
+    /// Returns `true` when the request belonged to a workbench-dispatched DDL run.
+    pub(super) fn finalize_execution(&mut self, request_id: crate::RequestId, success: bool) -> bool {
+        let Some((pending_id, index)) = self.pending_execution.take() else {
+            return false;
+        };
+        if pending_id != request_id {
+            self.pending_execution = Some((pending_id, index));
+            return false;
+        }
+        if let Some(entry) = self.history.get_mut(index) {
+            entry.success = success;
+        }
+        true
     }
 
     pub(super) fn prepare_ddl_request(&self, connection_id: String) -> Result<SchemaWorkbenchDdlRequest, String> {

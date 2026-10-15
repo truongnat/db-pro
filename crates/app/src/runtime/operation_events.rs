@@ -206,6 +206,8 @@ impl DbProApp {
     /// DDL applied; re-introspect so the tree and table view pick up the change.
     pub(super) fn on_ddl_completed(&mut self, request_id: RequestId, affected_rows: u64) {
         let design_apply = self.schema.diagram.design.apply_request == Some(request_id.0);
+        // Patch the workbench history entry with the real outcome.
+        self.schema.workbench.finalize_execution(request_id, true);
         if let Some(transition) = ddl_events::on_ddl_completed(
             &mut self.table.state,
             &mut self.management.security,

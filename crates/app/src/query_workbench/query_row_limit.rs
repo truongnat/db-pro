@@ -43,8 +43,29 @@ pub(super) fn apply_row_limit(sql: &str, limit: Option<u64>, driver: &str) -> St
         }
         inject_top(sql, limit, &tokens).unwrap_or_else(|| sql.to_owned())
     } else {
-        format!("{} LIMIT {limit}", sql.trim().trim_end_matches(';').trim_end())
+        // Splice before a trailing `;` and any trailing comments/whitespace — appending LIMIT
+        // at the very end would leave it inside a `--` line comment and the cap never applies.
+        inject_limit(sql, limit, &tokens).unwrap_or_else(|| sql.to_owned())
     }
+}
+
+/// Byte offset just after the statement's last meaningful token (before a trailing `;`,
+/// whitespace, or comments). `None` when the statement is comment-only.
+fn statement_body_end(sql: &str, tokens: &[SyntaxToken]) -> Option<usize> {
+    let mut end = tokens
+        .iter()
+        .rev()
+        .find(|token| !matches!(token.kind, SyntaxTokenKind::Whitespace | SyntaxTokenKind::Comment))
+        .map(|token| token.range.1)?;
+    while end > 0 && sql[..end].trim_end().ends_with(';') {
+        end = sql[..end].trim_end().len() - 1;
+    }
+    Some(end)
+}
+
+fn inject_limit(sql: &str, limit: u64, tokens: &[SyntaxToken]) -> Option<String> {
+    let end = statement_body_end(sql, tokens)?;
+    Some(format!("{} LIMIT {}{}", &sql[..end], limit, &sql[end..]))
 }
 
 fn is_sqlserver(driver: &str) -> bool {

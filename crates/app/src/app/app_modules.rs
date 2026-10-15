@@ -285,7 +285,7 @@ pub(crate) use overlay_state::OverlayState;
 pub(crate) use palette_state::PaletteState;
 use pg_settings_state::PgSettingsState;
 pub(crate) use preferences_state::PreferencesState;
-pub(crate) use query_execution_state::QueryExecutionPolicyState;
+pub(crate) use query_execution_state::{PendingDestructiveRunOrigin, QueryExecutionPolicyState};
 pub(crate) use query_library_state::QueryLibraryState;
 use replication_state::ReplicationState;
 use routine_state::RoutineState;

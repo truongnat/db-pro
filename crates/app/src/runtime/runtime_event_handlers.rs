@@ -228,6 +228,14 @@ impl DbProApp {
                 }
                 true
             }
+            Some(table_events::TableFailureTransition::DdlFailed) => {
+                self.schema.workbench.finalize_execution(request_id, false);
+                if design_apply {
+                    self.schema.diagram.design.apply_request = None;
+                    self.schema.diagram.design.error = Some(message.to_owned());
+                }
+                true
+            }
             None => false,
         }
     }

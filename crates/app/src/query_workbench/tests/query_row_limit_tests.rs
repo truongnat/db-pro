@@ -9,7 +9,28 @@
         );
         assert_eq!(
             apply_row_limit("SELECT * FROM users;", Some(100), "SQLite"),
-            "SELECT * FROM users LIMIT 100"
+            "SELECT * FROM users LIMIT 100;"
+        );
+    }
+
+    #[test]
+    fn limit_lands_before_a_trailing_line_comment() {
+        // A `--` tail comment must not swallow the injected cap.
+        assert_eq!(
+            apply_row_limit("SELECT * FROM big_table -- nightly report", Some(500), "PostgreSQL"),
+            "SELECT * FROM big_table LIMIT 500 -- nightly report"
+        );
+        assert_eq!(
+            apply_row_limit("SELECT * FROM t; -- done", Some(500), "PostgreSQL"),
+            "SELECT * FROM t LIMIT 500; -- done"
+        );
+    }
+
+    #[test]
+    fn limit_lands_before_a_trailing_block_comment() {
+        assert_eq!(
+            apply_row_limit("SELECT 1 /* audit */", Some(500), "PostgreSQL"),
+            "SELECT 1 LIMIT 500 /* audit */"
         );
     }
 

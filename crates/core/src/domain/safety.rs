@@ -56,20 +56,41 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
     let keyword = upper.split_whitespace().next()?;
 
     match keyword {
-        "SELECT" | "SHOW" | "TABLE" => Some(StatementSafety::Read),
+        "SHOW" | "TABLE" => Some(StatementSafety::Read),
+        "SELECT" => {
+            // SELECT … INTO creates a table (Postgres) or writes a file (MySQL OUTFILE):
+            // a top-level INTO is DDL-shaped, not a plain read.
+            if has_top_level_sql_keyword(trimmed, "INTO") {
+                Some(StatementSafety::Ddl)
+            } else {
+                Some(StatementSafety::Read)
+            }
+        }
         "EXPLAIN" => classify_explain_safety(trimmed),
         "WITH" => classify_cte_safety(trimmed),
-        "INSERT" | "UPDATE" => Some(StatementSafety::Write),
+        "INSERT" => Some(StatementSafety::Write),
+        "UPDATE" => {
+            if statement_lacks_effective_where(trimmed) {
+                Some(StatementSafety::Destructive)
+            } else {
+                Some(StatementSafety::Write)
+            }
+        }
         "DELETE" => {
-            if is_delete_without_where(trimmed) {
+            if statement_lacks_effective_where(trimmed) {
                 Some(StatementSafety::Destructive)
             } else {
                 Some(StatementSafety::Write)
             }
         }
         "CREATE" | "ALTER" => Some(StatementSafety::Ddl),
+        // Privilege mutations belong in the DDL/audit tier, not with ordinary writes.
+        "GRANT" | "REVOKE" | "SECURITY" => Some(StatementSafety::Ddl),
         "DROP" => Some(StatementSafety::Destructive),
         "TRUNCATE" => Some(StatementSafety::Destructive),
+        // Full-table rewrites and session teardown: VACUUM FULL/CLUSTER rewrite and lock the
+        // table, REINDEX rebuilds under a lock, DISCARD ALL wipes session state.
+        "VACUUM" | "CLUSTER" | "REINDEX" | "DISCARD" => Some(StatementSafety::Destructive),
         // These statements can execute server-side or dynamically prepared
         // mutations that the client-side classifier cannot inspect safely.
         "DO" | "CALL" | "EXECUTE" => Some(StatementSafety::Destructive),
@@ -226,9 +247,120 @@ fn consume_keyword<'a>(sql: &'a str, expected: &str) -> Option<(&'a str, &'a str
     }
 }
 
-/// Check whether a DELETE statement lacks a WHERE clause.
-fn is_delete_without_where(sql: &str) -> bool {
-    !contains_sql_keyword(sql, "WHERE")
+/// Check whether a DELETE/UPDATE's top-level WHERE clause is missing or is a
+/// trivially-true predicate (`WHERE TRUE`, `WHERE 1=1`, `WHERE 'a'='a'`).
+fn statement_lacks_effective_where(sql: &str) -> bool {
+    let Some(clause) = top_level_where_clause(sql) else {
+        return true;
+    };
+    where_clause_is_tautology(clause)
+}
+
+/// The text of the depth-0 WHERE clause, up to the next clause keyword
+/// (`RETURNING`, `ORDER BY`, `LIMIT`, …). `None` when no top-level WHERE exists —
+/// a WHERE inside a subquery does not restrict the outer mutation.
+fn top_level_where_clause(sql: &str) -> Option<&str> {
+    const CLAUSE_ENDERS: [&str; 6] = ["returning", "order", "group", "limit", "offset", "output"];
+    let mut depth = 0usize;
+    let mut where_start = None;
+    let mut clause_end = sql.len();
+    for token in tokenize_sql(sql) {
+        match token.kind {
+            SqlTokenKind::OpenParen => depth += 1,
+            SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),
+            SqlTokenKind::Word if depth == 0 => {
+                if where_start.is_none() {
+                    if token_is_word(sql, token, "where") {
+                        where_start = Some(token.end);
+                    }
+                } else if CLAUSE_ENDERS.iter().any(|w| token_is_word(sql, token, w)) {
+                    clause_end = token.start;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    where_start.map(|start| &sql[start..clause_end])
+}
+
+/// True when the clause text is a single literal truthy expression:
+/// `TRUE`, a non-zero number, or `LITERAL = LITERAL` with equal literals.
+/// Anything more complex stays effective — false negatives keep writes gated.
+fn where_clause_is_tautology(clause: &str) -> bool {
+    let compact = compact_clause(clause);
+    let compact = strip_outer_parentheses(&compact);
+    if compact.eq_ignore_ascii_case("true") {
+        return true;
+    }
+    if let Ok(number) = compact.parse::<f64>() {
+        return number != 0.0;
+    }
+    if let Some(eq) = compact.find('=') {
+        let left = compact[..eq].trim();
+        let right = compact[eq + 1..].trim();
+        return is_sql_literal(left) && left == right;
+    }
+    false
+}
+
+fn is_sql_literal(text: &str) -> bool {
+    (text.len() > 1 && text.starts_with('\'') && text.ends_with('\''))
+        || text.parse::<f64>().is_ok()
+        || text.eq_ignore_ascii_case("true")
+        || text.eq_ignore_ascii_case("false")
+}
+
+/// Remove whitespace, comments and `;` outside of quoted strings, then collapse
+/// runs of real whitespace to a single space so tokens stay separated.
+fn compact_clause(clause: &str) -> String {
+    let bytes = clause.as_bytes();
+    let mut out = String::with_capacity(clause.len());
+    let mut index = 0;
+    let mut pending_space = false;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' | b'"' => {
+                if pending_space && !out.is_empty() {
+                    out.push(' ');
+                }
+                pending_space = false;
+                let end = skip_quoted(bytes, index, bytes[index]);
+                out.push_str(&clause[index..end]);
+                index = end;
+            }
+            b'-' if bytes.get(index + 1) == Some(&b'-') => index = skip_line_comment(bytes, index),
+            b'/' if bytes.get(index + 1) == Some(&b'*') => index = skip_block_comment(bytes, index),
+            byte if byte.is_ascii_whitespace() || byte == b';' => {
+                pending_space |= byte.is_ascii_whitespace();
+                index += 1;
+            }
+            _ => {
+                if pending_space && !out.is_empty() {
+                    out.push(' ');
+                }
+                pending_space = false;
+                out.push(bytes[index] as char);
+                index += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Strip balanced outer parentheses: `((1=1))` reduces to `1=1`.
+fn strip_outer_parentheses(text: &str) -> &str {
+    let mut text = text.trim();
+    loop {
+        if text.starts_with('(')
+            && text.ends_with(')')
+            && matching_parenthesis_end(text) == Some(text.len())
+        {
+            text = text[1..text.len() - 1].trim();
+        } else {
+            return text;
+        }
+    }
 }
 
 /// Find a keyword while ignoring quoted strings, quoted identifiers, and SQL
