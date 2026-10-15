@@ -58,3 +58,37 @@
         assert!(json.contains("\"x\": 1"), "{json}");
         assert!(json.contains("\"x_2\": 2"), "{json}");
     }
+
+    // #429: cells that Excel/LibreOffice would evaluate as formulas must be emitted as
+    // `'`-prefixed literal text instead.
+    #[test]
+    fn delimited_export_escapes_formula_leading_cells() {
+        assert_eq!(
+            escape_delimited_field("=HYPERLINK(\"http://evil\",\"x\")", ','),
+            "\"'=HYPERLINK(\"\"http://evil\"\",\"\"x\"\")\""
+        );
+        assert_eq!(escape_delimited_field("=1+1", ','), "'=1+1");
+        assert_eq!(escape_delimited_field("+SUM(A1)", ','), "'+SUM(A1)");
+        assert_eq!(escape_delimited_field("@SUM(1)", ','), "'@SUM(1)");
+        assert_eq!(escape_delimited_field("\t=1", ','), "'\t=1");
+        // A `-` value that parses as a number stays a number — otherwise every negative
+        // export would silently become text.
+        assert_eq!(escape_delimited_field("-42", ','), "-42");
+        assert_eq!(escape_delimited_field("-1+1", ','), "'-1+1");
+        assert_eq!(escape_delimited_field("plain", ','), "plain");
+    }
+
+    #[test]
+    fn csv_header_and_number_cells_get_formula_guard() {
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "=evil".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("-1+1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        assert_eq!(format_result_delimited(&result, ","), "'=evil\n'-1+1\n");
+    }

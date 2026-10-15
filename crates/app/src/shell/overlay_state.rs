@@ -21,6 +21,30 @@ pub(crate) struct OverlayState {
     pub(super) folder_delete_confirmation: Option<String>,
 }
 
+impl OverlayState {
+    /// The path the export will actually write (#396).
+    ///
+    /// The format's extension is appended when the typed path has none or a different one
+    /// (`out.csv` + INSERT format → `out.csv.sql`) so the file on disk always matches its contents;
+    /// an already-correct extension is kept as typed.
+    pub(crate) fn effective_export_path(&self) -> std::path::PathBuf {
+        let raw = self.export_path.trim();
+        if raw.is_empty() {
+            return std::path::PathBuf::new();
+        }
+        let path = std::path::PathBuf::from(raw);
+        let expected = self.export_format.extension();
+        match path.extension().and_then(|ext| ext.to_str()) {
+            Some(existing) if existing.eq_ignore_ascii_case(expected) => path,
+            _ => {
+                let mut name = path.into_os_string();
+                name.push(format!(".{expected}"));
+                std::path::PathBuf::from(name)
+            }
+        }
+    }
+}
+
 /// File format the result-grid export dialog writes. Owned by the overlay
 /// state so the format list, labels and the writer dispatch in
 /// `query_dialogs_view.rs` cannot drift out of sync — a variant either exists
@@ -70,6 +94,18 @@ impl ExportFormat {
             Self::Csv => Some(","),
             Self::Tsv => Some("\t"),
             _ => None,
+        }
+    }
+
+    /// File extension matching what the writer emits (#396).
+    pub(crate) fn extension(self) -> &'static str {
+        match self {
+            Self::Csv => "csv",
+            Self::Tsv => "tsv",
+            Self::Json => "json",
+            Self::Markdown => "md",
+            Self::SqlInsert | Self::SqlCopy => "sql",
+            Self::Excel => "xlsx",
         }
     }
 }

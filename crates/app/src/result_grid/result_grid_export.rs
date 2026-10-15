@@ -30,11 +30,17 @@ pub(super) fn cell_sql_literal(cell: &UiCell) -> String {
     }
 }
 
+/// Escape one field for CSV/TSV output (file export and clipboard).
+///
+/// Beyond RFC-4180 quoting, a value a spreadsheet would evaluate — leading `=`, `+`, `@`, tab, … —
+/// is prefixed with `'` by `guard_csv_field` so exported data stays inert in Excel/LibreOffice
+/// (#429). Numeric literals parse back as numbers and are left alone.
 pub(super) fn escape_delimited_field(value: &str, delimiter: char) -> String {
+    let value = db_pro_core::application::guard_csv_field(value);
     if value.contains(delimiter) || value.contains('"') || value.contains('\n') || value.contains('\r') {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
-        value.to_owned()
+        value.into_owned()
     }
 }
 
@@ -42,7 +48,7 @@ pub(super) fn format_cell_delimited(cell: &UiCell, delimiter: char) -> String {
     match cell {
         UiCell::Null => String::new(),
         UiCell::Boolean(value) => value.to_string(),
-        UiCell::Number(value) => value.clone(),
+        UiCell::Number(value) => escape_delimited_field(value, delimiter),
         UiCell::Text(value) => escape_delimited_field(value, delimiter),
         UiCell::Json(value) => escape_delimited_field(value, delimiter),
         UiCell::Bytes(value) => escape_delimited_field(value, delimiter),

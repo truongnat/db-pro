@@ -1,20 +1,25 @@
 use std::collections::HashSet;
 
+use crate::application::guard_csv_field;
 use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryResult};
 
 pub(super) fn render_csv(result: &QueryResult) -> Result<Vec<u8>, DbError> {
     let mut writer = csv::Writer::from_writer(Vec::new());
-    let headers: Vec<&str> = result.columns.iter().map(|column| column.name.as_str()).collect();
+    // Guard headers too: a column literally named `=cmd|...` is just as evaluable (#429).
+    let headers: Vec<String> = result
+        .columns
+        .iter()
+        .map(|column| guard_csv_field(&column.name).into_owned())
+        .collect();
     writer
         .write_record(&headers)
         .map_err(|error| DbError::Internal(format!("csv header write failed: {error}")))?;
 
     for row in &result.rows {
-        let fields: Vec<String> = row.0.iter().map(cell_to_csv_string).collect();
-        let references: Vec<&str> = fields.iter().map(String::as_str).collect();
+        let fields: Vec<String> = row.0.iter().map(cell_to_csv_string).map(|value| guard_csv_field(&value).into_owned()).collect();
         writer
-            .write_record(&references)
+            .write_record(&fields)
             .map_err(|error| DbError::Internal(format!("csv row write failed: {error}")))?;
     }
 

@@ -179,6 +179,7 @@ query:
   export_format_label: "형식"
   export_output_file: "출력 파일"
   export_table_name: "대상 테이블"
+  export_path_adjusted: "%{path}(으)로 저장됩니다"
   export_visible_only: "표시 한도를 초과한 행은보내기에 포함되지 않습니다."
   export_overwrite_prompt: "%{path}이(가) 이미 있습니다. 덮어쓸까요?"
   overwrite: "덮어쓰기"

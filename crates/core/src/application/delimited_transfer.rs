@@ -133,14 +133,16 @@ impl TransferTarget for DelimitedFileTarget {
             .as_mut()
             .ok_or_else(|| TransferError::Target("writer already finished".into()))?;
         if !self.wrote_header && !self.headers.is_empty() {
+            let headers: Vec<String> = self.headers.iter().map(|h| guard_csv_field(h.as_str()).into_owned()).collect();
             writer
-                .write_record(&self.headers)
+                .write_record(&headers)
                 .map_err(|e| TransferError::Target(e.to_string()))?;
             self.wrote_header = true;
         }
         for row in rows {
+            let cells: Vec<String> = row.cells.iter().map(|cell| guard_csv_field(cell.as_str()).into_owned()).collect();
             writer
-                .write_record(&row.cells)
+                .write_record(&cells)
                 .map_err(|e| TransferError::Target(e.to_string()))?;
         }
         writer.flush().map_err(|e| TransferError::Target(e.to_string()))?;
@@ -170,6 +172,32 @@ pub fn csv_cell_from_display(value: &str, treat_empty_as_null_token: bool) -> St
         String::new()
     } else {
         value.to_owned()
+    }
+}
+
+/// Leading characters spreadsheet apps treat as formula starts (#429).
+///
+/// CSV/TSV cells that begin with one of these are prefixed with `'` (the Excel-standard literal
+/// escape) before they hit a delimited writer, so attacker-controlled database text like
+/// `=HYPERLINK(...)` or `=cmd|'/c calc'!A1` survives an export as inert text instead of executing
+/// when the file is opened in Excel or LibreOffice.
+const CSV_FORMULA_PREFIXES: &[char] = &['=', '+', '-', '@', '\t', '\r', '\n', ' '];
+
+/// Returns `value` prefixed with `'` when a spreadsheet would evaluate it as a formula.
+///
+/// A field whose whole text parses as an `f64` is exempt: `-42` or `+1.5` is a numeric literal every
+/// spreadsheet reads as a number, and quoting it as text would corrupt legitimate negative exports.
+/// Shared by every delimited write path (`DelimitedFileTarget`, service-level CSV renders, the
+/// result-grid CSV/TSV formatters) so the guard cannot drift between call sites.
+pub fn guard_csv_field(value: &str) -> std::borrow::Cow<'_, str> {
+    let starts_with_formula = value
+        .chars()
+        .next()
+        .is_some_and(|first| CSV_FORMULA_PREFIXES.contains(&first));
+    if starts_with_formula && value.parse::<f64>().is_err() {
+        std::borrow::Cow::Owned(format!("'{value}"))
+    } else {
+        std::borrow::Cow::Borrowed(value)
     }
 }
 
