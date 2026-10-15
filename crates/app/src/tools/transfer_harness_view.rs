@@ -88,7 +88,16 @@ impl TransferHarnessContext<'_> {
                 })
                 .collect(),
             keyed: self.management.masking.masking_keyed,
-            key_id: "local-dev".into(),
+            key_id: "local-install".into(),
+        };
+        // Keyed masking needs secret key material: the per-install key from
+        // `<data dir>/masking.key`, never a compile-time literal (#395).
+        let key_material = match masking::local_masking_key_material() {
+            Ok(key) => key,
+            Err(err) => {
+                self.management.masking.masking_error = Some(err);
+                return;
+            }
         };
         let raw = vec![
             db_pro_core::domain::transfer::TransferRow {
@@ -98,10 +107,10 @@ impl TransferHarnessContext<'_> {
                 cells: vec!["2".into(), "grace@example.com".into(), "0987654321".into()],
             },
         ];
-        let masked = mask_transfer_batch(&headers, &raw, &profile, "db-pro-local-masking-key");
+        let masked = mask_transfer_batch(&headers, &raw, &profile, &key_material);
         let mut job = TransferJob {
             id: format!("masked-{}", self.management.transfer.transfer_jobs.len() + 1),
-            label: format!("Masked CSV → {}", path.display()),
+            label: format!("Demo masked CSV → {}", path.display()),
             source: TransferSourceKind::Synthetic {
                 rows: masked.len() as u64,
             },
@@ -142,7 +151,8 @@ impl TransferHarnessContext<'_> {
                 }
                 let mut source = MaskedSource { rows: masked, idx: 0 };
                 let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
-                self.feedback.runtime_message = format!("Masked CSV written to {}", path.display());
+                self.feedback.runtime_message =
+                    format!("Demo masked CSV written to {} (synthetic rows)", path.display());
             }
             Err(err) => {
                 job.status = TransferStatus::Failed;

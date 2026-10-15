@@ -1012,6 +1012,86 @@ impl DbProApp {
         self.workspace.agent_open = true;
     }
 
+    /// Capture helper: Table workspace on the DDL view with the execute
+    /// confirmation card raised — the Apply DDL gate audit couldn't see (#359).
+    pub fn open_table_ddl_confirm_for_capture(&mut self, light: bool) {
+        self.open_table_ddl_for_capture(light);
+        self.table.state.ddl_execute_confirmation = true;
+    }
+
+    /// Capture helper: Query workspace holding a destructive statement for
+    /// confirmation, so the destructive-run dialog is visible (#359).
+    pub fn open_destructive_run_for_capture(&mut self) {
+        self.open_query_workspace_for_capture();
+        let sql = "DROP TABLE customers".to_owned();
+        if let Some(document) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            document.set_text(sql.clone());
+        }
+        let version = self.query.session.active_buffer_version();
+        self.query
+            .execution
+            .set_pending_destructive_run(query_execution_state::PendingDestructiveRun::new(
+                sql.clone(),
+                query_execution_state::PendingDestructiveRunOrigin::QueryEditor,
+                "capture-connection · public".to_owned(),
+                query_execution_state::PendingDestructiveRunMetadata::new((0, sql.len()), version, true),
+            ));
+    }
+
+    /// Capture helper: Query workspace with a deterministic EXPLAIN plan so the
+    /// explain view is populated (#359).
+    pub fn open_explain_plan_for_capture(&mut self) {
+        self.open_query_workspace_for_capture();
+        if let Some(document) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            document.set_text("SELECT * FROM customers WHERE email = 'ada@example.com'");
+            document.explain_plan = Some(
+                r#"[{"Plan":{"Node Type":"Seq Scan","Relation Name":"customers","Startup Cost":0.0,"Total Cost":35.5,"Plan Rows":1,"Plan Width":72,"Filter":"(email = 'ada@example.com'::text)"}}]"#
+                    .to_owned(),
+            );
+        }
+        self.workspace.bottom_panel_open = true;
+        self.workspace.bottom_panel_height = 280.0;
+    }
+
+    /// Capture helper: Agent sidebar with a seeded conversation thread so the
+    /// message list and composer are documented (#359).
+    pub fn open_agent_thread_for_capture(&mut self) {
+        self.open_agent_workspace_for_capture();
+        let Some(document) = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+        else {
+            return;
+        };
+        let document_id = document.id.clone();
+        let mut session = agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+        session.messages.push(crate::AgentMessage {
+            role: crate::AgentRole::User,
+            content: "List the customers who signed up this week".to_owned(),
+            sql: None,
+            requires_confirmation: false,
+        });
+        session.messages.push(crate::AgentMessage {
+            role: crate::AgentRole::Assistant,
+            content: "Here is a query that filters on created_at.".to_owned(),
+            sql: Some("SELECT * FROM customers WHERE created_at >= date_trunc('week', now())".to_owned()),
+            requires_confirmation: false,
+        });
+        self.agent.sessions.insert(document_id, session);
+    }
+
     /// Capture helper: open the native Component Gallery in its canonical dark theme.
     pub fn open_component_gallery_for_capture(&mut self) {
         let light = std::env::var_os("DB_PRO_CAPTURE_GALLERY_LIGHT").is_some();

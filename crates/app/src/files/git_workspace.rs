@@ -60,6 +60,63 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String, String> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Off-UI-thread execution (#391)
+//
+// `run_git` above is a blocking `Command::output()`. Views must never call it
+// directly from the draw path: the operations below are spawned on a dedicated
+// std::thread and report back through a channel the state polls per frame.
+// ---------------------------------------------------------------------------
+
+/// A git action the workspace can run off the UI thread.
+#[derive(Debug, Clone)]
+pub enum GitOperation {
+    /// `git rev-parse` + `git status --porcelain` refresh.
+    RefreshStatus,
+    Stage { relative: String },
+    Unstage { relative: String },
+    Commit { message: String },
+    Diff { relative: String },
+}
+
+/// Result of a finished [`GitOperation`]; routed back into `WorkspaceFilesState`.
+#[derive(Debug)]
+pub enum GitTaskOutcome {
+    Status(Result<GitWorkspaceStatus, String>),
+    /// Mutating actions re-probe status so the UI reflects the result (#391).
+    Mutation {
+        result: Result<String, String>,
+        status: GitWorkspaceStatus,
+    },
+    Diff(Result<GitDiffResult, String>),
+}
+
+/// Run `operation` on a worker thread; the outcome arrives on the returned
+/// receiver so the egui frame never blocks on a subprocess (#391).
+pub fn spawn_git_task(root: PathBuf, operation: GitOperation) -> std::sync::mpsc::Receiver<GitTaskOutcome> {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let outcome = match operation {
+            GitOperation::RefreshStatus => GitTaskOutcome::Status(Ok(probe_git_status(&root))),
+            GitOperation::Stage { relative } => GitTaskOutcome::Mutation {
+                result: stage_path(&root, &relative).map(|_| format!("Staged {relative}")),
+                status: probe_git_status(&root),
+            },
+            GitOperation::Unstage { relative } => GitTaskOutcome::Mutation {
+                result: unstage_path(&root, &relative).map(|_| format!("Unstaged {relative}")),
+                status: probe_git_status(&root),
+            },
+            GitOperation::Commit { message } => GitTaskOutcome::Mutation {
+                result: commit_paths(&root, &message),
+                status: probe_git_status(&root),
+            },
+            GitOperation::Diff { relative } => GitTaskOutcome::Diff(diff_against_head(&root, &relative)),
+        };
+        let _ = sender.send(outcome);
+    });
+    receiver
+}
+
 /// Probe whether `root` is inside a Git work tree and collect porcelain status.
 // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 pub fn probe_git_status(root: &Path) -> GitWorkspaceStatus {

@@ -171,6 +171,16 @@ impl AgentState {
         }
     }
 
+    /// Optimistic teardown when the user presses Stop: clears the in-flight
+    /// routing state so the UI exits "generating" immediately, even if the
+    /// cancel command never reaches the worker (#360). A later `Cancelled`
+    /// workflow event re-applies the same terminal state idempotently.
+    pub(super) fn mark_run_cancelled(&mut self, document_id: &str) {
+        if let Some(session) = self.sessions.get_mut(document_id) {
+            agent_workflow_reducer::finish_session(session, db_pro_core::domain::agent::AgentSessionState::Cancelled);
+        }
+    }
+
     pub(super) fn prepare_continuation(
         &mut self,
         pending: &super::agent_workflow_state::AgentUiConfirmation,

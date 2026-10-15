@@ -230,6 +230,14 @@ impl DbProApp {
             applied_patch: continuation.applied_patch,
         }) {
             self.agent.mark_run_failed(&pending.document_id);
+            // The patch mutated the buffer optimistically; a command that never
+            // reached the worker must not leave the document changed (#409).
+            if let Some(revert) = prepared.revert {
+                revert.revert(&mut self.query.session.documents);
+                self.feedback.runtime_message =
+                    "Agent run could not be continued — your query was restored".to_owned();
+            }
+            self.feedback.show_error_toast("Agent continuation failed to dispatch");
         }
     }
 
@@ -343,6 +351,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.next_request_id();
-        self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
+        // Optimistic teardown: the user pressed Stop, so the session leaves its
+        // in-flight state even if the command never reaches the worker (#360).
+        self.agent.mark_run_cancelled(&document_id);
+        if !self.dispatch_command(UiCommand::CancelAgentRun { request_id, run_id }) {
+            self.feedback.runtime_message = "Agent run stopped locally; runtime could not be notified".to_owned();
+        }
     }
 }

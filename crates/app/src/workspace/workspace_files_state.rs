@@ -11,6 +11,9 @@ pub(crate) struct WorkspaceFilesState {
     pub(super) git_status: Option<git_workspace::GitWorkspaceStatus>,
     pub(super) git_diff: Option<git_workspace::GitDiffResult>,
     pub(super) git_commit_message: String,
+    /// A `git` subprocess running on a worker thread; new operations are
+    /// refused while it is in flight so the draw path never blocks (#391).
+    pub(super) git_task: Option<std::sync::mpsc::Receiver<git_workspace::GitTaskOutcome>>,
     pub(super) git_last_error: Option<String>,
     pub(super) workspace_file_mtimes: std::collections::HashMap<String, u64>,
     pub(super) workspace_external_change: Option<String>,
@@ -228,74 +231,110 @@ impl WorkspaceFilesState {
         }
     }
 
-    pub(super) fn refresh_git_status(&mut self, feedback: &mut FeedbackState) {
-        let Some(root) = self.ide_workspace.primary_path().map(std::path::PathBuf::from) else {
-            self.git_status = None;
-            self.git_last_error = Some("Open a workspace folder first".into());
+    /// Drain a finished background git operation into UI state (#391).
+    pub(super) fn poll_git_task(&mut self, feedback: &mut FeedbackState) {
+        let Some(receiver) = self.git_task.as_ref() else {
             return;
         };
-        let status = git_workspace::probe_git_status(&root);
-        self.git_last_error = if status.available {
-            None
-        } else {
-            Some(status.message.clone())
-        };
-        self.git_status = Some(status);
-        feedback.set_runtime_message("Git status refreshed");
-    }
-
-    pub(super) fn stage_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::stage_path(root, relative) {
-            Ok(()) => {
-                self.git_last_error = None;
-                self.refresh_git_status(feedback);
+        let outcome = match receiver.try_recv() {
+            Ok(outcome) => outcome,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                self.git_task = None;
+                self.git_last_error = Some("git task ended without a result".into());
+                return;
             }
-            Err(error) => self.git_last_error = Some(error),
-        }
-    }
-
-    pub(super) fn unstage_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
         };
-        match git_workspace::unstage_path(root, relative) {
-            Ok(()) => {
-                self.git_last_error = None;
-                self.refresh_git_status(feedback);
+        self.git_task = None;
+        match outcome {
+            git_workspace::GitTaskOutcome::Status(Ok(status)) => {
+                self.git_last_error = if status.available { None } else { Some(status.message.clone()) };
+                self.git_status = Some(status);
+                feedback.set_runtime_message("Git status refreshed");
             }
-            Err(error) => self.git_last_error = Some(error),
-        }
-    }
-
-    pub(super) fn diff_git_path(&mut self, relative: &str) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::diff_against_head(root, relative) {
-            Ok(diff) => {
+            git_workspace::GitTaskOutcome::Status(Err(error)) => self.git_last_error = Some(error),
+            git_workspace::GitTaskOutcome::Mutation { result, status } => {
+                match result {
+                    Ok(message) => {
+                        self.git_commit_message.clear();
+                        self.git_last_error = None;
+                        feedback.set_runtime_message(message.lines().next().unwrap_or("Done").to_owned());
+                    }
+                    Err(error) => self.git_last_error = Some(error),
+                }
+                self.git_status = Some(status);
+            }
+            git_workspace::GitTaskOutcome::Diff(Ok(diff)) => {
                 self.git_diff = Some(diff);
                 self.git_last_error = None;
             }
-            Err(error) => self.git_last_error = Some(error),
+            git_workspace::GitTaskOutcome::Diff(Err(error)) => self.git_last_error = Some(error),
         }
     }
 
-    pub(super) fn commit_git_staged(&mut self, feedback: &mut FeedbackState) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::commit_paths(root, &self.git_commit_message) {
-            Ok(output) => {
-                self.git_commit_message.clear();
-                self.git_last_error = None;
-                feedback.set_runtime_message(output.lines().next().unwrap_or("Committed"));
-                self.refresh_git_status(feedback);
-            }
-            Err(error) => self.git_last_error = Some(error),
+    /// Spawn a git operation on a worker thread; refuses while another git
+    /// task is in flight so subprocess calls never run on the UI thread (#391).
+    fn dispatch_git_task(&mut self, operation: git_workspace::GitOperation, feedback: &mut FeedbackState) -> bool {
+        if self.git_task.is_some() {
+            feedback.set_runtime_message("Git is already running…");
+            return false;
         }
+        let Some(root) = self.ide_workspace.primary_path().map(std::path::PathBuf::from) else {
+            self.git_last_error = Some("Open a workspace folder first".into());
+            return false;
+        };
+        self.git_task = Some(git_workspace::spawn_git_task(root, operation));
+        feedback.set_runtime_message("Git running…");
+        true
+    }
+
+    pub(super) fn git_task_in_flight(&self) -> bool {
+        self.git_task.is_some()
+    }
+
+    pub(super) fn refresh_git_status(&mut self, feedback: &mut FeedbackState) {
+        if self.ide_workspace.primary_path().is_none() {
+            self.git_status = None;
+            self.git_last_error = Some("Open a workspace folder first".into());
+            return;
+        }
+        self.dispatch_git_task(git_workspace::GitOperation::RefreshStatus, feedback);
+    }
+
+    pub(super) fn stage_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
+        self.dispatch_git_task(
+            git_workspace::GitOperation::Stage {
+                relative: relative.to_owned(),
+            },
+            feedback,
+        );
+    }
+
+    pub(super) fn unstage_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
+        self.dispatch_git_task(
+            git_workspace::GitOperation::Unstage {
+                relative: relative.to_owned(),
+            },
+            feedback,
+        );
+    }
+
+    pub(super) fn diff_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
+        self.dispatch_git_task(
+            git_workspace::GitOperation::Diff {
+                relative: relative.to_owned(),
+            },
+            feedback,
+        );
+    }
+
+    pub(super) fn commit_git_staged(&mut self, feedback: &mut FeedbackState) {
+        let message = self.git_commit_message.trim().to_owned();
+        if message.is_empty() {
+            self.git_last_error = Some("commit message is required".into());
+            return;
+        }
+        self.dispatch_git_task(git_workspace::GitOperation::Commit { message }, feedback);
     }
 
     pub(super) fn check_external_file_changes(&mut self, documents: &[(String, String, bool)]) {

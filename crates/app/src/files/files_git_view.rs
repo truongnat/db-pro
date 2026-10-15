@@ -20,6 +20,8 @@ pub(super) struct FilesGitContext<'a> {
     pub(super) external_change: Option<&'a str>,
     pub(super) commit_message: &'a mut String,
     pub(super) diff: Option<&'a GitDiffResult>,
+    /// True while a git subprocess runs on a worker thread (#391).
+    pub(super) busy: bool,
 }
 
 impl FilesGitContext<'_> {
@@ -46,11 +48,15 @@ impl FilesGitContext<'_> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
             ui.label(RichText::new("GIT").font(font_caption()).strong().color(self.theme.text_secondary));
+            if self.busy {
+                ui.label(RichText::new("Git running…").small().color(self.theme.text_muted));
+            }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if Button::new(self.theme)
                     .icon(Icon::RefreshCw)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
+                    .enabled(!self.busy)
                     .tooltip("Refresh git status")
                     .access_label("Refresh git status")
                     .show(ui)

@@ -218,6 +218,8 @@ impl DbProApp {
             })
             .collect();
         self.workspace.files.check_external_file_changes(&documents);
+        self.workspace.files.poll_git_task(&mut self.feedback);
+        let git_busy = self.workspace.files.git_task_in_flight();
         let actions = {
             let mut context = FilesGitContext {
                 theme: self.theme,
@@ -226,6 +228,7 @@ impl DbProApp {
                 external_change: self.workspace.files.workspace_external_change.as_deref(),
                 commit_message: &mut self.workspace.files.git_commit_message,
                 diff: self.workspace.files.git_diff.as_ref(),
+                busy: git_busy,
             };
             context.draw(ui)
         };
@@ -237,7 +240,7 @@ impl DbProApp {
                 FilesGitAction::CommitStaged => self.workspace.files.commit_git_staged(&mut self.feedback),
                 FilesGitAction::Stage(path) => self.workspace.files.stage_git_path(&path, &mut self.feedback),
                 FilesGitAction::Unstage(path) => self.workspace.files.unstage_git_path(&path, &mut self.feedback),
-                FilesGitAction::Diff(path) => self.workspace.files.diff_git_path(&path),
+                FilesGitAction::Diff(path) => self.workspace.files.diff_git_path(&path, &mut self.feedback),
                 FilesGitAction::Open(path) => self.open_workspace_sql_file(path),
             }
         }

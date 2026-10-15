@@ -7544,3 +7544,66 @@ fn agent_panel_rect_occludes_pointer_positions() {
     assert!(!agent_panel_contains_pointer(&ctx, egui::pos2(400.0, 300.0)));
     assert!(!agent_panel_contains_pointer(&ctx, egui::pos2(900.0, 720.0)));
 }
+
+/// #409: approving a patch mutates the document optimistically; when the
+/// `ContinueAgentRun` command cannot be dispatched the buffer must be restored.
+#[test]
+fn agent_patch_approval_reverts_document_when_continue_dispatch_fails() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.query.session.documents[0].set_text("SELECT old");
+    let document_id = app.query.session.documents[0].id.clone();
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    session.active_run_id = Some(run_id);
+    session.pending_confirmation = Some(super::agent_workflow_state::AgentUiConfirmation {
+        run_id,
+        call_id: "patch-1".to_owned(),
+        kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch,
+        preview: Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview {
+            patch: db_pro_core::domain::agent::AgentSqlPatch {
+                document_id: document_id.clone(),
+                expected_version: app.query.session.documents[0].buffer.version(),
+                range: (7, 10),
+                replacement: "users".to_owned(),
+            },
+            original: "old".to_owned(),
+            proposed: "users".to_owned(),
+        }),
+        document_id: document_id.clone(),
+    });
+    app.agent.sessions.insert(document_id.clone(), session);
+    // Closing the command channel makes every send fail.
+    drop(command_rx);
+
+    app.agent_confirmation_action(true);
+
+    assert_eq!(app.query.session.documents[0].text(), "SELECT old");
+    assert_eq!(
+        app.agent.sessions[&document_id].state,
+        db_pro_core::domain::agent::AgentSessionState::Failed
+    );
+    assert!(app.feedback.runtime_message.contains("restored"));
+}
+
+/// #360: pressing Stop clears the in-flight run state optimistically so the UI
+/// exits "generating" even if the cancel command cannot be queued.
+#[test]
+fn cancel_agent_run_clears_in_flight_state_when_dispatch_fails() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document_id = app.query.session.documents[0].id.clone();
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    session.active_run_id = Some(db_pro_core::domain::agent::AgentRunId::new());
+    session.request_id = Some(crate::RequestId(7));
+    session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+    app.agent.sessions.insert(document_id.clone(), session);
+    drop(command_rx);
+
+    app.cancel_active_agent_run();
+
+    let session = &app.agent.sessions[&document_id];
+    assert_eq!(session.active_run_id, None);
+    assert_eq!(session.request_id, None);
+    assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Cancelled);
+}

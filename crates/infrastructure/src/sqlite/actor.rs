@@ -826,6 +826,19 @@ impl SqliteActor {
 
     // cc-scan:allow DEEP_NESTING — nesting mirrors structure depth
     fn handle_execute_batch(&self, statements: &[String]) -> Result<u64, DbError> {
+        // Transaction-control statements inside a batch would escape the
+        // wrapping transaction (a `COMMIT` commits it early, and the outer
+        // rollback then has nothing left to undo), so reject them outright
+        // before opening it (#359).
+        for stmt_sql in statements {
+            for statement in db_pro_core::domain::safety::split_statements(stmt_sql) {
+                if let Some(verb) = db_pro_core::domain::safety::transaction_control_verb(&statement) {
+                    return Err(DbError::Internal(format!(
+                        "batch refused: {verb} cannot run inside an atomic batch"
+                    )));
+                }
+            }
+        }
         let tx = self.conn.unchecked_transaction().map_err(crate::error::from_rusqlite)?;
         let mut total: u64 = 0;
         for stmt_sql in statements {
@@ -881,3 +894,7 @@ fn query_transaction(
         duration_ms: started.elapsed().as_millis() as u64,
     }))
 }
+
+#[cfg(test)]
+#[path = "tests/actor_tests.rs"]
+mod tests;
