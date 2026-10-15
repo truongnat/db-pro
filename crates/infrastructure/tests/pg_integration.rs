@@ -607,13 +607,13 @@ async fn pg_parameterized_transaction_respects_active_query_schema() {
 
     // Create a temporary schema and table.
     connector
-        .execute(&handle, "CREATE SCHEMA IF NOT EXISTS pg_param_schema_test", &[])
+        .execute(&handle, "CREATE SCHEMA IF NOT EXISTS param_schema_test", &[])
         .await
         .unwrap();
     connector
         .execute(
             &handle,
-            "CREATE TABLE IF NOT EXISTS pg_param_schema_test.scoped_table (id INT PRIMARY KEY, name TEXT)",
+            "CREATE TABLE IF NOT EXISTS param_schema_test.scoped_table (id INT PRIMARY KEY, name TEXT)",
             &[],
         )
         .await
@@ -627,7 +627,7 @@ async fn pg_parameterized_transaction_respects_active_query_schema() {
     }];
 
     let results = db_pro_core::application::with_query_schema(
-        Some("pg_param_schema_test"),
+        Some("param_schema_test"),
         connector.execute_parameterized_transaction(&handle, &statements),
     )
     .await
@@ -641,7 +641,7 @@ async fn pg_parameterized_transaction_respects_active_query_schema() {
 
     // Clean up
     connector
-        .execute(&handle, "DROP SCHEMA IF EXISTS pg_param_schema_test CASCADE", &[])
+        .execute(&handle, "DROP SCHEMA IF EXISTS param_schema_test CASCADE", &[])
         .await
         .unwrap();
     connector.disconnect(&handle).await.unwrap();
