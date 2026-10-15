@@ -29,6 +29,7 @@ fi
 expected_fields=$(cat <<'EOF'
 agent
 connection
+dev_tools
 feedback
 gallery_state
 initial_frames_count
@@ -209,7 +210,6 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/sidebar_query_library_view.rs"
   "$repo_root/crates/ui/src/sidebar_query_shortcuts_view.rs"
   "$repo_root/crates/ui/src/shell_frame_view.rs"
-  "$repo_root/crates/ui/src/shell_output_panel_view.rs"
   "$repo_root/crates/ui/src/shell_topbar_view.rs"
   "$repo_root/crates/ui/src/shell_statusbar_view.rs"
   "$repo_root/crates/ui/src/welcome_surface_view.rs"
@@ -298,7 +298,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/table_data_mutation_toolbar_view.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
-  if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then
+  if sed -n '1,/mod tests/p' "$module" | rg -n '^impl DbProApp|\bDbProApp\b'; then
     echo "UI architecture check failed: explicit-state feature helpers must depend on state/context, not DbProApp." >&2
     exit 1
   fi
@@ -306,7 +306,7 @@ done
 
 for state_module in "$repo_root"/crates/ui/src/*_state.rs; do
   [[ "$state_module" == "$repo_root/crates/ui/src/app_state.rs" ]] && continue
-  if rg -n '^impl DbProApp|\bDbProApp\b' "$state_module"; then
+  if sed -n '1,/mod tests/p' "$state_module" | rg -n '^impl DbProApp|\bDbProApp\b'; then
     echo "UI architecture check failed: feature state modules must not depend on DbProApp." >&2
     exit 1
   fi

@@ -619,4 +619,36 @@ mod tests {
             "a secret absent from the fallback is genuinely absent, not a fatal error"
         );
     }
+
+    #[tokio::test]
+    async fn keyring_vault_vendored_build_store_and_delete_contract() {
+        let fallback_dir = std::env::temp_dir().join(format!("db-pro-keyring-contract-{}", std::process::id()));
+        let vault = KeyringVault::new("com.dbpro.test.vendored", fallback_dir.clone()).with_session_fallback();
+        let test_key = format!("test/vendored_key_{}", std::process::id());
+        let test_val = "vendored_secret_12345";
+
+        vault
+            .store_secret(&test_key, test_val)
+            .await
+            .expect("keyring vault store_secret should succeed");
+
+        let retrieved = vault
+            .retrieve_secret(&test_key)
+            .await
+            .expect("keyring vault retrieve_secret should succeed");
+        assert_eq!(retrieved.as_deref(), Some(test_val));
+
+        vault
+            .delete_secret(&test_key)
+            .await
+            .expect("keyring vault delete_secret should succeed");
+
+        let after_delete = vault
+            .retrieve_secret(&test_key)
+            .await
+            .expect("keyring vault retrieve_secret after delete should succeed");
+        assert_eq!(after_delete, None);
+
+        let _ = std::fs::remove_dir_all(fallback_dir);
+    }
 }
