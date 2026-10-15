@@ -621,10 +621,7 @@ async fn pg_parameterized_transaction_respects_active_query_schema() {
 
     let statements = vec![db_pro_core::ports::ParameterizedTransactionStatement {
         sql: "INSERT INTO scoped_table (id, name) VALUES ($1, $2)".into(),
-        params: vec![
-            QueryParam::Int64(101),
-            QueryParam::Text("scoped_item".into()),
-        ],
+        params: vec![QueryParam::Int64(101), QueryParam::Text("scoped_item".into())],
         expect_affected_rows: true,
         max_affected_rows: Some(1),
     }];
@@ -637,7 +634,10 @@ async fn pg_parameterized_transaction_respects_active_query_schema() {
     .expect("parameterized transaction must resolve table inside active query schema");
 
     assert_eq!(results.len(), 1);
-    assert!(matches!(results[0], db_pro_core::ports::TransactionStatementResult::Affected { row_count: 1, .. }));
+    assert!(matches!(
+        results[0],
+        db_pro_core::ports::TransactionStatementResult::Affected { row_count: 1, .. }
+    ));
 
     // Clean up
     connector

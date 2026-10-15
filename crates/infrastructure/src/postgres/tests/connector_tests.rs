@@ -158,9 +158,7 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
         .find("async fn execute_parameterized_transaction(")
         .expect("owned execute_parameterized_transaction");
     let rest = &source[start..];
-    let end = rest
-        .find("\n    async fn introspect(")
-        .expect("introspect follows");
+    let end = rest.find("\n    async fn introspect(").expect("introspect follows");
     let body = &rest[..end];
     let hold = body
         .find("let _active_backend")
