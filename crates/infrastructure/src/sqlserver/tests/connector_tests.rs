@@ -22,6 +22,22 @@ async fn execute_transaction_reports_zero_statement_index_on_validation_failure(
 }
 
 #[tokio::test]
+async fn execute_parameterized_transaction_empty_statements_and_unconnected_handle() {
+    let connector = SqlServerConnector::new();
+    let handle = ConnectionHandle::new(999);
+    let statements: Vec<ParameterizedTransactionStatement> = vec![];
+
+    let failure = connector
+        .execute_parameterized_transaction(&handle, &statements)
+        .await
+        .expect_err("checking @@TRANCOUNT on disconnected handle must fail in Begin phase");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Begin);
+    assert_eq!(failure.statement_index, 0);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+}
+
+#[tokio::test]
 async fn execute_transaction_reports_zero_statement_index_on_begin_failure() {
     let connector = SqlServerConnector::new();
     let handle = ConnectionHandle::new(999); // Handle not connected

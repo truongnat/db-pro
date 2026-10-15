@@ -325,20 +325,44 @@ impl DbConnector for SqlServerConnector {
         handle: &ConnectionHandle,
         statements: &[ParameterizedTransactionStatement],
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
-        self.execute_control(handle, "BEGIN TRANSACTION")
-            .await
-            .map_err(|error| TransactionFailure {
-                phase: TransactionFailurePhase::Begin,
-                statement_index: 0,
-                outcome: TransactionFailureOutcome::NotStarted,
-                results: Vec::new(),
-                error,
-            })?;
+        // cc-scan:allow DUPLICATE_BLOCK — coincidental transaction control boilerplate
+        let already_open = match self.open_transaction_count(handle).await {
+            Ok(count) => count > 0,
+            Err(error) => {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                });
+            }
+        };
+        if !already_open {
+            self.execute_control(handle, "BEGIN TRANSACTION")
+                .await
+                .map_err(|error| TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                })?;
+        }
         let mut results = Vec::with_capacity(statements.len());
         for (index, statement) in statements.iter().enumerate() {
             match self.execute(handle, &statement.sql, &statement.params).await {
                 Ok(row_count) if statement.expect_affected_rows && row_count == 0 => {
                     let error = DbError::Conflict("SQL Server mutation affected no rows".into());
+                    if already_open {
+                        return Err(TransactionFailure {
+                            phase: TransactionFailurePhase::Statement,
+                            statement_index: index,
+                            outcome: TransactionFailureOutcome::LeftOpen,
+                            results,
+                            error,
+                        });
+                    }
                     let rollback = self.rollback(handle).await;
                     return Err(TransactionFailure {
                         phase: TransactionFailurePhase::Statement,
@@ -351,6 +375,15 @@ impl DbConnector for SqlServerConnector {
                 Ok(row_count) => {
                     if statement.max_affected_rows.is_some_and(|max| row_count > max) {
                         let error = DbError::Conflict("SQL Server mutation affected more rows than allowed".into());
+                        if already_open {
+                            return Err(TransactionFailure {
+                                phase: TransactionFailurePhase::Statement,
+                                statement_index: index,
+                                outcome: TransactionFailureOutcome::LeftOpen,
+                                results,
+                                error,
+                            });
+                        }
                         let rollback = self.rollback(handle).await;
                         return Err(TransactionFailure {
                             phase: TransactionFailurePhase::Statement,
@@ -366,6 +399,15 @@ impl DbConnector for SqlServerConnector {
                     });
                 }
                 Err(error) => {
+                    if already_open {
+                        return Err(TransactionFailure {
+                            phase: TransactionFailurePhase::Statement,
+                            statement_index: index,
+                            outcome: TransactionFailureOutcome::LeftOpen,
+                            results,
+                            error,
+                        });
+                    }
                     let rollback = self.rollback(handle).await;
                     return Err(TransactionFailure {
                         phase: TransactionFailurePhase::Statement,
@@ -377,14 +419,16 @@ impl DbConnector for SqlServerConnector {
                 }
             }
         }
-        if let Err(error) = self.execute_control(handle, "COMMIT TRANSACTION").await {
-            return Err(TransactionFailure {
-                phase: TransactionFailurePhase::Commit,
-                statement_index: statements.len(),
-                outcome: TransactionFailureOutcome::Unknown,
-                results,
-                error,
-            });
+        if !already_open {
+            if let Err(error) = self.execute_control(handle, "COMMIT TRANSACTION").await {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Commit,
+                    statement_index: statements.len(),
+                    outcome: TransactionFailureOutcome::Unknown,
+                    results,
+                    error,
+                });
+            }
         }
         Ok(results)
     }
