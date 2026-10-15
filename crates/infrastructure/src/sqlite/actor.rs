@@ -669,6 +669,7 @@ impl SqliteActor {
         Ok(results)
     }
 
+    #[allow(clippy::result_large_err)]
     fn execute_on_open_sqlite_transaction(
         &self,
         statements: &[String],

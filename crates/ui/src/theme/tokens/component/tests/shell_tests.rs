@@ -8,6 +8,7 @@ fn activity_rail_width_matches_scale_step() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn settings_reserve_covers_button_and_margin() {
     // Reserve must exceed the IconSm hit box (26px) — otherwise the settings
     // button would clip or overlap the rail's bottom edge on short windows.

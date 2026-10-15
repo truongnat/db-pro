@@ -12,6 +12,7 @@ pub(crate) fn frame(
 }
 
 /// Same as [`frame`] for `Context::end_pass` results.
+#[allow(dead_code)]
 pub(crate) fn finish_pass(ctx: &egui::Context) -> egui::FullOutput {
     let mut output = ctx.end_pass();
     output.textures_delta.clear();

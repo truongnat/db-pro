@@ -23,6 +23,7 @@ pub fn sqlite_file_row(available_width: f32, gap: f32) -> (f32, f32) {
 ///
 /// Cells take `Box<dyn FnOnce(&mut Ui)>` so callers can pass one-off component
 /// closures without tripping the borrow checker on `self` fields.
+#[allow(clippy::type_complexity)]
 pub fn form_row(ui: &mut egui::Ui, widths: &[f32], cells: Vec<Box<dyn FnOnce(&mut egui::Ui) + '_>>, gap: f32) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;

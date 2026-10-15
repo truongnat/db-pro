@@ -598,6 +598,55 @@ async fn pg_transaction_failure_rolls_back_prior_mutation() {
     connector.disconnect(&handle).await.unwrap();
 }
 
+/// Core parameterized transaction contract: parameterized transactions run with
+/// search_path set to the active_query_schema.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_parameterized_transaction_respects_active_query_schema() {
+    let (connector, handle) = setup().await;
+
+    // Create a temporary schema and table.
+    connector
+        .execute(&handle, "CREATE SCHEMA IF NOT EXISTS param_schema_test", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE IF NOT EXISTS param_schema_test.scoped_table (id INT PRIMARY KEY, name TEXT)",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let statements = vec![db_pro_core::ports::ParameterizedTransactionStatement {
+        sql: "INSERT INTO scoped_table (id, name) VALUES ($1, $2)".into(),
+        params: vec![QueryParam::Int64(101), QueryParam::Text("scoped_item".into())],
+        expect_affected_rows: true,
+        max_affected_rows: Some(1),
+    }];
+
+    let results = db_pro_core::application::with_query_schema(
+        Some("param_schema_test"),
+        connector.execute_parameterized_transaction(&handle, &statements),
+    )
+    .await
+    .expect("parameterized transaction must resolve table inside active query schema");
+
+    assert_eq!(results.len(), 1);
+    assert!(matches!(
+        results[0],
+        db_pro_core::ports::TransactionStatementResult::Affected { row_count: 1, .. }
+    ));
+
+    // Clean up
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS param_schema_test CASCADE", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
 /// Core transaction contract: timeout after a mutation must roll back before
 /// the connector returns and leave the pool usable for a subsequent query.
 #[tokio::test]

@@ -363,12 +363,9 @@ impl DbProApp {
         all_statements: bool,
     ) -> Option<crate::RequestId> {
         let request_id = self.next_request_id();
-        let Some(mut command) =
-            self.query_execution_context()
-                .prepare_query_run(request_id, connection_id, sql, all_statements)
-        else {
-            return None;
-        };
+        let mut command = self
+            .query_execution_context()
+            .prepare_query_run(request_id, connection_id, sql, all_statements)?;
         command.session_id = self.query.session.active_document().map(|document| document.id.clone());
         let runtime_command = query_run_command(&command);
         if self.dispatch_command(runtime_command) {

@@ -791,6 +791,23 @@ impl DbConnector for PostgresConnector {
                 }
             };
         let mut results = Vec::with_capacity(statements.len());
+        let _active_backend = match sqlx::query_scalar::<_, i32>("SELECT pg_backend_pid()")
+            .fetch_one(&mut *tx)
+            .await
+        {
+            Ok(pid) => self.track_backend(handle.0, pid),
+            Err(_) => None,
+        };
+        if let Err(error) = super::search_path::set_local_search_path(&mut tx).await {
+            let _ = tx.rollback().await;
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::RolledBack,
+                results: Vec::new(),
+                error,
+            });
+        }
         for (index, statement) in statements.iter().enumerate() {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
             let execution = tokio::time::timeout(remaining, async {

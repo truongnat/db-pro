@@ -118,7 +118,7 @@ pub(super) fn draw_pagination(
         let limit_previous = limit_selected;
         // per-table salt keeps popup ids unique like the old combo's tuple salt
         crate::components::Select::new(
-            &format!("table-data-limit-select-{}", context.table_name),
+            format!("table-data-limit-select-{}", context.table_name),
             &mut limit_selected,
             &limit_labels,
         )

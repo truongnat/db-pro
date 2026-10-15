@@ -151,6 +151,31 @@ async fn execute_batch_that_never_starts_does_not_leave_a_backend_published() {
         .expect("a batch that never started must not leave a backend for Stop");
 }
 
+#[test]
+fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_path() {
+    let source = include_str!("../connector.rs");
+    let start = source
+        .find("async fn execute_parameterized_transaction(")
+        .expect("owned execute_parameterized_transaction");
+    let rest = &source[start..];
+    let end = rest.find("\n    async fn introspect(").expect("introspect follows");
+    let body = &rest[..end];
+    let hold = body
+        .find("let _active_backend")
+        .expect("guard is held for the parameterized transaction");
+    let pid = body
+        .find("SELECT pg_backend_pid()")
+        .expect("pid is read on the parameterized transaction connection");
+    let track = body.find("self.track_backend(").expect("pid is published for Stop");
+    let search_path = body
+        .find("super::search_path::set_local_search_path(")
+        .expect("search path is set for the parameterized transaction");
+    let statements = body
+        .find("for (index, statement) in statements.iter().enumerate()")
+        .expect("statements follow search path setup");
+    assert!(hold < pid && pid < track && track < search_path && search_path < statements);
+}
+
 #[tokio::test]
 async fn postgres_cancel_without_active_pool_returns_connection_failed() {
     let connector = PostgresConnector::new();

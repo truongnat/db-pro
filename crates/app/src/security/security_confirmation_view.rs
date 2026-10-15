@@ -40,6 +40,7 @@ impl SecurityConfirmationContext<'_> {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_choice(
         &self,
         ctx: &egui::Context,

@@ -147,9 +147,9 @@ fn where_sql(plan: &TableApplyPlan) -> (Option<String>, Option<String>) {
                     &dialect,
                     "public",
                     "people",
-                    &columns,
+                    columns,
                     &values.iter().map(domain_text).collect::<Vec<_>>(),
-                    &pk_columns,
+                    pk_columns,
                     &pk_values.iter().map(domain_text).collect::<Vec<_>>(),
                 )
                 .expect("update sql");
@@ -160,7 +160,7 @@ fn where_sql(plan: &TableApplyPlan) -> (Option<String>, Option<String>) {
                     &dialect,
                     "public",
                     "people",
-                    &pk_columns,
+                    pk_columns,
                     &pk_values.iter().map(domain_text).collect::<Vec<_>>(),
                 )
                 .expect("delete sql");
