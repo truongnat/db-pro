@@ -29,6 +29,7 @@ pub(super) struct SettingsSurfaceContext<'a> {
     pub(super) agent_auto_run_read_only: &'a mut bool,
     pub(super) agent_provider_label: &'a str,
     pub(super) active_driver: &'a str,
+    pub(super) connection_label: &'a str,
     pub(super) backup_supported: bool,
     pub(super) diagnostics: &'a DiagnosticsSummary,
 }
@@ -217,6 +218,7 @@ impl SettingsSurfaceContext<'_> {
                 theme: *self.theme,
                 overlay: self.overlay,
                 active_driver: self.active_driver,
+                connection_label: self.connection_label,
                 supported: self.backup_supported,
             }
             .draw(ui)

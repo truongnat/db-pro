@@ -14,6 +14,7 @@ pub(super) struct SettingsBackupContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) overlay: &'a mut OverlayState,
     pub(super) active_driver: &'a str,
+    pub(super) connection_label: &'a str,
     pub(super) supported: bool,
 }
 
@@ -129,7 +130,15 @@ impl SettingsBackupContext<'_> {
 
     fn draw_restore_confirmation(&mut self, ui: &mut egui::Ui, actions: &mut Vec<SettingsBackupAction>) {
         ui.add_space(10.0);
-        ui.colored_label(self.theme.warning, "Overwrite the active database?");
+        let file = if self.overlay.restore_input_path.trim().is_empty() {
+            "the selected file".to_owned()
+        } else {
+            self.overlay.restore_input_path.clone()
+        };
+        ui.colored_label(
+            self.theme.warning,
+            format!("Restore `{file}` into {}? This overwrites the active database.", self.connection_label),
+        );
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .text("Confirm restore")
