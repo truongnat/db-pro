@@ -299,8 +299,11 @@ impl DbProApp {
         result: &UiQueryResult,
         row_index: usize,
     ) {
-        let row: Vec<_> = result.rows[row_index]
-            .iter()
+        let Some(source_row) = result.rows.get(row_index) else {
+            self.table.editing.record_view_open = false;
+            return;
+        };
+        let row: Vec<_> = source_row.iter()
             .enumerate()
             .map(|(column_index, cell)| {
                 self.staged_cell_value(result, row_index, column_index)

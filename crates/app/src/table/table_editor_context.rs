@@ -310,11 +310,33 @@ impl<'a> TableMutationContext<'a> {
         self.table_editing.data_edit_value.clear();
         self.table_editing.data_edit_error = None;
         self.table_editing.data_delete_confirmation = false;
+        // Validate every row identity before staging anything: aborting mid-loop would otherwise
+        // leave a partial delete set in `staged_changes` that the user never approved.
+        let manual = self.table_data.manual_row_identity.clone();
+        let mut identities = Vec::with_capacity(row_indexes.len());
         for row_index in row_indexes {
-            if let Err(error) = self.stage_delete_row(result, &info, row_index) {
-                self.feedback.runtime_message = error;
-                return false;
+            if staged_row_deleted(
+                self.table_data,
+                self.table_state,
+                self.table_mutation,
+                result,
+                row_index,
+            ) {
+                continue;
             }
+            match TableDataState::row_identity(result, &info, manual.as_deref(), row_index) {
+                Ok(identity) => identities.push((row_index, identity)),
+                Err(error) => {
+                    self.feedback.runtime_message = error;
+                    return false;
+                }
+            }
+        }
+        for (row_index, identity) in identities {
+            self.table_mutation.staged_changes.stage_delete(StagedChange::Delete {
+                identity,
+                current_row_index: Some(row_index),
+            });
         }
         self.table_mutation.table_mutation_error = None;
         self.table_mutation.staged_apply_targets.clear();
@@ -333,30 +355,6 @@ impl<'a> TableMutationContext<'a> {
         } else {
             self.table_data.selected_rows.iter().copied().collect()
         }
-    }
-
-    fn stage_delete_row(
-        &mut self,
-        result: &UiQueryResult,
-        info: &super::UiTableInfo,
-        row_index: usize,
-    ) -> Result<(), String> {
-        if staged_row_deleted(
-            self.table_data,
-            self.table_state,
-            self.table_mutation,
-            result,
-            row_index,
-        ) {
-            return Ok(());
-        }
-        let manual = self.table_data.manual_row_identity.clone();
-        let identity = TableDataState::row_identity(result, info, manual.as_deref(), row_index)?;
-        self.table_mutation.staged_changes.stage_delete(StagedChange::Delete {
-            identity,
-            current_row_index: Some(row_index),
-        });
-        Ok(())
     }
 
     pub(crate) fn revert_staged_cell(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {

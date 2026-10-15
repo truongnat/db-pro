@@ -289,5 +289,10 @@ impl DbProApp {
             self.table.mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
         }
+        if transition.reload_grid {
+            self.table.editing.record_view_open = false;
+            self.table.data_query.invalidate_result();
+            self.request_table_data();
+        }
     }
 }

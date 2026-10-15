@@ -194,6 +194,38 @@ fn record_mode_resets_on_new_table_result() {
 }
 
 #[test]
+fn record_view_exits_when_refreshed_result_no_longer_contains_the_row() {
+    let mut app = DbProApp::default();
+    app.workspace.active_tab = WorkspaceTab::Table;
+    app.table.state.table_view = TableView::Data;
+    app.table.data.select_single_row(4);
+    app.table.editing.record_view_open = true;
+    let result = projection_test_result();
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    record_frame(&mut app, &ctx, &result, Vec::new());
+    assert!(!app.table.editing.record_view_open);
+}
+
+#[test]
+fn draw_table_record_closes_instead_of_panicking_on_out_of_range_row() {
+    // Regression for the `result.rows[row_index]` panic: a stale selection index must close the
+    // record view rather than index past the refreshed row set.
+    let mut app = DbProApp::default();
+    app.table.editing.record_view_open = true;
+    let result = projection_test_result();
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    crate::test_frame::frame(&ctx, egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        ..Default::default()
+    }, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| app.draw_table_record(ui, &result, 99));
+    });
+    assert!(!app.table.editing.record_view_open);
+}
+
+#[test]
 fn record_surface_renders_all_fields_inside_full_height_content_area() {
     let mut app = DbProApp::default();
     app.open_table_workspace_for_capture();

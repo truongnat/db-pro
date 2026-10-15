@@ -97,6 +97,44 @@
     }
 
     #[test]
+    fn row_reload_reloads_grid_when_server_columns_drifted() {
+        let mut app = row_reload_app();
+        // Simulate an ALTER TABLE landing between the edit and the row reload: the reload answer
+        // carries a different column layout than the visible grid, so patching by position would
+        // write cells under the wrong headers.
+        let drifted = UiQueryResult {
+            columns: vec![
+                UiColumn { name: "id".to_owned(), data_type: "integer".to_owned(), nullable: false },
+                UiColumn { name: "email".to_owned(), data_type: "text".to_owned(), nullable: true },
+                UiColumn { name: "name".to_owned(), data_type: "text".to_owned(), nullable: false },
+            ],
+            rows: vec![vec![
+                UiCell::Number("7".to_owned()),
+                UiCell::Text("a@b.c".to_owned()),
+                UiCell::Text("fresh".to_owned()),
+            ]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        app.on_table_data_loaded(RequestId(9), drifted, 1);
+
+        assert_eq!(app.feedback.runtime_message, "Table columns changed — reloading table data");
+        assert!(app.table.data_query.result.is_none(), "stale grid must be discarded");
+    }
+
+    #[test]
+    fn row_reload_reloads_grid_when_identity_matches_multiple_rows() {
+        let mut app = row_reload_app();
+        let mut duplicate = row_result("other");
+        duplicate.rows.push(vec![UiCell::Number("7".to_owned()), UiCell::Text("second".to_owned())]);
+        duplicate.row_count = 2;
+        app.on_table_data_loaded(RequestId(9), duplicate, 2);
+
+        assert_eq!(app.feedback.runtime_message, "Row reload matched multiple rows — reloading table data");
+        assert!(app.table.data_query.result.is_none());
+    }
+
+    #[test]
     fn deleting_non_active_connection_preserves_active_session() {
         let mut app = DbProApp {
             connection: ConnectionFeatureState {

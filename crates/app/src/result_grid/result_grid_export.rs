@@ -226,15 +226,30 @@ pub(super) fn format_result_markdown(result: &UiQueryResult) -> String {
     output
 }
 
+/// Unique JSON object keys for `columns`: duplicates get `_2`, `_3`, … suffixes so a
+/// `SELECT 1 AS x, 2 AS x` or self-join result does not silently drop values in a keyed map.
+pub(super) fn unique_json_keys(columns: &[crate::UiColumn]) -> Vec<String> {
+    let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    columns
+        .iter()
+        .map(|column| {
+            let count = seen.entry(column.name.as_str()).or_insert(0);
+            *count += 1;
+            if *count == 1 { column.name.clone() } else { format!("{}_{}", column.name, count) }
+        })
+        .collect()
+}
+
 pub(super) fn format_result_json(result: &UiQueryResult) -> String {
+    let keys = unique_json_keys(&result.columns);
     let array: Vec<serde_json::Map<String, serde_json::Value>> = result
         .rows
         .iter()
         .map(|row| {
             let mut obj = serde_json::Map::new();
             for (col_idx, cell) in row.iter().enumerate() {
-                if let Some(col) = result.columns.get(col_idx) {
-                    obj.insert(col.name.clone(), cell_to_json_value(cell));
+                if let Some(key) = keys.get(col_idx) {
+                    obj.insert(key.clone(), cell_to_json_value(cell));
                 }
             }
             obj

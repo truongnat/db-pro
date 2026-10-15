@@ -118,17 +118,21 @@ impl DbProApp {
     }
 
     pub(crate) fn copy_all_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
-        let table = self.schema.explorer.selected_table.as_deref().unwrap_or("table_name");
-        let target =
-            if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
-                format!(
-                    "{}.{}",
-                    result_grid_export::quote_sql_identifier(self.active_schema()),
-                    result_grid_export::quote_sql_identifier(table)
-                )
-            } else {
+        // Only the table-data view knows the target table; an arbitrary query result (JOIN,
+        // aggregates, another table) must fall back to a placeholder instead of inserting into
+        // whatever table happens to be selected in the explorer.
+        let in_table_data_view =
+            self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
+        let target = if in_table_data_view {
+            let table = self.schema.explorer.selected_table.as_deref().unwrap_or("table_name");
+            format!(
+                "{}.{}",
+                result_grid_export::quote_sql_identifier(self.active_schema()),
                 result_grid_export::quote_sql_identifier(table)
-            };
+            )
+        } else {
+            result_grid_export::quote_sql_identifier("table_name")
+        };
         let columns = result
             .columns
             .iter()
@@ -226,12 +230,13 @@ impl DbProApp {
         let Some(row) = result.rows.get(row_index) else {
             return;
         };
+        let keys = result_grid_export::unique_json_keys(&result.columns);
         let mut map = serde_json::Map::new();
-        for (col_idx, col) in result.columns.iter().enumerate() {
+        for (col_idx, key) in keys.iter().enumerate() {
             let cell = self
                 .copy_cell_value(result, row_index, col_idx)
                 .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
-            map.insert(col.name.clone(), result_grid_export::cell_to_json_value(&cell));
+            map.insert(key.clone(), result_grid_export::cell_to_json_value(&cell));
         }
         let json_text = serde_json::to_string_pretty(&serde_json::Value::Object(map)).unwrap_or_default();
         ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(json_text)));
@@ -288,22 +293,28 @@ impl DbProApp {
     }
 
     pub(crate) fn copy_all_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
+        let keys = result_grid_export::unique_json_keys(&result.columns);
+        let renamed = keys.iter().zip(&result.columns).any(|(key, col)| *key != col.name);
         let mut rows = Vec::new();
         for &row_index in indexes {
             if let Some(row) = result.rows.get(row_index) {
                 let mut map = serde_json::Map::new();
-                for (col_idx, col) in result.columns.iter().enumerate() {
+                for (col_idx, key) in keys.iter().enumerate() {
                     let cell = self
                         .copy_cell_value(result, row_index, col_idx)
                         .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
-                    map.insert(col.name.clone(), result_grid_export::cell_to_json_value(&cell));
+                    map.insert(key.clone(), result_grid_export::cell_to_json_value(&cell));
                 }
                 rows.push(serde_json::Value::Object(map));
             }
         }
         let json_text = serde_json::to_string_pretty(&serde_json::Value::Array(rows)).unwrap_or_default();
         ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(json_text)));
-        self.feedback.copy_status = format!("{} rows copied as JSON", indexes.len());
+        self.feedback.copy_status = if renamed {
+            format!("{} rows copied as JSON — duplicate column names suffixed", indexes.len())
+        } else {
+            format!("{} rows copied as JSON", indexes.len())
+        };
     }
 
     pub(crate) fn copy_cell_value(
@@ -323,3 +334,7 @@ impl DbProApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/result_grid_clipboard_tests.rs"]
+mod tests;
