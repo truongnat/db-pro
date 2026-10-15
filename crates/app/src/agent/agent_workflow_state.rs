@@ -59,6 +59,9 @@ pub(crate) struct AgentUiSession {
     pub(super) mode: AgentMode,
     pub(super) state: AgentSessionState,
     pub(super) messages: Vec<AgentMessage>,
+    /// How many of the most recent messages render; long sessions cap the tail
+    /// so each frame builds ≤ N message widgets (#394).
+    pub(super) visible_message_limit: usize,
     pub(super) activities: Vec<AgentUiActivity>,
     pub(super) pending_confirmation: Option<AgentUiConfirmation>,
     pub(super) streaming_text: String,
@@ -75,6 +78,7 @@ impl Default for AgentUiSession {
             mode: AgentMode::Ask,
             state: AgentSessionState::Idle,
             messages: Vec::new(),
+            visible_message_limit: 100,
             activities: Vec::new(),
             pending_confirmation: None,
             streaming_text: String::new(),

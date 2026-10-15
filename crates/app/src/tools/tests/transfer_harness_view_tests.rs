@@ -121,15 +121,17 @@
         management.transfer.copy_conflict = conflict.into();
     }
 
-    fn run_copy(management: &mut DatabaseManagementState, connector: &OrdersCopy) -> String {
+    fn run_copy(management: &mut DatabaseManagementState, connector: &std::sync::Arc<OrdersCopy>) -> String {
         let mut feedback = FeedbackState::default();
         let table_details = Vec::new();
-        TransferHarnessContext {
+        let mut context = TransferHarnessContext {
             management,
             feedback: &mut feedback,
             table_details: &table_details,
-        }
-        .run_chosen_copy(connector);
+        };
+        // Copy runs on a worker thread (#421); tests drain it deterministically.
+        context.run_chosen_copy(connector.clone());
+        context.wait_for_pending();
         feedback.runtime_message
     }
 
@@ -142,7 +144,7 @@
         let mut management = DatabaseManagementState::default();
         assert!(management.transfer.copy_columns.is_empty());
         choose_orders(&mut management, "csv", "skip");
-        let connector = OrdersCopy::new();
+        let connector = std::sync::Arc::new(OrdersCopy::new());
         let message = run_copy(&mut management, &connector);
         assert!(message.contains("prod"), "{message}");
         assert!(message.contains("stage"), "{message}");
@@ -202,7 +204,7 @@
 
         choose_orders(&mut management, "csv", "abort");
         let before = management.transfer.transfer_jobs.len();
-        let abort = OrdersCopy::new();
+        let abort = std::sync::Arc::new(OrdersCopy::new());
         let message = run_copy(&mut management, &abort);
         assert!(message.contains("conflict on key 1"), "{message}");
         assert_eq!(management.transfer.transfer_jobs.len(), before);
@@ -210,7 +212,7 @@
         assert!(abort.executes.lock().expect("execute log").is_empty());
 
         choose_orders(&mut management, "json", "replace");
-        let replace = OrdersCopy::new();
+        let replace = std::sync::Arc::new(OrdersCopy::new());
         let message = run_copy(&mut management, &replace);
         assert!(message.contains("json"), "{message}");
         let json = &management.transfer.last_copy_body;

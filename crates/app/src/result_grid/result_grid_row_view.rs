@@ -101,7 +101,11 @@ pub(super) fn draw_row(
         }
 
         if window.trailing > 0.0 {
-            let (skipped, _) = ui.allocate_exact_size(egui::vec2(window.trailing, 28.0), egui::Sense::hover());
+            // Paint-only filler: advance the cursor without registering an
+            // interactable rect — `Sense::hover` here ate pointer attention
+            // and landed in WidgetRects audits (#352).
+            let skipped = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(window.trailing, 28.0));
+            ui.advance_cursor_after_rect(skipped);
             let fill = if context.row_selected {
                 context.theme.soft_tint(context.theme.accent)
             } else if row_hovered {
@@ -120,7 +124,10 @@ pub(super) fn draw_row(
         // Trailing filler — the row's bottom border continues to the grid edge.
         let rest = ui.available_width();
         if rest > 0.5 {
-            let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), egui::Sense::hover());
+            // Paint-only as well: `available_rect_before_wrap` sized to the
+            // remaining width; no interaction is registered (#352).
+            let fill_rect = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(rest, 28.0));
+            ui.advance_cursor_after_rect(fill_rect);
             let fill = if context.row_selected {
                 context.theme.soft_tint(context.theme.accent)
             } else if row_hovered {

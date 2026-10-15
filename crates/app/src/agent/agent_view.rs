@@ -90,6 +90,11 @@ impl DbProApp {
                     agent_thread_surface_view::AgentThreadAction::Confirm(approved) => {
                         self.agent_confirmation_action(approved);
                     }
+                    agent_thread_surface_view::AgentThreadAction::LoadEarlier => {
+                        if let Some(session) = document_id.and_then(|id| self.agent.sessions.get_mut(id)) {
+                            session.visible_message_limit += 100;
+                        }
+                    }
                 },
                 AgentPanelAction::Composer(action) => match action {
                     AgentComposerAction::Submit => submit = true,

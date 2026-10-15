@@ -12,6 +12,8 @@ pub(super) enum AgentThreadAction {
     OpenResult(String),
     Retry,
     Confirm(bool),
+    /// Reveal older messages beyond the visible tail cap (#394).
+    LoadEarlier,
 }
 
 pub(super) struct AgentThreadSurfaceContext<'a> {
@@ -43,7 +45,9 @@ impl AgentThreadSurfaceContext<'_> {
                         actions.push(AgentThreadAction::Submit(prompt));
                     }
                 }
-                self.draw_messages(ui);
+                if let Some(action) = self.draw_messages(ui) {
+                    actions.push(action);
+                }
                 if let Some(call_id) = self.draw_activities(ui, &self.session.activities, &self.session.tool_results) {
                     actions.push(AgentThreadAction::OpenResult(call_id));
                 }
@@ -102,8 +106,30 @@ impl AgentThreadSurfaceContext<'_> {
         None
     }
 
-    fn draw_messages(&self, ui: &mut egui::Ui) {
-        for message in &self.session.messages {
+    /// Render only the newest `visible_message_limit` messages — long sessions
+    /// otherwise rebuild every message widget each frame (#394). Older ones
+    /// are reachable through "Load earlier".
+    fn draw_messages(&self, ui: &mut egui::Ui) -> Option<AgentThreadAction> {
+        let mut action = None;
+        let total = self.session.messages.len();
+        let hidden = total.saturating_sub(self.session.visible_message_limit.max(1));
+        if hidden > 0 {
+            if Button::new(self.theme)
+                .icon(Icon::ChevronUp)
+                .text(format!(
+                    "Load {hidden} earlier message{}",
+                    if hidden == 1 { "" } else { "s" }
+                ))
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                action = Some(AgentThreadAction::LoadEarlier);
+            }
+            ui.add_space(SPACE_XS);
+        }
+        for message in &self.session.messages[hidden..] {
             let is_user = message.role == AgentRole::User;
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
                 agent_message_frame(self.theme, is_user)
@@ -128,6 +154,7 @@ impl AgentThreadSurfaceContext<'_> {
                 ui.label(RichText::new(&self.session.streaming_text).color(self.theme.text_primary));
             });
         }
+        action
     }
 
     fn draw_activities(
