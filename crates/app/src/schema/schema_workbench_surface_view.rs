@@ -81,6 +81,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
             theme: self.theme,
             workbench: self.workbench,
             edges: self.edges,
+            dialect: workbench_dialect(self.driver),
         };
         schema_workbench_secondary_view::draw_dependency_navigator(&mut context, ui);
     }
@@ -93,6 +94,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
             theme: self.theme,
             workbench: self.workbench,
             edges: &[],
+            dialect: workbench_dialect(self.driver),
         };
         schema_workbench_secondary_view::draw_docs_export(&mut context, ui)
     }
@@ -105,6 +107,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
             theme: self.theme,
             workbench: self.workbench,
             edges: &[],
+            dialect: workbench_dialect(self.driver),
         };
         schema_workbench_secondary_view::draw_execution_history(&mut context, ui)
     }
@@ -124,6 +127,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
                         workbench: self.workbench,
                         can_mutate: self.can_mutate,
                         column_alter_limitation: self.column_alter_limitation.clone(),
+                        dialect: workbench_dialect(self.driver),
                     };
                     if let Some(action) = schema_workbench_form::draw_workbench_form(&mut context, ui) {
                         actions.push(SchemaWorkbenchSurfaceAction::Form(action));
@@ -135,6 +139,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
                     workbench: self.workbench,
                     can_mutate: self.can_mutate,
                     column_alter_limitation: self.column_alter_limitation.clone(),
+                    dialect: workbench_dialect(self.driver),
                 };
                 if let Some(action) = schema_workbench_form::draw_workbench_preview(&mut context, ui) {
                     actions.push(SchemaWorkbenchSurfaceAction::Form(action));
@@ -168,3 +173,15 @@ fn workbench_modes() -> [(SchemaWorkbenchMode, Icon, &'static str); 15] {
 #[path = "tests/schema_workbench_surface_view_tests.rs"]
 mod tests;
 
+
+/// Map the connection driver onto the SQL highlighting dialect — same mapping
+/// as the query editor's `editor_dialect` (#336).
+fn workbench_dialect(driver: &str) -> crate::editor::SqlDialect {
+    if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
+        crate::editor::SqlDialect::Postgres
+    } else if driver.eq_ignore_ascii_case("sqlite") {
+        crate::editor::SqlDialect::SQLite
+    } else {
+        crate::editor::SqlDialect::Generic
+    }
+}

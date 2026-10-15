@@ -15,8 +15,20 @@ pub(crate) struct WorkspaceFilesState {
     /// refused while it is in flight so the draw path never blocks (#391).
     pub(super) git_task: Option<std::sync::mpsc::Receiver<git_workspace::GitTaskOutcome>>,
     pub(super) git_last_error: Option<String>,
+    /// Directory scan running on a worker thread; `true` replaces all roots on
+    /// completion (open/refresh), `false` appends them (restore/add) (#393).
+    pub(super) scan_task: Option<(bool, std::sync::mpsc::Receiver<Vec<ide_workspace_scan::ScannedRoot>>)>,
+    /// File reads in flight on worker threads; `(path, receiver)` so a second
+    /// open of the same path is deduped while pending (#377).
+    pub(super) file_read_tasks:
+        Vec<(std::path::PathBuf, std::sync::mpsc::Receiver<ide_workspace_scan::FileReadOutcome>)>,
+    /// Last time open documents were stat'ed for external changes (#405).
+    pub(super) external_check_at: Option<std::time::Instant>,
     pub(super) workspace_file_mtimes: std::collections::HashMap<String, u64>,
-    pub(super) workspace_external_change: Option<String>,
+    /// Dirty buffers whose disk file diverged, queued per path (#414). More
+    /// than one file can change under a single scan (git checkout, codegen);
+    /// a lone `Option` dropped every warning but the last.
+    pub(super) workspace_external_changes: Vec<String>,
     pub(super) workspace_search_query: String,
     pub(super) workspace_replace_query: String,
     pub(super) workspace_search_hits: Vec<ide_workspace::SearchHit>,
@@ -95,30 +107,130 @@ impl WorkspaceFilesState {
         }
     }
 
-    pub(super) fn dismiss_external_change(&mut self) {
-        self.workspace_external_change = None;
+    /// Resolve one pending external-change warning; other queued paths stay
+    /// pending so a multi-file change keeps every warning (#414).
+    pub(super) fn dismiss_external_change(&mut self, path: &str) {
+        self.workspace_external_changes.retain(|queued| queued != path);
     }
 
     pub(super) fn close(&mut self, shell: &mut WorkspaceShellState, feedback: &mut FeedbackState) {
         self.ide_workspace.close();
         self.workspace_search_hits.clear();
         self.workspace_replace_previews.clear();
+        self.workspace_external_changes.clear();
         self.workspace_context_items.clear();
         shell.split_editor_secondary = None;
         feedback.set_runtime_message("Workspace closed");
     }
 
     pub(super) fn refresh(&mut self, feedback: &mut FeedbackState) {
-        match self.ide_workspace.refresh() {
-            Ok(()) => {
-                self.ide_workspace.scan_diagnostics();
-                feedback.set_runtime_message(format!(
-                    "Workspace refreshed · {} files indexed",
-                    self.ide_workspace.index().len()
-                ));
-            }
-            Err(error) => feedback.set_runtime_message(format!("Workspace refresh failed: {error}")),
+        let roots: Vec<(String, std::path::PathBuf)> = self
+            .ide_workspace
+            .roots
+            .iter()
+            .map(|root| (root.id.clone(), root.path.clone()))
+            .collect();
+        if roots.is_empty() {
+            feedback.set_runtime_message("Open a workspace folder first");
+            return;
         }
+        if self.begin_scan(roots, true) {
+            feedback.set_runtime_message("Scanning workspace…");
+        } else {
+            feedback.set_runtime_message("Workspace scan already running…");
+        }
+    }
+
+    /// Start a background scan for `roots`; `replace` swaps the whole tree on
+    /// completion. Refuses while a scan is already running so read_dir storms
+    /// never queue up on a click (#393).
+    fn begin_scan(&mut self, roots: Vec<(String, std::path::PathBuf)>, replace: bool) -> bool {
+        if self.scan_task.is_some() {
+            return false;
+        }
+        self.scan_task = Some((replace, ide_workspace_scan::spawn_scan_task(roots)));
+        true
+    }
+
+    /// Open `paths` as workspace roots via a background scan (#393). `replace`
+    /// swaps the whole tree on completion; otherwise the paths append.
+    /// Returns Err on a bad path / busy scan so the caller reports it.
+    pub(super) fn request_open_folders(
+        &mut self,
+        paths: Vec<std::path::PathBuf>,
+        replace: bool,
+    ) -> Result<(), String> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+        let existing = self.ide_workspace.roots.len();
+        let mut roots = Vec::with_capacity(paths.len());
+        for (index, path) in paths.into_iter().enumerate() {
+            if !path.is_dir() {
+                return Err(format!("not a folder: {}", path.display()));
+            }
+            let id = if replace {
+                format!("root-{}", index + 1)
+            } else {
+                format!("root-{}", existing + index + 1)
+            };
+            roots.push((id, path));
+        }
+        if self.begin_scan(roots, replace) {
+            Ok(())
+        } else {
+            Err("Workspace scan already running…".to_owned())
+        }
+    }
+
+    /// Queue a file read on a worker thread (#377); the document is applied in
+    /// `drain_file_reads` once the content arrives.
+    pub(super) fn request_file_read(&mut self, path: std::path::PathBuf, feedback: &mut FeedbackState) {
+        self.file_read_tasks
+            .push((path.clone(), ide_workspace_scan::spawn_file_read_task(path)));
+        feedback.set_runtime_message("Opening file…");
+    }
+
+    /// True while a scan/file-read worker still owns results to apply — the
+    /// frame loop keeps repainting until they drain.
+    pub(super) fn background_tasks_in_flight(&self) -> bool {
+        self.git_task.is_some() || self.scan_task.is_some() || !self.file_read_tasks.is_empty()
+    }
+
+    /// Drain a finished background scan into the workspace tree (#393).
+    /// Returns `(indexed files, first error, scanned root count)`.
+    pub(super) fn poll_scan_task(&mut self) -> Option<(usize, Option<String>, usize)> {
+        // Take the receiver out first: borrowing `self.scan_task` across the
+        // `ide_workspace` mutation below would be a conflicting borrow.
+        let (replace, receiver) = self.scan_task.take()?;
+        let scanned = match receiver.try_recv() {
+            Ok(scanned) => scanned,
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                self.scan_task = Some((replace, receiver));
+                return None;
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                return Some((0, Some("workspace scan ended without a result".to_owned()), 0));
+            }
+        };
+        let root_count = scanned.len();
+        let (indexed, error) = self.ide_workspace.apply_scanned_roots(scanned, replace);
+        Some((indexed, error, root_count))
+    }
+
+    /// Drain finished file reads (#377); the caller applies documents.
+    pub(super) fn drain_file_reads(&mut self) -> Vec<ide_workspace_scan::FileReadOutcome> {
+        let mut done = Vec::new();
+        self.file_read_tasks
+            .retain_mut(|(_, receiver)| match receiver.try_recv() {
+                Ok(outcome) => {
+                    done.push(outcome);
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
+            });
+        done
     }
 
     pub(super) fn run_search(&mut self, feedback: &mut FeedbackState) {
@@ -337,20 +449,32 @@ impl WorkspaceFilesState {
         self.dispatch_git_task(git_workspace::GitOperation::Commit { message }, feedback);
     }
 
-    pub(super) fn check_external_file_changes(&mut self, documents: &[(String, String, bool)]) {
+    /// Poll open documents for disk changes. Throttled to 500ms and works on
+    /// borrowed buffers — cloning every doc's text per frame churned GC on
+    /// large SQL dumps (#405). Content is only re-read when the mtime moved.
+    pub(super) fn check_external_file_changes(&mut self, documents: &[(&str, &str, bool)]) {
+        if self
+            .external_check_at
+            .is_some_and(|checked| checked.elapsed() < std::time::Duration::from_millis(500))
+        {
+            return;
+        }
+        self.external_check_at = Some(std::time::Instant::now());
         for (path, buffer, dirty) in documents {
             let path_buf = std::path::PathBuf::from(path);
             let Some(mtime) = git_workspace::disk_mtime_secs(&path_buf) else {
                 continue;
             };
-            let known = self.workspace_file_mtimes.get(path).copied();
+            let known = self.workspace_file_mtimes.get(*path).copied();
             if known == Some(mtime) {
                 continue;
             }
             if *dirty && git_workspace::disk_diverged_from_buffer(&path_buf, buffer) {
-                self.workspace_external_change = Some(path.clone());
+                if !self.workspace_external_changes.iter().any(|queued| queued == path) {
+                    self.workspace_external_changes.push((*path).to_owned());
+                }
             } else if !dirty {
-                self.workspace_file_mtimes.insert(path.clone(), mtime);
+                self.workspace_file_mtimes.insert((*path).to_owned(), mtime);
             }
         }
     }

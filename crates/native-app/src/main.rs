@@ -115,6 +115,16 @@ fn spawn_command_picker(
                     send_picked(request_id, "workspace-folder", path);
                     continue;
                 }
+                UiCommand::PickAuditExportFile { request_id } => {
+                    let path = rfd::FileDialog::new()
+                        .set_title("Export audit events as CSV")
+                        .add_filter("CSV", &["csv"])
+                        .set_file_name("audit-events.csv")
+                        .save_file()
+                        .map(|path| path.to_string_lossy().into_owned());
+                    send_picked(request_id, "audit-export", path);
+                    continue;
+                }
                 UiCommand::PickSshPrivateKey { request_id } => {
                     let path = rfd::FileDialog::new()
                         .pick_file()

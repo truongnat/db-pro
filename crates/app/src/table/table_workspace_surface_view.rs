@@ -171,26 +171,47 @@ pub(super) fn draw_metadata_filter_header(
     hint: &str,
     total: &str,
 ) {
-    draw_metadata_filter_header_with_trailing(ui, theme, title, search, hint, |ui| {
+    draw_metadata_filter_header_with_trailing(ui, theme, title, search, hint, |ui, _| {
         ui.label(RichText::new(total).font(font_ui_label()).color(theme.text_muted));
     });
 }
 
+/// Trailing controls (category tabs, counts) sit in a right-to-left strip when
+/// the panel is wide enough. Below `narrow` they move to their own row so they
+/// can never slide under the search input (#367).
 pub(super) fn draw_metadata_filter_header_with_trailing(
     ui: &mut egui::Ui,
     theme: DbProTheme,
     title: &str,
     search: &mut String,
     hint: &str,
-    trailing: impl FnOnce(&mut egui::Ui),
+    trailing: impl FnOnce(&mut egui::Ui, bool),
 ) {
+    const TRAILING_MIN_WIDTH: f32 = 260.0;
+    let trailing_width = ui.available_width() - 220.0 - SPACE_SM;
+    if trailing_width < TRAILING_MIN_WIDTH {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_SM;
+            ui.label(RichText::new(title).font(font_ui_label()).color(theme.text_secondary));
+            crate::components::input::SearchInput::new(search, hint, theme)
+                .width(220.0)
+                .show(ui);
+        });
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_SM;
+            trailing(ui, false);
+        });
+        return;
+    }
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = SPACE_SM;
         ui.label(RichText::new(title).font(font_ui_label()).color(theme.text_secondary));
         crate::components::input::SearchInput::new(search, hint, theme)
             .width(220.0)
             .show(ui);
-        ui.allocate_ui_with_layout(ui.available_size(), egui::Layout::right_to_left(egui::Align::Center), trailing);
+        ui.allocate_ui_with_layout(ui.available_size(), egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            trailing(ui, true);
+        });
     });
 }
 

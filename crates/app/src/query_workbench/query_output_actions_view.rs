@@ -40,7 +40,7 @@ pub(super) fn draw_explain_pane(
     let output_width = ui.available_width();
     Card::new(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if Button::new(context.theme)
                 .text(t!("query.explain"))
                 .variant(ButtonVariant::Secondary)
@@ -50,13 +50,18 @@ pub(super) fn draw_explain_pane(
             {
                 action = Some(QueryOutputAction::Explain);
             }
-            if Button::new(context.theme)
+            let analyze = Button::new(context.theme)
                 .text(t!("query.explain_analyze"))
                 .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
+                .size(ButtonSize::Sm);
+            let analyze = if context.analyze_executes {
+                analyze
+            } else {
+                // This driver (e.g. SQLite) does not execute the statement —
+                // say so instead of implying writes will run.
+                analyze.tooltip("This driver reports the plan without executing the query")
+            };
+            if analyze.show(ui).clicked() {
                 context.execution.explain_analyze_confirmed = false;
                 action = Some(QueryOutputAction::ExplainAnalyze);
             }
@@ -103,7 +108,7 @@ pub(super) fn draw_explain_pane(
         ui.add_space(8.0);
         if let Some(plan_json) = context.session.active_explain_plan() {
             if context.execution.explain_show_raw_json {
-                ScrollArea::new(context.theme).max_height(300.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).both().max_height(ui.available_height()).show(ui, |ui| {
                     ui.label(RichText::new(plan_json).monospace().color(context.theme.text_secondary));
                 });
             } else if let Some(plan) = db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json) {
@@ -121,7 +126,7 @@ pub(super) fn draw_explain_pane(
                 }
                 ui.add_space(6.0);
                 let tree = crate::components::explain::PlanNode::from_query_plan(&plan.root);
-                ScrollArea::new(context.theme).max_height(320.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).horizontal(true).max_height(ui.available_height()).show(ui, |ui| {
                     ExplainPlanTree::new(&tree, bounded_explain_metric(plan.display_total_ms()), context.theme)
                         .has_runtime_stats(plan.has_runtime_stats)
                         .planning_time(plan.planning_time_ms.map(bounded_explain_metric))
@@ -133,7 +138,7 @@ pub(super) fn draw_explain_pane(
                         .small()
                         .color(context.theme.text_muted),
                 );
-                ScrollArea::new(context.theme).max_height(300.0).show(ui, |ui| {
+                ScrollArea::new(context.theme).both().max_height(ui.available_height()).show(ui, |ui| {
                     ui.label(RichText::new(plan_json).monospace().color(context.theme.text_secondary));
                 });
             }
@@ -159,7 +164,17 @@ pub(super) fn draw_history_pane(
     let output_width = ui.available_width();
     Card::new(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
-        ui.horizontal(|ui| {
+        let filter_lower = context.editor.query_history_search.trim().to_lowercase();
+        let total = context.editor.query_history_entries.len();
+        let matching = context
+            .editor
+            .query_history_entries
+            .iter()
+            .filter(|e| filter_lower.is_empty() || e.sql.to_lowercase().contains(&filter_lower))
+            .count();
+        const HISTORY_SHOWN_LIMIT: usize = 50;
+        let shown = matching.min(HISTORY_SHOWN_LIMIT);
+        ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(t!("query.recent_executions")).font(font_subheading()).strong());
             ui.add_space(SPACE_MD);
             Input::new(
@@ -179,23 +194,29 @@ pub(super) fn draw_history_pane(
             {
                 context.editor.query_history_search.clear();
             }
+            // The list below is capped; show what the user is actually seeing
+            // so older entries are not silently hidden (#366).
+            let count_label = if matching == total && matching <= HISTORY_SHOWN_LIMIT {
+                format!("{total} total")
+            } else {
+                format!("{shown} of {matching} shown · {total} total")
+            };
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
-                    RichText::new(format!("{} total", context.editor.query_history_entries.len()))
+                    RichText::new(count_label)
                         .small()
                         .color(context.theme.text_muted),
                 );
             });
         });
         ui.add_space(SPACE_SM);
-        let filter_lower = context.editor.query_history_search.trim().to_lowercase();
         let filtered_entries: Vec<_> = context
             .editor
             .query_history_entries
             .iter()
             .rev()
             .filter(|e| filter_lower.is_empty() || e.sql.to_lowercase().contains(&filter_lower))
-            .take(50)
+            .take(HISTORY_SHOWN_LIMIT)
             .collect();
 
         if context.editor.query_history_entries.is_empty() {
@@ -215,7 +236,7 @@ pub(super) fn draw_history_pane(
             )
             .show(ui);
         } else {
-            ScrollArea::new(context.theme).max_height(320.0).show(ui, |ui| {
+            ScrollArea::new(context.theme).max_height(ui.available_height()).show(ui, |ui| {
                 for entry in filtered_entries {
                     panel_frame(context.theme).show(ui, |ui| {
                         ui.horizontal(|ui| {

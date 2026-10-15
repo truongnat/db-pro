@@ -132,6 +132,10 @@ pub(crate) enum ProblemsSourceFilter {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProblemEntry {
     pub(crate) document_index: usize,
+    /// Buffer version captured when the entry was collected (#425): a fix that
+    /// applies a byte range captured at diagnostic time must refuse to run
+    /// against a buffer that changed since.
+    pub(crate) document_version: u64,
     pub(crate) document_id: String,
     pub(crate) document_title: String,
     pub(crate) diagnostic_index: usize,

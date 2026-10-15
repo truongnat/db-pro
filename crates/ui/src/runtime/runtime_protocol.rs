@@ -168,6 +168,9 @@ pub enum UiCommand {
     PickWorkspaceFolder {
         request_id: RequestId,
     },
+    PickAuditExportFile {
+        request_id: RequestId,
+    },
     DeleteConnection {
         request_id: RequestId,
         connection_id: String,

@@ -217,7 +217,7 @@ impl TableDataToolbarContext<'_> {
         // `new_child` (not `allocate_new_ui`): `editor_rect` is already
         // reserved by `allocate_exact_size`, and nothing inside the editor
         // may push its min_rect back into the toolbar's placer.
-        let editor_max = editor_rect.shrink2(egui::vec2(SPACE_XXS, 0.0));
+        let editor_max = editor_rect.shrink2(egui::vec2(SPACE_XXS, 2.0));
         let mut editor_ui = ui.new_child(egui::UiBuilder::new().max_rect(editor_max));
         editor_ui.set_clip_rect(editor_ui.clip_rect().intersect(editor_max));
         let output = editor_ui

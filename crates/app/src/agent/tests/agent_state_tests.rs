@@ -47,6 +47,7 @@
                 schema: None,
                 mode: db_pro_core::domain::agent::AgentMode::Ask,
                 context,
+                is_retry: false,
             })
             .expect("first run should be prepared");
 
@@ -90,6 +91,7 @@
                 schema: None,
                 mode: db_pro_core::domain::agent::AgentMode::Ask,
                 context: context.clone(),
+                is_retry: false,
             })
             .expect("first run should be prepared");
 
@@ -101,6 +103,7 @@
                 connection_id: None,
                 schema: None,
                 mode: db_pro_core::domain::agent::AgentMode::Ask,
+                is_retry: false,
                 context,
             }),
             Err(AgentRunPreparationError::AlreadyActive)

@@ -18,6 +18,7 @@ impl DbProApp {
             return;
         };
         self.table.editing.insert_row_values = table_editor_values::duplicate_row_values(&info, row);
+        self.table.editing.insert_row_columns = info.columns.iter().map(|c| c.name.clone()).collect();
         self.table.editing.insert_row_error.clear();
         self.table.editing.insert_row_open = true;
     }
@@ -36,8 +37,8 @@ impl DbProApp {
             return;
         };
         self.table.editing.insert_row_values = vec![String::new(); info.columns.len()];
+        self.table.editing.insert_row_columns = info.columns.iter().map(|c| c.name.clone()).collect();
         self.table.editing.insert_row_error.clear();
-        self.table.editing.insert_row_open = true;
     }
 
     pub(crate) fn submit_insert_row(&mut self) {
@@ -69,8 +70,26 @@ impl DbProApp {
             self.table.editing.insert_row_open = false;
             return;
         };
-        if self.table.editing.insert_row_values.len() != info.columns.len() {
-            self.table.editing.insert_row_values = vec![String::new(); info.columns.len()];
+        let column_names: Vec<&str> = info.columns.iter().map(|c| c.name.as_str()).collect();
+        if self.table.editing.insert_row_columns != column_names {
+            // Schema refreshed under the open dialog: keep entered values by
+            // column name; new columns start empty, dropped ones are lost.
+            let old = std::mem::take(&mut self.table.editing.insert_row_values);
+            let old_names = std::mem::take(&mut self.table.editing.insert_row_columns);
+            self.table.editing.insert_row_values = info
+                .columns
+                .iter()
+                .map(|col| {
+                    old_names
+                        .iter()
+                        .position(|name| name == &col.name)
+                        .and_then(|idx| old.get(idx).cloned())
+                        .unwrap_or_default()
+                })
+                .collect();
+            self.table.editing.insert_row_columns = info.columns.iter().map(|c| c.name.clone()).collect();
+            self.table.editing.insert_row_error =
+                "Table structure changed; values were kept by column name".to_owned();
         }
         let error = self.table.editing.insert_row_error.clone();
         let action = {

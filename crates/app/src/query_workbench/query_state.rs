@@ -6,6 +6,12 @@ use crate::RequestId;
 use std::collections::HashMap;
 use std::time::Instant;
 
+/// Soft cap on open query tabs (#401): palette/saved-query/agent opens each
+/// used to push a new document forever, growing memory and the tab bar.
+/// Adding beyond the cap closes the oldest evictable tab (clean, idle) or
+/// refuses with feedback when every tab is dirty or busy.
+pub(crate) const MAX_QUERY_DOCUMENTS: usize = 50;
+
 #[derive(Debug, Default)]
 pub(crate) struct QuerySessionState {
     pub(super) documents: Vec<QueryDocument>,

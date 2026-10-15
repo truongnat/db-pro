@@ -56,7 +56,7 @@ impl TableMetadataContext<'_> {
                 .id_salt("constraints-table-scroll")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    Table::new(&columns, self.theme).row_height(34.0).show(
+                    Table::new(&columns, self.theme).resizable("constraints-table").row_height(34.0).show(
                         ui,
                         rows.len(),
                         |_| false,
@@ -117,7 +117,7 @@ impl TableMetadataContext<'_> {
             .id_salt("dependencies-table-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                Table::new(&columns, self.theme).row_height(34.0).show(
+                Table::new(&columns, self.theme).resizable("dependencies-table").row_height(34.0).show(
                     ui,
                     dependencies.len(),
                     |_| false,
@@ -139,16 +139,20 @@ impl TableMetadataContext<'_> {
             "Constraints",
             self.search,
             "Filter constraints…",
-            |ui| {
+            |ui, rtl| {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 // Right-to-left layout keeps the category group against the right edge.
-                for (value, label) in [
+                let tabs = [
                     ("all", "All"),
                     ("pk", "Primary Key"),
                     ("unique", "Unique"),
                     ("check", "Check"),
                     ("not_null", "Not Null"),
-                ].into_iter().rev() {
+                ];
+                // Right-to-left paints from the right edge, so reverse to keep
+                // the declared order; the narrow fallback row is left-to-right.
+                let tabs: Vec<_> = if rtl { tabs.into_iter().rev().collect() } else { tabs.into_iter().collect() };
+                for (value, label) in tabs {
                     if tab_button(ui, self.theme, None, label, *self.constraint_filter == value).clicked() {
                         *self.constraint_filter = value.to_owned();
                     }
@@ -176,17 +180,19 @@ impl TableMetadataContext<'_> {
             "Dependencies",
             self.search,
             "Filter dependencies…",
-            |ui| {
+            |ui, rtl| {
                 ui.spacing_mut().item_spacing.x = SPACE_SM;
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 ui.label(RichText::new(format!("{matching} of {total}")).font(font_ui_label()).color(self.theme.text_muted))
                     .on_hover_text(format!("{matching} of {total} dependencies match the current filters"));
                 Separator::vertical(self.theme).show(ui);
-                for (value, label) in [
+                let tabs = [
                     ("all", "All"),
                     ("depends_on", "Depends On (Outgoing)"),
                     ("depended_by", "Depended By (Incoming)"),
-                ].into_iter().rev() {
+                ];
+                let tabs: Vec<_> = if rtl { tabs.into_iter().rev().collect() } else { tabs.into_iter().collect() };
+                for (value, label) in tabs {
                     if tab_button(ui, self.theme, None, label, *self.dependency_filter == value).clicked() {
                         *self.dependency_filter = value.to_owned();
                     }

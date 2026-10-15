@@ -64,7 +64,7 @@ fn compute_column_widths(columns: &[TableColumn<'_>], net_width: f32) -> Vec<f32
         .collect()
 }
 
-fn column_offsets(widths: &[f32]) -> Vec<f32> {
+pub(crate) fn column_offsets(widths: &[f32]) -> Vec<f32> {
     let mut offsets = Vec::with_capacity(widths.len());
     let mut current = 0.0;
     for &width in widths {

@@ -252,6 +252,7 @@ fn draw_profile_grid(theme: DbProTheme, ui: &mut egui::Ui, profiles: &[ColumnPro
             // Row names come from the profile's real column names — AT users
             // hear the column the row describes, not "row 3".
             Table::new(&columns, theme)
+                .resizable("profile-table")
                 .row_height(48.0)
                 .row_label(&|i| profiles[i].name.clone())
                 .show(

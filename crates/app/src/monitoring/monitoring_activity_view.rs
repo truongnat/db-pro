@@ -49,8 +49,8 @@ impl MonitoringActivityContext<'_, '_> {
 
         let confirmation_actions = monitoring_confirmation_view::MonitoringConfirmationContext {
             theme: self.theme,
-            terminate_backend_id: self.state.monitoring_terminate_confirm,
-            cancel_backend_id: self.state.monitoring_cancel_confirm,
+            terminate_session: self.state.monitoring_terminate_confirm.as_ref(),
+            cancel_session: self.state.monitoring_cancel_confirm.as_ref(),
             maintenance_action: self.state.monitoring_maintenance_confirm,
             maintenance_target: maintenance_target_label(self.state),
             reset_statistics: self.state.monitoring_reset_stats_confirm,
@@ -117,6 +117,7 @@ impl MonitoringActivityContext<'_, '_> {
 
     fn terminate_monitoring_backend(&mut self, backend_id: i64) -> bool {
         let Some(connection_id) = self.connection_id else {
+            self.feedback.set_runtime_message("Connect a database first");
             return false;
         };
         let request_id = self.command_dispatcher.next_request_id();
@@ -129,6 +130,7 @@ impl MonitoringActivityContext<'_, '_> {
 
     fn run_monitoring_maintenance(&mut self, action: db_pro_core::domain::monitoring::MaintenanceAction) -> bool {
         let Some(connection_id) = self.connection_id else {
+            self.feedback.set_runtime_message("Connect a database first");
             return false;
         };
         let request_id = self.command_dispatcher.next_request_id();
@@ -142,6 +144,7 @@ impl MonitoringActivityContext<'_, '_> {
 
     fn reset_monitoring_statistics(&mut self) -> bool {
         let Some(connection_id) = self.connection_id else {
+            self.feedback.set_runtime_message("Connect a database first");
             return false;
         };
         let request_id = self.command_dispatcher.next_request_id();
@@ -157,11 +160,11 @@ impl MonitoringActivityContext<'_, '_> {
             monitoring_sessions_view::MonitoringSessionsAction::OpenSql(query) => {
                 effects.push(MonitoringActivityEffect::OpenQuery(query));
             }
-            monitoring_sessions_view::MonitoringSessionsAction::Cancel(backend_id) => {
-                self.state.monitoring_cancel_confirm = Some(backend_id);
+            monitoring_sessions_view::MonitoringSessionsAction::Cancel(session) => {
+                self.state.monitoring_cancel_confirm = Some(session);
             }
-            monitoring_sessions_view::MonitoringSessionsAction::RequestTerminate(backend_id) => {
-                self.state.monitoring_terminate_confirm = Some(backend_id);
+            monitoring_sessions_view::MonitoringSessionsAction::RequestTerminate(session) => {
+                self.state.monitoring_terminate_confirm = Some(session);
             }
         }
     }
@@ -187,6 +190,7 @@ impl MonitoringActivityContext<'_, '_> {
 
     fn cancel_monitoring_backend(&mut self, backend_id: i64) {
         let Some(connection_id) = self.connection_id else {
+            self.feedback.set_runtime_message("Connect a database first");
             return;
         };
         let request_id = self.command_dispatcher.next_request_id();

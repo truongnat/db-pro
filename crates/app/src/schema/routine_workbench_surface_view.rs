@@ -25,6 +25,8 @@ pub(super) struct RoutineWorkbenchContext<'a> {
     pub(super) drop_confirm: &'a mut bool,
     pub(super) parameter_values: &'a mut Vec<String>,
     pub(super) parameter_nulls: &'a mut Vec<bool>,
+    /// SQL dialect for highlighted previews (#336).
+    pub(super) dialect: crate::editor::SqlDialect,
 }
 
 pub(super) fn draw_workbench(
@@ -45,7 +47,7 @@ fn draw_source_card(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui
         draw_source_editor(context, ui);
         action = draw_source_actions(context, ui);
         if let Some(preview) = context.ddl_preview {
-            draw_ddl_preview(context.theme, preview, ui);
+            draw_ddl_preview(context.theme, context.dialect, preview, ui);
         }
         if *context.drop_confirm {
             draw_drop_confirmation(context, ui, &mut action);
@@ -99,10 +101,10 @@ fn draw_source_actions(context: &RoutineWorkbenchContext<'_>, ui: &mut egui::Ui)
     action
 }
 
-fn draw_ddl_preview(theme: DbProTheme, preview: &str, ui: &mut egui::Ui) {
+fn draw_ddl_preview(theme: DbProTheme, dialect: crate::editor::SqlDialect, preview: &str, ui: &mut egui::Ui) {
     ui.add_space(SPACE_SM);
     ui.label(RichText::new("DDL preview").small().color(theme.text_secondary));
-    CodeBlock::new(preview, theme).language("sql").show(ui);
+    CodeBlock::new(preview, theme).language("sql").sql_dialect(dialect).show(ui);
 }
 
 fn draw_drop_confirmation(
@@ -180,7 +182,7 @@ fn draw_invoke_card(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui
                 .small()
                 .color(context.theme.text_secondary),
         );
-        CodeBlock::new(&invoke_sql, context.theme).language("sql").show(ui);
+        CodeBlock::new(&invoke_sql, context.theme).language("sql").sql_dialect(context.dialect).show(ui);
         ui.add_space(SPACE_SM);
         action = draw_invoke_actions(context.theme, is_procedure, &invoke_sql, ui);
         if is_procedure {

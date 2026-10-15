@@ -124,6 +124,9 @@ pub(super) struct SchemaWorkbenchState {
     /// must bind the new document to it, not the query-context default (#350).
     pub(super) preview_connection_id: Option<String>,
     pub(super) history: Vec<DdlExecutionHistoryEntry>,
+    /// Two-step confirm for "Clear history" — the list is the DDL audit trail
+    /// and a single click must not erase it (#371).
+    pub(super) history_clear_confirm: bool,
     /// Workbench-dispatched ExecuteDdl request awaiting its terminal event, and the
     /// history index `record_execution` returned for it (pending entries sit at index 0).
     pub(super) pending_execution: Option<(crate::RequestId, usize)>,
@@ -207,6 +210,7 @@ impl Default for SchemaWorkbenchState {
             docs_format_html: false,
             dependency_filter: String::new(),
             history: Vec::new(),
+            history_clear_confirm: false,
             pending_execution: None,
             pending_plan: None,
             preview_connection_id: None,
@@ -516,15 +520,98 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenSqlAsQuery(sql) => {
-                self.new_query_document();
-                if let Some(doc) = self.query.session.documents.last_mut() {
-                    doc.set_text(sql);
+                // Reuse a document that already holds this statement instead of
+                // opening a duplicate editor tab on every click (#371).
+                if let Some(index) = self
+                    .query
+                    .session
+                    .documents
+                    .iter()
+                    .position(|doc| doc.text() == sql)
+                {
+                    self.query.session.active_document_index = index;
+                } else {
+                    let active_is_empty = self
+                        .query
+                        .session
+                        .documents
+                        .get(self.query.session.active_document_index)
+                        .is_some_and(|doc| doc.text().trim().is_empty());
+                    if !active_is_empty {
+                        self.new_query_document();
+                    }
+                    if let Some(doc) = self
+                        .query
+                        .session
+                        .documents
+                        .get_mut(self.query.session.active_document_index)
+                    {
+                        doc.set_text(sql);
+                    }
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::ClearHistory => {
                 self.schema.workbench.history.clear();
             }
+        }
+    }
+
+    /// App-level Apply-DDL confirmation — drawn regardless of the active
+    /// workspace tab so entry points like Explorer → Drop Schema can confirm
+    /// without navigating away (#334). `Apply` still goes through the normal
+    /// workbench action pipeline.
+    pub(super) fn draw_workbench_apply_confirmation(&mut self, ctx: &egui::Context) {
+        if !self.schema.workbench.apply_confirmation {
+            return;
+        }
+        let sql = self.schema.workbench.preview_sql.clone();
+        let dialect = self.editor_dialect();
+        let theme = self.theme;
+        let mut open = true;
+        let mut apply = false;
+        Dialog::new(&mut open, "Confirm Apply DDL Mutation", theme)
+            .width(640.0)
+            .show_ctx(ctx, |ui| {
+                ui.colored_label(
+                    theme.warning,
+                    "Applying this DDL will directly modify the active database schema.",
+                );
+                ui.add_space(SPACE_SM);
+                CodeBlock::new(&sql, theme)
+                    .language("sql")
+                    .sql_dialect(dialect)
+                    .show(ui);
+                ui.add_space(SPACE_MD);
+                ui.horizontal(|ui| {
+                    if Button::new(theme)
+                        .text("Apply DDL")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::Check)
+                        .show(ui)
+                        .clicked()
+                    {
+                        apply = true;
+                        self.schema.workbench.apply_confirmation = false;
+                    }
+                    if Button::new(theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::X)
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.schema.workbench.apply_confirmation = false;
+                    }
+                });
+            });
+        if !open {
+            self.schema.workbench.apply_confirmation = false;
+        }
+        if apply {
+            self.apply_workbench_form_action(schema_workbench_form::SchemaWorkbenchFormAction::ApplyDdl);
         }
     }
 

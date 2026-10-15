@@ -21,7 +21,7 @@
                     "Dependencies",
                     &mut search,
                     "Filter dependencies…",
-                    |ui| {
+                    |ui, _rtl| {
                         for (label, selected) in [
                             ("All", false),
                             ("Depends On (Outgoing)", true),

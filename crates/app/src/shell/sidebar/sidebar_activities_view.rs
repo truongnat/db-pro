@@ -128,19 +128,16 @@ impl DbProApp {
                     self.query.editor.problems_source_filter = filter;
                 }
                 SidebarProblemsAction::Select(entry) => {
-                    self.query.editor.problems_selected = Some((entry.document_id, entry.diagnostic_index));
+                    self.query.editor.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
                     if entry.document_index == crate::app::problems_view::FILE_BACKED_DOCUMENT_INDEX {
-                        self.open_workspace_sql_file(entry.document_title);
+                        self.open_workspace_sql_file(entry.document_title.clone());
                         self.workspace.files.select_panel_tab(FilesPanelTab::Search);
                     } else {
-                        self.navigate_to_problem(entry.document_index, entry.diagnostic_index);
+                        self.navigate_to_problem(&entry);
                     }
                 }
-                SidebarProblemsAction::QuickFix {
-                    document_index,
-                    diagnostic_index,
-                } => {
-                    self.apply_problem_fix(document_index, diagnostic_index);
+                SidebarProblemsAction::QuickFix(entry) => {
+                    self.apply_problem_fix(&entry);
                 }
             }
         }

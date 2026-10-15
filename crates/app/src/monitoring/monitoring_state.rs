@@ -5,8 +5,10 @@ pub(super) struct MonitoringState {
     pub(super) monitoring_error: Option<String>,
     pub(super) monitoring_poll: bool,
     pub(super) monitoring_last_poll: Option<std::time::Instant>,
-    pub(super) monitoring_terminate_confirm: Option<i64>,
-    pub(super) monitoring_cancel_confirm: Option<i64>,
+    /// Full session rows (not just pid) so the terminate/cancel dialogs can
+    /// show user/database/query context instead of a bare pid (#386).
+    pub(super) monitoring_terminate_confirm: Option<db_pro_core::domain::monitoring::MonitorSession>,
+    pub(super) monitoring_cancel_confirm: Option<db_pro_core::domain::monitoring::MonitorSession>,
     pub(super) monitoring_filter_active_only: bool,
     pub(super) monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
     pub(super) monitoring_maintenance_schema: String,

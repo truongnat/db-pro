@@ -207,25 +207,23 @@ impl DbProApp {
     }
 
     pub(super) fn draw_files_git_tab(&mut self, ui: &mut egui::Ui) {
-        let documents: Vec<(String, String, bool)> = self
+        // Borrowed doc views — the check is throttled internally (#405) and
+        // cloning every buffer per frame churned on large SQL files.
+        let documents: Vec<(&str, &str, bool)> = self
             .query
             .session
             .documents
             .iter()
-            .filter_map(|doc| {
-                let path = doc.file_path.clone()?;
-                Some((path, doc.text().to_owned(), doc.dirty))
-            })
+            .filter_map(|doc| Some((doc.file_path.as_deref()?, doc.text(), doc.dirty)))
             .collect();
         self.workspace.files.check_external_file_changes(&documents);
-        self.workspace.files.poll_git_task(&mut self.feedback);
         let git_busy = self.workspace.files.git_task_in_flight();
         let actions = {
             let mut context = FilesGitContext {
                 theme: self.theme,
                 status: self.workspace.files.git_status.as_ref(),
                 last_error: self.workspace.files.git_last_error.as_deref(),
-                external_change: self.workspace.files.workspace_external_change.as_deref(),
+                external_changes: &self.workspace.files.workspace_external_changes,
                 commit_message: &mut self.workspace.files.git_commit_message,
                 diff: self.workspace.files.git_diff.as_ref(),
                 busy: git_busy,
@@ -236,7 +234,9 @@ impl DbProApp {
             match action {
                 FilesGitAction::Refresh => self.workspace.files.refresh_git_status(&mut self.feedback),
                 FilesGitAction::ReloadExternalFile(path) => self.reload_workspace_file_from_disk(&path),
-                FilesGitAction::DismissExternalFile => self.workspace.files.dismiss_external_change(),
+                FilesGitAction::DismissExternalFile(path) => {
+                    self.workspace.files.dismiss_external_change(&path);
+                }
                 FilesGitAction::CommitStaged => self.workspace.files.commit_git_staged(&mut self.feedback),
                 FilesGitAction::Stage(path) => self.workspace.files.stage_git_path(&path, &mut self.feedback),
                 FilesGitAction::Unstage(path) => self.workspace.files.unstage_git_path(&path, &mut self.feedback),

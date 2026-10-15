@@ -287,7 +287,9 @@ impl DbProApp {
     /// Registers the grid's focus id so a focus command survives the next frame.
     fn claim_result_grid_focus(&self, ui: &mut egui::Ui) {
         let id = result_grid_keyboard_view::result_grid_focus_id();
-        let rect = egui::Rect::from_min_size(ui.cursor().min, egui::Vec2::ZERO);
+        // A zero-size interactable is unreachable — audit flags it as a dead
+        // focus target; give the claim the grid's visible bounds (#344).
+        let rect = ui.min_rect().intersect(ui.clip_rect());
         let _ = ui.interact(rect, id, egui::Sense::focusable_noninteractive());
     }
 

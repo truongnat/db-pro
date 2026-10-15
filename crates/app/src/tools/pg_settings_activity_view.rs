@@ -69,6 +69,9 @@ impl PgSettingsActivityContext<'_, '_> {
 
     fn set_pg_setting_session(&mut self, name: &str, value: &str) -> bool {
         let Some(connection_id) = self.connection_id else {
+            // Without this a dead/missing connection makes Apply look like a
+            // no-op — surface the failure where the button lives (#407).
+            self.state.pg_settings_error = Some("Connect a database first".into());
             return false;
         };
         let request_id = self.command_dispatcher.next_request_id();
@@ -82,6 +85,7 @@ impl PgSettingsActivityContext<'_, '_> {
 
     fn reset_pg_setting_session(&mut self, name: &str) {
         let Some(connection_id) = self.connection_id else {
+            self.state.pg_settings_error = Some("Connect a database first".into());
             return;
         };
         let request_id = self.command_dispatcher.next_request_id();

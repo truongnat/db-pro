@@ -73,7 +73,7 @@ impl TableIndexesContext<'_> {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 let columns = index_columns(ui.available_width());
-                Table::new(&columns, self.theme).row_height(34.0).show(
+                Table::new(&columns, self.theme).resizable("indexes-table").row_height(34.0).show(
                     ui,
                     indexes.len(),
                     |_| false,

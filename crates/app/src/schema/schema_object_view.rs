@@ -62,6 +62,7 @@ impl DbProApp {
                 theme: self.theme,
                 kind: &details.kind,
                 definition: &details.definition,
+                dialect: self.editor_dialect(),
             }
             .draw(ui);
         }
@@ -98,6 +99,7 @@ impl DbProApp {
         if self.management.routine.routine_param_values.len() != input_count {
             self.management.routine.sync_from(&function);
         }
+        let dialect = self.editor_dialect();
         let action = {
             let mut context = routine_workbench_surface_view::RoutineWorkbenchContext {
                 theme: self.theme,
@@ -107,6 +109,7 @@ impl DbProApp {
                 drop_confirm: &mut self.management.routine.routine_drop_confirm,
                 parameter_values: &mut self.management.routine.routine_param_values,
                 parameter_nulls: &mut self.management.routine.routine_param_nulls,
+                dialect,
             };
             routine_workbench_surface_view::draw_workbench(&mut context, ui)
         };

@@ -108,6 +108,11 @@ impl DbProApp {
         self.table.data.persist_layout(scope);
         self.schema.explorer.record_recent_table(&table);
         self.schema.explorer.selected_table = Some(table);
+        // Filters are scoped to the previous table's metadata — leaving them
+        // would silently hide constraints/dependencies of the new table (#370).
+        self.table.state.table_metadata_search.clear();
+        self.table.state.table_dependency_filter = "all".to_owned();
+        self.table.state.table_constraint_filter = "all".to_owned();
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
@@ -127,28 +132,82 @@ impl DbProApp {
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
-        let result = if self.workspace.files.ide_workspace.roots.is_empty() {
-            self.workspace.files.ide_workspace.open_root(path)
-        } else {
-            self.workspace.files.ide_workspace.add_root(path)
-        };
-        match result {
+        // The scan runs on a worker thread; the frame only queues it and the
+        // results land via poll_background_tasks (#393).
+        let replace = self.workspace.files.ide_workspace.roots.is_empty();
+        match self.workspace.files.request_open_folders(vec![path], replace) {
             Ok(()) => {
                 self.workspace.activity = Activity::Files;
                 self.workspace.sidebar_open = true;
                 self.workspace.files.workspace_search_hits.clear();
-                self.workspace.files.ide_workspace.scan_diagnostics();
-                self.feedback.runtime_message = format!(
-                    "Opened workspace {} · {} files · {} roots",
-                    self.workspace.files.ide_workspace.root_label(),
-                    self.workspace.files.ide_workspace.index().len(),
-                    self.workspace.files.ide_workspace.roots.len()
-                );
+                self.feedback.runtime_message = "Scanning workspace…".to_owned();
             }
             Err(error) => {
                 self.feedback.runtime_message = format!("Failed to open workspace: {error}");
             }
         }
+    }
+
+    /// Drain all worker-thread results (workspace scans, file reads, transfer
+    /// harness jobs, git ops) — called once per frame from `prepare_frame` so
+    /// no draw path blocks on I/O (#377, #393, #405, #421).
+    pub(crate) fn poll_background_tasks(&mut self) {
+        self.workspace.files.poll_git_task(&mut self.feedback);
+        self.poll_workspace_tasks();
+        self.transfer_harness_context().poll();
+    }
+
+    /// Apply scan results finished on a worker thread (#393).
+    fn poll_workspace_tasks(&mut self) {
+        if let Some((indexed, error, _roots)) = self.workspace.files.poll_scan_task() {
+            self.feedback.runtime_message = match error {
+                Some(error) => format!("Workspace scan failed: {error}"),
+                None => format!(
+                    "Opened workspace {} · {indexed} files · {} roots",
+                    self.workspace.files.ide_workspace.root_label(),
+                    self.workspace.files.ide_workspace.roots.len()
+                ),
+            };
+        }
+        for outcome in self.workspace.files.drain_file_reads() {
+            match outcome {
+                ide_workspace_scan::FileReadOutcome::Open { path, result } => match result {
+                    Ok((content, mtime)) => self.open_workspace_document(path, content, mtime),
+                    Err(error) => {
+                        self.feedback.runtime_message = format!("Failed to read {error}");
+                    }
+                },
+            }
+        }
+    }
+
+    fn open_workspace_document(&mut self, absolute: std::path::PathBuf, content: String, mtime: Option<u64>) {
+        let absolute_str = absolute.to_string_lossy().into_owned();
+        let title = absolute
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| absolute_str.clone());
+        let id = format!("file-{absolute_str}");
+        let mut doc = QueryDocument::new(id, title, content);
+        doc.file_path = Some(absolute_str.clone());
+        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        doc.schema = Some(self.active_schema().to_owned());
+        doc.mark_saved();
+        if let Some(mtime) = mtime {
+            self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
+        }
+        if !self.push_query_document(doc) {
+            return;
+        }
+
+        self.workspace.activity = Activity::Queries;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.reset_query_cursor();
+        let title = absolute
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| absolute.to_string_lossy().into_owned());
+        self.feedback.runtime_message = format!("Opened {title}");
     }
 
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
@@ -168,32 +227,19 @@ impl DbProApp {
             self.workspace.active_tab = WorkspaceTab::Query;
             return;
         }
-        let content = match std::fs::read_to_string(&absolute) {
-            Ok(text) => text,
-            Err(error) => {
-                self.feedback.runtime_message = format!("Failed to read {}: {error}", absolute.display());
-                return;
-            }
-        };
-        let title = absolute
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| relative_path.clone());
-        let id = format!("file-{absolute_str}");
-        let mut doc = QueryDocument::new(id, title, content);
-        doc.file_path = Some(absolute_str.clone());
-        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
-        doc.schema = Some(self.active_schema().to_owned());
-        doc.mark_saved();
-        if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
-            self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
+        if self
+            .workspace
+            .files
+            .file_read_tasks
+            .iter()
+            .any(|(pending, _)| pending == &absolute)
+        {
+            return;
         }
-        self.query.session.documents.push(doc);
-        self.query.session.active_document_index = self.query.session.documents.len() - 1;
-        self.workspace.activity = Activity::Queries;
-        self.workspace.active_tab = WorkspaceTab::Query;
-        self.reset_query_cursor();
-        self.feedback.runtime_message = format!("Opened {relative_path}");
+        // Read on a worker thread; the document opens in poll_workspace_tasks (#377).
+        self.workspace
+            .files
+            .request_file_read(absolute, &mut self.feedback);
     }
 
     pub(crate) fn save_active_workspace_file(&mut self) -> bool {
@@ -215,7 +261,7 @@ impl DbProApp {
                 if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
                     self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
-                self.workspace.files.dismiss_external_change();
+                self.workspace.files.dismiss_external_change(&path);
                 self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
@@ -1227,7 +1273,7 @@ impl DbProApp {
                     .workspace_file_mtimes
                     .insert(path.to_owned(), mtime);
             }
-            self.workspace.files.dismiss_external_change();
+            self.workspace.files.dismiss_external_change(path);
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }

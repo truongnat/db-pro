@@ -3858,7 +3858,7 @@ fn sql_lint_null_compare_quick_fix_is_one_undoable_replace() {
         .into_iter()
         .find(|e| e.has_fix)
         .expect("null-compare fix");
-    assert!(app.apply_problem_fix(entry.document_index, entry.diagnostic_index));
+    assert!(app.apply_problem_fix(&entry));
     let text = app.query.session.documents[0].text().to_owned();
     assert!(text.contains("IS NULL"), "fixed text was {text}");
     assert!(!text.to_lowercase().contains("= null"));
@@ -3947,7 +3947,7 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
         .iter()
         .find(|e| e.source == crate::editor::DiagnosticSource::Lint)
         .expect("lint entry");
-    app.navigate_to_problem(first_lint.document_index, first_lint.diagnostic_index);
+    app.navigate_to_problem(first_lint);
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
     assert_eq!(app.workspace.activity, Activity::Problems);
     let active = &app.query.session.documents[app.query.session.active_document_index];
@@ -6907,8 +6907,21 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
         },
         ..Default::default()
     };
+    // Folder scans and file reads run on worker threads (#377/#393); pump the
+    // poll loop until both land instead of asserting mid-flight.
+    let wait_for = |app: &mut DbProApp, done: &dyn Fn(&DbProApp) -> bool| {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
+            app.poll_background_tasks();
+            if done(app) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("background task did not finish");
+    };
     app.open_workspace_folder(dir.clone());
-    assert!(app.workspace.files.ide_workspace.root().is_some());
+    wait_for(&mut app, &|app| app.workspace.files.ide_workspace.root().is_some());
     assert!(app
         .workspace
         .files
@@ -6917,6 +6930,13 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
         .iter()
         .any(|entry| entry.relative_path == "sql/demo.sql"));
     app.open_workspace_sql_file("sql/demo.sql".to_owned());
+    wait_for(&mut app, &|app| {
+        app.query
+            .session
+            .documents
+            .last()
+            .is_some_and(|doc| doc.file_path.as_deref().is_some_and(|path| path.ends_with("demo.sql")))
+    });
     let doc = app.query.session.documents.last().expect("file doc");
     assert_eq!(doc.text(), "SELECT 42;");
     assert!(doc.file_path.as_ref().is_some_and(|path| path.ends_with("demo.sql")));

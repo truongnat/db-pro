@@ -15,6 +15,7 @@ impl DbProApp {
                 let cursor = crate::editor::CursorPosition::from_offset(&document.buffer, diagnostic.range.0);
                 entries.push(ProblemEntry {
                     document_index,
+                    document_version: document.buffer.version(),
                     document_id: document.id.clone(),
                     document_title: document.title.clone(),
                     diagnostic_index,
@@ -42,6 +43,7 @@ impl DbProApp {
             };
             entries.push(ProblemEntry {
                 document_index: FILE_BACKED_DOCUMENT_INDEX,
+                document_version: 0,
                 document_id: format!("{}::{}", diagnostic.root_id, diagnostic.relative_path),
                 document_title: diagnostic.relative_path.clone(),
                 diagnostic_index: index,
@@ -74,7 +76,19 @@ impl DbProApp {
         severity_ok && source_ok
     }
 
-    pub(crate) fn navigate_to_problem(&mut self, document_index: usize, diagnostic_index: usize) {
+    pub(crate) fn navigate_to_problem(&mut self, entry: &ProblemEntry) {
+        // Tabs can close or reorder between collecting the list and the click —
+        // resolve the target by document id, not by the captured index (#425).
+        let Some(document_index) = self
+            .query
+            .session
+            .documents
+            .iter()
+            .position(|document| document.id == entry.document_id)
+        else {
+            return;
+        };
+        let diagnostic_index = entry.diagnostic_index;
         let Some(document) = self.query.session.documents.get(document_index) else {
             return;
         };
@@ -103,14 +117,44 @@ impl DbProApp {
         self.feedback.runtime_message = format!("Jumped to problem in {}", doc.title);
     }
 
-    /// Apply a deterministic lint quick-fix as one undoable buffer replace (#257).
-    pub(crate) fn apply_problem_fix(&mut self, document_index: usize, diagnostic_index: usize) -> bool {
+    /// Apply a deterministic lint quick-fix as one undoable buffer replace.
+    ///
+    /// The diagnostic range was captured when lint ran (#257). Applying it only
+    /// bounds-checked before, so edits typed after the diagnostics refreshed
+    /// let the fix land on unrelated bytes — guard on the buffer version the
+    /// entry was collected under (#425).
+    pub(crate) fn apply_problem_fix(&mut self, entry: &ProblemEntry) -> bool {
+        if entry.document_index == FILE_BACKED_DOCUMENT_INDEX {
+            return false;
+        }
+        let Some(document_index) = self
+            .query
+            .session
+            .documents
+            .iter()
+            .position(|document| document.id == entry.document_id)
+        else {
+            self.feedback.runtime_message = "Problem target is no longer open".to_owned();
+            return false;
+        };
         let Some(document) = self.query.session.documents.get(document_index) else {
             return false;
         };
-        let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
+        if document.buffer.version() != entry.document_version {
+            self.feedback.runtime_message = format!(
+                "Stale diagnostic for {} — the buffer changed; re-run lint",
+                entry.document_title
+            );
+            return false;
+        }
+        let Some(diagnostic) = document.diagnostics.get(entry.diagnostic_index).cloned() else {
             return false;
         };
+        if diagnostic.range != entry.range {
+            self.feedback.runtime_message =
+                "Stale diagnostic — the problem list changed; re-run lint".to_owned();
+            return false;
+        }
         let Some(fix) = diagnostic.fix.clone() else {
             return false;
         };

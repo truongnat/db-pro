@@ -5,8 +5,10 @@ use super::*;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum MonitoringSessionsAction {
     OpenSql(String),
-    Cancel(i64),
-    RequestTerminate(i64),
+    /// The whole row travels so the confirm dialog can show user/database/
+    /// query context instead of a bare pid (#386).
+    Cancel(db_pro_core::domain::monitoring::MonitorSession),
+    RequestTerminate(db_pro_core::domain::monitoring::MonitorSession),
 }
 
 pub(super) struct MonitoringSessionsContext<'a> {
@@ -161,10 +163,10 @@ impl MonitoringSessionsContext<'_> {
                 actions.push(MonitoringSessionsAction::OpenSql(query.to_owned()));
             }
             if !session.is_current && secondary_button_with_icon(ui, Icon::Ban, "Cancel", self.theme).clicked() {
-                actions.push(MonitoringSessionsAction::Cancel(session.backend_id));
+                actions.push(MonitoringSessionsAction::Cancel(session.clone()));
             }
             if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
-                actions.push(MonitoringSessionsAction::RequestTerminate(session.backend_id));
+                actions.push(MonitoringSessionsAction::RequestTerminate(session.clone()));
             }
         });
     }

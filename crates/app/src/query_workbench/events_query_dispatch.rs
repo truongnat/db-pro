@@ -142,7 +142,7 @@ impl DbProApp {
 
     /// SQL dialect for editor features. `numbered_parameters` is a placeholder-style
     /// capability, not a dialect — MySQL/SQL Server would be mis-formatted as SQLite.
-    fn editor_dialect(&self) -> crate::editor::SqlDialect {
+    pub(crate) fn editor_dialect(&self) -> crate::editor::SqlDialect {
         let driver = self.active_driver();
         if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
             crate::editor::SqlDialect::Postgres
@@ -528,6 +528,9 @@ impl DbProApp {
             self.table.data_query.error = None;
             true
         } else {
+            // dispatch already toasted; keep the failure visible inside the
+            // inline-query pane the button press belongs to (#407).
+            self.table.data_query.error = Some("Could not send the query — runtime worker unavailable".to_owned());
             false
         }
     }

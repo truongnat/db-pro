@@ -61,9 +61,8 @@ impl DbProApp {
         {
             self.schema.workbench.apply_confirmation = true;
         }
-        self.workspace.activity = Activity::Schema;
-        self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
-        self.workspace.sidebar_open = true;
+        // The Apply-DDL confirm renders at app level — stay on the current
+        // surface instead of dragging the user to Schema Workbench (#334).
         self.feedback
             .runtime_message = format!("Planned DROP SCHEMA \"{schema}\" CASCADE");
     }

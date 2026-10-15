@@ -191,7 +191,17 @@ impl DbProApp {
     }
 
     /// A native file picker returned (or was cancelled).
+    /// A native file picker returned (or was cancelled).
     pub(super) fn on_file_picked(&mut self, kind: &str, path: Option<String>) {
+        if kind == "audit-export" {
+            match path {
+                Some(path) => self.write_audit_export(&path),
+                None => self
+                    .feedback
+                    .set_runtime_message("Audit export cancelled — no file chosen"),
+            }
+            return;
+        }
         if let Some(folder) = file_picker_events::on_file_picked(
             &mut self.connection.dialog,
             &mut self.overlay,

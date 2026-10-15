@@ -78,11 +78,11 @@ impl DbProApp {
         if prompt.is_empty() {
             return;
         }
-        self.submit_typed_agent_prompt(prompt);
+        self.submit_typed_agent_prompt(prompt, false);
     }
 
-    fn submit_typed_agent_prompt(&mut self, prompt: String) {
-        let prepared = match self.prepare_agent_run(prompt) {
+    fn submit_typed_agent_prompt(&mut self, prompt: String, is_retry: bool) {
+        let prepared = match self.prepare_agent_run(prompt, is_retry) {
             Ok(prepared) => prepared,
             Err(AgentPromptPreparationError::NoDocument) => {
                 self.feedback.runtime_message = "No query document is available for Agent".to_owned();
@@ -118,7 +118,7 @@ impl DbProApp {
         }
     }
 
-    fn prepare_agent_run(&mut self, prompt: String) -> Result<PreparedAgentRun, AgentPromptPreparationError> {
+    fn prepare_agent_run(&mut self, prompt: String, is_retry: bool) -> Result<PreparedAgentRun, AgentPromptPreparationError> {
         let inputs = self.build_agent_run_inputs(&prompt)?;
         let request_id = self.next_request_id();
         let mode = self
@@ -136,6 +136,7 @@ impl DbProApp {
                 schema: inputs.schema,
                 mode,
                 context: inputs.context,
+                is_retry,
             })
             .map_err(|error| match error {
                 AgentRunPreparationError::AlreadyActive => AgentPromptPreparationError::AlreadyActive,
@@ -319,7 +320,14 @@ impl DbProApp {
         else {
             return;
         };
+        // Retry binds to the failed turn: it resubmits the *same* prompt
+        // without appending a duplicate user message, and `prepare_run`
+        // refuses when the session is not actually in a failed state or a
+        // newer prompt has superseded the one that failed (#397).
         let prompt = self.agent.sessions.get(&document_id).and_then(|session| {
+            if session.state != db_pro_core::domain::agent::AgentSessionState::Failed {
+                return None;
+            }
             session
                 .messages
                 .iter()
@@ -328,7 +336,7 @@ impl DbProApp {
                 .map(|msg| msg.content.clone())
         });
         if let Some(prompt) = prompt {
-            self.submit_typed_agent_prompt(prompt);
+            self.submit_typed_agent_prompt(prompt, true);
         }
     }
 
