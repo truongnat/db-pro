@@ -324,7 +324,7 @@ fn connection_summary_with_ssl_mode(ssl_mode: UiSslMode) -> UiConnectionSummary 
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }
 }
 
@@ -458,7 +458,7 @@ fn editing_a_mysql_connection_keeps_the_mysql_driver() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
     app.open_edit_connection(&connection);
     assert_eq!(app.connection.dialog.draft().driver, UiDriver::Mysql);
@@ -505,7 +505,7 @@ fn table_edits_stage_until_explicit_apply() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -611,7 +611,7 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -690,7 +690,7 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -756,7 +756,7 @@ fn binary_cell_edit_is_refused_with_a_reason() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -858,7 +858,7 @@ fn generated_column_edit_is_refused_before_staging() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -971,7 +971,7 @@ fn generated_column_is_never_staged_by_insert() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -1074,7 +1074,7 @@ fn generated_column_is_never_staged_by_insert() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -1136,7 +1136,7 @@ fn duplicated_row_leaves_blocked_columns_empty() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -1352,7 +1352,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -1399,7 +1399,7 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -1504,7 +1504,7 @@ fn selected_connection_is_not_shown_as_connected() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
     let mut app = DbProApp {
         connection: ConnectionFeatureState {
@@ -1667,7 +1667,7 @@ fn provider_capabilities_gate_provider_specific_actions() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
     let postgres = UiConnectionSummary {
         ssl_mode: UiSslMode::Disable,
@@ -1748,7 +1748,7 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -1802,7 +1802,7 @@ fn unknown_driver_resolves_to_a_named_state_not_none() {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
 
@@ -1883,7 +1883,7 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
     let sqlite = UiConnectionSummary {
         id: "sqlite".to_owned(),
@@ -1898,7 +1898,7 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
 
     // With no connection at all, the old lookup answered with PostgreSQL's set through
@@ -2928,7 +2928,7 @@ fn command_palette_connection_switch_preserves_session_when_dispatch_fails() {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
         UiConnectionSummary {
             id: "target".to_owned(),
@@ -2943,7 +2943,7 @@ fn command_palette_connection_switch_preserves_session_when_dispatch_fails() {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
     ];
     app.connection.lifecycle.set_active_connection_id(Some("active".to_owned()));
@@ -2974,7 +2974,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -3050,7 +3050,7 @@ fn loading_connections_automatically_connects_active_connection() {
                 tags: vec![],
                 group: None,
                 favorite: false,
-                environment: "Development".to_owned(),
+                environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
             }],
         })
         .expect("connections should be queued");
@@ -3084,7 +3084,7 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-bad".to_owned());
     app.connection.lifecycle.pending_connection_id = Some("conn-bad".to_owned());
@@ -3720,7 +3720,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
         UiConnectionSummary {
             id: "conn-b".to_owned(),
@@ -3735,7 +3735,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
     ];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-a".to_owned());
@@ -3980,7 +3980,7 @@ fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         });
     let summary = app.build_diagnostics_summary();
     assert!(summary.drivers.iter().any(|d| d.driver == "mysql"));
@@ -4219,7 +4219,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.schema.explorer.selected_table = Some("customers".to_owned());
@@ -4368,7 +4368,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
         UiConnectionSummary {
             id: "active".to_owned(),
@@ -4383,7 +4383,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
     ];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
@@ -4418,7 +4418,7 @@ fn dispatch_caps_reads_with_the_toolbar_row_limit() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -4488,7 +4488,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -4798,7 +4798,7 @@ fn test_query_cancellation_capability_gate() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
     let sqlite_conn = UiConnectionSummary {
         id: "sqlite".to_owned(),
@@ -4813,7 +4813,7 @@ fn test_query_cancellation_capability_gate() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     };
 
     let mut app = DbProApp {
@@ -5361,7 +5361,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
         UiConnectionSummary {
             id: "conn-2".to_owned(),
@@ -5376,7 +5376,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         },
     ];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
@@ -5532,7 +5532,7 @@ fn test_multi_tab_explain_plan_routing() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
 
     // Tab 1
@@ -5609,7 +5609,7 @@ fn test_per_document_connection_and_schema_isolation() {
                         tags: vec![],
                         group: None,
                         favorite: false,
-                        environment: "Development".to_owned(),
+                        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                     },
                     UiConnectionSummary {
                         id: "conn-sqlite".to_owned(),
@@ -5624,7 +5624,7 @@ fn test_per_document_connection_and_schema_isolation() {
                         tags: vec![],
                         group: None,
                         favorite: false,
-                        environment: "Development".to_owned(),
+                        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                     },
                 ],
             },
@@ -6535,7 +6535,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -6582,7 +6582,7 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -6627,7 +6627,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
             tags: vec![],
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }];
         *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
         app.connection.lifecycle.set_connected(true);
@@ -6670,7 +6670,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -6720,7 +6720,7 @@ fn connect_postgres(app: &mut DbProApp) {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -6856,7 +6856,7 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -6978,7 +6978,7 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -7014,7 +7014,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -7115,7 +7115,7 @@ fn badged_connection(index: usize) -> UiConnectionSummary {
         tags: Vec::new(),
         group: None,
         favorite: false,
-        environment: String::new(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }
 }
 

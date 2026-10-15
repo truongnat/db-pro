@@ -41,11 +41,12 @@ impl DbProApp {
 
     pub(crate) fn plan_drop_schema(&mut self, schema: &str) {
         let schema = schema.trim();
-        if schema.is_empty() || !is_user_visible_schema(schema) {
+        let driver = self.active_driver().to_owned();
+        if schema.is_empty() || !is_user_visible_schema(&driver, schema) {
             self.feedback.runtime_message = format!("Cannot drop schema `{schema}`");
             return;
         }
-        if self.active_driver().eq_ignore_ascii_case("sqlite") {
+        if driver.eq_ignore_ascii_case("sqlite") {
             self.feedback.runtime_message = "SQLite has no DROP SCHEMA".to_owned();
             return;
         }

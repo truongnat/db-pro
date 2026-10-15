@@ -357,7 +357,7 @@ impl DbProApp {
             tags: vec!["sample".to_owned(), "sqlite".to_owned()],
             group: Some("Local Samples".to_owned()),
             favorite: true,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
     }
 
@@ -592,7 +592,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -818,7 +818,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -902,7 +902,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -982,7 +982,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection

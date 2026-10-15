@@ -167,6 +167,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
+        let driver = self.active_driver().to_owned();
         let mut context = schema_events::SchemaLoadedContext {
             schema_explorer: &mut self.schema.explorer,
             table_state: &mut self.table.state,
@@ -174,6 +175,7 @@ impl DbProApp {
             workspace: &mut self.workspace.shell,
             palette: &mut self.palette,
             feedback: &mut self.feedback,
+            driver: &driver,
         };
         let transition = schema_events::on_schema_loaded(&mut context, request_id, schema);
         if transition.refresh_selected_table {

@@ -280,8 +280,42 @@ impl DbProApp {
         if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, execution_range, version, false) {
             return false;
         }
+        if self.cross_tab_transaction_blocked(&connection_id) {
+            return false;
+        }
         self.send_query_run(connection_id, sql, execution_range, version, false)
             .is_some()
+    }
+
+    /// A transaction is per-connection on the server: refuse a run from a
+    /// *different* tab while another document on this connection holds one
+    /// open (#423). The owning tab still runs statements inside its txn.
+    fn cross_tab_transaction_blocked(&mut self, connection_id: &str) -> bool {
+        let active_doc_id = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .map(|doc| doc.id.clone());
+        let Some(owner) = self.query.execution.transaction_owner() else {
+            return false;
+        };
+        if Some(owner) == active_doc_id.as_deref() {
+            return false;
+        }
+        let owner_conn = self
+            .query
+            .session
+            .documents
+            .iter()
+            .find(|doc| doc.id == owner)
+            .and_then(|doc| doc.connection_id.clone());
+        if owner_conn.as_deref() == Some(connection_id) || owner_conn.is_none() {
+            self.feedback.runtime_message =
+                "Another query tab holds an open transaction on this connection".to_owned();
+            return true;
+        }
+        false
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
@@ -319,6 +353,9 @@ impl DbProApp {
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, execution_range, version, true) {
+            return;
+        }
+        if self.cross_tab_transaction_blocked(&connection_id) {
             return;
         }
         self.send_query_run(connection_id, sql, execution_range, version, true);

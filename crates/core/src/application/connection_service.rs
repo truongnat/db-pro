@@ -57,7 +57,10 @@ impl ConnectionService {
         {
             return false;
         }
-        matches!(config.driver, DriverType::Postgres)
+        matches!(
+            config.driver,
+            DriverType::Postgres | DriverType::Mysql | DriverType::SqlServer
+        )
     }
 
     async fn hydrate_ssh_password(&self, id: &ConnectionId, config: &mut ConnectionConfig) -> Result<(), DbError> {

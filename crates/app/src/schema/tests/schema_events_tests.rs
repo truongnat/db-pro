@@ -20,6 +20,7 @@
             workspace: &mut workspace,
             palette: &mut palette,
             feedback: &mut feedback,
+            driver: "PostgreSQL",
         };
         let transition = on_schema_loaded(&mut context, RequestId(8), UiSchemaSummary::default());
 
@@ -65,6 +66,7 @@
             workspace: &mut workspace,
             palette: &mut palette,
             feedback: &mut feedback,
+            driver: "PostgreSQL",
         };
         let transition = on_schema_loaded(&mut context, RequestId(7), UiSchemaSummary::default());
 

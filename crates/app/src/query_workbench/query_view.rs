@@ -119,7 +119,7 @@ impl DbProApp {
         let schema = self.active_query_schema().to_owned();
         let environment = self
             .active_query_connection()
-            .map(|connection| connection.environment.clone())
+            .map(|connection| connection.environment)
             .unwrap_or_default();
         let active_request_id = self.active_query_request_id();
         let execution_started_at = self
@@ -141,7 +141,7 @@ impl DbProApp {
                 connected,
                 connection_name: &connection_name,
                 schema: &schema,
-                environment: &environment,
+                environment,
                 active_request_id,
                 execution_started_at,
                 cancel_supported,
@@ -237,7 +237,7 @@ impl DbProApp {
             .connection
             .catalog
             .iter()
-            .map(|c| (c.id.clone(), c.name.clone(), c.environment.clone()))
+            .map(|c| (c.id.clone(), c.name.clone(), c.environment.as_label().to_owned()))
             .collect();
 
         let context = query_context_picker_view::QueryContextPickerContext {

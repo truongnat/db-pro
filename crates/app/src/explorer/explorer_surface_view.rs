@@ -244,6 +244,7 @@ impl ExplorerSurfaceContext<'_> {
         ExplorerSchemaTreeModel {
             connection_id: connection.id.clone(),
             database: connection.database.clone(),
+            driver: connection.driver.clone(),
             active_schema: self.active_schema.clone(),
             schema_error: self.explorer.schema_error.clone(),
             schema_loading: self.explorer.schema_request.is_some(),

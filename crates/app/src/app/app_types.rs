@@ -311,12 +311,29 @@ pub(crate) const EXPLORER_MAX_TABLES: usize = 100;
 /// Row height used by the Codex navigator for viewport culling.
 pub(crate) const EXPLORER_ROW_HEIGHT: f32 = 26.0;
 
-/// Schemas the explorer should show. Hides PostgreSQL catalog / session-temp
-/// namespaces (`pg_temp_*`, `pg_toast_temp_*`) even if a provider still returns them.
-pub(crate) fn is_user_visible_schema(name: &str) -> bool {
-    !matches!(name, "pg_catalog" | "information_schema" | "pg_toast")
-        && !name.starts_with("pg_temp")
-        && !name.starts_with("pg_toast_temp")
+/// Schemas the explorer should show — and the destructive DROP SCHEMA guard's
+/// system-schema boundary (#348/#402). `driver` is the provider label
+/// (`"PostgreSQL"`, `"MySQL"`, `"SQL Server"`, `"SQLite"`); unknown drivers get
+/// the conservative union so a catalog name never passes as "user schema".
+pub(crate) fn is_user_visible_schema(driver: &str, name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    let postgres_system = lower == "pg_catalog"
+        || lower == "information_schema"
+        || lower == "pg_toast"
+        || lower.starts_with("pg_temp")
+        || lower.starts_with("pg_toast_temp");
+    let mysql_system = lower == "mysql" || lower == "performance_schema" || lower == "sys" || lower == "information_schema";
+    // `db_*` schemas are fixed SQL Server roles, not user schema space.
+    let sqlserver_system =
+        lower == "sys" || lower == "information_schema" || lower == "guest" || lower.starts_with("db_");
+    match driver.to_ascii_lowercase().as_str() {
+        d if d.contains("mysql") => !mysql_system,
+        d if d.contains("sql server") || d.contains("sqlserver") || d.contains("mssql") => !sqlserver_system,
+        // SQLite has no schema drops; `main`/`temp` are the user's data space.
+        d if d.contains("sqlite") => true,
+        d if d.contains("postgres") || d.is_empty() => !postgres_system,
+        _ => !(postgres_system || mysql_system || sqlserver_system),
+    }
 }
 
 /// Cached explorer table listing for one `(connection, schema, search)` key.

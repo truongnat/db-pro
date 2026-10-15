@@ -15,7 +15,7 @@ fn connect(app: &mut DbProApp) {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);

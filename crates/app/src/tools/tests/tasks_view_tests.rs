@@ -22,7 +22,7 @@
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }];
         *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
         app.connection.lifecycle.set_connected(true);

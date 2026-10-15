@@ -19,6 +19,8 @@ pub(crate) struct SchemaLoadedContext<'a> {
     pub(crate) workspace: &'a mut WorkspaceShellState,
     pub(crate) palette: &'a mut PaletteState,
     pub(crate) feedback: &'a mut FeedbackState,
+    /// Provider label — `is_user_visible_schema` is driver-aware (#402/#348).
+    pub(crate) driver: &'a str,
 }
 
 /// Applies a schema request failure only when it belongs to the pending request.
@@ -56,7 +58,7 @@ pub(crate) fn on_schema_loaded(
     let refresh_selected_table = context.table_state.refresh_table_info_after_schema;
     context.table_state.refresh_table_info_after_schema = false;
 
-    schema.schemas.retain(|name| is_user_visible_schema(name));
+    schema.schemas.retain(|name| is_user_visible_schema(context.driver, name));
     context.schema_explorer.schema_symbol_index = SchemaSymbolIndex::build(&schema);
     context.schema_explorer.schema = schema;
     context.schema_explorer.explorer_nav_cache = None;

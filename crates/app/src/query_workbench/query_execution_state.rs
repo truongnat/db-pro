@@ -178,6 +178,16 @@ impl QueryExecutionPolicyState {
                 .any(|(id, _)| id == document_id)
     }
 
+    /// ID of the document holding the open transaction, if any. Server-side a
+    /// transaction is per-connection, so a second tab on the same connection
+    /// silently shares it — callers must gate cross-tab runs (#423).
+    pub(super) fn transaction_owner(&self) -> Option<&str> {
+        self.documents
+            .iter()
+            .find(|(_, document)| document.in_transaction)
+            .map(|(id, _)| id.as_str())
+    }
+
     pub(super) fn forget_document(&mut self, document_id: &str) {
         self.documents.remove(document_id);
     }

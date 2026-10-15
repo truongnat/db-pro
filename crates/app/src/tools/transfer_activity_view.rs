@@ -4,7 +4,7 @@ impl DbProApp {
     pub(super) fn draw_transfers_activity(&mut self, ui: &mut egui::Ui) {
         let is_production = self
             .active_connection()
-            .map(|connection| connection.environment.eq_ignore_ascii_case("Production"))
+            .map(|connection| connection.environment == db_pro_core::domain::connection::ConnectionEnvironment::Production)
             .unwrap_or(false);
         let action = transfer_activity_surface_view::TransferActivityContext {
             theme: self.theme,
@@ -76,7 +76,7 @@ impl DbProApp {
     pub(crate) fn apply_synthetic_seed(&mut self) {
         let is_production = self
             .active_connection()
-            .map(|connection| connection.environment.eq_ignore_ascii_case("Production"))
+            .map(|connection| connection.environment == db_pro_core::domain::connection::ConnectionEnvironment::Production)
             .unwrap_or(false);
         if is_production && !self.management.synthetic_data.synthetic_production_confirm {
             self.management.synthetic_data.synthetic_error =

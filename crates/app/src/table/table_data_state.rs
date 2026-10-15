@@ -228,9 +228,22 @@ impl TableDataState {
                 primary: false,
             });
         }
+        // A UNIQUE index over nullable columns admits several NULL rows, so
+        // `col IS NULL` (or `= NULL`) cannot identify a single row (#433).
+        // Only accept indexes whose columns are all NOT NULL.
         info.indexes
             .iter()
-            .find(|index| index.unique && index.predicate.is_none() && !index.columns.is_empty())
+            .find(|index| {
+                index.unique
+                    && index.predicate.is_none()
+                    && !index.columns.is_empty()
+                    && index.columns.iter().all(|name| {
+                        info.columns
+                            .iter()
+                            .find(|column| column.name == *name)
+                            .is_some_and(|column| !column.nullable)
+                    })
+            })
             .map(|index| IdentityKey {
                 columns: index.columns.clone(),
                 primary: false,

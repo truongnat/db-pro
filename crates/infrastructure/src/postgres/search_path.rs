@@ -16,11 +16,19 @@ pub(super) async fn push_session_search_path(conn: &mut PgConnection) -> Result<
     let Some(schema) = requested_schema() else {
         return Ok(None);
     };
+    // `active_query_schema` contract: a single schema identifier. Reject
+    // separators so a caller can never smuggle a second schema or expression
+    // into the quoted literal (#432).
+    if schema.contains([',', '"', ';']) {
+        return Err(DbError::Validation(format!("invalid schema name `{schema}`")));
+    }
     let previous: String = sqlx::query_scalar("SELECT current_setting('search_path')")
         .fetch_one(&mut *conn)
         .await
         .map_err(crate::error::from_sqlx)?;
-    sqlx::query("SELECT set_config('search_path', quote_ident($1), false)")
+    // Keep `public` reachable: extension objects and shared helpers must not
+    // vanish when the picker selects a tenant schema.
+    sqlx::query("SELECT set_config('search_path', quote_ident($1) || ', public', false)")
         .bind(&schema)
         .execute(&mut *conn)
         .await
@@ -44,7 +52,10 @@ pub(super) async fn set_local_search_path(conn: &mut PgConnection) -> Result<(),
     let Some(schema) = requested_schema() else {
         return Ok(());
     };
-    sqlx::query("SELECT set_config('search_path', quote_ident($1), true)")
+    if schema.contains([',', '"', ';']) {
+        return Err(DbError::Validation(format!("invalid schema name `{schema}`")));
+    }
+    sqlx::query("SELECT set_config('search_path', quote_ident($1) || ', public', true)")
         .bind(schema)
         .execute(&mut *conn)
         .await
