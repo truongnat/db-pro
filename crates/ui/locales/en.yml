@@ -178,6 +178,7 @@ query:
   export_results_desc: "Write the visible result rows to a file on disk."
   export_format_label: "Format"
   export_output_file: "Output file"
+  export_table_name: "Target table"
   export_visible_only: "Rows beyond the visible limit are not included in the export."
   export_overwrite_prompt: "%{path} already exists. Overwrite it?"
   overwrite: "Overwrite"

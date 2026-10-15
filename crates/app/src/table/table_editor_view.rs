@@ -121,6 +121,32 @@ impl DbProApp {
             }
         }
     }
+
+    /// Confirmation gate before a Refresh discards in-place DDL edits (#357).
+    pub(super) fn draw_ddl_discard_card(&mut self, ui: &mut egui::Ui) {
+        let ddl = self.table.state.table_ddl.clone().unwrap_or_default();
+        let approval = ExecutionApproval::new(
+            "Discard edited DDL?",
+            "The script differs from the server DDL — refreshing replaces your edits",
+            &ddl,
+            RiskLevel::Medium,
+            self.theme,
+        );
+        if let Some(action) = approval.show(ui) {
+            match action {
+                ExecutionApprovalAction::Run => {
+                    self.table.state.table_ddl_discard_confirm = false;
+                    self.table.state.table_ddl = None;
+                    self.table.state.table_ddl_baseline = None;
+                    self.request_table_ddl();
+                }
+                ExecutionApprovalAction::Cancel => {
+                    self.table.state.table_ddl_discard_confirm = false;
+                }
+                _ => {}
+            }
+        }
+    }
     pub(crate) fn request_table_info(&mut self) {
         let (Some(connection_id), Some(table)) = (
             self.connection.lifecycle.active_connection_id().map(str::to_owned),

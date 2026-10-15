@@ -352,10 +352,7 @@ fn compact_clause(clause: &str) -> String {
 fn strip_outer_parentheses(text: &str) -> &str {
     let mut text = text.trim();
     loop {
-        if text.starts_with('(')
-            && text.ends_with(')')
-            && matching_parenthesis_end(text) == Some(text.len())
-        {
+        if text.starts_with('(') && text.ends_with(')') && matching_parenthesis_end(text) == Some(text.len()) {
             text = text[1..text.len() - 1].trim();
         } else {
             return text;

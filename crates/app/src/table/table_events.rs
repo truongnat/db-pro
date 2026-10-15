@@ -137,8 +137,10 @@ pub(crate) fn on_table_ddl_loaded(
     if table_state.table_ddl_request != Some(request_id) {
         return;
     }
-    table_state.table_ddl = Some(sql);
+    table_state.table_ddl = Some(sql.clone());
+    table_state.table_ddl_baseline = Some(sql);
     table_state.ddl_execute_confirmation = false;
+    table_state.table_ddl_discard_confirm = false;
     table_state.table_ddl_error = None;
     table_state.table_ddl_request = None;
     feedback.set_runtime_message("Table DDL loaded");

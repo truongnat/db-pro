@@ -45,6 +45,18 @@ impl QueryDocumentContext<'_, '_> {
         self.query_session.add_document(document);
         self.activate_query_surface();
     }
+    /// Open `text` in a **new** query document instead of replacing the active
+    /// buffer (#419/#420): generated and saved SQL must never silently
+    /// overwrite the document the user is editing.
+    pub(crate) fn open_text_document(&mut self, text: impl Into<String>, connection_id: Option<String>) {
+        let (document_id, document_number) = self.next_document_identity();
+        let mut document = QueryDocument::new(document_id, format!("Query {document_number}"), text.into());
+        document.connection_id = connection_id.or_else(|| self.active_connection_id.clone());
+        document.schema = Some(self.active_schema.clone());
+        self.query_session.add_document(document);
+        self.activate_query_surface();
+    }
+
 
     pub(crate) fn rename_document_inline(&mut self, index: usize) {
         let Some(document) = self.query_session.documents.get_mut(index) else {
@@ -473,6 +485,14 @@ impl DbProApp {
         self.query_document_context().set_document_schema(index, schema);
     }
 
+    /// Open `text` in a new query document bound to `connection_id` (or the
+    /// active connection when `None`). Use this for every "Open in SQL editor"
+    /// surface — never overwrite the active document's unsaved SQL (#419/#420).
+    pub(crate) fn open_query_document_with(&mut self, text: impl Into<String>, connection_id: Option<String>) {
+        self.query_document_context().open_text_document(text, connection_id);
+    }
+
+
     pub(crate) fn cancel_prediction_for_document(&mut self, index: usize) {
         self.query_document_context().cancel_prediction_for_document(index);
     }
@@ -524,7 +544,7 @@ impl DbProApp {
 
     pub(super) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
         match action {
-            PendingNavigationAction::OpenTable(table) => self.open_table(table),
+            PendingNavigationAction::OpenTable { schema, table } => self.open_table_in_schema(schema, table),
             PendingNavigationAction::ChangeSchema(schema) => {
                 super::schema_explorer_state::SchemaActivationContext::new(
                     &mut self.schema.explorer,

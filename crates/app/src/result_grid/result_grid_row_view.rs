@@ -48,7 +48,11 @@ pub(super) fn draw_row(
             .ctx()
             .input(|input| input.pointer.hover_pos())
             .or_else(debug_pointer_pos);
-        let row_hovered = hover_pos.is_some_and(|pos| row_rect.contains(pos));
+        // Raw hit test is screen-space: skip it when the pointer sits inside an
+        // overlaying surface on the same layer (the agent panel) so hover
+        // doesn't leak through (#338).
+        let row_hovered = hover_pos
+            .is_some_and(|pos| row_rect.contains(pos) && !crate::app::agent_panel_contains_pointer(ui.ctx(), pos));
         let origin_x = ui.cursor().left();
         let clip = ui.clip_rect();
         let window = crate::grid_column_window(

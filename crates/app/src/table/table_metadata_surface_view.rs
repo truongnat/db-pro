@@ -10,7 +10,9 @@ use lucide_icons::Icon;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum TableMetadataAction {
-    OpenTable(String),
+    /// Schema-qualified target — cross-schema dependencies must keep the
+    /// qualifier or navigation resolves the wrong object (#368).
+    OpenTable { schema: String, name: String },
 }
 
 pub(super) struct TableMetadataContext<'a> {
@@ -418,7 +420,10 @@ fn draw_dependency_cell(
                         .show(ui)
                         .clicked()
                 {
-                    actions.push(TableMetadataAction::OpenTable(dependency.name.clone()));
+                    actions.push(TableMetadataAction::OpenTable {
+                        schema: dependency.schema.clone(),
+                        name: dependency.name.clone(),
+                    });
                 }
             });
         }

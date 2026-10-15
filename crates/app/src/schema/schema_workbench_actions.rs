@@ -1,6 +1,6 @@
 //! Schema Workbench — action handling and mutation dispatch.
 
-use super::schema_workbench::SchemaWorkbenchMode;
+use super::schema_workbench::{SchemaWorkbenchMode, WorkbenchPendingPlan};
 use super::schema_workbench_form::SchemaWorkbenchFormAction;
 use super::*;
 use db_pro_core::application::ObjectMutationService;
@@ -19,9 +19,19 @@ impl DbProApp {
                 self.apply_workbench_ddl();
             }
             SchemaWorkbenchFormAction::OpenSql(sql) => {
+                // Bind the document to the connection that produced the plan —
+                // the query-context default may point at another database (#350).
                 self.new_query_document();
+                let index = self.query.session.documents.len().saturating_sub(1);
                 if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(sql);
+                }
+                if let Some(connection_id) = self.schema.workbench.preview_connection_id.clone() {
+                    self.set_document_connection(index, Some(connection_id));
+                }
+                let schema = self.schema.workbench.schema.clone();
+                if !schema.is_empty() {
+                    self.set_document_schema(index, Some(schema));
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
                 self.workspace.activity = Activity::Queries;
@@ -42,9 +52,14 @@ impl DbProApp {
         self.schema.workbench.mode = SchemaWorkbenchMode::SchemaDb;
         self.schema.workbench.schema = schema.to_owned();
         self.schema.workbench.name = schema.to_owned();
-        self.schema.workbench.cascade = true;
         self.plan_workbench_action(ObjectAction::Drop);
-        self.schema.workbench.apply_confirmation = true;
+        // Only open the confirm dialog when the plan produced executable SQL —
+        // a failed or empty plan must not confirm against nothing (#346).
+        if self.schema.workbench.preview_error.is_none()
+            && !self.schema.workbench.preview_sql.trim().is_empty()
+        {
+            self.schema.workbench.apply_confirmation = true;
+        }
         self.workspace.activity = Activity::Schema;
         self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
         self.workspace.sidebar_open = true;
@@ -62,47 +77,43 @@ impl DbProApp {
             Err(err) => {
                 self.schema.workbench.preview_error = Some(err);
                 self.schema.workbench.preview_sql.clear();
+                self.schema.workbench.pending_plan = None;
             }
         }
     }
 
     pub(crate) fn plan_database_action(&mut self, action: ObjectAction) {
-        let request = ObjectMutationRequest {
-            action,
-            target: Some(ObjectRef {
-                kind: ObjectKind::Database,
-                schema: None,
-                name: self.schema.workbench.name.clone(),
-                parent: None,
-            }),
-            definition: ObjectDefinition::Database(DatabaseDefinition {
-                name: self.schema.workbench.name.clone(),
-                owner: None,
-                template: None,
-            }),
-            options: MutationOptions {
-                cascade: self.schema.workbench.cascade,
-                if_exists: true,
-                if_not_exists: true,
-                dry_run: false,
-            },
-            driver: self.active_query_driver().to_owned(),
-        };
+        // Flags follow the action kind; CASCADE is never valid on DROP
+        // DATABASE (#354).
+        let request = self
+            .schema
+            .workbench
+            .build_database_request(action, self.active_query_driver());
         self.run_plan(request);
     }
 
     pub(crate) fn run_plan(&mut self, request: ObjectMutationRequest) {
+        // Remember how this plan was built so apply can re-derive it and reject
+        // a form mutated after the preview (#364/#353).
+        let pending = match request.target.as_ref().map(|target| target.kind) {
+            Some(ObjectKind::Database) => Some(WorkbenchPendingPlan::Database(request.action)),
+            _ => Some(WorkbenchPendingPlan::Object(request.action)),
+        };
+        self.schema.workbench.preview_connection_id =
+            self.active_query_connection_id().map(str::to_owned);
         match ObjectMutationService::plan_for_driver(&request) {
             Ok(preview) => {
                 if let Some(reason) = preview.unsupported_reason {
                     self.schema.workbench.preview_error = Some(reason);
                     self.schema.workbench.preview_sql.clear();
+                    self.schema.workbench.pending_plan = None;
                 } else {
                     self.schema.workbench.preview_error = None;
                     self.schema.workbench.preview_sql = preview.statements.join(";\n");
                     if !self.schema.workbench.preview_sql.is_empty() {
                         self.schema.workbench.preview_sql.push(';');
                     }
+                    self.schema.workbench.pending_plan = pending;
                 }
                 self.schema.workbench.preview_safety = preview.safety;
                 self.schema.workbench.preview_fingerprint = preview.fingerprint;
@@ -110,6 +121,7 @@ impl DbProApp {
             Err(err) => {
                 self.schema.workbench.preview_error = Some(err.to_string());
                 self.schema.workbench.preview_sql.clear();
+                self.schema.workbench.pending_plan = None;
             }
         }
     }
@@ -127,6 +139,23 @@ impl DbProApp {
             return;
         };
         let request_id = self.next_request_id();
+        // Re-plan from the current form inputs and refuse to apply a preview
+        // whose fingerprint no longer matches (#364/#353).
+        let driver = self.active_query_driver().to_owned();
+        match self.schema.workbench.replan_fingerprint(&driver) {
+            Ok(live) if live != self.schema.workbench.preview_fingerprint => {
+                self.schema.workbench.apply_confirmation = false;
+                self.feedback.runtime_message =
+                    "Plan is stale — regenerate preview".to_owned();
+                return;
+            }
+            Ok(_) => {}
+            Err(error) => {
+                self.schema.workbench.apply_confirmation = false;
+                self.feedback.runtime_message = error;
+                return;
+            }
+        }
         let request = match self.schema.workbench.prepare_ddl_request(connection.id) {
             Ok(request) => request,
             Err(error) => {

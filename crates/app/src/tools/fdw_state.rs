@@ -1,4 +1,16 @@
 //! State owned by the foreign-data-wrapper administration surface.
+/// FDW server creation awaiting the user's SQL-preview confirmation — the
+/// payload is frozen at request time so the dialog dispatches what it showed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct FdwCreateApply {
+    pub(super) name: String,
+    pub(super) fdw: String,
+    pub(super) host: String,
+    pub(super) dbname: String,
+    pub(super) port: String,
+    pub(super) sql: String,
+}
+
 
 pub(super) struct FdwState {
     pub(super) fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
@@ -8,6 +20,7 @@ pub(super) struct FdwState {
     pub(super) fdw_create_host: String,
     pub(super) fdw_create_dbname: String,
     pub(super) fdw_create_port: String,
+    pub(super) fdw_create_confirm: Option<FdwCreateApply>,
     pub(super) fdw_ddl_preview: Option<String>,
     pub(super) fdw_drop_confirm: Option<String>,
 }
@@ -22,6 +35,7 @@ impl Default for FdwState {
             fdw_create_host: String::new(),
             fdw_create_dbname: String::new(),
             fdw_create_port: "5432".to_owned(),
+            fdw_create_confirm: None,
             fdw_ddl_preview: None,
             fdw_drop_confirm: None,
         }

@@ -106,6 +106,7 @@ impl DbProApp {
         }
         self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
         self.draw_pending_changes_dialog(ui);
+        self.draw_staged_apply_confirmation(ui);
         self.draw_conflict_dialog(ui, &result);
         self.draw_export_dialog(ui, Some(&result));
         if self.table.data_query.result.is_none() {

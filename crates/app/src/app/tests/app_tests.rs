@@ -4868,7 +4868,10 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     app.open_table("orders".to_owned());
     assert_eq!(
         app.workspace.pending_navigation_action,
-        Some(PendingNavigationAction::OpenTable("orders".to_owned()))
+        Some(PendingNavigationAction::OpenTable {
+            schema: None,
+            table: "orders".to_owned()
+        })
     );
     assert!(app.table.editing.discard_changes_confirmation);
     assert_eq!(app.schema.explorer.selected_table, Some("users".to_owned()));
@@ -4883,7 +4886,10 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     app.open_table("products".to_owned());
     assert_eq!(
         app.workspace.pending_navigation_action,
-        Some(PendingNavigationAction::OpenTable("products".to_owned()))
+        Some(PendingNavigationAction::OpenTable {
+            schema: None,
+            table: "products".to_owned()
+        })
     );
     app.staged_apply_completed();
     assert_eq!(app.schema.explorer.selected_table, Some("products".to_owned()));
@@ -7483,4 +7489,58 @@ fn clicking_a_dock_tab_switches_the_output_pane() {
         OutputTab::History,
         "clicking the History dock tab must switch the pane"
     );
+}
+
+#[test]
+fn staged_apply_with_deletes_requires_confirmation() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+
+    app.table.mutation.staged_changes.stage_delete(StagedChange::Delete {
+        identity: RowIdentity {
+            original_pk_columns: vec!["id".to_owned()],
+            original_pk_values: vec![UiCell::Number("7".to_owned())],
+        },
+        current_row_index: Some(0),
+    });
+
+    // A delete-containing apply parks behind the confirm gate instead of
+    // dispatching `ApplyTableChanges` (#408).
+    app.apply_staged_changes();
+    assert!(app.table.mutation.staged_apply_confirm);
+    assert!(app.table.mutation.staged_apply_request.is_none());
+    assert!(command_rx.try_recv().is_err());
+    assert!(!app.table.mutation.staged_changes.is_empty());
+}
+
+#[test]
+fn staged_apply_without_deletes_skips_confirmation() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+
+    app.table
+        .mutation
+        .staged_changes
+        .stage_insert(vec!["name".to_owned()], vec![UiCell::Text("x".to_owned())]);
+
+    // Inserts-only apply reaches the connection check directly — no confirm
+    // flag is raised (#408).
+    app.apply_staged_changes();
+    assert!(!app.table.mutation.staged_apply_confirm);
+    assert_eq!(
+        app.feedback.runtime_message,
+        "Connect to a database before applying changes"
+    );
+}
+
+/// The agent panel rect is the occlusion surface for pointer hit tests on
+/// layers below it — rows must not hover-highlight under it (#338).
+#[test]
+fn agent_panel_rect_occludes_pointer_positions() {
+    let ctx = egui::Context::default();
+    let rect = egui::Rect::from_min_size(egui::pos2(800.0, 0.0), egui::vec2(320.0, 700.0));
+    store_agent_panel_rect(&ctx, rect);
+    assert!(agent_panel_contains_pointer(&ctx, egui::pos2(900.0, 300.0)));
+    assert!(!agent_panel_contains_pointer(&ctx, egui::pos2(400.0, 300.0)));
+    assert!(!agent_panel_contains_pointer(&ctx, egui::pos2(900.0, 720.0)));
 }

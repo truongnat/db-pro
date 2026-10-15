@@ -62,10 +62,10 @@ impl DbProApp {
     pub(crate) fn export_synthetic_seed_sql(&mut self) {
         match self.transfer_harness_context().build_synthetic_seed_sql() {
             Ok((sql, count)) => {
-                self.set_active_query_text(sql);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                // New document per export — never overwrite the active buffer (#419).
+                self.open_query_document_with(sql, None);
                 self.management.synthetic_data.synthetic_error = None;
-                self.feedback.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
+                self.feedback.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to a new Query tab");
             }
             Err(error) => {
                 self.management.synthetic_data.synthetic_error = Some(error);

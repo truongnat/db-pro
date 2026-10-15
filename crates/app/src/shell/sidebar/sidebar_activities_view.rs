@@ -87,15 +87,12 @@ impl DbProApp {
                     self.table.state.table_view = TableView::Data;
                 }
                 SidebarDataAction::OpenStructure(table) => self.open_table_from_palette(table),
-                SidebarDataAction::OpenQuery(table) => {
-                    let schema = self.active_schema().to_owned();
-                    self.new_query_document();
-                    let from = result_grid_export::qualified_sql_name(&schema, &table);
-                    self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
-                    self.workspace.active_tab = WorkspaceTab::Query;
-                    self.workspace.activity = Activity::Queries;
-                    self.feedback.runtime_message = t!("sidebar.query_ready", table = table.as_str()).into_owned();
-                }
+            SidebarDataAction::OpenQuery(table) => {
+                let schema = self.active_schema().to_owned();
+                let from = result_grid_export::qualified_sql_name(&schema, &table);
+                self.open_query_document_with(format!("SELECT *\nFROM {from}\nLIMIT 100;"), None);
+                self.feedback.runtime_message = t!("sidebar.query_ready", table = table.as_str()).into_owned();
+            }
                 SidebarDataAction::TogglePinned(table) => self.toggle_pinned_table(table),
                 SidebarDataAction::RemoveRecent(table) => {
                     self.schema.explorer.remove_recent_table(&table);
@@ -189,8 +186,7 @@ impl DbProApp {
                 self.open_sql_document(t!("sidebar.saved_query_title").as_ref(), sql);
             }
             SidebarQueryLibraryAction::OpenHistory(sql) => {
-                self.set_active_query_text(sql);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_sql_document(t!("sidebar.history_replay_title").as_ref(), sql);
             }
             SidebarQueryLibraryAction::InsertSql(sql) => {
                 self.insert_snippet(&sql);
@@ -223,12 +219,15 @@ impl DbProApp {
     /// connection/schema and focused. Shared by history replay and saved-query
     /// open so both paths stay identical.
     fn open_sql_document(&mut self, title: &str, sql: String) {
-        let mut doc = crate::query::query_document::QueryDocument::new("query", title, sql);
-        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
-        doc.schema = Some(self.active_schema().to_owned());
-        self.query.session.documents.push(doc);
-        self.query.session.active_document_index = self.query.session.documents.len().saturating_sub(1);
-        self.workspace.active_tab = WorkspaceTab::Query;
+        self.open_query_document_with(sql, None);
+        if let Some(document) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            document.title = title.to_owned();
+        }
     }
 
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {

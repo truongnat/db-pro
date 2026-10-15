@@ -2,18 +2,14 @@ use egui::{Pos2, Rect, Vec2};
 
 use super::{config, AgentComposerAction};
 
-/// Converts the text-edit signals into the composer's keyboard submit decision.
+/// Converts the composer's submit signal into an action.
 ///
-/// The multiline editor deliberately submits only after focus is lost and Enter is
-/// pressed without Shift. Keeping this predicate independent of egui lets the UI
-/// layer preserve multiline Shift+Enter input without embedding policy in paint code.
-pub fn keyboard_action(
-    lost_focus: bool,
-    enter_pressed: bool,
-    shift_held: bool,
-    prompt: &str,
-) -> Option<AgentComposerAction> {
-    if !lost_focus || !enter_pressed || shift_held || !has_prompt_text(prompt) {
+/// The UI consumes Enter (or Ctrl/Cmd+Enter) before the multiline editor can
+/// turn it into a newline — egui's `TextEdit::multiline` never reports
+/// `lost_focus` on Enter, so a focus-based predicate could never submit
+/// (#358). Shift+Enter is left untouched and still inserts a newline.
+pub fn keyboard_action(enter_submitted: bool, prompt: &str) -> Option<AgentComposerAction> {
+    if !enter_submitted || !has_prompt_text(prompt) {
         return None;
     }
     Some(AgentComposerAction::Submit)

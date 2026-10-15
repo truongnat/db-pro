@@ -18,6 +18,8 @@ pub(super) enum FdwSurfaceAction {
         port: String,
     },
     Create,
+    ConfirmCreate,
+    CancelCreate,
     ClosePreview,
     ConfirmDropServer {
         name: String,
@@ -39,6 +41,7 @@ impl FdwSurfaceContext<'_> {
         self.draw_create_form(ui, &mut actions);
         self.draw_preview(ui, &mut actions);
         self.draw_drop_confirmation(ui, &mut actions);
+        self.draw_create_confirmation(ui, &mut actions);
         actions
     }
 
@@ -218,6 +221,44 @@ impl FdwSurfaceContext<'_> {
             });
         if !open {
             actions.push(FdwSurfaceAction::ClosePreview);
+        }
+    }
+
+    fn draw_create_confirmation(&self, ui: &mut egui::Ui, actions: &mut Vec<FdwSurfaceAction>) {
+        let Some(pending) = self.state.fdw_create_confirm.as_ref() else {
+            return;
+        };
+        let mut open = true;
+        Dialog::new(&mut open, &format!("Create foreign server `{}`?", pending.name), self.theme)
+            .width(520.0)
+            .id_salt("fdw_create_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(&pending.sql).monospace());
+                });
+                frame.footer(|ui| {
+                    if Button::new(self.theme)
+                        .text("Create")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(FdwSurfaceAction::ConfirmCreate);
+                    }
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(FdwSurfaceAction::CancelCreate);
+                    }
+                });
+            });
+        if !open {
+            actions.push(FdwSurfaceAction::CancelCreate);
         }
     }
 

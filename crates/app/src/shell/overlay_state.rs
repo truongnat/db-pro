@@ -2,8 +2,13 @@
 #[derive(Debug, Default)]
 pub(crate) struct OverlayState {
     pub(super) export_open: bool,
+    /// Result frozen at the moment the export dialog opens (#404) — a newer
+    /// result must never leak into a dialog opened against older data.
+    pub(super) export_snapshot: Option<crate::UiQueryResult>,
     pub(super) export_format: ExportFormat,
     pub(super) export_path: String,
+    /// Target table name used by SqlInsert/SqlCopy exports (#426).
+    pub(super) export_table_name: String,
     pub(super) export_overwrite_pending: bool,
     pub(super) backup_output_path: String,
     pub(super) restore_input_path: String,

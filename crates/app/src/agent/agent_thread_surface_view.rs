@@ -24,9 +24,10 @@ impl AgentThreadSurfaceContext<'_> {
     // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<AgentThreadAction> {
         let mut actions = Vec::new();
-        // Reserve the composer's real height (label + 2-row input + action row +
-        // frame margins ≈ 108pt); 86 undercut it and the frame bottom clipped the card.
-        let messages_height = (ui.available_height() - 112.0).max(160.0);
+        // The thread's child ui is already bounded — the composer is pinned
+        // bottom by the caller — so the scroll just takes what remains minus
+        // the trailing separator row.
+        let messages_height = (ui.available_height() - 18.0).max(40.0);
         let thread_scroll = ScrollArea::new(self.theme)
             .id_salt("agent-thread-scroll")
             .max_height(messages_height)

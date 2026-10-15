@@ -115,11 +115,7 @@ fn delete_and_update_with_real_where_stay_writes() {
         "UPDATE t SET x = 1 WHERE id = 2",
         "UPDATE t SET x = 1 WHERE true AND id = 2",
     ] {
-        assert_eq!(
-            classify_statement_safety(sql),
-            Some(StatementSafety::Write),
-            "{sql}"
-        );
+        assert_eq!(classify_statement_safety(sql), Some(StatementSafety::Write), "{sql}");
     }
 }
 
@@ -137,11 +133,19 @@ fn select_into_is_ddl_not_read() {
 
 #[test]
 fn privilege_and_maintenance_verbs_are_gated() {
-    for sql in ["GRANT SELECT ON t TO r", "REVOKE ALL ON t FROM r", "SECURITY LABEL FOR p ON t IS 'x'"] {
+    for sql in [
+        "GRANT SELECT ON t TO r",
+        "REVOKE ALL ON t FROM r",
+        "SECURITY LABEL FOR p ON t IS 'x'",
+    ] {
         assert_eq!(classify_statement_safety(sql), Some(StatementSafety::Ddl), "{sql}");
     }
     for sql in ["VACUUM FULL t", "CLUSTER t USING idx", "REINDEX TABLE t", "DISCARD ALL"] {
-        assert_eq!(classify_statement_safety(sql), Some(StatementSafety::Destructive), "{sql}");
+        assert_eq!(
+            classify_statement_safety(sql),
+            Some(StatementSafety::Destructive),
+            "{sql}"
+        );
     }
 }
 

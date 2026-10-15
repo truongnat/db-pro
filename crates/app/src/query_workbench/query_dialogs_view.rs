@@ -85,6 +85,21 @@ impl DbProApp {
         if !self.overlay.export_open {
             return;
         }
+        // Freeze the exported result the first frame the dialog is open (#404):
+        // a query that finishes between open and Export must not rewrite what
+        // the user previewed.
+        if self.overlay.export_snapshot.is_none() {
+            self.overlay.export_snapshot = result.cloned();
+        }
+        if self.overlay.export_table_name.trim().is_empty() {
+            self.overlay.export_table_name = self
+                .schema
+                .explorer
+                .selected_table
+                .clone()
+                .unwrap_or_else(|| "exported_rows".to_owned());
+        }
+        let result = self.overlay.export_snapshot.clone();
         let action = query_dialog_surface_view::ExportDialogContext {
             theme: self.theme,
             overlay: &mut self.overlay,
@@ -92,16 +107,17 @@ impl DbProApp {
         .draw(ui.ctx());
         match action {
             Some(query_dialog_surface_view::ExportDialogAction::Export) => {
-                if let Some(result) = result {
+                if let Some(result) = &result {
                     self.export_result(result);
                 }
             }
             Some(query_dialog_surface_view::ExportDialogAction::Cancel) => {
                 self.overlay.export_open = false;
+                self.overlay.export_snapshot = None;
                 self.overlay.export_overwrite_pending = false;
             }
             Some(query_dialog_surface_view::ExportDialogAction::Overwrite) => {
-                if let Some(result) = result {
+                if let Some(result) = &result {
                     self.export_result_confirming_overwrite(result);
                 }
             }
@@ -204,13 +220,14 @@ impl DbProApp {
                     self.feedback.runtime_message = t!("query.export_failed", error = error.to_string().as_str()).into_owned();
                     self.overlay.export_overwrite_pending = false;
                     self.overlay.export_open = false;
+                    self.overlay.export_snapshot = None;
                     return;
                 }
             }
         } else {
             match self.overlay.export_format {
-                ExportFormat::SqlInsert => result_grid_export::format_result_sql_insert(result, "exported_rows"),
-                ExportFormat::SqlCopy => result_grid_export::format_result_copy(result, "exported_rows"),
+                ExportFormat::SqlInsert => result_grid_export::format_result_sql_insert(result, self.overlay.export_table_name.trim()),
+                ExportFormat::SqlCopy => result_grid_export::format_result_copy(result, self.overlay.export_table_name.trim()),
                 ExportFormat::Json => result_grid_export::format_result_json(result),
                 ExportFormat::Markdown => result_grid_export::format_result_markdown(result),
                 ExportFormat::Csv | ExportFormat::Tsv => result_grid_export::format_result_delimited(
@@ -244,6 +261,7 @@ impl DbProApp {
         }
         self.overlay.export_overwrite_pending = false;
         self.overlay.export_open = false;
+        self.overlay.export_snapshot = None;
     }
 
     pub(super) fn save_query_document(&mut self) {

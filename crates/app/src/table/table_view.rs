@@ -108,8 +108,7 @@ impl DbProApp {
             ),
             Action::NewQuery => {
                 let from = result_grid_export::qualified_sql_name(schema, table_name);
-                self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_query_document_with(format!("SELECT *\nFROM {from}\nLIMIT 100;"), None);
             }
             Action::Refresh => {
                 self.request_table_info();
@@ -119,8 +118,14 @@ impl DbProApp {
                         self.request_table_data();
                     }
                     TableView::Ddl => {
-                        self.table.state.table_ddl = None;
-                        self.request_table_ddl();
+                        if self.table.state.table_ddl_dirty() {
+                            // Never drop in-place edits silently (#357).
+                            self.table.state.table_ddl_discard_confirm = true;
+                        } else {
+                            self.table.state.table_ddl = None;
+                            self.table.state.table_ddl_baseline = None;
+                            self.request_table_ddl();
+                        }
                     }
                     _ => {}
                 }

@@ -52,6 +52,7 @@ impl MonitoringActivityContext<'_, '_> {
             terminate_backend_id: self.state.monitoring_terminate_confirm,
             cancel_backend_id: self.state.monitoring_cancel_confirm,
             maintenance_action: self.state.monitoring_maintenance_confirm,
+            maintenance_target: maintenance_target_label(self.state),
             reset_statistics: self.state.monitoring_reset_stats_confirm,
         }
         .draw(ui.ctx());
@@ -270,6 +271,18 @@ fn maintenance_target(value: &str) -> Option<String> {
         None
     } else {
         Some(value.to_owned())
+    }
+}
+
+/// Label for the maintenance confirm dialog — the user must see whether the
+/// run targets `schema.table` or the entire database (#403).
+fn maintenance_target_label(state: &MonitoringState) -> String {
+    match (
+        maintenance_target(&state.monitoring_maintenance_schema),
+        maintenance_target(&state.monitoring_maintenance_table),
+    ) {
+        (Some(schema), Some(table)) => format!("`{schema}.{table}`"),
+        _ => "the entire database".to_owned(),
     }
 }
 

@@ -42,7 +42,25 @@ pub(super) fn er_design_preview_plan(ctx: &mut DiagramViewContext<'_>) {
     }
 }
 
-pub(super) fn er_design_apply_plan(ctx: &mut DiagramViewContext<'_>) -> Option<DiagramAction> {
+/// "Apply design" never dispatches directly: it ensures a preview exists and
+/// raises `apply_confirm`, which the panel renders as a SQL-preview dialog.
+/// Only `er_design_confirm_apply` produces `DiagramAction::ApplyDesign`.
+pub(super) fn er_design_request_apply(ctx: &mut DiagramViewContext<'_>) {
+    if ctx.diagram.design.preview_sql.is_empty() || !ctx.diagram.design.apply_confirm {
+        er_design_preview_plan(ctx);
+        if ctx.diagram.design.preview_sql.is_empty() {
+            return;
+        }
+    }
+    if !ctx.connected {
+        ctx.diagram.design.error = Some("connect before applying design plan".into());
+        ctx.diagram.design.apply_confirm = false;
+    }
+}
+
+/// Confirm path for the apply dialog — re-verifies the live schema fingerprint
+/// before handing the exact previewed script to the caller.
+pub(super) fn er_design_confirm_apply(ctx: &mut DiagramViewContext<'_>) -> Option<DiagramAction> {
     let live_fingerprint = {
         let names: Vec<String> = ctx
             .explorer
@@ -58,16 +76,13 @@ pub(super) fn er_design_apply_plan(ctx: &mut DiagramViewContext<'_>) -> Option<D
         return None;
     }
     if ctx.diagram.design.preview_sql.is_empty() || !ctx.diagram.design.apply_confirm {
-        er_design_preview_plan(ctx);
-        if ctx.diagram.design.preview_sql.is_empty() {
-            return None;
-        }
+        return None;
     }
     if !ctx.connected {
         ctx.diagram.design.error = Some("connect before applying design plan".into());
         return None;
     }
-
+    ctx.diagram.design.apply_confirm = false;
     // Leave the draft on the canvas until ExecuteDdl reports success.
     // The query path rejects a multi-statement design script.
     let sql = ctx.diagram.design.preview_sql.clone();

@@ -139,6 +139,16 @@ impl ExportDialogContext<'_> {
         );
         ui.add_space(SPACE_XS);
         Input::new(&mut self.overlay.export_path, "/path/to/results.csv", self.theme).show(ui);
+        if matches!(self.overlay.export_format, ExportFormat::SqlInsert | ExportFormat::SqlCopy) {
+            ui.add_space(SPACE_XS);
+            ui.label(
+                RichText::new(t!("query.export_table_name"))
+                    .font(font_ui_label())
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(SPACE_XS);
+            Input::new(&mut self.overlay.export_table_name, "exported_rows", self.theme).show(ui);
+        }
         ui.add_space(SPACE_XS);
         ui.label(
             RichText::new(t!("query.export_visible_only"))

@@ -12,6 +12,8 @@ pub(super) enum ReplicationSurfaceAction {
     RequestDropSubscription(String),
     PreviewCreatePublication(String),
     CreatePublication,
+    ConfirmCreatePublication,
+    CancelCreatePublication,
     ClosePreview,
     ConfirmDropPublication(String),
     ConfirmDropSubscription(String),
@@ -31,6 +33,7 @@ impl ReplicationSurfaceContext<'_> {
         self.draw_inventory(ui, &mut actions);
         self.draw_create_form(ui, &mut actions);
         self.draw_preview(ui, &mut actions);
+        self.draw_create_confirmation(ui, &mut actions);
         self.draw_drop_confirmations(ui, &mut actions);
         actions
     }
@@ -194,6 +197,47 @@ impl ReplicationSurfaceContext<'_> {
             });
         if !open {
             actions.push(ReplicationSurfaceAction::ClosePreview);
+        }
+    }
+
+    fn draw_create_confirmation(&self, ui: &mut egui::Ui, actions: &mut Vec<ReplicationSurfaceAction>) {
+        let Some(pending) = self.state.replication_create_confirm.as_ref() else {
+            return;
+        };
+        let mut open = true;
+        Dialog::new(
+            &mut open,
+            &format!("Create publication `{}`?", pending.name),
+            self.theme,
+        )
+        .width(560.0)
+        .id_salt("replication_create_dialog")
+        .show_framed_ctx(ui.ctx(), |frame| {
+            frame.body(|ui| {
+                ui.label(
+                    RichText::new("FOR ALL TABLES publishes every current and future table.")
+                        .small()
+                        .color(self.theme.warning),
+                );
+                ui.label(RichText::new(&pending.sql).monospace());
+            });
+            frame.footer(|ui| {
+                if Button::new(self.theme)
+                    .text("Create")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    actions.push(ReplicationSurfaceAction::ConfirmCreatePublication);
+                }
+                if secondary_button(ui, "Cancel", self.theme).clicked() {
+                    actions.push(ReplicationSurfaceAction::CancelCreatePublication);
+                }
+            });
+        });
+        if !open {
+            actions.push(ReplicationSurfaceAction::CancelCreatePublication);
         }
     }
 

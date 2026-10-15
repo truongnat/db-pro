@@ -165,7 +165,7 @@ impl DbProApp {
     }
 
     fn open_query_document(&mut self, query: String) {
-        self.set_active_query_text(query);
-        self.workspace.active_tab = WorkspaceTab::Query;
+        // New document per action (#420): never overwrite the active buffer.
+        self.open_query_document_with(query, None);
     }
 }

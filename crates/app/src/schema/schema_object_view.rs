@@ -144,8 +144,7 @@ impl DbProApp {
     }
 
     fn open_routine_query(&mut self, sql: String) {
-        self.set_active_query_text(sql);
-        self.workspace.active_tab = WorkspaceTab::Query;
+        self.open_query_document_with(sql, None);
     }
 
     fn execute_routine_query(&mut self, sql: String) {
@@ -198,8 +197,7 @@ impl DbProApp {
     fn apply_schema_object_surface_action(&mut self, action: schema_object_surface_view::SchemaObjectSurfaceAction) {
         match action {
             schema_object_surface_view::SchemaObjectSurfaceAction::OpenQuery(query) => {
-                self.set_active_query_text(query);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_query_document_with(query, None);
             }
             schema_object_surface_view::SchemaObjectSurfaceAction::SelectView(view) => {
                 self.schema.explorer.schema_object_view = view;

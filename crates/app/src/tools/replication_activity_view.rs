@@ -29,25 +29,46 @@ impl ReplicationActivityContext<'_, '_> {
             match action {
                 replication_surface_view::ReplicationSurfaceAction::Refresh => self.request_replication_inventory(),
                 replication_surface_view::ReplicationSurfaceAction::PreviewDropPublication(name) => {
-                    self.state.replication_ddl_preview =
-                        db_pro_core::domain::replication::preview_drop_publication(&name).ok();
+                    match db_pro_core::domain::replication::preview_drop_publication(&name) {
+                        Ok(sql) => {
+                            self.state.replication_error = None;
+                            self.state.replication_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.replication_error = Some(err),
+                    }
                 }
                 replication_surface_view::ReplicationSurfaceAction::RequestDropPublication(name) => {
                     self.state.replication_drop_publication = Some(name);
                 }
                 replication_surface_view::ReplicationSurfaceAction::PreviewDropSubscription(name) => {
-                    self.state.replication_ddl_preview =
-                        db_pro_core::domain::replication::preview_drop_subscription(&name).ok();
+                    match db_pro_core::domain::replication::preview_drop_subscription(&name) {
+                        Ok(sql) => {
+                            self.state.replication_error = None;
+                            self.state.replication_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.replication_error = Some(err),
+                    }
                 }
                 replication_surface_view::ReplicationSurfaceAction::RequestDropSubscription(name) => {
                     self.state.replication_drop_subscription = Some(name);
                 }
                 replication_surface_view::ReplicationSurfaceAction::PreviewCreatePublication(name) => {
-                    self.state.replication_ddl_preview =
-                        db_pro_core::domain::replication::preview_create_publication_all(&name).ok();
+                    match db_pro_core::domain::replication::preview_create_publication_all(&name) {
+                        Ok(sql) => {
+                            self.state.replication_error = None;
+                            self.state.replication_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.replication_error = Some(err),
+                    }
                 }
                 replication_surface_view::ReplicationSurfaceAction::CreatePublication => {
+                    self.request_publication_create();
+                }
+                replication_surface_view::ReplicationSurfaceAction::ConfirmCreatePublication => {
                     self.create_publication_confirmed();
+                }
+                replication_surface_view::ReplicationSurfaceAction::CancelCreatePublication => {
+                    self.state.replication_create_confirm = None;
                 }
                 replication_surface_view::ReplicationSurfaceAction::ClosePreview => {
                     self.state.replication_ddl_preview = None;
@@ -68,6 +89,24 @@ impl ReplicationActivityContext<'_, '_> {
         }
     }
 
+    /// Build the CREATE PUBLICATION … FOR ALL TABLES preview and hold it behind
+    /// the confirm dialog.
+    fn request_publication_create(&mut self) {
+        match db_pro_core::domain::replication::preview_create_publication_all(
+            &self.state.replication_create_name,
+        ) {
+            Ok(sql) => {
+                self.state.replication_error = None;
+                self.state.replication_create_confirm =
+                    Some(replication_state::ReplicationCreateApply {
+                        name: self.state.replication_create_name.clone(),
+                        sql,
+                    });
+            }
+            Err(err) => self.state.replication_error = Some(err),
+        }
+    }
+
     fn request_replication_inventory(&mut self) {
         let Some(connection_id) = self.connection_id else {
             self.state.replication_error = Some("Connect a PostgreSQL database first".into());
@@ -81,16 +120,22 @@ impl ReplicationActivityContext<'_, '_> {
         self.dispatch(list_replication_inventory_command(request_id, connection_id.to_owned()));
     }
 
+    /// Dispatch the payload the confirm dialog displayed.
     fn create_publication_confirmed(&mut self) {
         let Some(connection_id) = self.connection_id else {
             return;
         };
+        let Some(pending) = self.state.replication_create_confirm.take() else {
+            return;
+        };
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(create_publication_command(
-            self.state,
+        if self.dispatch(create_publication_command(
+            &pending,
             request_id,
             connection_id.to_owned(),
-        ));
+        )) {
+            self.state.replication_ddl_preview = None;
+        }
     }
 
     fn drop_publication_confirmed(&mut self, name: &str) {
@@ -130,14 +175,14 @@ pub(super) fn list_replication_inventory_command(request_id: RequestId, connecti
 }
 
 fn create_publication_command(
-    state: &ReplicationState,
+    pending: &replication_state::ReplicationCreateApply,
     request_id: RequestId,
     connection_id: String,
 ) -> UiCommand {
     UiCommand::CreatePublicationAll {
         request_id,
         connection_id,
-        name: state.replication_create_name.clone(),
+        name: pending.name.clone(),
         confirmed: true,
     }
 }

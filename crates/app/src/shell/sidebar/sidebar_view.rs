@@ -191,9 +191,7 @@ impl DbProApp {
         for effect in effects {
             match effect {
                 monitoring_activity_view::MonitoringActivityEffect::OpenQuery(query) => {
-                    self.set_active_query_text(query);
-                    self.workspace.active_tab = WorkspaceTab::Query;
-                    self.workspace.activity = Activity::Explorer;
+                    self.open_query_document_with(query, None);
                 }
             }
         }
@@ -266,9 +264,7 @@ impl DbProApp {
             .draw(ui)
         };
         if let Some(audit_activity_view::AuditActivityEffect::OpenQuery(query)) = audit_effect {
-            self.set_active_query_text(query);
-            self.workspace.active_tab = WorkspaceTab::Query;
-            self.workspace.activity = Activity::Explorer;
+            self.open_query_document_with(query, None);
         }
     }
 }

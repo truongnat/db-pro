@@ -29,11 +29,23 @@ impl EventTriggerActivityContext<'_, '_> {
             match action {
                 event_trigger_surface_view::EventTriggerSurfaceAction::Refresh => self.request_event_triggers(),
                 event_trigger_surface_view::EventTriggerSurfaceAction::PreviewDrop(name) => {
-                    self.state.event_trigger_ddl_preview =
-                        db_pro_core::domain::event_trigger::preview_drop_event_trigger(&name).ok();
+                    match db_pro_core::domain::event_trigger::preview_drop_event_trigger(&name) {
+                        Ok(sql) => {
+                            self.state.event_trigger_error = None;
+                            self.state.event_trigger_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.event_trigger_error = Some(err),
+                    }
                 }
                 event_trigger_surface_view::EventTriggerSurfaceAction::Alter { name, mode } => {
-                    self.alter_event_trigger_confirmed(&name, &mode);
+                    match db_pro_core::domain::event_trigger::preview_alter_event_trigger(&name, &mode) {
+                        Ok(sql) => {
+                            self.state.event_trigger_error = None;
+                            self.state.event_trigger_apply_confirm =
+                                Some(event_trigger_state::EventTriggerApply::Alter { name, mode, sql });
+                        }
+                        Err(err) => self.state.event_trigger_error = Some(err),
+                    }
                 }
                 event_trigger_surface_view::EventTriggerSurfaceAction::RequestDrop(name) => {
                     self.state.event_trigger_drop_confirm = Some(name);
@@ -44,17 +56,45 @@ impl EventTriggerActivityContext<'_, '_> {
                     function_ref,
                     tags_csv,
                 } => {
-                    self.state.event_trigger_ddl_preview =
-                        db_pro_core::domain::event_trigger::preview_create_event_trigger(
-                            &name,
-                            &event,
-                            &function_ref,
-                            &tags_csv,
-                        )
-                        .ok();
+                    match db_pro_core::domain::event_trigger::preview_create_event_trigger(
+                        &name,
+                        &event,
+                        &function_ref,
+                        &tags_csv,
+                    ) {
+                        Ok(sql) => {
+                            self.state.event_trigger_error = None;
+                            self.state.event_trigger_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.event_trigger_error = Some(err),
+                    }
                 }
                 event_trigger_surface_view::EventTriggerSurfaceAction::Create => {
-                    self.create_event_trigger_confirmed();
+                    match db_pro_core::domain::event_trigger::preview_create_event_trigger(
+                        &self.state.event_trigger_create_name,
+                        &self.state.event_trigger_create_event,
+                        &self.state.event_trigger_create_function,
+                        &self.state.event_trigger_create_tags,
+                    ) {
+                        Ok(sql) => {
+                            self.state.event_trigger_error = None;
+                            self.state.event_trigger_apply_confirm =
+                                Some(event_trigger_state::EventTriggerApply::Create {
+                                    name: self.state.event_trigger_create_name.clone(),
+                                    event: self.state.event_trigger_create_event.clone(),
+                                    function_ref: self.state.event_trigger_create_function.clone(),
+                                    tags_csv: self.state.event_trigger_create_tags.clone(),
+                                    sql,
+                                });
+                        }
+                        Err(err) => self.state.event_trigger_error = Some(err),
+                    }
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::ConfirmApply => {
+                    self.confirm_event_trigger_apply();
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::CancelApply => {
+                    self.state.event_trigger_apply_confirm = None;
                 }
                 event_trigger_surface_view::EventTriggerSurfaceAction::ClosePreview => {
                     self.state.event_trigger_ddl_preview = None;
@@ -81,17 +121,45 @@ impl EventTriggerActivityContext<'_, '_> {
         let request_id = self.command_dispatcher.next_request_id();
         self.dispatch(list_event_triggers_command(request_id, connection_id.to_owned()));
     }
-
-    fn create_event_trigger_confirmed(&mut self) {
+    /// Dispatch the create/alter the confirm dialog displayed — the payload
+    /// comes from `event_trigger_apply_confirm`, never re-read from the form.
+    fn confirm_event_trigger_apply(&mut self) {
         let Some(connection_id) = self.connection_id else {
             return;
         };
+        let Some(pending) = self.state.event_trigger_apply_confirm.take() else {
+            return;
+        };
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(create_event_trigger_command(
-            self.state,
-            request_id,
-            connection_id.to_owned(),
-        ));
+        let command = match pending {
+            event_trigger_state::EventTriggerApply::Create {
+                name,
+                event,
+                function_ref,
+                tags_csv,
+                ..
+            } => UiCommand::CreateEventTrigger {
+                request_id,
+                connection_id: connection_id.to_owned(),
+                name,
+                event,
+                function_ref,
+                tags_csv,
+                confirmed: true,
+            },
+            event_trigger_state::EventTriggerApply::Alter { name, mode, .. } => {
+                UiCommand::AlterEventTrigger {
+                    request_id,
+                    connection_id: connection_id.to_owned(),
+                    name,
+                    mode,
+                    confirmed: true,
+                }
+            }
+        };
+        if self.dispatch(command) {
+            self.state.event_trigger_ddl_preview = None;
+        }
     }
 
     fn drop_event_trigger_confirmed(&mut self, name: &str) {
@@ -103,19 +171,6 @@ impl EventTriggerActivityContext<'_, '_> {
             request_id,
             connection_id.to_owned(),
             name.to_owned(),
-        ));
-    }
-
-    fn alter_event_trigger_confirmed(&mut self, name: &str, mode: &str) {
-        let Some(connection_id) = self.connection_id else {
-            return;
-        };
-        let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(alter_event_trigger_command(
-            request_id,
-            connection_id.to_owned(),
-            name.to_owned(),
-            mode.to_owned(),
         ));
     }
 
@@ -131,21 +186,6 @@ pub(super) fn list_event_triggers_command(request_id: RequestId, connection_id: 
     }
 }
 
-fn create_event_trigger_command(
-    state: &EventTriggerState,
-    request_id: RequestId,
-    connection_id: String,
-) -> UiCommand {
-    UiCommand::CreateEventTrigger {
-        request_id,
-        connection_id,
-        name: state.event_trigger_create_name.clone(),
-        event: state.event_trigger_create_event.clone(),
-        function_ref: state.event_trigger_create_function.clone(),
-        tags_csv: state.event_trigger_create_tags.clone(),
-        confirmed: true,
-    }
-}
 
 fn drop_event_trigger_command(request_id: RequestId, connection_id: String, name: String) -> UiCommand {
     UiCommand::DropEventTrigger {
@@ -156,17 +196,3 @@ fn drop_event_trigger_command(request_id: RequestId, connection_id: String, name
     }
 }
 
-fn alter_event_trigger_command(
-    request_id: RequestId,
-    connection_id: String,
-    name: String,
-    mode: String,
-) -> UiCommand {
-    UiCommand::AlterEventTrigger {
-        request_id,
-        connection_id,
-        name,
-        mode,
-        confirmed: true,
-    }
-}

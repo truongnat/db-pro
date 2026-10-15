@@ -54,8 +54,11 @@ impl DbProApp {
         .draw_dependencies(ui);
         for action in actions {
             match action {
-                table_metadata_surface_view::TableMetadataAction::OpenTable(table) => {
-                    self.open_table(table);
+                table_metadata_surface_view::TableMetadataAction::OpenTable { schema, name } => {
+                    self.open_table_in_schema(
+                        (!schema.is_empty()).then_some(schema),
+                        name,
+                    );
                 }
             }
         }

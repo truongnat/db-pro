@@ -24,6 +24,15 @@ pub(super) enum SchemaWorkbenchMode {
     History,
 }
 
+/// Which plan entry point produced the current `preview_sql`, so
+/// `apply_workbench_ddl` can rebuild it and verify the fingerprint (#364/#353).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum WorkbenchPendingPlan {
+    Object(ObjectAction),
+    Database(ObjectAction),
+}
+
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct TableDesignerColumn {
     pub(super) name: String,
@@ -108,6 +117,12 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) docs_markdown: String,
     pub(super) docs_format_html: bool,
     pub(super) dependency_filter: String,
+    /// Entry point of the plan that produced `preview_sql`, kept so apply can
+    /// rebuild it and reject a stale fingerprint (#364/#353).
+    pub(super) pending_plan: Option<WorkbenchPendingPlan>,
+    /// Connection the preview was planned against — "Open in SQL Editor"
+    /// must bind the new document to it, not the query-context default (#350).
+    pub(super) preview_connection_id: Option<String>,
     pub(super) history: Vec<DdlExecutionHistoryEntry>,
     /// Workbench-dispatched ExecuteDdl request awaiting its terminal event, and the
     /// history index `record_execution` returned for it (pending entries sit at index 0).
@@ -193,6 +208,8 @@ impl Default for SchemaWorkbenchState {
             dependency_filter: String::new(),
             history: Vec::new(),
             pending_execution: None,
+            pending_plan: None,
+            preview_connection_id: None,
         }
     }
 }
@@ -241,6 +258,62 @@ impl SchemaWorkbenchState {
             connection_id,
             sql: sql.to_owned(),
         })
+    }
+
+    /// Database-level mutation request — flags follow the action kind and
+    /// CASCADE never applies to DROP DATABASE (#354).
+    pub(super) fn build_database_request(&self, action: ObjectAction, driver: &str) -> ObjectMutationRequest {
+        ObjectMutationRequest {
+            action,
+            target: Some(ObjectRef {
+                kind: ObjectKind::Database,
+                schema: None,
+                name: self.name.clone(),
+                parent: None,
+            }),
+            definition: ObjectDefinition::Database(DatabaseDefinition {
+                name: self.name.clone(),
+                owner: None,
+                template: None,
+            }),
+            options: MutationOptions {
+                cascade: false,
+                if_exists: action == ObjectAction::Drop,
+                if_not_exists: action == ObjectAction::Create,
+                dry_run: false,
+            },
+            driver: driver.to_owned(),
+        }
+    }
+
+    /// Rebuild the mutation request recorded by `pending_plan` from the current
+    /// form and re-plan it, returning the live fingerprint for staleness checks.
+    pub(super) fn replan_fingerprint(&self, driver: &str) -> Result<String, String> {
+        let Some(pending) = self.pending_plan else {
+            return Err("Plan a mutation before applying".to_owned());
+        };
+        let request = match pending {
+            WorkbenchPendingPlan::Object(action) => self.build_mutation_request(action, driver)?,
+            WorkbenchPendingPlan::Database(action) => self.build_database_request(action, driver),
+        };
+        let preview = db_pro_core::application::ObjectMutationService::plan_for_driver(&request)
+            .map_err(|err| err.to_string())?;
+        if let Some(reason) = preview.unsupported_reason {
+            return Err(reason);
+        }
+        Ok(preview.fingerprint)
+    }
+
+    /// Clear preview/apply leftovers so a reused workbench context cannot
+    /// apply a plan built for a previous schema or table (#381).
+    pub(super) fn clear_plan_state(&mut self) {
+        self.preview_sql.clear();
+        self.preview_safety.clear();
+        self.preview_fingerprint.clear();
+        self.preview_error = None;
+        self.preview_connection_id = None;
+        self.pending_plan = None;
+        self.apply_confirmation = false;
     }
 
     pub(super) fn add_table_column(&mut self) {
@@ -328,10 +401,23 @@ pub(super) struct SchemaWorkbenchDdlRequest {
 
 impl DbProApp {
     pub(crate) fn open_schema_workbench(&mut self) {
-        if let Some(schema) = self.schema.explorer.selected_schema.clone() {
+        let new_schema = self.schema.explorer.selected_schema.clone();
+        let new_table = self.schema.explorer.selected_table.clone();
+        // A different schema/table context must not inherit the previous
+        // session's preview, confirmation, or object name (#381) — a stale
+        // plan could otherwise be applied to the wrong object.
+        let context_changed = (new_schema.is_some()
+            && new_schema.as_deref() != Some(self.schema.workbench.schema.as_str()))
+            || (new_table.is_some()
+                && new_table.as_deref() != Some(self.schema.workbench.parent_table.as_str()));
+        if context_changed {
+            self.schema.workbench.clear_plan_state();
+            self.schema.workbench.name.clear();
+        }
+        if let Some(schema) = new_schema {
             self.schema.workbench.schema = schema;
         }
-        if let Some(table) = self.schema.explorer.selected_table.clone() {
+        if let Some(table) = new_table {
             self.schema.workbench.parent_table = table;
         }
         self.workspace.activity = Activity::Schema;

@@ -236,6 +236,15 @@ is frozen at `fbf9fdab9100f08f12e29434983f32c18f14ac2f`.
 - Connection port validation now rejects `0`, matching the existing 1–65535 validation message.
 - Removed global noninteractive strokes, standard input outlines at rest, and dialog separators while
   preserving search, focus, error, and explicitly framed component outlines.
+- **Keyboard input & focus fixes:** global shortcuts no longer die after a dialog closes (stale
+  modal registry) or after clicking a non-text widget (`egui_wants_keyboard_input` was too broad);
+  editor-scoped chords (Save, New, Find) no longer steal keys while an egui text field is typing;
+  Run defaults to Ctrl/Cmd+Enter (F5 still works) and Enter with a selection no longer deletes the
+  selected text; the data-grid WHERE input keeps focus across autocomplete and runs on Ctrl/Cmd+Enter;
+  Esc inside cell editors/date pickers stays local and only closes the Agent panel when nothing is
+  focused; grid rows no longer hover-highlight beneath the Agent panel; the Agent composer accepts
+  typing again (pinned to the panel bottom so it is never clipped) and Enter submits with
+  Shift+Enter for newlines (#337–#340, #342, #349, #358, #372, #379).
 
 ### Fixed during release UX closure
 

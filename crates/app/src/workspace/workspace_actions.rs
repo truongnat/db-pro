@@ -72,18 +72,34 @@ impl DbProApp {
     }
 
     pub(crate) fn open_table(&mut self, table: String) {
-        if self.schema.explorer.selected_table.as_deref() == Some(&table) {
+        self.open_table_in_schema(None, table);
+    }
+
+    /// `Some(schema)` navigates to a table in another schema — used by
+    /// dependency views whose targets are schema-qualified (#368).
+    pub(crate) fn open_table_in_schema(&mut self, schema: Option<String>, table: String) {
+        let schema = schema.filter(|schema| !schema.is_empty());
+        let schema_changed = schema
+            .as_deref()
+            .is_some_and(|schema| Some(schema) != self.schema.explorer.selected_schema.as_deref());
+        if !schema_changed && self.schema.explorer.selected_table.as_deref() == Some(&table) {
             self.workspace.active_tab = WorkspaceTab::Table;
             self.schema.explorer.record_recent_table(&table);
             return;
         }
         if !self.table.mutation.staged_changes.is_empty() {
-            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable {
+                schema,
+                table,
+            });
             self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.workspace.pending_navigation_action = None;
+        if let Some(schema) = schema {
+            self.schema.explorer.selected_schema = Some(schema);
+        }
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),

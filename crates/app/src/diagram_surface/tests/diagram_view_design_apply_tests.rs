@@ -1,5 +1,5 @@
 //! Tests for `../diagram_view.rs` (moved out of the source file).
-    use super::super::diagram_design_actions::er_design_apply_plan;
+    use super::super::diagram_design_actions::{er_design_confirm_apply, er_design_request_apply};
     use super::{accept_layout_result, ensure_diagram_graph, DiagramAction, DiagramViewContext};
     use crate::runtime::UiSchemaColumn;
     use crate::{DbProApp, DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent, UiSslMode, UiTableSummary};
@@ -103,9 +103,17 @@
         assert!(names.iter().any(|name| name == "draft_orders"), "{names:?}");
         assert!(names.iter().any(|name| name == "draft_items"), "{names:?}");
 
+        // The apply gate must hold the design until the dialog confirms —
+        // the request only raises `apply_confirm` with the previewed SQL.
+        {
+            let mut ctx = view(&mut app);
+            er_design_request_apply(&mut ctx);
+        }
+        assert!(app.schema.diagram.design.apply_confirm);
+        assert!(command_rx.try_recv().is_err());
         let action = {
             let mut ctx = view(&mut app);
-            er_design_apply_plan(&mut ctx).expect("design apply")
+            er_design_confirm_apply(&mut ctx).expect("design apply")
         };
         assert_eq!(app.schema.diagram.design.draft.tables.len(), 2);
         let DiagramAction::ApplyDesign(sql) = action else {
@@ -143,9 +151,14 @@
             .as_deref()
             .is_some_and(|error| error.contains("syntax error")));
 
+        {
+            let mut ctx = view(&mut app);
+            er_design_request_apply(&mut ctx);
+        }
+        assert!(app.schema.diagram.design.apply_confirm);
         let action = {
             let mut ctx = view(&mut app);
-            er_design_apply_plan(&mut ctx).expect("design apply after failure")
+            er_design_confirm_apply(&mut ctx).expect("design apply after failure")
         };
         app.apply_diagram_action(action);
         assert_eq!(app.schema.diagram.design.draft.tables.len(), 2);

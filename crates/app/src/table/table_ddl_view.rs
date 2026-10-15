@@ -18,15 +18,22 @@ impl DbProApp {
 
         ui.add_space(8.0);
 
-        let content_changed = self.draw_ddl_script_card(ui, can_mutate, &mut ddl);
-        if content_changed {
-            self.table.state.table_ddl = Some(ddl);
+        // "Apply DDL" never executes directly — it raises the confirmation
+        // gate that `draw_ddl_confirmation_card` renders (#361).
+        if self.draw_ddl_script_card(ui, can_mutate, &mut ddl) {
+            self.table.state.table_ddl = Some(ddl.clone());
+            self.table.state.ddl_execute_confirmation = true;
         }
 
         if self.table.state.ddl_execute_confirmation {
             let impact = ddl_impact_summary(self.table.state.table_ddl.as_deref().unwrap_or(""), table_name);
             ui.add_space(8.0);
             self.draw_ddl_confirmation_card(ui, &impact);
+        }
+
+        if self.table.state.table_ddl_discard_confirm {
+            ui.add_space(8.0);
+            self.draw_ddl_discard_card(ui);
         }
     }
 
@@ -40,12 +47,18 @@ impl DbProApp {
     ) {
         match action {
             Some(table_ddl_surface_view::DdlToolbarAction::Refresh) => {
-                self.table.state.table_ddl = None;
-                self.request_table_ddl();
+                if self.table.state.table_ddl_dirty() {
+                    // Never drop in-place edits silently (#357).
+                    self.table.state.table_ddl_discard_confirm = true;
+                } else {
+                    self.table.state.table_ddl = None;
+                    self.table.state.table_ddl_baseline = None;
+                    self.request_table_ddl();
+                }
             }
             Some(table_ddl_surface_view::DdlToolbarAction::OpenInQuery) => {
-                self.set_active_query_text(ddl.to_owned());
-                self.workspace.active_tab = WorkspaceTab::Query;
+                // Open in a new document — the active buffer keeps its content (#420).
+                self.open_query_document_with(ddl.to_owned(), None);
                 self.feedback.runtime_message = format!("Opened DDL for {schema}.{table_name} in Query editor");
             }
             Some(table_ddl_surface_view::DdlToolbarAction::Copy) => {

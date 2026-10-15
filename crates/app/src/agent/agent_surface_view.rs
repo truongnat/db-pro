@@ -34,6 +34,9 @@ impl AgentPanelSurfaceContext {
                 ui.set_min_size(ui.available_size());
                 content(ui);
             });
+        // Panels share the central layer with the workspace — publish the rect
+        // so lower surfaces (grid rows) can skip hit tests under it (#338).
+        store_agent_panel_rect(ui.ctx(), response.response.rect);
         // egui's resizable Panel emits an anonymous `Unknown` node for the
         // drag handle (id = panel id + "__resize") — name it so AT can
         // announce "resize agent panel" instead of nothing.
@@ -129,8 +132,31 @@ impl AgentPanelContent<'_> {
             return;
         }
         self.draw_context(ui, actions);
-        self.draw_thread(ui, actions);
-        self.draw_composer(ui, actions);
+        // The composer is pinned to the panel bottom in its own bottom-up
+        // child ui; the thread gets exactly the space left above it. The old
+        // ≈112pt reserve inside the thread clipped the composer whenever the
+        // badge row wrapped (#337).
+        let composer_top = ui.max_rect().bottom() - self.composer_height(ui);
+        let thread_rect = egui::Rect::from_min_max(
+            ui.cursor().min,
+            egui::pos2(ui.max_rect().right(), composer_top.max(ui.cursor().top())),
+        );
+        let mut thread_ui = ui.new_child(egui::UiBuilder::new().max_rect(thread_rect));
+        self.draw_thread(&mut thread_ui, actions);
+        let mut composer_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(ui.max_rect())
+                .layout(egui::Layout::bottom_up(egui::Align::Min)),
+        );
+        self.draw_composer(&mut composer_ui, actions);
+    }
+
+    /// The composer's painted height from the previous pass, so the thread can
+    /// reserve exactly the space it needs before the composer draws.
+    fn composer_height(&self, ui: &egui::Ui) -> f32 {
+        ui.ctx()
+            .data(|d| d.get_temp::<f32>(egui::Id::new("agent_composer_height")))
+            .unwrap_or(112.0)
     }
 
     fn draw_header(&mut self, ui: &mut egui::Ui, actions: &mut Vec<AgentPanelAction>) {
@@ -210,6 +236,14 @@ impl AgentPanelContent<'_> {
         {
             actions.push(AgentPanelAction::Composer(action));
         }
+        // Publish the real painted height so the thread reserves exactly this
+        // space next pass (bottom-up `min_rect` measures the drawn block).
+        ui.ctx().data_mut(|d| {
+            d.insert_temp(
+                egui::Id::new("agent_composer_height"),
+                ui.min_rect().height().max(1.0),
+            )
+        });
     }
 }
 

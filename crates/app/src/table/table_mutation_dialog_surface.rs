@@ -255,3 +255,62 @@ fn group_changes(changes: &[StagedChange]) -> Vec<ChangeGroup> {
     }
     groups
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum StagedApplyConfirmAction {
+    Apply,
+    Cancel,
+}
+
+/// Mandatory gate when a staged apply contains deletes — the breakdown is
+/// shown before `ApplyTableChanges` is dispatched.
+pub(super) struct StagedApplyConfirmContext {
+    pub(super) theme: DbProTheme,
+    pub(super) counts: ChangeCounts,
+    pub(super) table: String,
+}
+
+impl StagedApplyConfirmContext {
+    pub(super) fn draw(&self, ui: &mut egui::Ui) -> Option<StagedApplyConfirmAction> {
+        let mut open = true;
+        let mut action = None;
+        let description = format!(
+            "Apply {} staged change(s) to `{}` in one transaction (+{} inserts, ~{} updates, -{} deletes)?",
+            self.counts.total(),
+            self.table,
+            self.counts.inserts,
+            self.counts.updates,
+            self.counts.deletes,
+        );
+        Dialog::new(&mut open, "Apply staged changes?", self.theme)
+            .description(&description)
+            .id_salt("staged-apply-confirm")
+            .show(ui, |ui| {
+                if self.counts.deletes > 0 {
+                    ui.colored_label(
+                        self.theme.danger,
+                        format!("{} row(s) will be permanently deleted.", self.counts.deletes),
+                    );
+                }
+                ui.horizontal(|ui| {
+                    if Button::new(self.theme)
+                        .text("Apply Changes")
+                        .variant(ButtonVariant::Default)
+                        .show(ui)
+                        .clicked()
+                    {
+                        action = Some(StagedApplyConfirmAction::Apply);
+                    }
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
+                        action = Some(StagedApplyConfirmAction::Cancel);
+                    }
+                });
+            });
+        action.or_else(|| (!open).then_some(StagedApplyConfirmAction::Cancel))
+    }
+}

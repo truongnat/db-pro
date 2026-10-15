@@ -9,15 +9,24 @@ impl DbProApp {
         if self.shortcuts_blocked(ctx) {
             return;
         }
-        if self.handle_document_shortcuts(ctx) {
-            return;
+        // `text_edit_focused` (not `egui_wants_keyboard_input`) — the latter is
+        // true for *any* focused widget, which killed palette/sidebar chords
+        // after clicking a button or grid cell (#340). Shortcuts that target
+        // the query editor must not fire while an egui text field elsewhere
+        // (WHERE filter, agent composer, dialogs) is typing (#379); the custom
+        // SqlEditor is not a TextEdit, so editor chords still fire there.
+        let egui_text_focused = ctx.text_edit_focused();
+        if !egui_text_focused {
+            if self.handle_document_shortcuts(ctx) {
+                return;
+            }
+            // Run-all is checked before run so a shifted chord is not also a
+            // plain run.
+            if self.handle_catalog_shortcuts(ctx) {
+                return;
+            }
         }
-        let text_input_has_focus = ctx.egui_wants_keyboard_input();
-        // Catalog chords win over the editor, including while it holds the keyboard.
-        // Run-all is checked before run so a shifted chord is not also a plain run.
-        if self.handle_catalog_shortcuts(ctx) {
-            return;
-        }
+        let text_input_has_focus = egui_text_focused || self.query.editor.query_editor_focused;
         if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
             return;
         }
@@ -30,11 +39,19 @@ impl DbProApp {
         // Overlay flags that exist outside the modal registry still gate
         // here; any *rendered* Dialog/Sheet is detected via modal_guard so
         // global chords and Esc can't reach the surface behind a modal.
+        // A live cell editor (or its calendar/FK popup) owns Esc/locals
+        // first — letting the global handler see the same keypress cancels
+        // running queries behind the user's back (#372). The WHERE
+        // completion popup consumes Esc itself before its editor draws, so
+        // it must also preempt the global fallback.
         self.palette.mode.is_some()
             || self.connection.dialog.is_open()
             || self.overlay.connection_delete_confirmation_id.is_some()
             || self.overlay.folder_delete_confirmation.is_some()
             || self.table.editing.insert_row_open
+            || self.table.editing.data_editing_cell.is_some()
+            || self.table.data_query.sql_condition_suggestions_open
+            || egui::Popup::is_any_open(ctx)
             || crate::components::dialog::modal_guard::any_open(ctx)
     }
 
@@ -93,7 +110,9 @@ impl DbProApp {
             self.format_focused_query();
             return true;
         }
-        if self.press_catalog(ctx, "query.run") {
+        if self.press_catalog(ctx, "query.run") || f5_pressed(ctx) {
+            // F5 is the conventional Run key and stays as a hardcoded alias of
+            // the `query.run` command (whose catalog default is `mod+enter`).
             self.dispatch_query();
             return true;
         }
@@ -207,7 +226,10 @@ impl DbProApp {
             self.query.editor.query_tools_open = false;
         } else if self.query.editor.editor_search_open {
             self.query.editor.editor_search_open = false;
-        } else {
+        } else if self.workspace.agent_open && ctx.memory(|m| m.focused().is_none()) {
+            // Esc only dismisses the agent panel when no widget holds the
+            // keyboard — Esc while typing in the editor or composer is a local
+            // concern and must not close the panel (#349).
             self.set_agent_open(false, ctx);
         }
     }
@@ -504,4 +526,10 @@ fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> Ui
             session_id: prepared.session_id.clone(),
         }
     }
+}
+
+/// F5 fires `query.run` regardless of the catalog binding — it is the
+/// platform-conventional Run chord and carries no modifiers.
+fn f5_pressed(ctx: &egui::Context) -> bool {
+    ctx.input(|i| i.key_pressed(egui::Key::F5) && i.modifiers.is_none())
 }

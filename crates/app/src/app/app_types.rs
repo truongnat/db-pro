@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PendingNavigationAction {
-    OpenTable(String),
+    /// `schema` is `None` when the caller means the currently selected schema.
+    OpenTable { schema: Option<String>, table: String },
     ChangeSchema(String),
     ChangeConnection(String),
     /// Routed through the staged-changes confirmation: disconnecting wipes
@@ -282,6 +283,24 @@ pub(crate) const SIDEBAR_MIN_WIDTH: f32 = 220.0;
 pub(crate) const SIDEBAR_MAX_WIDTH: f32 = 380.0;
 pub(crate) const AGENT_MIN_WIDTH: f32 = 300.0;
 pub(crate) const AGENT_MAX_WIDTH: f32 = 480.0;
+
+fn agent_panel_rect_key() -> egui::Id {
+    egui::Id::new("agent_panel_screen_rect")
+}
+
+/// Records the agent side panel's screen rect for this pass. Panels share the
+/// central `Order::Middle` layer with the grid, so `layer_id_at` cannot tell a
+/// grid row from the panel covering it — the stored rect is the occlusion test
+/// row hover uses instead (#338).
+pub(crate) fn store_agent_panel_rect(ctx: &egui::Context, rect: egui::Rect) {
+    ctx.data_mut(|d| d.insert_temp(agent_panel_rect_key(), rect));
+}
+
+/// Whether `pos` lands inside the agent panel painted this or last pass.
+pub(crate) fn agent_panel_contains_pointer(ctx: &egui::Context, pos: egui::Pos2) -> bool {
+    ctx.data(|d| d.get_temp::<egui::Rect>(agent_panel_rect_key()))
+        .is_some_and(|rect| rect.contains(pos))
+}
 pub(crate) const OUTPUT_MIN_HEIGHT: f32 = 120.0;
 pub(crate) const OUTPUT_MAX_HEIGHT: f32 = 420.0;
 pub(crate) const TABLE_PAGE_SIZE: u64 = 100;

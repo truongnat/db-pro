@@ -19,6 +19,8 @@ impl TableEditorState {
     pub(crate) fn reset_workspace(&mut self) {
         self.state.table_info = None;
         self.state.table_ddl = None;
+        self.state.table_ddl_baseline = None;
+        self.state.table_ddl_discard_confirm = false;
         self.state.table_info_error = None;
         self.state.table_ddl_error = None;
         self.state.ddl_execute_confirmation = false;
@@ -29,6 +31,7 @@ impl TableEditorState {
         self.mutation.table_mutation_request = None;
         self.mutation.staged_changes.clear();
         self.mutation.staged_apply_request = None;
+        self.mutation.staged_apply_confirm = false;
         self.mutation.staged_apply_targets.clear();
         self.mutation.table_mutation_retry_after_reload = false;
         self.mutation.table_mutation_retry_target = None;

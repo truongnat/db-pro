@@ -12,8 +12,7 @@ impl DbProApp {
                 self.open_schema_object(request.selection, &request.schema, &request.name, &request.kind);
             }
             SchemaObjectFolderAction::OpenQuery(query) => {
-                self.set_active_query_text(query);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_query_document_with(query, None);
             }
             SchemaObjectFolderAction::ModifyView(view) => {
                 self.schema.workbench.mode = SchemaWorkbenchMode::View;

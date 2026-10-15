@@ -320,7 +320,14 @@ impl MonitoringPort for PostgresMonitoringPort {
                     MaintenanceAction::VacuumAnalyze => format!("VACUUM ANALYZE {schema}.{table}"),
                 }
             }
-            _ => match action {
+            // A schema without a table has no per-schema VACUUM form — falling
+            // back to a bare run would silently vacuum the whole database.
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(DbError::Validation(
+                    "maintenance needs both schema and table, or neither for the whole database".into(),
+                ));
+            }
+            (None, None) => match action {
                 MaintenanceAction::Vacuum => "VACUUM".into(),
                 MaintenanceAction::Analyze => "ANALYZE".into(),
                 MaintenanceAction::VacuumAnalyze => "VACUUM ANALYZE".into(),

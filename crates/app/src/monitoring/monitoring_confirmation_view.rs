@@ -19,6 +19,8 @@ pub(super) struct MonitoringConfirmationContext {
     pub(super) terminate_backend_id: Option<i64>,
     pub(super) cancel_backend_id: Option<i64>,
     pub(super) maintenance_action: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
+    /// `schema.table`, or `entire database` when no target is set.
+    pub(super) maintenance_target: String,
     pub(super) reset_statistics: bool,
 }
 
@@ -32,7 +34,7 @@ impl MonitoringConfirmationContext {
             actions.extend(self.draw_cancel_backend(ctx, backend_id));
         }
         if let Some(action) = self.maintenance_action {
-            actions.extend(self.draw_maintenance(ctx, action));
+            actions.extend(self.draw_maintenance(ctx, action, &self.maintenance_target));
         }
         if self.reset_statistics {
             actions.extend(self.draw_reset_statistics(ctx));
@@ -96,6 +98,7 @@ impl MonitoringConfirmationContext {
         &self,
         ctx: &egui::Context,
         action: db_pro_core::domain::monitoring::MaintenanceAction,
+        target: &str,
     ) -> Vec<MonitoringConfirmationAction> {
         let mut actions = Vec::new();
         let mut open = true;
@@ -105,7 +108,7 @@ impl MonitoringConfirmationContext {
             .show_framed_ctx(ctx, |frame| {
                 frame.body(|ui| {
                     ui.label(format!(
-                        "Run {} on the active database? Long-running VACUUM can take locks.",
+                        "Run {} on {target}? Long-running VACUUM can take locks.",
                         action.as_label()
                     ));
                 });
