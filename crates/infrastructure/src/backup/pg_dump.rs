@@ -198,9 +198,9 @@ impl PgPassFile {
             options.mode(0o600);
         }
         // A few hundred bytes: synchronous write keeps the guard simple.
-        let mut file = options.open(&path).map_err(|error| {
-            DbError::Internal(format!("failed to create pgpass file {}: {error}", path.display()))
-        })?;
+        let mut file = options
+            .open(&path)
+            .map_err(|error| DbError::Internal(format!("failed to create pgpass file {}: {error}", path.display())))?;
         use std::io::Write as _;
         file.write_all(contents.as_bytes())
             .map_err(|error| DbError::Internal(format!("failed to write pgpass file: {error}")))?;

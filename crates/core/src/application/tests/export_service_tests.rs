@@ -105,11 +105,22 @@ async fn export_csv_basic() {
 fn csv_render_escapes_formula_leading_fields() {
     let result = QueryResult {
         columns: vec![
-            ColumnMeta { name: "id".into(), data_type: "INT".into(), nullable: false },
-            ColumnMeta { name: "=cmd".into(), data_type: "TEXT".into(), nullable: true },
+            ColumnMeta {
+                name: "id".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            },
+            ColumnMeta {
+                name: "=cmd".into(),
+                data_type: "TEXT".into(),
+                nullable: true,
+            },
         ],
         rows: vec![
-            Row(vec![CellValue::Int64(1), CellValue::Text("=HYPERLINK(\"http://evil\",\"x\")".into())]),
+            Row(vec![
+                CellValue::Int64(1),
+                CellValue::Text("=HYPERLINK(\"http://evil\",\"x\")".into()),
+            ]),
             Row(vec![CellValue::Int64(-2), CellValue::Text("-1+1".into())]),
         ],
         row_count: 2,

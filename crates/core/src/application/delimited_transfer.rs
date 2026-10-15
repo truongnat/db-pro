@@ -133,14 +133,22 @@ impl TransferTarget for DelimitedFileTarget {
             .as_mut()
             .ok_or_else(|| TransferError::Target("writer already finished".into()))?;
         if !self.wrote_header && !self.headers.is_empty() {
-            let headers: Vec<String> = self.headers.iter().map(|h| guard_csv_field(h.as_str()).into_owned()).collect();
+            let headers: Vec<String> = self
+                .headers
+                .iter()
+                .map(|h| guard_csv_field(h.as_str()).into_owned())
+                .collect();
             writer
                 .write_record(&headers)
                 .map_err(|e| TransferError::Target(e.to_string()))?;
             self.wrote_header = true;
         }
         for row in rows {
-            let cells: Vec<String> = row.cells.iter().map(|cell| guard_csv_field(cell.as_str()).into_owned()).collect();
+            let cells: Vec<String> = row
+                .cells
+                .iter()
+                .map(|cell| guard_csv_field(cell.as_str()).into_owned())
+                .collect();
             writer
                 .write_record(&cells)
                 .map_err(|e| TransferError::Target(e.to_string()))?;

@@ -327,7 +327,6 @@ impl ToastManager {
         })
     }
 
-
     pub fn show_with_action(
         &mut self,
         message: impl Into<String>,
@@ -418,8 +417,7 @@ impl ToastManager {
 
             // Clamp the stack to the screen: past the cap extra toasts never
             // render off-viewport (#392).
-            let max_stack = ((screen.height() - 2.0 * config::TOAST_SCREEN_MARGIN)
-                / config::TOAST_STACK_OFFSET)
+            let max_stack = ((screen.height() - 2.0 * config::TOAST_SCREEN_MARGIN) / config::TOAST_STACK_OFFSET)
                 .floor()
                 .max(1.0) as usize;
             for (stack_idx, (_idx, item)) in items.into_iter().take(max_stack).enumerate() {

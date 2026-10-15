@@ -98,7 +98,9 @@ fn restore_argv_has_no_transaction_boundary_and_is_documented_as_such() {
         })
         .collect();
     assert_eq!(
-        envs.iter().find(|(key, _)| key == "PGPASSFILE").and_then(|(_, v)| v.clone()),
+        envs.iter()
+            .find(|(key, _)| key == "PGPASSFILE")
+            .and_then(|(_, v)| v.clone()),
         Some("/tmp/db-pro-pgpass-test".to_owned()),
         "PGPASSFILE must point at the pgpass file: {envs:?}"
     );
@@ -115,7 +117,11 @@ fn backup_staging_path_is_unpredictable_sibling() {
     let second = PgDumpEngine::backup_staging_path(output);
 
     assert_ne!(first, second, "each run must pick a fresh name");
-    assert_eq!(first.parent(), output.parent(), "staging must share the destination directory");
+    assert_eq!(
+        first.parent(),
+        output.parent(),
+        "staging must share the destination directory"
+    );
     assert_ne!(first, output, "pg_dump must never see the caller-visible path");
     assert!(
         first.file_name().unwrap().to_string_lossy().contains("pgdump-tmp"),
@@ -155,8 +161,7 @@ async fn pgpass_file_is_owner_only_and_removed_on_drop() -> Result<(), Box<dyn s
         let guard = PgPassFile::create(&config, "p\\a:ss").await?;
         let contents = tokio::fs::read_to_string(&guard.path).await?;
         assert_eq!(
-            contents,
-            "db.internal:5432:dbpro\\:fixture:dbpro:p\\\\a\\:ss\n",
+            contents, "db.internal:5432:dbpro\\:fixture:dbpro:p\\\\a\\:ss\n",
             "pgpass fields must backslash-escape `:` and `\\`: {contents}"
         );
         #[cfg(unix)]

@@ -246,8 +246,11 @@ impl<'a> CodeBlock<'a> {
                     display_lines
                         .iter()
                         .map(|line| {
-                            ui.painter()
-                                .layout_no_wrap((*line).to_owned(), code_font_id.clone(), self.theme.text_primary)
+                            ui.painter().layout_no_wrap(
+                                (*line).to_owned(),
+                                code_font_id.clone(),
+                                self.theme.text_primary,
+                            )
                         })
                         .collect()
                 };

@@ -280,11 +280,7 @@ impl<'a> Table<'a> {
                         Vec2::new(RESIZE_HANDLE_HALF_WIDTH * 2.0, header_h),
                     );
                     let resp = ui
-                        .interact(
-                            handle_rect,
-                            ui.id().with(("col_resize", col_idx)),
-                            egui::Sense::drag(),
-                        )
+                        .interact(handle_rect, ui.id().with(("col_resize", col_idx)), egui::Sense::drag())
                         .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
                     resp.widget_info(|| {
                         egui::WidgetInfo::labeled(
@@ -301,8 +297,8 @@ impl<'a> Table<'a> {
                         );
                     }
                     if resp.dragged() {
-                        let next = (layout.widths[col_idx] + resp.drag_delta().x)
-                            .clamp(RESIZE_COLUMN_MIN, RESIZE_COLUMN_MAX);
+                        let next =
+                            (layout.widths[col_idx] + resp.drag_delta().x).clamp(RESIZE_COLUMN_MIN, RESIZE_COLUMN_MAX);
                         if next != layout.widths[col_idx] {
                             layout.widths[col_idx] = next;
                             resized = true;

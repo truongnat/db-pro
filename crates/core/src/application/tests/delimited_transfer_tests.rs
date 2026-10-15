@@ -103,7 +103,10 @@ fn guard_csv_field_prefixes_formula_leading_values() {
     use std::borrow::Cow;
 
     for (input, expected) in [
-        ("=HYPERLINK(\"http://evil\",\"x\")", "'=HYPERLINK(\"http://evil\",\"x\")"),
+        (
+            "=HYPERLINK(\"http://evil\",\"x\")",
+            "'=HYPERLINK(\"http://evil\",\"x\")",
+        ),
         ("+1+1", "'+1+1"),
         ("-1+1", "'-1+1"),
         ("@SUM(A1)", "'@SUM(A1)"),
@@ -111,7 +114,11 @@ fn guard_csv_field_prefixes_formula_leading_values() {
         ("\rcmd", "'\rcmd"),
         (" lead", "' lead"),
     ] {
-        assert_eq!(guard_csv_field(input), Cow::<str>::Owned(expected.to_owned()), "{input:?}");
+        assert_eq!(
+            guard_csv_field(input),
+            Cow::<str>::Owned(expected.to_owned()),
+            "{input:?}"
+        );
     }
     // Real numeric literals stay numeric; plain text is untouched.
     for input in ["-42", "+1.5", "-3.14e2", "plain", ""] {

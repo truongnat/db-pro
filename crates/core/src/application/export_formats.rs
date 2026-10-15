@@ -17,7 +17,12 @@ pub(super) fn render_csv(result: &QueryResult) -> Result<Vec<u8>, DbError> {
         .map_err(|error| DbError::Internal(format!("csv header write failed: {error}")))?;
 
     for row in &result.rows {
-        let fields: Vec<String> = row.0.iter().map(cell_to_csv_string).map(|value| guard_csv_field(&value).into_owned()).collect();
+        let fields: Vec<String> = row
+            .0
+            .iter()
+            .map(cell_to_csv_string)
+            .map(|value| guard_csv_field(&value).into_owned())
+            .collect();
         writer
             .write_record(&fields)
             .map_err(|error| DbError::Internal(format!("csv row write failed: {error}")))?;
