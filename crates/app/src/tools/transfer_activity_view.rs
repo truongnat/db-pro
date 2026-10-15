@@ -49,9 +49,15 @@ impl DbProApp {
                     self.feedback.runtime_message = "open the source and target connections before copying".into();
                     return;
                 };
-                self.transfer_harness_context().run_chosen_copy(connector.as_ref());
+                self.transfer_harness_context().run_chosen_copy(connector);
             }
-            TransferActivityAction::ClearJobs => self.management.transfer.transfer_jobs.clear(),
+            TransferActivityAction::ClearJobs => {
+                self.management.transfer.transfer_jobs.clear();
+                // #422: demo harness files in temp_dir must not outlive the job list.
+                for path in self.management.transfer.harness_temp_files.drain(..) {
+                    let _ = std::fs::remove_file(&path);
+                }
+            }
         }
     }
 
@@ -96,7 +102,7 @@ impl DbProApp {
         }
     }
 
-    fn transfer_harness_context(&mut self) -> transfer_harness_view::TransferHarnessContext<'_> {
+    pub(super) fn transfer_harness_context(&mut self) -> transfer_harness_view::TransferHarnessContext<'_> {
         transfer_harness_view::TransferHarnessContext {
             management: &mut self.management,
             feedback: &mut self.feedback,
