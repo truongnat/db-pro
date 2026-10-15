@@ -158,7 +158,7 @@ fn catalog_shortcuts_win_while_the_editor_is_focused() {
     );
     assert!(focused);
     assert_eq!(app.query.session.documents.len(), before + 1);
-    assert!(app.query.editor.editor_search_open == false);
+    assert!(!app.query.editor.editor_search_open);
 
     let focused = press(
         &mut app,

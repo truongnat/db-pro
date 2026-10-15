@@ -33,7 +33,7 @@ pub(crate) struct TableDataState {
     pub(super) selection_anchor_cell: Option<(usize, usize)>,
 }
 
-pub(super) struct IdentityKey {
+pub(crate) struct IdentityKey {
     pub(super) columns: Vec<String>,
     pub(super) primary: bool,
 }
