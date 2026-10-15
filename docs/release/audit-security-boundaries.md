@@ -112,8 +112,8 @@ for #129 rather than as a P1 bypass, because nothing there skips a policy check.
 |---|---|---|---|
 | `ssh` | `crates/infrastructure/src/ssh/tunnel.rs:51-67` | `-N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -i <key> -L <l>:<h>:<r> -p <port> <user>@<host>` | key path, host, user, port, remote host/port |
 | `sshpass` | `tunnel.rs:71-88` | same argv, password via `SSHPASS` env | same |
-| `pg_dump` | `crates/infrastructure/src/backup/pg_dump.rs:85-112` | `-h -p -U -d -f --format [-n|-t]…`, password via `PGPASSWORD` env | config fields + the user-typed output path |
-| `psql` / `pg_restore` | `pg_dump.rs:142-163` | plain `psql -f <path> …` / `pg_restore <path> …` | user-typed input path + config |
+| `pg_dump` | `crates/infrastructure/src/backup/pg_dump.rs` | `-h -p -U -d -f <staging> --format [-n|-t]…`, password via a 0600 `PGPASSFILE` temp file removed on drop (#430); `-f` points at a uniquely-named sibling that is renamed over the reserved output path (#431) | config fields + the user-typed output path |
+| `psql` / `pg_restore` | `pg_dump.rs` | plain `psql -f <path> …` / `pg_restore <path> …`, password via `PGPASSFILE` (#430) | user-typed input path + config |
 
 `grep -rn "\bsh -c\b"` over the shipped crates → only two `#[cfg(test)]` helpers. No process is spawned
 at startup. Residual surface: **argument** injection, since `ssh_target = "{user}@{host}"` and
