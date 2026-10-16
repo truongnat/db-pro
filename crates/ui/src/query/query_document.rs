@@ -58,11 +58,7 @@ impl EditorSearchState {
             self.active_match_index = 0;
             return;
         }
-        let q = self.query.to_lowercase();
-        let t = text.to_lowercase();
-        for (idx, _) in t.match_indices(&q) {
-            self.matches.push((idx, idx + q.len()));
-        }
+        self.matches = crate::unicode_search::case_insensitive_matches(text, &self.query);
         if self.active_match_index >= self.matches.len() {
             self.active_match_index = 0;
         }
