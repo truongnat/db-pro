@@ -229,7 +229,7 @@ impl FdwSurfaceContext<'_> {
             return;
         };
         let mut open = true;
-        Dialog::new(&mut open, &format!("Create foreign server `{}`?", pending.name), self.theme)
+        Dialog::new(&mut open, format!("Create foreign server `{}`?", pending.name), self.theme)
             .width(520.0)
             .id_salt("fdw_create_dialog")
             .show_framed_ctx(ui.ctx(), |frame| {

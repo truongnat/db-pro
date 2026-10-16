@@ -207,7 +207,7 @@ impl ReplicationSurfaceContext<'_> {
         let mut open = true;
         Dialog::new(
             &mut open,
-            &format!("Create publication `{}`?", pending.name),
+            format!("Create publication `{}`?", pending.name),
             self.theme,
         )
         .width(560.0)

@@ -149,23 +149,14 @@ fn sql_embeds_credential_literal(sql: &str) -> bool {
         }
         match word.as_str() {
             // `PASSWORD 'literal'` / `IDENTIFIED BY 'literal'` / `USING 'literal'`
-            "PASSWORD" => {
-                if tokens.get(index + 1).is_some_and(|(_, lit)| *lit) {
-                    return true;
-                }
-            }
-            "IDENTIFIED" => {
+            "PASSWORD" if tokens.get(index + 1).is_some_and(|(_, lit)| *lit) => return true,
+            "IDENTIFIED"
                 if tokens.get(index + 1).is_some_and(|(w, _)| w == "BY")
-                    && tokens.get(index + 2).is_some_and(|(_, lit)| *lit)
-                {
-                    return true;
-                }
+                    && tokens.get(index + 2).is_some_and(|(_, lit)| *lit) =>
+            {
+                return true;
             }
-            "USING" => {
-                if tokens.get(index + 1).is_some_and(|(_, lit)| *lit) {
-                    return true;
-                }
-            }
+            "USING" if tokens.get(index + 1).is_some_and(|(_, lit)| *lit) => return true,
             _ => {}
         }
     }
