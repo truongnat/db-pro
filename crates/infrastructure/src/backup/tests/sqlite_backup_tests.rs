@@ -358,3 +358,37 @@ async fn failed_backup_leaves_no_artifact_and_no_staged_file() {
     assert!(leftovers.is_empty(), "staged files left behind: {leftovers:?}");
     std::fs::remove_dir_all(root).unwrap();
 }
+
+/// Restore must include committed source rows that are still stored in its WAL.
+#[tokio::test]
+async fn restore_captures_committed_writes_that_are_still_in_the_wal() {
+    let root = temporary_root("restore-wal-source");
+    let source = root.join("source.db");
+    let target = root.join("target.db");
+
+    let writer = rusqlite::Connection::open(&source).unwrap();
+    writer.pragma_update(None, "journal_mode", "WAL").unwrap();
+    writer
+        .execute_batch(
+            "CREATE TABLE items (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO items VALUES (1, 'committed-in-wal');",
+        )
+        .unwrap();
+    assert!(root.join("source.db-wal").exists(), "committed row must remain in WAL");
+    create_items_database(&target, "INSERT INTO items VALUES (1, 'old-target');");
+
+    SqliteBackupEngine::new(config(&target))
+        .restore(
+            &RestoreOptions {
+                connection_id: "test".into(),
+                input_path: source.to_string_lossy().into_owned(),
+                format: BackupFormat::Plain,
+            },
+            "",
+        )
+        .await
+        .expect("restore should snapshot the source WAL");
+
+    assert_eq!(values(&target), vec!["committed-in-wal"]);
+    drop(writer);
+    std::fs::remove_dir_all(root).unwrap();
+}

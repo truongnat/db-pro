@@ -206,9 +206,12 @@ impl BackupEngine for SqliteBackupEngine {
             .map_err(|e| DbError::Internal(format!("SQLite restore validation worker failed: {e}")))??;
 
         let temporary = temporary_path(dst);
-        if let Err(error) = tokio::fs::copy(src, &temporary).await {
+        // Copying the main file omits committed transactions that are still in
+        // the source database's WAL. VACUUM INTO reads a consistent SQLite
+        // snapshot (including WAL content) into a self-contained staged file.
+        if let Err(error) = vacuum_into(src, &temporary).await {
             let _ = tokio::fs::remove_file(&temporary).await;
-            return Err(DbError::Internal(format!("failed to stage SQLite restore: {error}")));
+            return Err(error);
         }
 
         let staged = temporary.clone();
