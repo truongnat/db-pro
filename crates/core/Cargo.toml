@@ -14,6 +14,7 @@ async-trait.workspace = true
 tracing.workspace = true
 csv.workspace = true
 rust_xlsxwriter.workspace = true
+sqlparser = "0.52"
 tokio.workspace = true
 
 [dev-dependencies]

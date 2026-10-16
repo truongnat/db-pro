@@ -596,3 +596,48 @@ fn transaction_control_detection_does_not_match_inside_a_statement() {
         assert_eq!(transaction_control_verb(statement), None, "statement: {statement}");
     }
 }
+
+#[test]
+fn policy_expression_accepts_preserved_postgres_forms() {
+    for expression in [
+        "true",
+        "tenant_id = current_setting('app.tenant')::uuid",
+        "current_setting('app.tenant')::int = tenant_id",
+        "owner = auth.uid()",
+        "(status = 'active')",
+        "id IN (SELECT id FROM shared_rows WHERE shared_rows.tenant_id = tenant_id)",
+        "note = 'a; b -- not a comment /*'",
+        r"note = E'a\'b'",
+        "coalesce(deleted_at, now()) > now() - interval '1 day'",
+        "payload ? 'tenant'",
+        "true -- trailing comment",
+    ] {
+        assert!(
+            validate_policy_expression(expression).is_ok(),
+            "expression should be accepted: {expression}"
+        );
+    }
+}
+
+#[test]
+fn policy_expression_rejects_multiple_statements_and_trailing_tokens() {
+    for expression in [
+        "true); DROP TABLE important_data; --",
+        "true); DELETE FROM users WHERE 1=1; --",
+        "true; DROP TABLE t",
+        "true); DROP TABLE important_data; --\n(true)",
+        r"note = 'a\'; DROP TABLE important_data; 'tail'",
+    ] {
+        assert!(
+            validate_policy_expression(expression).is_err(),
+            "expression should be rejected: {expression}"
+        );
+    }
+}
+
+#[test]
+fn policy_expression_rejects_unbalanced_parentheses() {
+    assert!(validate_policy_expression("id = 1)").is_err());
+    assert!(validate_policy_expression("id IN (1, 2").is_err());
+    assert!(validate_policy_expression("").is_err());
+}

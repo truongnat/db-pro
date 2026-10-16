@@ -573,6 +573,31 @@ fn build_routine_statements(
     }
 }
 
+/// Validate a `USING` / `WITH CHECK` predicate before it is pasted verbatim into
+/// the policy statement. Requiring one complete PostgreSQL expression prevents
+/// input from escaping the `( … )` wrapper or appending a statement (#507); the
+/// expression text itself is never rewritten.
+fn policy_expression<'a>(field: &str, expression: &'a str) -> Result<&'a str, MutationError> {
+    let expression = expression.trim();
+    crate::domain::safety::validate_policy_expression(expression).map_err(|message| MutationError::Validation {
+        field: field.to_owned(),
+        message,
+    })?;
+    Ok(expression)
+}
+
+/// Defense in depth: even with a validated expression, refuse to hand the batch
+/// executor a statement that `split_statements` would break into more than one.
+fn ensure_single_statement(sql: String) -> Result<String, MutationError> {
+    if crate::domain::safety::split_statements(&sql).len() > 1 {
+        return Err(MutationError::Validation {
+            field: "expression".into(),
+            message: "policy expression would emit more than one statement".into(),
+        });
+    }
+    Ok(sql)
+}
+
 fn validate_rls_command(command: &str) -> Result<&'static str, MutationError> {
     match command.trim().to_ascii_uppercase().as_str() {
         "ALL" => Ok("ALL"),
@@ -631,15 +656,19 @@ fn build_rls_statements(
             if let Some(using_expr) = def.using_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 // Preserve expression text exactly — do not rewrite.
                 sql.push_str(" USING (");
-                sql.push_str(using_expr);
-                sql.push(')');
+                sql.push_str(policy_expression("using_expr", using_expr)?);
+                // Put the builder-owned close on a new line so a harmless trailing
+                // PostgreSQL `--` comment in the expression cannot hide it.
+                sql.push_str(")\n");
             }
             if let Some(check_expr) = def.with_check_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sql.push_str(" WITH CHECK (");
-                sql.push_str(check_expr);
-                sql.push(')');
+                sql.push_str(policy_expression("with_check_expr", check_expr)?);
+                // Put the builder-owned close on a new line so a harmless trailing
+                // PostgreSQL `--` comment in the expression cannot hide it.
+                sql.push_str(")\n");
             }
-            Ok(vec![sql])
+            Ok(vec![ensure_single_statement(sql)?])
         }
         (ObjectDefinition::RlsPolicy(def), ObjectAction::Alter) => {
             let schema = dialect.quote_identifier(&def.schema);
@@ -662,19 +691,21 @@ fn build_rls_statements(
             let mut alter = format!("ALTER POLICY {name} ON {schema}.{table} TO {roles}");
             if let Some(using_expr) = def.using_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 alter.push_str(" USING (");
-                alter.push_str(using_expr);
-                alter.push(')');
+                alter.push_str(policy_expression("using_expr", using_expr)?);
+                // Keep the close delimiter outside any trailing line comment.
+                alter.push_str(")\n");
             }
             if let Some(check_expr) = def.with_check_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 alter.push_str(" WITH CHECK (");
-                alter.push_str(check_expr);
-                alter.push(')');
+                alter.push_str(policy_expression("with_check_expr", check_expr)?);
+                // Keep the close delimiter outside any trailing line comment.
+                alter.push_str(")\n");
             }
             // Emit body alter when rename is absent, or when expressions/roles are being updated.
             let has_expr = def.using_expr.as_ref().is_some_and(|s| !s.trim().is_empty())
                 || def.with_check_expr.as_ref().is_some_and(|s| !s.trim().is_empty());
             if statements.is_empty() || has_expr || !def.roles.is_empty() {
-                statements.push(alter);
+                statements.push(ensure_single_statement(alter)?);
             }
             Ok(statements)
         }

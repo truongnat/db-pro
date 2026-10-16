@@ -33,3 +33,36 @@
         assert!(sql.contains("app_user"));
         assert!(sql.ends_with(';'));
     }
+    #[test]
+    fn policy_preview_rejects_expression_that_escapes_the_policy_wrapper() {
+        let err = plan_policy(PolicyPreviewRequest {
+            action: ObjectAction::Create,
+            schema: "public",
+            table: "orders",
+            name: "tenant_read",
+            command: "SELECT",
+            roles_csv: "",
+            using_expr: "true); DROP TABLE important_data; --",
+            with_check_expr: "",
+            restrictive: false,
+        })
+        .expect_err("malicious expression must be rejected");
+        assert!(err.contains("using_expr"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn policy_preview_keeps_valid_expression() {
+        let sql = plan_policy(PolicyPreviewRequest {
+            action: ObjectAction::Create,
+            schema: "public",
+            table: "orders",
+            name: "tenant_read",
+            command: "SELECT",
+            roles_csv: "",
+            using_expr: "tenant_id = current_setting('app.tenant')::uuid",
+            with_check_expr: "",
+            restrictive: false,
+        })
+        .expect("valid expression");
+        assert!(sql.contains("USING (tenant_id = current_setting('app.tenant')::uuid)"));
+    }
