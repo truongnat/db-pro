@@ -159,6 +159,17 @@ impl TransferTarget for DelimitedFileTarget {
 
     fn finish(&mut self) -> Result<(), TransferError> {
         if let Some(mut writer) = self.writer.take() {
+            if !self.wrote_header && !self.headers.is_empty() {
+                let headers: Vec<String> = self
+                    .headers
+                    .iter()
+                    .map(|header| guard_csv_field(header).into_owned())
+                    .collect();
+                writer
+                    .write_record(&headers)
+                    .map_err(|error| TransferError::Target(error.to_string()))?;
+                self.wrote_header = true;
+            }
             writer.flush().map_err(|e| TransferError::Target(e.to_string()))?;
             drop(writer);
         }
@@ -169,7 +180,6 @@ impl TransferTarget for DelimitedFileTarget {
     fn cleanup_partial(&mut self) -> Result<(), TransferError> {
         self.writer.take();
         let _ = fs::remove_file(&self.temp_path);
-        let _ = fs::remove_file(&self.final_path);
         Ok(())
     }
 }
