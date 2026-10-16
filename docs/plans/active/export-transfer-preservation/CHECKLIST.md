@@ -6,4 +6,4 @@
 - [x] Keep zero-row JSONL as a valid zero-record/zero-line document.
 - [x] Add regressions for cancellation and target cleanup preservation and empty CSV.
 - [x] Transfer module tests, core package check, formatting, and diff validation pass.
-- [ ] Rebase, commit, push, and open a PR linked to #436 and #437.
+- [x] Rebase, commit, push, and open draft PR #530 linked to #436 and #437.
