@@ -8,7 +8,7 @@
 | Issue(s) | #477 |
 | Task state | Review |
 | Baseline SHA | `beaa1882a6253d902748c27fba53b99d9969b635` |
-| Branch / PR | `fix/standard-conforming-string-splitting` / PR pending |
+| Branch / PR | `fix/standard-conforming-string-splitting` / PR #519 (`Draft`) |
 | Scope interpretation | Fix PostgreSQL standard-string boundary handling in the multi-statement gate while preserving MySQL's default backslash escape behavior; propagate known driver mode to relevant splitting call sites. |
 | Out of scope | Model per-session SQL modes; full SQL parser; unrelated tickets. |
 
@@ -30,7 +30,7 @@
 | File / surface inventory | `safety_lexer.rs` adds dialect semantics; `safety.rs` exposes driver-aware split API; `query_service.rs`, `export_service.rs`, `schema_service.rs` pass connection driver; `sql_policy.rs` enforces with driver; SQLite actor and app query-row-limit select their driver; domain and policy tests cover the exploit and dialect behavior. |
 | Acceptance mapping | Issue payload → splitter and policy regression tests; PostgreSQL E-string/MySQL escape behavior → domain tests; configured driver flow → service integrations and workspace compilation. |
 | Commands and counts | Focused tests and workspace check listed in §2 and `VERIFICATION.md`; clean-code scanner: 97.0/100, 0 errors, 3 warnings in unchanged functions. |
-| CI run IDs / status | Not run (branch not pushed at handoff). |
+| CI run IDs / status | Rust checks pending — workflow run 38853403054; Kilo Reviewer skipped while PR is draft. |
 | Known limitations | No live database execution; session-specific SQL modes not modeled. |
 | Migrations / config implications | None. |
 | Out-of-scope changes | None. |
@@ -43,8 +43,8 @@
 | Verdict | Independent review pending |
 | P0 / P1 / P2 counts | Self-review: 0 / 0 / 1 limitation documented; independent counts pending |
 | Findings | No blocker found in self-review; see SQL-mode limitations in `FINDINGS.md`. |
-| CI disposition | Not run yet |
-| Next task(s) unblocked | Publish draft PR and request independent review |
+| CI disposition | Rust checks pending at workflow run 38853403054; Kilo Reviewer skipped while draft. Strict local Clippy failed on 3 existing `collapsible_match` warnings in `saved_task.rs:153,158,165`, outside this diff. |
+| Next task(s) unblocked | PR #519 published as draft; wait for CI/reviewer and provider evidence |
 
 ## 5. Research / audit handoff
 

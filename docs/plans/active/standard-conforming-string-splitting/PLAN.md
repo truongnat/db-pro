@@ -3,6 +3,7 @@
 State: REVIEW — implementation and automated checks complete; provider runtime evidence pending
 Baseline SHA: `beaa1882a6253d902748c27fba53b99d9969b635`
 Branch: `fix/standard-conforming-string-splitting`
+PR: [#519](https://github.com/truongnat/db-pro/pull/519) — Draft
 Issue: truongnat/db-pro#477 — `[P1][Bug] Statement splitter treat backslash là escape trong mọi string`
 
 ## Goal

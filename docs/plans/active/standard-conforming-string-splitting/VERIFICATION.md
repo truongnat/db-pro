@@ -28,6 +28,15 @@ Both checks passed; exit 0
 
 python3 tools/cc-scan.py <9 changed Rust paths>
 score 97.0/100; errors 0, warnings 3 in unchanged existing functions (schema_service.rs complexity; safety.rs function length and nesting)
+
+bash .skills/perf-audit/scripts/perf-scan.sh
+WARN / exit 2; release build (31.7MB) and workspace check passed; clippy emitted 15 warnings; native/backend benchmarks, ER runtime and live DB performance were not executed.
+
+cargo clippy --workspace --all-targets -- -D warnings
+FAILED / exit 101: 3 `clippy::collapsible_match` diagnostics at crates/core/src/domain/saved_task.rs:153, 158, 165; file is outside this diff.
+
+gh pr checks 519
+Rust checks pending (workflow run 38853403054); Kilo Reviewer skipped because PR is draft.
 ```
 
 ## Provider matrix
