@@ -71,7 +71,7 @@ fn reopened_modal_is_topmost_immediately() {
     });
     // Idle passes let the reference stack expire.
     for _ in 0..3 {
-        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {});
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |_ctx| {});
     }
     let mut topmost = false;
     let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
