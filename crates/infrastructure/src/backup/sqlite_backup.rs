@@ -124,7 +124,8 @@ async fn vacuum_into(source: &Path, temporary: &Path) -> Result<(), DbError> {
     let source = source.to_path_buf();
     let vacuum_target = temporary.to_path_buf();
     tokio::task::spawn_blocking(move || {
-        let connection = rusqlite::Connection::open(&source).map_err(crate::error::from_rusqlite)?;
+        let connection = rusqlite::Connection::open_with_flags(&source, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(crate::error::from_rusqlite)?;
         connection
             .busy_timeout(std::time::Duration::from_secs(5))
             .map_err(crate::error::from_rusqlite)?;
@@ -206,9 +207,12 @@ impl BackupEngine for SqliteBackupEngine {
             .map_err(|e| DbError::Internal(format!("SQLite restore validation worker failed: {e}")))??;
 
         let temporary = temporary_path(dst);
-        if let Err(error) = tokio::fs::copy(src, &temporary).await {
+        // Copying the main file omits committed transactions that are still in
+        // the source database's WAL. VACUUM INTO reads a consistent SQLite
+        // snapshot (including WAL content) into a self-contained staged file.
+        if let Err(error) = vacuum_into(src, &temporary).await {
             let _ = tokio::fs::remove_file(&temporary).await;
-            return Err(DbError::Internal(format!("failed to stage SQLite restore: {error}")));
+            return Err(error);
         }
 
         let staged = temporary.clone();
