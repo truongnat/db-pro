@@ -18,7 +18,7 @@ use crate::{
         },
         syntax::CachedSqlTokens,
     },
-    runtime::UiSchemaSummary,
+    runtime::{UiSchemaSummary, UiTableSummary},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +61,22 @@ pub struct CteDefinition {
 }
 
 pub struct SchemaCompletionProvider;
+
+/// Resolve an unqualified table reference against the catalog, preferring the
+/// active schema (#511). A plain `find` by name returns catalog order, which
+/// suggests another schema's columns when two schemas hold same-named tables.
+/// Falls back to the first name match so tables that only exist in another
+/// schema (or an empty active schema) keep the previous behavior.
+fn find_completion_table<'a>(
+    tables: &'a [UiTableSummary],
+    name: &str,
+    active_schema: &str,
+) -> Option<&'a UiTableSummary> {
+    tables
+        .iter()
+        .find(|t| t.name.eq_ignore_ascii_case(name) && t.schema.eq_ignore_ascii_case(active_schema))
+        .or_else(|| tables.iter().find(|t| t.name.eq_ignore_ascii_case(name)))
+}
 
 impl SchemaCompletionProvider {
     pub fn provide(ctx: &CompletionContext<'_>) -> (String, Vec<CompletionItem>) {
@@ -437,12 +453,7 @@ impl SchemaCompletionProvider {
         // Detect column name frequencies across referenced tables for ambiguity check
         let mut col_frequencies: HashMap<String, usize> = HashMap::new();
         for t_name in referenced_table_names {
-            if let Some(t) = ctx
-                .schema_summary
-                .table_details
-                .iter()
-                .find(|t| t.name.eq_ignore_ascii_case(t_name))
-            {
+            if let Some(t) = find_completion_table(&ctx.schema_summary.table_details, t_name, ctx.active_schema) {
                 for c in &t.columns {
                     *col_frequencies.entry(c.name.to_lowercase()).or_insert(0) += 1;
                 }
@@ -451,12 +462,7 @@ impl SchemaCompletionProvider {
 
         // Suggest columns from referenced tables
         for t_name in referenced_table_names {
-            if let Some(table) = ctx
-                .schema_summary
-                .table_details
-                .iter()
-                .find(|t| t.name.eq_ignore_ascii_case(t_name))
-            {
+            if let Some(table) = find_completion_table(&ctx.schema_summary.table_details, t_name, ctx.active_schema) {
                 // Find alias if exists
                 let alias = aliases
                     .iter()
@@ -1042,11 +1048,7 @@ pub fn build_ai_sql_context(
     let mut fk_neighbors = Vec::new();
 
     for table_name in &referenced_tables {
-        if let Some(table) = schema_summary
-            .table_details
-            .iter()
-            .find(|t| t.name.eq_ignore_ascii_case(table_name))
-        {
+        if let Some(table) = find_completion_table(&schema_summary.table_details, table_name, active_schema) {
             for col in table.columns.iter().take(MAX_COLUMNS_PER_TABLE) {
                 relevant_columns.push(format!("{}.{} ({})", table.name, col.name, col.data_type));
             }

@@ -599,17 +599,101 @@ fn bare_table(name: &str, columns: Vec<UiSchemaColumn>) -> UiTableSummary {
 }
 
 fn provide_at(sql: &str, summary: &UiSchemaSummary, manual: bool) -> (String, Vec<CompletionItem>) {
+    provide_at_schema(sql, summary, manual, "public")
+}
+
+fn provide_at_schema(
+    sql: &str,
+    summary: &UiSchemaSummary,
+    manual: bool,
+    active_schema: &str,
+) -> (String, Vec<CompletionItem>) {
+    provide_split_schema(&sql[..sql.len()], "", summary, manual, active_schema)
+}
+
+fn provide_split_schema(
+    before: &str,
+    after: &str,
+    summary: &UiSchemaSummary,
+    manual: bool,
+    active_schema: &str,
+) -> (String, Vec<CompletionItem>) {
     let ctx = CompletionContext {
-        text_before_cursor: sql,
-        text_after_cursor: "",
-        cursor_offset: sql.len(),
-        active_schema: "public",
+        text_before_cursor: before,
+        text_after_cursor: after,
+        cursor_offset: before.len(),
+        active_schema,
         schema_summary: summary,
         cached_tokens: None,
         is_sqlite: false,
         is_manual_trigger: manual,
     };
     SchemaCompletionProvider::provide(&ctx)
+}
+
+fn duplicate_users_summary() -> UiSchemaSummary {
+    // cc-scan:allow DUPLICATE_BLOCK — coincidental fixture boilerplate
+    let tenant_a = UiTableSummary {
+        schema: "tenant_a".to_owned(),
+        name: "users".to_owned(),
+        row_count: None,
+        columns: vec![text_column("id"), text_column("tenant_a_only")],
+        foreign_keys: vec![],
+    };
+    let tenant_b = UiTableSummary {
+        schema: "tenant_b".to_owned(),
+        name: "users".to_owned(),
+        row_count: None,
+        columns: vec![text_column("id"), text_column("tenant_b_only")],
+        foreign_keys: vec![],
+    };
+    UiSchemaSummary {
+        table_details: vec![tenant_a, tenant_b],
+        ..Default::default()
+    }
+}
+
+#[test]
+fn completion_prefers_active_schema_for_duplicate_table_511() {
+    let summary = duplicate_users_summary();
+    let (_, items) = provide_split_schema("SELECT ", " FROM users", &summary, true, "tenant_b");
+    let labels: Vec<&str> = items.iter().map(|item| item.label.as_str()).collect();
+    assert!(
+        labels.contains(&"tenant_b_only"),
+        "must suggest active-schema columns, got {labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|label| label.contains("tenant_a_only")),
+        "must not suggest other-schema columns, got {labels:?}"
+    );
+}
+
+#[test]
+fn completion_falls_back_when_active_schema_has_no_match_511() {
+    let summary = duplicate_users_summary();
+    let (_, items) = provide_split_schema("SELECT ", " FROM users", &summary, true, "tenant_c");
+    let labels: Vec<&str> = items.iter().map(|item| item.label.as_str()).collect();
+    assert!(
+        labels.contains(&"tenant_a_only"),
+        "fallback keeps first catalog match, got {labels:?}"
+    );
+}
+
+#[test]
+fn ai_context_prefers_active_schema_for_duplicate_table_511() {
+    let summary = duplicate_users_summary();
+    let sql = "SELECT * FROM users";
+    let ctx = build_ai_sql_context(sql, sql.len(), "tenant_b", &summary);
+    assert!(
+        ctx.relevant_columns.iter().any(|c| c.contains("tenant_b_only")),
+        "got {:?}",
+        ctx.relevant_columns
+    );
+    assert!(
+        !ctx.relevant_columns.iter().any(|c| c.contains("tenant_a_only")),
+        "got {:?}",
+        ctx.relevant_columns
+    );
 }
 
 #[test]
