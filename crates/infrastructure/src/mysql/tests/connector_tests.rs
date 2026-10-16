@@ -1,31 +1,5 @@
 //! Tests for `../connector.rs` (moved out of the source file).
 use super::*;
-use db_pro_core::domain::connection::DriverType;
-
-fn sample_config(ssl_mode: SslMode) -> ConnectionConfig {
-    ConnectionConfig {
-        name: "mysql".into(),
-        host: "127.0.0.1".into(),
-        port: 3306,
-        database: "app".into(),
-        username: "root".into(),
-        driver: DriverType::Mysql,
-        ssl_mode,
-        ssh_tunnel: None,
-        ssh_profile_id: None,
-        ssl_root_cert_path: None,
-        ssl_client_cert_path: None,
-        ssl_client_key_path: None,
-        query_timeout_ms: 30_000,
-        max_rows: 10_000,
-        color: None,
-        tags: vec![],
-        group: None,
-        favorite: false,
-        environment: Default::default(),
-        readonly: false,
-    }
-}
 
 use db_pro_core::ports::{TransactionFailureOutcome, TransactionFailurePhase};
 
@@ -181,22 +155,4 @@ async fn execute_transaction_reports_begin_failure_on_unknown_handle() {
         "statement_index must be 0 for Validation phase failure"
     );
     assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
-}
-
-#[test]
-fn mysql_connection_url_maps_every_ssl_mode() {
-    let cases = [
-        (SslMode::Disable, "DISABLED"),
-        (SslMode::Require, "REQUIRED"),
-        (SslMode::VerifyCa, "VERIFY_CA"),
-        (SslMode::VerifyFull, "VERIFY_IDENTITY"),
-    ];
-    for (mode, expected) in cases {
-        let url = mysql_connection_url(&sample_config(mode), "secret");
-        assert!(
-            url.ends_with(&format!("?ssl-mode={expected}")),
-            "expected ssl-mode={expected} in {url}"
-        );
-        assert!(url.starts_with("mysql://root:secret@127.0.0.1:3306/app"));
-    }
 }

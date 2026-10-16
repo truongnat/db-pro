@@ -9,6 +9,9 @@
 //! skips with a reason, instead of failing the run on a fixture it cannot have.
 //!
 //! Run with: `cargo test --package db-pro-infrastructure --test mysql_integration -- --ignored`
+//! The read-only #452 regressions instead use separate `DB_PRO_MYSQL_452_*` fields so
+//! fixture credentials never pass through this file's legacy `DATABASE_URL` parser.
+//! See `docs/plans/active/backend-four-issue-wave/MYSQL_FINDINGS.md` for the fixture.
 
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType, SslMode};
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
@@ -629,4 +632,147 @@ async fn mysql_cross_database_foreign_key_ddl_round_trips() {
             .unwrap();
     }
     connector.disconnect(&handle).await.unwrap();
+}
+
+fn mysql_reserved_fields_fixture() -> Option<(ConnectionConfig, String, String)> {
+    let Ok(host) = std::env::var("DB_PRO_MYSQL_452_HOST") else {
+        eprintln!("skipping #452 MySQL regression: DB_PRO_MYSQL_452_HOST is not set");
+        return None;
+    };
+    let required = |name| std::env::var(name).expect("all DB_PRO_MYSQL_452_* fixture fields must be set");
+    let config = ConnectionConfig {
+        name: "mysql-reserved-fields-test".into(),
+        host,
+        port: required("DB_PRO_MYSQL_452_PORT").parse().expect("fixture port"),
+        database: required("DB_PRO_MYSQL_452_DATABASE"),
+        username: required("DB_PRO_MYSQL_452_USERNAME"),
+        driver: DriverType::Mysql,
+        ssl_mode: SslMode::Disable,
+        ssh_tunnel: None,
+        ssh_profile_id: None,
+        ssl_root_cert_path: None,
+        ssl_client_cert_path: None,
+        ssl_client_key_path: None,
+        query_timeout_ms: 30_000,
+        max_rows: 10_000,
+        color: None,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: Default::default(),
+        readonly: false,
+    };
+    Some((
+        config,
+        required("DB_PRO_MYSQL_452_PASSWORD"),
+        required("DB_PRO_MYSQL_452_CURRENT_USER"),
+    ))
+}
+
+#[tokio::test]
+#[ignore] // Requires the reserved/Unicode account and database fixture.
+async fn mysql_reserved_fields_preserve_authenticated_user_and_database() {
+    use db_pro_core::domain::query::CellValue;
+
+    let Some((config, password, current_user)) = mysql_reserved_fields_fixture() else {
+        return;
+    };
+    let connector = MySqlConnector::new();
+    let handle = connector
+        .connect(&config, &password)
+        .await
+        .expect("reserved fields connect");
+    let result = connector.query(&handle, "SELECT CURRENT_USER(), DATABASE()", &[]).await;
+    connector.disconnect(&handle).await.expect("close identity probe pool");
+    let result = result.expect("query authenticated identity");
+    assert_eq!(result.rows.len(), 1);
+    let [CellValue::Text(actual_user), CellValue::Text(actual_database)] = result.rows[0].0.as_slice() else {
+        panic!("identity query must return two text cells");
+    };
+    assert_eq!(actual_user, &current_user);
+    assert_eq!(actual_database, &config.database);
+    connector
+        .test_connection(&config, &password)
+        .await
+        .expect("test_connection preserves reserved fields too");
+}
+
+#[tokio::test]
+#[ignore] // Requires the reserved/Unicode account and database fixture.
+async fn mysql_reserved_fields_still_reject_wrong_password() {
+    use db_pro_core::domain::error::DbError;
+
+    let Some((config, password, _)) = mysql_reserved_fields_fixture() else {
+        return;
+    };
+    let wrong_password = "db-pro-452-invalid-password";
+    assert!(
+        password != wrong_password,
+        "fixture must not use the denial probe password"
+    );
+    let connector = MySqlConnector::new();
+    connector
+        .test_connection(&config, &password)
+        .await
+        .expect("fixture accepts the correct password");
+
+    let result = connector.connect(&config, wrong_password).await;
+    if let Ok(handle) = &result {
+        connector
+            .disconnect(handle)
+            .await
+            .expect("close unexpected successful pool");
+    }
+    let connect_error = result.expect_err("connect must reject the wrong password");
+    let test_error = connector
+        .test_connection(&config, wrong_password)
+        .await
+        .expect_err("test_connection must reject the wrong password");
+    for error in [connect_error, test_error] {
+        assert!(
+            matches!(&error, DbError::ConnectionFailed(message) if message.contains("1045")),
+            "the server must reject authentication, not fail URL parsing: {error}"
+        );
+        assert!(
+            !error.to_string().contains(wrong_password),
+            "error must not disclose the password"
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore] // Requires the reserved-fields fixture on MySQL started with --tls-version=.
+async fn mysql_strict_ssl_modes_reject_a_server_without_tls() {
+    use db_pro_core::domain::error::DbError;
+
+    let Some((mut config, password, _)) = mysql_reserved_fields_fixture() else {
+        return;
+    };
+    let connector = MySqlConnector::new();
+    connector
+        .test_connection(&config, &password)
+        .await
+        .expect("Disable must connect to the plaintext fixture");
+
+    for mode in [SslMode::Require, SslMode::VerifyCa, SslMode::VerifyFull] {
+        config.ssl_mode = mode;
+        let result = connector.connect(&config, &password).await;
+        if let Ok(handle) = &result {
+            connector
+                .disconnect(handle)
+                .await
+                .expect("close unexpected plaintext pool");
+        }
+        assert!(
+            matches!(result, Err(DbError::ConnectionFailed(_))),
+            "strict TLS connect must not downgrade to plaintext"
+        );
+        assert!(
+            matches!(
+                connector.test_connection(&config, &password).await,
+                Err(DbError::ConnectionFailed(_))
+            ),
+            "strict TLS test_connection must not downgrade to plaintext"
+        );
+    }
 }

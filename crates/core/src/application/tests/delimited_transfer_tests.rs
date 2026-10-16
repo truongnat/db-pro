@@ -168,3 +168,58 @@ fn delimited_target_sanitizes_formula_cells() {
     );
     let _ = fs::remove_file(&path);
 }
+
+#[test]
+fn bom_import_streams_matching_headers_and_preserves_embedded_bom() {
+    for format in [DelimitedFormat::Csv, DelimitedFormat::Tsv] {
+        for has_headers in [true, false] {
+            let suffix = format!("bom-{}-{}.{}", format.extension(), has_headers, format.extension());
+            let input = temp_path(&format!("in-{suffix}"));
+            let output = temp_path(&format!("out-{suffix}"));
+            let delimiter = char::from(format.delimiter());
+            let header = if has_headers {
+                format!("\"id\"{delimiter}name\r\n")
+            } else {
+                String::new()
+            };
+            fs::write(
+                &input,
+                format!("\u{feff}{header}1{delimiter}Việt\u{feff}Nam\r\n2{delimiter}\u{feff}kept\r\n"),
+            )
+            .unwrap();
+            let mut source = DelimitedFileSource::open(&input, format, has_headers).unwrap();
+            let headers = source.headers().to_vec();
+            if has_headers {
+                assert_eq!(headers.iter().position(|name| name == "id"), Some(0));
+                assert_eq!(headers, ["id", "name"]);
+            } else {
+                assert!(headers.is_empty());
+            }
+            let expected = vec![
+                TransferRow {
+                    cells: vec!["1".into(), "Việt\u{feff}Nam".into()],
+                },
+                TransferRow {
+                    cells: vec!["2".into(), "\u{feff}kept".into()],
+                },
+            ];
+            assert_eq!(source.preview_rows(2).unwrap(), expected);
+            let mut source = DelimitedFileSource::open(&input, format, has_headers).unwrap();
+            let mut target = DelimitedFileTarget::create(&output, format, headers.clone()).unwrap();
+            let mut job = TransferJob::new_synthetic(&suffix, 0, 1);
+            job.source = TransferSourceKind::File {
+                path: input.to_string_lossy().into_owned(),
+                format: format.extension().into(),
+            };
+            let result = TransferService::run(&mut job, &mut source, &mut target, &TransferCancellation::new());
+            assert_eq!(result.status, TransferStatus::Succeeded);
+            assert_eq!((result.progress.rows_read, result.progress.rows_written), (2, 2));
+            let mut imported = DelimitedFileSource::open(&output, format, has_headers).unwrap();
+            assert_eq!(imported.headers(), headers);
+            assert_eq!(imported.next_batch(2).unwrap().unwrap(), expected);
+            assert!(imported.next_batch(1).unwrap().is_none());
+            fs::remove_file(input).unwrap();
+            fs::remove_file(output).unwrap();
+        }
+    }
+}

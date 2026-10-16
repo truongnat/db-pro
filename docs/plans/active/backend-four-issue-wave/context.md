@@ -1,0 +1,3 @@
+# Context
+
+Baseline bceb735727f81180dad678defee1000bc547d97b. Sources traced: core/domain/event_trigger.rs and app/tools/event_trigger_activity_view.rs; infra/postgres/cross_connection.rs→connector.rs→runtime/api.rs; infra/mysql/connector.rs connect/test share open_pool; core/application/delimited_transfer.rs shared source→TransferService. Existing adjacent tests and opt-in provider integration tests are reused. LSP references failed (server exits0), literal callsite scan used; semantic search judge unavailable and reported. Decisions/risk/alternatives: PLAN.md; issue-specific discovered facts: FINDINGS.md.

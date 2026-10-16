@@ -57,14 +57,12 @@ pub fn validate_event(event: &str) -> Result<(), String> {
 }
 
 pub fn validate_function_ref(func: &str) -> Result<(), String> {
-    if func.is_empty() || func.len() > 128 {
-        return Err("invalid function reference".into());
-    }
-    if !func
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '(' || c == ')' || c == ',')
-    {
-        return Err("function must be a simple schema.func or func() reference".into());
+    let name = func.strip_suffix("()").unwrap_or(func);
+    if let Some((schema, function)) = name.split_once('.') {
+        validate_ident(schema)?;
+        validate_ident(function)?;
+    } else {
+        validate_ident(name)?;
     }
     Ok(())
 }
@@ -93,6 +91,15 @@ pub fn preview_create_event_trigger(
     let name = quote_ident(name)?;
     validate_event(event)?;
     validate_function_ref(function_ref)?;
+    // The accepted input is unquoted: fold before quoting to preserve PostgreSQL name resolution.
+    let function_name = function_ref
+        .strip_suffix("()")
+        .unwrap_or(function_ref)
+        .to_ascii_lowercase();
+    let function_name = match function_name.split_once('.') {
+        Some((schema, function)) => format!("{}.{}", quote_ident(schema)?, quote_ident(function)?),
+        None => quote_ident(&function_name)?,
+    };
     let event = event.to_ascii_lowercase();
     let tags = parse_tags(tags_csv)?;
     let when = if tags.is_empty() {
@@ -102,7 +109,7 @@ pub fn preview_create_event_trigger(
         format!(" WHEN TAG IN ({quoted})")
     };
     Ok(format!(
-        "CREATE EVENT TRIGGER {name} ON {event}{when} EXECUTE FUNCTION {function_ref};"
+        "CREATE EVENT TRIGGER {name} ON {event}{when} EXECUTE FUNCTION {function_name}();"
     ))
 }
 

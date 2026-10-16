@@ -9,40 +9,26 @@ pub async fn get_object_dependencies(
 ) -> Result<Vec<ObjectDependency>, DbError> {
     let sql = r#"
         SELECT
-            source_class::regclass::text AS object_type,
-            source_name,
-            target_class::regclass::text AS depends_on_type,
-            target_name
-        FROM (
-            SELECT
-                d.classid::regclass AS source_class,
-                CASE
-                    WHEN d.classid = 'pg_class'::regclass THEN d.objid::regclass::text
-                    WHEN d.classid = 'pg_proc'::regclass THEN d.objid::regproc::text
-                    ELSE d.objid::text
-                END AS source_name,
-                d.refclassid::regclass AS target_class,
-                CASE
-                    WHEN d.refclassid = 'pg_class'::regclass THEN d.refobjid::regclass::text
-                    WHEN d.refclassid = 'pg_proc'::regclass THEN d.refobjid::regproc::text
-                    ELSE d.refobjid::text
-                END AS target_name
-            FROM pg_depend d
-            JOIN pg_namespace n ON n.oid = (
-                CASE
-                    WHEN d.classid = 'pg_class'::regclass THEN (d.objid::regclass).relnamespace
-                    ELSE 0
-                END
-            )
-            WHERE d.deptype IN ('n', 'a')
-        ) sub
-        WHERE source_name LIKE $1 || '.%'
-        ORDER BY object_type, source_name
+            d.classid::regclass::text AS object_type,
+            c.oid::regclass::text AS source_name,
+            d.refclassid::regclass::text AS depends_on_type,
+            CASE
+                WHEN d.refclassid = 'pg_catalog.pg_class'::regclass THEN d.refobjid::regclass::text
+                WHEN d.refclassid = 'pg_catalog.pg_proc'::regclass THEN d.refobjid::regproc::text
+                ELSE (pg_catalog.pg_identify_object(d.refclassid, d.refobjid, d.refobjsubid)).identity
+            END AS target_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_catalog.pg_depend d
+            ON d.classid = 'pg_catalog.pg_class'::regclass AND d.objid = c.oid
+        WHERE n.nspname = $1 AND c.relname = $2 AND d.deptype IN ('n', 'a')
+        ORDER BY object_type, source_name, depends_on_type, target_name, d.objsubid, d.refobjsubid
     "#;
 
-    let pattern = format!("{schema}.{object_name}");
+    // Names select catalog identity; regclass text is display-only and may omit the schema.
     let rows: Vec<(String, String, String, String)> = sqlx::query_as(sql)
-        .bind(&pattern)
+        .bind(schema)
+        .bind(object_name)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::Internal(format!("get dependencies: {e}")))?;

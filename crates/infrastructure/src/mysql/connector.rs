@@ -4,7 +4,7 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::QueryParam;
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::DbConnector;
-use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
+use sqlx::mysql::{MySqlConnectOptions, MySqlPool, MySqlPoolOptions, MySqlSslMode};
 use sqlx::{Column, Row as SqlxRow};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -174,30 +174,24 @@ impl Default for MySqlConnector {
     }
 }
 
-/// Build the sqlx MySQL URL, including the stored TLS mode.
-///
-/// sqlx accepts `ssl-mode` as `DISABLED` / `REQUIRED` / `VERIFY_CA` / `VERIFY_IDENTITY`
-/// (see `sqlx_mysql::options::parse`). Without this query parameter the connector always
-/// negotiated `PREFERRED`, so an explicit `Disable` or `Require` in the connection form
-/// was silently ignored.
-pub(crate) fn mysql_connection_url(config: &ConnectionConfig, password: &str) -> String {
-    let ssl_mode = match config.ssl_mode {
-        SslMode::Disable => "DISABLED",
-        SslMode::Require => "REQUIRED",
-        SslMode::VerifyCa => "VERIFY_CA",
-        SslMode::VerifyFull => "VERIFY_IDENTITY",
-    };
-    format!(
-        "mysql://{}:{}@{}:{}/{}?ssl-mode={}",
-        config.username, password, config.host, config.port, config.database, ssl_mode
-    )
-}
-
 async fn open_pool(config: &ConnectionConfig, password: &str) -> Result<MySqlPool, DbError> {
+    let ssl_mode = match config.ssl_mode {
+        SslMode::Disable => MySqlSslMode::Disabled,
+        SslMode::Require => MySqlSslMode::Required,
+        SslMode::VerifyCa => MySqlSslMode::VerifyCa,
+        SslMode::VerifyFull => MySqlSslMode::VerifyIdentity,
+    };
+    let options = MySqlConnectOptions::new()
+        .host(&config.host)
+        .port(config.port)
+        .username(&config.username)
+        .password(password)
+        .database(&config.database)
+        .ssl_mode(ssl_mode);
     MySqlPoolOptions::new()
         .max_connections(5)
         .acquire_timeout(Duration::from_secs(10))
-        .connect(&mysql_connection_url(config, password))
+        .connect_with(options)
         .await
         .map_err(|error| DbError::ConnectionFailed(format!("MySQL connect failed: {error}")))
 }
