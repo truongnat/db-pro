@@ -46,35 +46,35 @@ fn build_update_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
         })
         .filter(|clause| !clause.is_empty())
         .unwrap_or_else(|| "    column_name = DEFAULT".to_owned());
-    let where_clause = info
-        .map(|table_info| {
-            table_info
-                .columns
-                .iter()
-                .filter(|column| column.is_primary_key)
-                .map(|column| format!("{} = 1", result_grid_export::quote_sql_identifier(&column.name)))
-                .collect::<Vec<_>>()
-                .join(" AND ")
-        })
-        .filter(|clause| !clause.is_empty())
-        .unwrap_or_else(|| "id = 1".to_owned());
+    // No PK → no fabricated WHERE: a template the user can run must never
+    // silently target `id = 1` (#398).
+    let where_clause = pk_where_clause(info).unwrap_or_else(|| "/* TODO: add WHERE conditions */ 1 = 0".to_owned());
     let target = result_grid_export::qualified_sql_name(schema, table);
     format!("UPDATE {target}\nSET\n{set_clause}\nWHERE {where_clause};")
 }
 
-fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
-    let where_clause = info
-        .map(|table_info| {
-            table_info
-                .columns
-                .iter()
-                .filter(|column| column.is_primary_key)
-                .map(|column| format!("{} = 1", result_grid_export::quote_sql_identifier(&column.name)))
-                .collect::<Vec<_>>()
-                .join(" AND ")
+/// WHERE clause over the table's primary-key columns (#398). Placeholder
+/// values respect the column type: text/uuid/date columns get a quoted literal
+/// the user must replace, numeric types get `1`.
+fn pk_where_clause(info: Option<&UiTableInfo>) -> Option<String> {
+    let clauses: Vec<String> = info?
+        .columns
+        .iter()
+        .filter(|column| column.is_primary_key)
+        .map(|column| {
+            let quoted = result_grid_export::quote_sql_identifier(&column.name);
+            let numeric = {
+                let ty = column.data_type.to_ascii_lowercase();
+                ty.contains("int") || ty.contains("numeric") || ty.contains("decimal") || ty.contains("float") || ty.contains("real") || ty.contains("serial") || ty.contains("money")
+            };
+            if numeric { format!("{quoted} = 1") } else { format!("{quoted} = '<value>'") }
         })
-        .filter(|clause| !clause.is_empty())
-        .unwrap_or_else(|| "id = 1".to_owned());
+        .collect();
+    (!clauses.is_empty()).then(|| clauses.join(" AND "))
+}
+
+fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
+    let where_clause = pk_where_clause(info).unwrap_or_else(|| "/* TODO: add WHERE conditions */ 1 = 0".to_owned());
     let target = result_grid_export::qualified_sql_name(schema, table);
     format!("DELETE FROM {target}\nWHERE {where_clause};")
 }
@@ -165,7 +165,7 @@ impl DbProApp {
     }
 
     fn open_query_document(&mut self, query: String) {
-        self.set_active_query_text(query);
-        self.workspace.active_tab = WorkspaceTab::Query;
+        // New document per action (#420): never overwrite the active buffer.
+        self.open_query_document_with(query, None);
     }
 }

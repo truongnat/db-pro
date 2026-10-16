@@ -314,7 +314,9 @@ pub(crate) fn default_keybinding_catalog() -> &'static [KeybindingCommand] {
         KeybindingCommand {
             id: "query.run",
             title: "Run Query",
-            default_shortcut: "f5",
+            // Ctrl/Cmd+Enter is the IDE-conventional run chord (toolbar advertises
+            // it); F5 stays a hardcoded alias in `handle_catalog_shortcuts`.
+            default_shortcut: "mod+enter",
         },
         KeybindingCommand {
             id: "query.run_all",

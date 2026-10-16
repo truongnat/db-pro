@@ -7,9 +7,9 @@ use egui::FontId;
 use egui::{Align, Layout};
 use lucide_icons::Icon;
 
-/// DDL execution from the table editor stays disabled until the feature is explicitly
-/// qualified; the supported path remains opening the script in the query editor.
-const DDL_APPLY_ENABLED: bool = false;
+/// DDL execution from the table editor is gated behind the confirmation card —
+/// Apply raises `ddl_execute_confirmation`, never dispatches directly (#361).
+const DDL_APPLY_ENABLED: bool = true;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum DdlScriptAction {
@@ -142,7 +142,7 @@ fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Opti
         ui.label(RichText::new("CREATE SCRIPT").font(font_caption()).strong().color(context.theme.text_secondary));
         ui.label(
             RichText::new(if context.writable {
-                "Editable preview · execute DDL in the query editor (Open in Query)"
+                "Editable preview · Apply asks for confirmation"
             } else {
                 "Read-only preview"
             })
@@ -158,11 +158,7 @@ fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Opti
                     .variant(ButtonVariant::Default)
                     .size(ButtonSize::Sm)
                     .enabled(DDL_APPLY_ENABLED)
-                    .tooltip(if DDL_APPLY_ENABLED {
-                        "Execute the DDL script"
-                    } else {
-                        "Not enabled in v0.1 — run DDL with Open in Query"
-                    })
+                    .tooltip("Review and confirm before the DDL executes")
                     .show(ui)
                     .clicked()
             {

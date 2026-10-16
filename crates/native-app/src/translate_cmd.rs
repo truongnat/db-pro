@@ -151,6 +151,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::PickSshPrivateKey { .. }
         | UiCommand::PickBackupFile { .. }
         | UiCommand::PickRestoreFile { .. }
+        | UiCommand::PickAuditExportFile { .. }
         | UiCommand::PickWorkspaceFolder { .. } => None,
         UiCommand::SaveAgentApiKey { .. } | UiCommand::ForgetAgentApiKey { .. } => translate_agent_key_command(command),
         UiCommand::ListQueryFolders { .. }

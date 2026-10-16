@@ -90,6 +90,10 @@ pub struct Table<'a> {
     sort_desc: bool,
     row_height: f32,
     show_vertical_grid: bool,
+    /// Drag-to-resize column dividers on the header; widths persist per table
+    /// id for the session (#363/#335).
+    resizable: bool,
+    resizable_id: Option<egui::Id>,
     /// Per-row accessible name for the row's click region — real content,
     /// e.g. the row's primary column. Without it a selectable row is an
     /// unnamed interactive node for assistive tech.
@@ -108,6 +112,8 @@ impl<'a> Table<'a> {
             sort_desc: false,
             row_height: config::ROW_HEIGHT_DEFAULT,
             show_vertical_grid: false,
+            resizable: false,
+            resizable_id: None,
             row_label: None,
         }
     }
@@ -136,6 +142,15 @@ impl<'a> Table<'a> {
 
     pub fn vertical_grid(mut self, show: bool) -> Self {
         self.show_vertical_grid = show;
+        self
+    }
+
+    /// Enable drag-to-resize handles on header column dividers. The `id_salt`
+    /// scopes persisted widths so two resizable tables in one surface do not
+    /// share state.
+    pub fn resizable(mut self, id_salt: impl egui::AsIdSalt + 'static) -> Self {
+        self.resizable = true;
+        self.resizable_id = Some(egui::Id::new(id_salt));
         self
     }
 

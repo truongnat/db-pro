@@ -176,7 +176,7 @@ impl TableStructureContext<'_> {
             .id_salt("structure-cols-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                Table::new(&columns, self.theme).row_height(34.0).show(
+                Table::new(&columns, self.theme).resizable("structure-table").row_height(34.0).show(
                     ui,
                     matching_columns.len(),
                     |_| false,

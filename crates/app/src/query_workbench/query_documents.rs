@@ -25,6 +25,9 @@ pub(crate) struct QueryDocumentContext<'state, 'bridge> {
 
 impl QueryDocumentContext<'_, '_> {
     pub(crate) fn new_document(&mut self, scratch: bool) {
+        if !self.evict_oldest_document_if_capped() {
+            return;
+        }
         let (document_id, index) = self.next_document_identity();
         let prefix = if scratch { "Scratch" } else { "Query" };
         let mut document = QueryDocument::new(document_id, format!("{prefix} {index}"), String::new());
@@ -38,6 +41,9 @@ impl QueryDocumentContext<'_, '_> {
     }
 
     pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry) {
+        if !self.evict_oldest_document_if_capped() {
+            return;
+        }
         let (document_id, document_number) = self.next_document_identity();
         let mut document = QueryDocument::new(document_id, format!("History {document_number}"), entry.sql.clone());
         document.connection_id = entry.connection_id.clone();
@@ -45,6 +51,21 @@ impl QueryDocumentContext<'_, '_> {
         self.query_session.add_document(document);
         self.activate_query_surface();
     }
+    /// Open `text` in a **new** query document instead of replacing the active
+    /// buffer (#419/#420): generated and saved SQL must never silently
+    /// overwrite the document the user is editing.
+    pub(crate) fn open_text_document(&mut self, text: impl Into<String>, connection_id: Option<String>) {
+        if !self.evict_oldest_document_if_capped() {
+            return;
+        }
+        let (document_id, document_number) = self.next_document_identity();
+        let mut document = QueryDocument::new(document_id, format!("Query {document_number}"), text.into());
+        document.connection_id = connection_id.or_else(|| self.active_connection_id.clone());
+        document.schema = Some(self.active_schema.clone());
+        self.query_session.add_document(document);
+        self.activate_query_surface();
+    }
+
 
     pub(crate) fn rename_document_inline(&mut self, index: usize) {
         let Some(document) = self.query_session.documents.get_mut(index) else {
@@ -160,6 +181,9 @@ impl QueryDocumentContext<'_, '_> {
     }
 
     pub(crate) fn duplicate_document(&mut self, index: usize) {
+        if !self.evict_oldest_document_if_capped() {
+            return;
+        }
         let Some(source) = self.query_session.documents.get(index).cloned() else {
             return;
         };
@@ -306,6 +330,40 @@ impl QueryDocumentContext<'_, '_> {
     pub(crate) fn activate_welcome_tab(&mut self) {
         self.workspace.welcome_open = true;
         self.workspace.active_tab = WorkspaceTab::Welcome;
+    }
+
+    /// Free one slot before a new document is pushed (#401). The oldest clean,
+    /// idle tab is closed through the normal teardown path; when every tab is
+    /// dirty or running something, the open is refused with feedback instead
+    /// of silently dropping a buffer.
+    fn evict_oldest_document_if_capped(&mut self) -> bool {
+        if self.query_session.documents.len() < query_state::MAX_QUERY_DOCUMENTS {
+            return true;
+        }
+        let Some(index) = self
+            .query_session
+            .documents
+            .iter()
+            .position(|document| !document.is_dirty() && !self.execution.document_is_busy(&document.id))
+        else {
+            self.feedback.set_runtime_message(format!(
+                "Too many query tabs open ({}) — close or save a tab before opening another",
+                query_state::MAX_QUERY_DOCUMENTS
+            ));
+            return false;
+        };
+        self.close_document(index);
+        true
+    }
+
+    /// Push a document assembled by the caller (e.g. a workspace `.sql` file),
+    /// subject to the same cap as other open paths (#401).
+    pub(crate) fn push_document_capped(&mut self, document: QueryDocument) -> bool {
+        if !self.evict_oldest_document_if_capped() {
+            return false;
+        }
+        self.query_session.add_document(document);
+        true
     }
 
     fn next_document_identity(&self) -> (String, usize) {
@@ -473,6 +531,20 @@ impl DbProApp {
         self.query_document_context().set_document_schema(index, schema);
     }
 
+    /// Open `text` in a new query document bound to `connection_id` (or the
+    /// active connection when `None`). Use this for every "Open in SQL editor"
+    /// surface — never overwrite the active document's unsaved SQL (#419/#420).
+    pub(crate) fn open_query_document_with(&mut self, text: impl Into<String>, connection_id: Option<String>) {
+        self.query_document_context().open_text_document(text, connection_id);
+    }
+
+    /// Push a caller-assembled document (workspace file, etc.) through the
+    /// same cap eviction as the other open paths (#401).
+    pub(crate) fn push_query_document(&mut self, document: QueryDocument) -> bool {
+        self.query_document_context().push_document_capped(document)
+    }
+
+
     pub(crate) fn cancel_prediction_for_document(&mut self, index: usize) {
         self.query_document_context().cancel_prediction_for_document(index);
     }
@@ -524,7 +596,7 @@ impl DbProApp {
 
     pub(super) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
         match action {
-            PendingNavigationAction::OpenTable(table) => self.open_table(table),
+            PendingNavigationAction::OpenTable { schema, table } => self.open_table_in_schema(schema, table),
             PendingNavigationAction::ChangeSchema(schema) => {
                 super::schema_explorer_state::SchemaActivationContext::new(
                     &mut self.schema.explorer,

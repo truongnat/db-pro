@@ -228,7 +228,7 @@ impl TransferActivityContext<'_> {
             if secondary_button(ui, "Preview sample", self.theme).clicked() {
                 *action = Some(TransferActivityAction::PreviewMasking);
             }
-            if secondary_button(ui, "Masked CSV export", self.theme).clicked() {
+            if secondary_button(ui, "Demo masked CSV export", self.theme).clicked() {
                 *action = Some(TransferActivityAction::RunMaskedCsvExport);
             }
         });

@@ -7,12 +7,16 @@ use crate::RequestId;
 pub(crate) struct TableEventTransition {
     pub(crate) invalidate_grid_caches: bool,
     pub(crate) apply_staged_changes: bool,
+    /// Discard the current grid result and re-issue a full table-data request.
+    pub(crate) reload_grid: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum TableFailureTransition {
     Handled,
     StagedApplyFailed,
+    /// The failed request was a workbench/table ExecuteDdl run.
+    DdlFailed,
 }
 
 /// Routes a table-related failure to the matching request slot.
@@ -78,7 +82,7 @@ pub(crate) fn handle_table_request_failure(
         let formatted = format!("DDL execution failed · {message}");
         feedback.set_runtime_message(formatted.clone());
         feedback.show_error_toast(formatted);
-        return Some(TableFailureTransition::Handled);
+        return Some(TableFailureTransition::DdlFailed);
     }
     None
 }
@@ -133,8 +137,10 @@ pub(crate) fn on_table_ddl_loaded(
     if table_state.table_ddl_request != Some(request_id) {
         return;
     }
-    table_state.table_ddl = Some(sql);
+    table_state.table_ddl = Some(sql.clone());
+    table_state.table_ddl_baseline = Some(sql);
     table_state.ddl_execute_confirmation = false;
+    table_state.table_ddl_discard_confirm = false;
     table_state.table_ddl_error = None;
     table_state.table_ddl_request = None;
     feedback.set_runtime_message("Table DDL loaded");
@@ -188,6 +194,7 @@ pub(crate) fn on_table_data_loaded(
     Some(TableEventTransition {
         invalidate_grid_caches: true,
         apply_staged_changes: table_mutation.table_mutation_retry_after_reload,
+        ..Default::default()
     })
 }
 
@@ -201,14 +208,34 @@ pub(crate) fn on_table_row_reloaded(
     let Some(identity) = data_query.row_reload_identity.take() else {
         return TableEventTransition::default();
     };
-    let Some(server_row) = result.rows.into_iter().next() else {
+    let UiQueryResult { columns: server_columns, rows: server_rows, .. } = result;
+    if server_rows.is_empty() {
         feedback.set_runtime_message("Row was deleted");
         if table_mutation.table_mutation_retry_after_reload {
             table_mutation.table_mutation_retry_after_reload = false;
             table_mutation.table_mutation_retry_target = None;
         }
         return TableEventTransition::default();
-    };
+    }
+
+    // A reload that returns columns in a different order than the visible grid would write cells
+    // under the wrong headers. Discard the result and reload the page instead of patching.
+    let column_layout_matches = data_query
+        .result
+        .as_ref()
+        .is_some_and(|table_result| table_result.columns == server_columns);
+    if !column_layout_matches {
+        feedback.set_runtime_message("Table columns changed — reloading table data");
+        return TableEventTransition { reload_grid: true, ..Default::default() };
+    }
+
+    if server_rows.len() > 1 {
+        // The reload WHERE is expected to match one row; more rows means the identity matched
+        // multiple rows, so a positional patch could target the wrong one.
+        feedback.set_runtime_message("Row reload matched multiple rows — reloading table data");
+        return TableEventTransition { reload_grid: true, ..Default::default() };
+    }
+    let server_row = server_rows.into_iter().next().expect("checked non-empty");
 
     let mut replaced_row = false;
     if let Some(table_result) = data_query.result.as_mut() {
@@ -232,6 +259,7 @@ pub(crate) fn on_table_row_reloaded(
     TableEventTransition {
         invalidate_grid_caches: replaced_row,
         apply_staged_changes: table_mutation.table_mutation_retry_after_reload,
+        reload_grid: false,
     }
 }
 

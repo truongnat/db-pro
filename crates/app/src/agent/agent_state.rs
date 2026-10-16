@@ -52,6 +52,9 @@ pub(super) struct AgentRunPreparation {
     pub(super) schema: Option<String>,
     pub(super) mode: db_pro_core::domain::agent::AgentMode,
     pub(super) context: db_pro_core::domain::agent_context::AgentContext,
+    /// True when re-running the turn that just failed: the user message is
+    /// already in the thread, so preparation must not push it again (#397).
+    pub(super) is_retry: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,6 +122,7 @@ impl AgentState {
             schema,
             mode,
             context,
+            is_retry,
         } = preparation;
         let document_id = document.document_id.clone();
         let session = self
@@ -138,12 +142,30 @@ impl AgentState {
         core_session.connection_id = connection_id;
         core_session.schema = schema;
         session.session = Some(core_session.clone());
-        session.messages.push(AgentMessage {
-            role: AgentRole::User,
-            content: prompt.clone(),
-            sql: None,
-            requires_confirmation: false,
-        });
+        if is_retry {
+            // A retry re-runs the turn that failed: the prompt is already the
+            // last user message in the thread, so pushing it again would show
+            // the same request twice (#397). Only a Failed session can retry,
+            // and only the prompt that head of thread carried.
+            let last_user_prompt = session
+                .messages
+                .iter()
+                .rev()
+                .find(|msg| msg.role == AgentRole::User)
+                .map(|msg| msg.content.as_str());
+            if session.state != db_pro_core::domain::agent::AgentSessionState::Failed
+                || last_user_prompt != Some(prompt.as_str())
+            {
+                return Err(AgentRunPreparationError::SessionUnavailable);
+            }
+        } else {
+            session.messages.push(AgentMessage {
+                role: AgentRole::User,
+                content: prompt.clone(),
+                sql: None,
+                requires_confirmation: false,
+            });
+        }
         session.state = db_pro_core::domain::agent::AgentSessionState::Running;
         session.streaming_text.clear();
         session.activities.clear();
@@ -168,6 +190,16 @@ impl AgentState {
         if let Some(session) = self.sessions.get_mut(document_id) {
             session.request_id = None;
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
+        }
+    }
+
+    /// Optimistic teardown when the user presses Stop: clears the in-flight
+    /// routing state so the UI exits "generating" immediately, even if the
+    /// cancel command never reaches the worker (#360). A later `Cancelled`
+    /// workflow event re-applies the same terminal state idempotently.
+    pub(super) fn mark_run_cancelled(&mut self, document_id: &str) {
+        if let Some(session) = self.sessions.get_mut(document_id) {
+            agent_workflow_reducer::finish_session(session, db_pro_core::domain::agent::AgentSessionState::Cancelled);
         }
     }
 

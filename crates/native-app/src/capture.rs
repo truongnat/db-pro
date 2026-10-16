@@ -432,6 +432,14 @@ impl CaptureApp {
             inner.open_settings_workspace_for_capture();
         } else if std::env::var_os(AGENT_WORKSPACE_ENV).is_some() {
             inner.open_agent_workspace_for_capture();
+        } else if std::env::var_os("DB_PRO_CAPTURE_AGENT_THREAD").is_some() {
+            inner.open_agent_thread_for_capture();
+        } else if std::env::var_os("DB_PRO_CAPTURE_DDL_CONFIRM").is_some() {
+            inner.open_table_ddl_confirm_for_capture(std::env::var_os(TABLE_LIGHT_ENV).is_some());
+        } else if std::env::var_os("DB_PRO_CAPTURE_DESTRUCTIVE").is_some() {
+            inner.open_destructive_run_for_capture();
+        } else if std::env::var_os("DB_PRO_CAPTURE_EXPLAIN").is_some() {
+            inner.open_explain_plan_for_capture();
         } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
             inner.open_component_gallery_for_capture();
         } else if std::env::var_os(EXPLORER_FILTER_ENV).is_some() {

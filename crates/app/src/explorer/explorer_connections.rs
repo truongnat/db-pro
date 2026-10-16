@@ -92,9 +92,10 @@ impl DbProApp {
                 ui.ctx(),
             ),
             ConnectionRowAction::CreateTable => {
-                self.open_query_on_connection(&connection.id);
-                self.set_active_query_text(sample_create_table_sql(&connection.driver, &connection.database));
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_query_document_with(
+                    sample_create_table_sql(&connection.driver, &connection.database),
+                    Some(connection.id.clone()),
+                );
             }
             ConnectionRowAction::CopyName => {
                 ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(connection.name.clone())));

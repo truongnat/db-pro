@@ -11,9 +11,14 @@ use crate::components::table::{
         SORT_ICON_SIZE, TABLE_CORNER_RADIUS,
     },
     draw_crisp_checkmark, draw_crisp_minus,
-    handler::{build_column_layout, select_all_state, SelectAllState, TableGeometry},
+    handler::{build_column_layout, column_offsets, select_all_state, SelectAllState, TableGeometry},
     Table, TableColumnAlign,
 };
+
+/// Grab band half-width around a header divider for column resizing.
+const RESIZE_HANDLE_HALF_WIDTH: f32 = 4.0;
+const RESIZE_COLUMN_MIN: f32 = 60.0;
+const RESIZE_COLUMN_MAX: f32 = 1000.0;
 
 impl<'a> Table<'a> {
     // allow: table widget receives distinct generic callbacks for each interaction (row selection,
@@ -32,10 +37,18 @@ impl<'a> Table<'a> {
         F: FnMut(&mut Ui, usize, usize),
     {
         let available_w = ui.available_width();
-        let layout = build_column_layout(self.columns, available_w, self.selectable);
+        let mut layout = build_column_layout(self.columns, available_w, self.selectable);
+        if self.resizable {
+            let key = ui.id().with(("table_col_widths", self.resizable_id));
+            if let Some(saved) = ui.data_mut(|d| d.get_persisted::<Vec<f32>>(key)) {
+                if saved.len() == layout.widths.len() {
+                    layout.widths = saved;
+                    layout.offsets = column_offsets(&layout.widths);
+                    layout.total_width = layout.checkbox_width + layout.widths.iter().sum::<f32>();
+                }
+            }
+        }
         let geometry = TableGeometry::new(row_count, self.row_height);
-        let widths = &layout.widths;
-        let col_x_offsets = &layout.offsets;
         let checkbox_w = layout.checkbox_width;
         let total_cols_w = layout.total_width;
         let header_h = geometry.header_height;
@@ -55,7 +68,7 @@ impl<'a> Table<'a> {
         }
         .show(ui, |ui| {
             let table_min = ui.cursor().min;
-            let table_w = ui.available_width().max(total_cols_w);
+            let mut table_w = ui.available_width().max(total_cols_w);
             let col_start_x = table_min.x + checkbox_w;
 
             // ── 1. Header Background ──────────────────────────────────
@@ -144,8 +157,8 @@ impl<'a> Table<'a> {
 
             // Header Column Cells (rigorously placed at exact X coordinates)
             for (col_idx, col) in self.columns.iter().enumerate() {
-                let col_x = col_start_x + col_x_offsets[col_idx];
-                let col_w = widths[col_idx];
+                let col_x = col_start_x + layout.offsets[col_idx];
+                let col_w = layout.widths[col_idx];
                 let col_rect = Rect::from_min_size(Pos2::new(col_x, table_min.y), Vec2::new(col_w, header_h));
                 let resp = ui.interact(
                     col_rect,
@@ -253,6 +266,52 @@ impl<'a> Table<'a> {
                 header_divider_y,
                 Stroke::new(DIVIDER_STROKE_WIDTH, self.theme.border_default),
             );
+
+            // ── Column Resize Handles ───────────────────────────────────
+            // Dragging a boundary resizes the column to its left; the last
+            // column's right edge is resizable via the table edge (#363/#335).
+            if self.resizable {
+                let resize_key = ui.id().with(("table_col_widths", self.resizable_id));
+                let mut resized = false;
+                for col_idx in 0..self.columns.len() {
+                    let boundary_x = col_start_x + layout.offsets[col_idx] + layout.widths[col_idx];
+                    let handle_rect = Rect::from_center_size(
+                        Pos2::new(boundary_x, table_min.y + header_h * 0.5),
+                        Vec2::new(RESIZE_HANDLE_HALF_WIDTH * 2.0, header_h),
+                    );
+                    let resp = ui
+                        .interact(handle_rect, ui.id().with(("col_resize", col_idx)), egui::Sense::drag())
+                        .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+                    resp.widget_info(|| {
+                        egui::WidgetInfo::labeled(
+                            egui::WidgetType::Other,
+                            true,
+                            format!("Resize column {}", self.columns[col_idx].title),
+                        )
+                    });
+                    if resp.hovered() || resp.dragged() {
+                        ui.painter().vline(
+                            boundary_x,
+                            table_min.y..=header_divider_y,
+                            Stroke::new(DIVIDER_STROKE_WIDTH + 1.0, self.theme.accent),
+                        );
+                    }
+                    if resp.dragged() {
+                        let next =
+                            (layout.widths[col_idx] + resp.drag_delta().x).clamp(RESIZE_COLUMN_MIN, RESIZE_COLUMN_MAX);
+                        if next != layout.widths[col_idx] {
+                            layout.widths[col_idx] = next;
+                            resized = true;
+                        }
+                    }
+                }
+                if resized {
+                    layout.offsets = column_offsets(&layout.widths);
+                    layout.total_width = layout.checkbox_width + layout.widths.iter().sum::<f32>();
+                    ui.data_mut(|d| d.insert_persisted(resize_key, layout.widths.clone()));
+                    table_w = ui.available_width().max(layout.total_width);
+                }
+            }
 
             // ── 2. Data Rows (Rigorously placed at exact X coordinates) ─
             let body_start_y = header_divider_y + DIVIDER_STROKE_WIDTH;
@@ -407,8 +466,8 @@ impl<'a> Table<'a> {
 
                     // Data cells (EXACT same X coordinates and padding as Header!)
                     for (col_idx, col) in self.columns.iter().enumerate() {
-                        let col_x = col_start_x + col_x_offsets[col_idx];
-                        let col_w = widths[col_idx];
+                        let col_x = col_start_x + layout.offsets[col_idx];
+                        let col_w = layout.widths[col_idx];
                         let cell_rect = Rect::from_min_size(Pos2::new(col_x, row_y), Vec2::new(col_w, self.row_height));
                         let inner_rect = cell_rect.shrink2(Vec2::new(INNER_PADDING_X, 0.0));
 
@@ -455,7 +514,7 @@ impl<'a> Table<'a> {
                 }
 
                 // Lines between each column
-                for &offset in col_x_offsets.iter().skip(1).take(self.columns.len().saturating_sub(1)) {
+                for &offset in layout.offsets.iter().skip(1).take(self.columns.len().saturating_sub(1)) {
                     let col_x = col_start_x + offset;
                     ui.painter().vline(
                         col_x,

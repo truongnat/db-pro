@@ -58,20 +58,14 @@ impl SavedTaskPayload {
     }
 
     /// True when running this payload may mutate data or schema.
+    ///
+    /// Delegates to the shared statement classifier (`safety.rs`) so the same
+    /// verbs that gate the workbench — including `CALL`/`DO`/`EXECUTE`, which
+    /// the old token blacklist missed — also gate scheduled tasks (#375).
     pub fn is_destructive(&self) -> bool {
+        use crate::domain::safety::{classify_script_safety, StatementSafety};
         match self {
-            Self::Sql { sql } => {
-                let lower = sql.to_ascii_lowercase();
-                [
-                    "insert", "update", "delete", "drop", "truncate", "alter", "create", "grant", "revoke",
-                ]
-                .iter()
-                .any(|kw| {
-                    lower
-                        .split(|c: char| c.is_whitespace() || c == ';' || c == '(')
-                        .any(|tok| tok == *kw)
-                })
-            }
+            Self::Sql { sql } => !matches!(classify_script_safety(sql), None | Some(StatementSafety::Read)),
             Self::Export { .. } => false,
             Self::Backup { .. } => false,
             Self::Maintenance { operation, .. } => {
@@ -82,6 +76,13 @@ impl SavedTaskPayload {
     }
 
     /// Reject payloads that embed obvious secrets.
+    ///
+    /// Two layers: a substring scan of the serialized payload (catches
+    /// `password=…`/`api_key…` in any field) plus a token-level scan of SQL
+    /// payloads for credential-bearing syntax such as `PASSWORD '…'`,
+    /// `IDENTIFIED BY '…'`, `USING '…'` and `CREATE ROLE … PASSWORD '…'`
+    /// (#375). Token matching keeps e.g. `passwords` or a column named
+    /// `identified_by` from false-positiving.
     pub fn validate_no_embedded_secrets(&self) -> Result<(), String> {
         let blob = serde_json::to_string(self).unwrap_or_default().to_ascii_lowercase();
         for needle in ["password=", "password\":", "secret=", "api_key", "private_key"] {
@@ -89,8 +90,86 @@ impl SavedTaskPayload {
                 return Err("saved task payloads must not embed secrets".to_owned());
             }
         }
+        if let Self::Sql { sql } = self {
+            if sql_embeds_credential_literal(sql) {
+                return Err("saved task payloads must not embed secrets".to_owned());
+            }
+        }
         Ok(())
     }
+}
+
+/// Token-level scan for credential-bearing SQL syntax.
+///
+/// Yields `(word, is_string_literal)` pairs so `PASSWORD 'hunter2'` is caught
+/// while a column named `password` or a word inside a literal is not.
+fn sql_embeds_credential_literal(sql: &str) -> bool {
+    let mut tokens = Vec::new();
+    let chars: Vec<char> = sql.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '\'' || c == '"' {
+            tokens.push((String::new(), true));
+            i += 1;
+            while i < chars.len() {
+                if chars[i] == c {
+                    if chars.get(i + 1) == Some(&c) {
+                        i += 2;
+                        continue;
+                    }
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+        } else if c == '-' && chars.get(i + 1) == Some(&'-') {
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
+        } else if c == '/' && chars.get(i + 1) == Some(&'*') {
+            i += 2;
+            while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') {
+                i += 1;
+            }
+            i = (i + 2).min(chars.len());
+        } else if c.is_alphanumeric() || c == '_' {
+            let start = i;
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
+            tokens.push((chars[start..i].iter().collect::<String>().to_uppercase(), false));
+        } else {
+            i += 1;
+        }
+    }
+    for (index, (word, is_literal)) in tokens.iter().enumerate() {
+        if *is_literal {
+            continue;
+        }
+        match word.as_str() {
+            // `PASSWORD 'literal'` / `IDENTIFIED BY 'literal'` / `USING 'literal'`
+            "PASSWORD" => {
+                if tokens.get(index + 1).is_some_and(|(_, lit)| *lit) {
+                    return true;
+                }
+            }
+            "IDENTIFIED" => {
+                if tokens.get(index + 1).is_some_and(|(w, _)| w == "BY")
+                    && tokens.get(index + 2).is_some_and(|(_, lit)| *lit)
+                {
+                    return true;
+                }
+            }
+            "USING" => {
+                if tokens.get(index + 1).is_some_and(|(_, lit)| *lit) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

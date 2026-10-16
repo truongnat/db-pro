@@ -1,6 +1,6 @@
 //! State transitions and command preparation for query execution.
 
-use super::query_execution_state::{PendingDestructiveRun, PendingDestructiveRunMetadata};
+use super::query_execution_state::{PendingDestructiveRun, PendingDestructiveRunMetadata, PendingDestructiveRunOrigin};
 use super::{
     FeedbackState, QueryEditorState, QueryExecutionPolicyState, QueryExecutionState, QuerySessionState, RequestId,
 };
@@ -52,10 +52,19 @@ impl<'a> QueryExecutionContext<'a> {
     pub(crate) fn hold_destructive_run(
         &mut self,
         sql: &str,
+        origin: PendingDestructiveRunOrigin,
+        target_label: String,
         execution_range: (usize, usize),
         version: u64,
         all_statements: bool,
     ) -> bool {
+        // An open confirmation owns the slot: never overwrite the statement the user is
+        // looking at — the new statement is held (not sent) with a clear reason.
+        if self.policy.pending_destructive_run().is_some() {
+            self.feedback
+                .set_runtime_message("A destructive statement is already awaiting confirmation — confirm or cancel it first");
+            return true;
+        }
         if db_pro_core::domain::safety::classify_script_safety(sql)
             != Some(db_pro_core::domain::safety::StatementSafety::Destructive)
         {
@@ -64,6 +73,8 @@ impl<'a> QueryExecutionContext<'a> {
 
         self.policy.set_pending_destructive_run(PendingDestructiveRun::new(
             sql.to_owned(),
+            origin,
+            target_label,
             PendingDestructiveRunMetadata::new(execution_range, version, all_statements),
         ));
         self.feedback

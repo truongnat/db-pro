@@ -156,10 +156,30 @@
                 feedback: &mut feedback,
             };
             activity.apply_monitoring_sessions_action(
-                super::super::monitoring_sessions_view::MonitoringSessionsAction::Cancel(42),
+                super::super::monitoring_sessions_view::MonitoringSessionsAction::Cancel(
+                    db_pro_core::domain::monitoring::MonitorSession {
+                        backend_id: 42,
+                        database: Some("db".into()),
+                        username: Some("u".into()),
+                        application_name: None,
+                        client_addr: None,
+                        state: Some("active".into()),
+                        wait_event_type: None,
+                        wait_event: None,
+                        query_text: Some("SELECT 1".into()),
+                        query_duration_ms: None,
+                        backend_start: None,
+                        xact_start: None,
+                        query_start: None,
+                        xact_age_ms: None,
+                        backend_age_ms: None,
+                        idle_in_transaction: false,
+                        is_current: false,
+                    },
+                ),
                 &mut Vec::new(),
             );
-            assert_eq!(activity.state.monitoring_cancel_confirm, Some(42));
+            assert_eq!(activity.state.monitoring_cancel_confirm.as_ref().map(|s| s.backend_id), Some(42));
             assert!(matches!(
                 command_rx.try_recv(),
                 Err(std::sync::mpsc::TryRecvError::Empty)

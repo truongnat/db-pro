@@ -10,6 +10,8 @@ pub(super) struct SchemaWorkbenchSecondaryContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) workbench: &'a mut SchemaWorkbenchState,
     pub(super) edges: &'a [ObjectDependencyEdge],
+    /// SQL dialect used for preview/history highlighting (#336).
+    pub(super) dialect: crate::editor::SqlDialect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +127,30 @@ pub(super) fn draw_execution_history(
     ui.horizontal(|ui| {
         ui.label(RichText::new("DDL Execution History").font(font_subheading()).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if Button::new(context.theme)
+            if context.workbench.history_clear_confirm {
+                if Button::new(context.theme)
+                    .text("Keep history")
+                    .size(ButtonSize::Sm)
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
+                    context.workbench.history_clear_confirm = false;
+                }
+                if Button::new(context.theme)
+                    .icon(Icon::Trash2)
+                    .text("Confirm clear")
+                    .size(ButtonSize::Sm)
+                    .variant(ButtonVariant::Destructive)
+                    .tooltip("Delete the DDL execution history")
+                    .show(ui)
+                    .clicked()
+                {
+                    context.workbench.history_clear_confirm = false;
+                    action = Some(SchemaWorkbenchSecondaryAction::ClearHistory);
+                }
+                ui.label(RichText::new("Clear all history?").small().color(context.theme.warning));
+            } else if Button::new(context.theme)
                 .icon(Icon::Trash2)
                 .text("Clear history")
                 .size(ButtonSize::Sm)
@@ -133,7 +158,7 @@ pub(super) fn draw_execution_history(
                 .show(ui)
                 .clicked()
             {
-                action = Some(SchemaWorkbenchSecondaryAction::ClearHistory);
+                context.workbench.history_clear_confirm = true;
             }
         });
     });
@@ -188,7 +213,7 @@ pub(super) fn draw_execution_history(
                 });
             });
             ui.add_space(4.0);
-            CodeBlock::new(&entry.sql, context.theme).language("sql").show(ui);
+            CodeBlock::new(&entry.sql, context.theme).language("sql").sql_dialect(context.dialect).show(ui);
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 if Button::new(context.theme)

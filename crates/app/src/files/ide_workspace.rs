@@ -4,7 +4,7 @@
 // allow: IDE workspace operations remain a persisted contract while shell adoption is incremental.
 #![allow(dead_code)]
 
-use super::ide_workspace_scan::{flatten_index, scan_directory};
+use super::ide_workspace_scan::{flatten_index, index_diagnostics, scan_directory, ScannedRoot};
 pub(crate) use super::ide_workspace_types::*;
 
 use std::path::{Path, PathBuf};
@@ -60,6 +60,11 @@ impl IdeWorkspaceState {
         self.active_root = self.roots.len() - 1;
         self.last_error = None;
         self.remember_recent(canonical);
+        self.seed_default_environments();
+        Ok(())
+    }
+
+    fn seed_default_environments(&mut self) {
         if self.environments.is_empty() {
             self.environments.push(WorkspaceEnvironment {
                 name: "Development".to_owned(),
@@ -81,7 +86,58 @@ impl IdeWorkspaceState {
             });
             self.active_environment = 0;
         }
-        Ok(())
+    }
+
+    /// Apply roots scanned on a worker thread (`spawn_scan_task`, #393).
+    /// `replace` clears existing roots/diagnostics first; otherwise new roots
+    /// are appended and deduped by canonical path like `add_root`.
+    /// Returns `(indexed file count, first scan error if any)`.
+    pub fn apply_scanned_roots(
+        &mut self,
+        scanned: Vec<ScannedRoot>,
+        replace: bool,
+    ) -> (usize, Option<String>) {
+        if replace {
+            self.roots.clear();
+            self.workspace_diagnostics.clear();
+            self.active_root = 0;
+        }
+        let mut error = None;
+        for root in scanned {
+            let ScannedRoot {
+                id,
+                path,
+                result,
+                diagnostics,
+            } = root;
+            match result {
+                Ok((tree, index)) => {
+                    if self.roots.iter().any(|existing| existing.path == path) {
+                        continue;
+                    }
+                    self.roots.push(WorkspaceRoot {
+                        id,
+                        path: path.clone(),
+                        tree,
+                        index,
+                    });
+                    self.active_root = self.roots.len() - 1;
+                    self.workspace_diagnostics.extend(diagnostics);
+                    self.remember_recent(path);
+                }
+                Err(err) => {
+                    if error.is_none() {
+                        error = Some(err);
+                    }
+                }
+            }
+        }
+        self.seed_default_environments();
+        if !self.roots.is_empty() {
+            self.last_error = None;
+        }
+        let indexed = self.roots.iter().map(|root| root.index.len()).sum();
+        (indexed, error)
     }
 
     pub fn remove_active_root(&mut self) {
@@ -310,33 +366,7 @@ impl IdeWorkspaceState {
     pub fn scan_diagnostics(&mut self) {
         let mut diagnostics = Vec::new();
         for root in &self.roots {
-            for entry in root.index.iter().filter(|entry| entry.is_sql) {
-                let path = root.path.join(&entry.relative_path);
-                let Ok(content) = std::fs::read_to_string(&path) else {
-                    continue;
-                };
-                for (line_idx, line) in content.lines().enumerate() {
-                    let trimmed = line.trim_start();
-                    if trimmed.starts_with("SELECT *") {
-                        diagnostics.push(WorkspaceDiagnostic {
-                            root_id: root.id.clone(),
-                            relative_path: entry.relative_path.clone(),
-                            line: line_idx + 1,
-                            message: "avoid SELECT * in workspace SQL".to_owned(),
-                            severity: WorkspaceDiagnosticSeverity::Warning,
-                        });
-                    }
-                    if trimmed.contains("DROP TABLE") && !trimmed.contains("IF EXISTS") {
-                        diagnostics.push(WorkspaceDiagnostic {
-                            root_id: root.id.clone(),
-                            relative_path: entry.relative_path.clone(),
-                            line: line_idx + 1,
-                            message: "DROP TABLE without IF EXISTS".to_owned(),
-                            severity: WorkspaceDiagnosticSeverity::Error,
-                        });
-                    }
-                }
-            }
+            diagnostics.extend(index_diagnostics(&root.id, &root.path, &root.index));
         }
         self.workspace_diagnostics = diagnostics;
     }

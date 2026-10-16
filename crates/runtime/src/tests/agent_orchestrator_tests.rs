@@ -360,7 +360,7 @@ async fn mutation_run_query_executes_once_and_repeats_replay_without_database_re
                         call_id: "mut-1".to_owned(),
                         tool: AgentTool::RunQuery,
                         input: AgentToolInput::Query {
-                            sql: "UPDATE users SET active = true".to_owned(),
+                            sql: "UPDATE users SET active = true WHERE id = 1".to_owned(),
                         },
                     })],
                     vec![AgentProviderEvent::ToolCall(AgentToolCall {
@@ -368,7 +368,7 @@ async fn mutation_run_query_executes_once_and_repeats_replay_without_database_re
                         tool: AgentTool::RunQuery,
                         input: AgentToolInput::Query {
                             // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
-                            sql: "UPDATE users SET active = true".to_owned(),
+                            sql: "UPDATE users SET active = true WHERE id = 1".to_owned(),
                         },
                     })],
                     vec![AgentProviderEvent::Completed],
@@ -648,7 +648,7 @@ async fn cancel_while_awaiting_confirmation_emits_cancelled_event() {
                 call_id: "mut-cancel".to_owned(),
                 tool: AgentTool::RunQuery,
                 input: AgentToolInput::Query {
-                    sql: "UPDATE users SET active = true".to_owned(),
+                    sql: "UPDATE users SET active = true WHERE id = 1".to_owned(),
                 },
             })],
             vec![AgentProviderEvent::Completed],

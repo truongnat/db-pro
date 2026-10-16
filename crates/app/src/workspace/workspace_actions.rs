@@ -72,18 +72,34 @@ impl DbProApp {
     }
 
     pub(crate) fn open_table(&mut self, table: String) {
-        if self.schema.explorer.selected_table.as_deref() == Some(&table) {
+        self.open_table_in_schema(None, table);
+    }
+
+    /// `Some(schema)` navigates to a table in another schema — used by
+    /// dependency views whose targets are schema-qualified (#368).
+    pub(crate) fn open_table_in_schema(&mut self, schema: Option<String>, table: String) {
+        let schema = schema.filter(|schema| !schema.is_empty());
+        let schema_changed = schema
+            .as_deref()
+            .is_some_and(|schema| Some(schema) != self.schema.explorer.selected_schema.as_deref());
+        if !schema_changed && self.schema.explorer.selected_table.as_deref() == Some(&table) {
             self.workspace.active_tab = WorkspaceTab::Table;
             self.schema.explorer.record_recent_table(&table);
             return;
         }
         if !self.table.mutation.staged_changes.is_empty() {
-            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable {
+                schema,
+                table,
+            });
             self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.workspace.pending_navigation_action = None;
+        if let Some(schema) = schema {
+            self.schema.explorer.selected_schema = Some(schema);
+        }
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
@@ -92,6 +108,11 @@ impl DbProApp {
         self.table.data.persist_layout(scope);
         self.schema.explorer.record_recent_table(&table);
         self.schema.explorer.selected_table = Some(table);
+        // Filters are scoped to the previous table's metadata — leaving them
+        // would silently hide constraints/dependencies of the new table (#370).
+        self.table.state.table_metadata_search.clear();
+        self.table.state.table_dependency_filter = "all".to_owned();
+        self.table.state.table_constraint_filter = "all".to_owned();
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
@@ -111,28 +132,82 @@ impl DbProApp {
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
-        let result = if self.workspace.files.ide_workspace.roots.is_empty() {
-            self.workspace.files.ide_workspace.open_root(path)
-        } else {
-            self.workspace.files.ide_workspace.add_root(path)
-        };
-        match result {
+        // The scan runs on a worker thread; the frame only queues it and the
+        // results land via poll_background_tasks (#393).
+        let replace = self.workspace.files.ide_workspace.roots.is_empty();
+        match self.workspace.files.request_open_folders(vec![path], replace) {
             Ok(()) => {
                 self.workspace.activity = Activity::Files;
                 self.workspace.sidebar_open = true;
                 self.workspace.files.workspace_search_hits.clear();
-                self.workspace.files.ide_workspace.scan_diagnostics();
-                self.feedback.runtime_message = format!(
-                    "Opened workspace {} · {} files · {} roots",
-                    self.workspace.files.ide_workspace.root_label(),
-                    self.workspace.files.ide_workspace.index().len(),
-                    self.workspace.files.ide_workspace.roots.len()
-                );
+                self.feedback.runtime_message = "Scanning workspace…".to_owned();
             }
             Err(error) => {
                 self.feedback.runtime_message = format!("Failed to open workspace: {error}");
             }
         }
+    }
+
+    /// Drain all worker-thread results (workspace scans, file reads, transfer
+    /// harness jobs, git ops) — called once per frame from `prepare_frame` so
+    /// no draw path blocks on I/O (#377, #393, #405, #421).
+    pub(crate) fn poll_background_tasks(&mut self) {
+        self.workspace.files.poll_git_task(&mut self.feedback);
+        self.poll_workspace_tasks();
+        self.transfer_harness_context().poll();
+    }
+
+    /// Apply scan results finished on a worker thread (#393).
+    fn poll_workspace_tasks(&mut self) {
+        if let Some((indexed, error, _roots)) = self.workspace.files.poll_scan_task() {
+            self.feedback.runtime_message = match error {
+                Some(error) => format!("Workspace scan failed: {error}"),
+                None => format!(
+                    "Opened workspace {} · {indexed} files · {} roots",
+                    self.workspace.files.ide_workspace.root_label(),
+                    self.workspace.files.ide_workspace.roots.len()
+                ),
+            };
+        }
+        for outcome in self.workspace.files.drain_file_reads() {
+            match outcome {
+                ide_workspace_scan::FileReadOutcome::Open { path, result } => match result {
+                    Ok((content, mtime)) => self.open_workspace_document(path, content, mtime),
+                    Err(error) => {
+                        self.feedback.runtime_message = format!("Failed to read {error}");
+                    }
+                },
+            }
+        }
+    }
+
+    fn open_workspace_document(&mut self, absolute: std::path::PathBuf, content: String, mtime: Option<u64>) {
+        let absolute_str = absolute.to_string_lossy().into_owned();
+        let title = absolute
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| absolute_str.clone());
+        let id = format!("file-{absolute_str}");
+        let mut doc = QueryDocument::new(id, title, content);
+        doc.file_path = Some(absolute_str.clone());
+        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        doc.schema = Some(self.active_schema().to_owned());
+        doc.mark_saved();
+        if let Some(mtime) = mtime {
+            self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
+        }
+        if !self.push_query_document(doc) {
+            return;
+        }
+
+        self.workspace.activity = Activity::Queries;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.reset_query_cursor();
+        let title = absolute
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| absolute.to_string_lossy().into_owned());
+        self.feedback.runtime_message = format!("Opened {title}");
     }
 
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
@@ -152,32 +227,19 @@ impl DbProApp {
             self.workspace.active_tab = WorkspaceTab::Query;
             return;
         }
-        let content = match std::fs::read_to_string(&absolute) {
-            Ok(text) => text,
-            Err(error) => {
-                self.feedback.runtime_message = format!("Failed to read {}: {error}", absolute.display());
-                return;
-            }
-        };
-        let title = absolute
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| relative_path.clone());
-        let id = format!("file-{absolute_str}");
-        let mut doc = QueryDocument::new(id, title, content);
-        doc.file_path = Some(absolute_str.clone());
-        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
-        doc.schema = Some(self.active_schema().to_owned());
-        doc.mark_saved();
-        if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
-            self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
+        if self
+            .workspace
+            .files
+            .file_read_tasks
+            .iter()
+            .any(|(pending, _)| pending == &absolute)
+        {
+            return;
         }
-        self.query.session.documents.push(doc);
-        self.query.session.active_document_index = self.query.session.documents.len() - 1;
-        self.workspace.activity = Activity::Queries;
-        self.workspace.active_tab = WorkspaceTab::Query;
-        self.reset_query_cursor();
-        self.feedback.runtime_message = format!("Opened {relative_path}");
+        // Read on a worker thread; the document opens in poll_workspace_tasks (#377).
+        self.workspace
+            .files
+            .request_file_read(absolute, &mut self.feedback);
     }
 
     pub(crate) fn save_active_workspace_file(&mut self) -> bool {
@@ -199,7 +261,7 @@ impl DbProApp {
                 if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
                     self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
-                self.workspace.files.dismiss_external_change();
+                self.workspace.files.dismiss_external_change(&path);
                 self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
@@ -341,7 +403,7 @@ impl DbProApp {
             tags: vec!["sample".to_owned(), "sqlite".to_owned()],
             group: Some("Local Samples".to_owned()),
             favorite: true,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
     }
 
@@ -576,7 +638,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -802,7 +864,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -886,7 +948,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -966,7 +1028,7 @@ impl DbProApp {
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }]);
         self.connection.lifecycle.set_connected(true);
         self.connection
@@ -994,6 +1056,86 @@ impl DbProApp {
         self.preferences.dark_mode = true;
         self.theme = DbProTheme::dark();
         self.workspace.agent_open = true;
+    }
+
+    /// Capture helper: Table workspace on the DDL view with the execute
+    /// confirmation card raised — the Apply DDL gate audit couldn't see (#359).
+    pub fn open_table_ddl_confirm_for_capture(&mut self, light: bool) {
+        self.open_table_ddl_for_capture(light);
+        self.table.state.ddl_execute_confirmation = true;
+    }
+
+    /// Capture helper: Query workspace holding a destructive statement for
+    /// confirmation, so the destructive-run dialog is visible (#359).
+    pub fn open_destructive_run_for_capture(&mut self) {
+        self.open_query_workspace_for_capture();
+        let sql = "DROP TABLE customers".to_owned();
+        if let Some(document) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            document.set_text(sql.clone());
+        }
+        let version = self.query.session.active_buffer_version();
+        self.query
+            .execution
+            .set_pending_destructive_run(query_execution_state::PendingDestructiveRun::new(
+                sql.clone(),
+                query_execution_state::PendingDestructiveRunOrigin::QueryEditor,
+                "capture-connection · public".to_owned(),
+                query_execution_state::PendingDestructiveRunMetadata::new((0, sql.len()), version, true),
+            ));
+    }
+
+    /// Capture helper: Query workspace with a deterministic EXPLAIN plan so the
+    /// explain view is populated (#359).
+    pub fn open_explain_plan_for_capture(&mut self) {
+        self.open_query_workspace_for_capture();
+        if let Some(document) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            document.set_text("SELECT * FROM customers WHERE email = 'ada@example.com'");
+            document.explain_plan = Some(
+                r#"[{"Plan":{"Node Type":"Seq Scan","Relation Name":"customers","Startup Cost":0.0,"Total Cost":35.5,"Plan Rows":1,"Plan Width":72,"Filter":"(email = 'ada@example.com'::text)"}}]"#
+                    .to_owned(),
+            );
+        }
+        self.workspace.bottom_panel_open = true;
+        self.workspace.bottom_panel_height = 280.0;
+    }
+
+    /// Capture helper: Agent sidebar with a seeded conversation thread so the
+    /// message list and composer are documented (#359).
+    pub fn open_agent_thread_for_capture(&mut self) {
+        self.open_agent_workspace_for_capture();
+        let Some(document) = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+        else {
+            return;
+        };
+        let document_id = document.id.clone();
+        let mut session = agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+        session.messages.push(crate::AgentMessage {
+            role: crate::AgentRole::User,
+            content: "List the customers who signed up this week".to_owned(),
+            sql: None,
+            requires_confirmation: false,
+        });
+        session.messages.push(crate::AgentMessage {
+            role: crate::AgentRole::Assistant,
+            content: "Here is a query that filters on created_at.".to_owned(),
+            sql: Some("SELECT * FROM customers WHERE created_at >= date_trunc('week', now())".to_owned()),
+            requires_confirmation: false,
+        });
+        self.agent.sessions.insert(document_id, session);
     }
 
     /// Capture helper: open the native Component Gallery in its canonical dark theme.
@@ -1131,7 +1273,7 @@ impl DbProApp {
                     .workspace_file_mtimes
                     .insert(path.to_owned(), mtime);
             }
-            self.workspace.files.dismiss_external_change();
+            self.workspace.files.dismiss_external_change(path);
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }

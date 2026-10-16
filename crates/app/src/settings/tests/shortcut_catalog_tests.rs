@@ -15,7 +15,7 @@ fn connect(app: &mut DbProApp) {
         tags: vec![],
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
@@ -43,8 +43,16 @@ fn press(app: &mut DbProApp, ctx: &egui::Context, key: egui::Key, modifiers: egu
     };
     let mut editor_held_keyboard = false;
     let _ = crate::test_frame::frame(ctx, input, |ui| {
-        let mut scratch = String::new();
-        ui.text_edit_singleline(&mut scratch).request_focus(); // ui-rules: test harness focuses a raw single-line editor to model editor keyboard focus
+        // The SqlEditor is a custom widget, not an egui TextEdit, so model its
+        // keyboard grab with a plain focusable widget — `wants_keyboard_input`
+        // stays true while `text_edit_focused` stays false, exactly like the
+        // real editor.
+        ui.interact(
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(10.0, 10.0)),
+            egui::Id::new("shortcut-test-editor-focus"),
+            egui::Sense::click(),
+        )
+        .request_focus();
         editor_held_keyboard = ui.ctx().egui_wants_keyboard_input();
         app.query.editor.query_editor_focused = true;
         app.handle_shortcuts(ui.ctx());
@@ -63,7 +71,7 @@ fn catalog_shortcuts_win_while_the_editor_is_focused() {
     assert!(ids.contains(&"query.run_all"));
     assert!(ids.contains(&"query.format"));
     let defaults = settings_model::KeybindingSettings::default();
-    assert_eq!(defaults.resolved("query.run"), "f5");
+    assert_eq!(defaults.resolved("query.run"), "mod+enter");
     assert_eq!(defaults.resolved("query.run_all"), "mod+shift+enter");
     assert_eq!(defaults.resolved("query.format"), "mod+shift+f");
 
@@ -81,6 +89,8 @@ fn catalog_shortcuts_win_while_the_editor_is_focused() {
     assert_eq!(sql, "SELECT 1;");
 
     idle(&mut app);
+    // Mod+Enter is the default `query.run` chord (#342): it must reach the app
+    // even while the editor holds keyboard focus.
     let focused = press(
         &mut app,
         &ctx,
@@ -91,23 +101,21 @@ fn catalog_shortcuts_win_while_the_editor_is_focused() {
         },
     );
     assert!(focused);
-    assert!(
-        command_rx.try_recv().is_err(),
-        "Mod+Enter is not a hardcoded run chord when query.run is F5"
-    );
+    let UiCommand::RunQuery { .. } = command_rx.try_recv().expect("Mod+Enter runs by default") else {
+        panic!("expected RunQuery");
+    };
+    idle(&mut app);
 
-    app.preferences.settings.keybindings.overrides.insert("query.run".into(), "mod+enter".into());
+    // A rebound `query.run` keeps working while F5 stays the hardware alias.
+    app.preferences.settings.keybindings.overrides.insert("query.run".into(), "f9".into());
     let focused = press(
         &mut app,
         &ctx,
-        egui::Key::Enter,
-        egui::Modifiers {
-            ctrl: true,
-            ..Default::default()
-        },
+        egui::Key::F9,
+        egui::Modifiers::NONE,
     );
     assert!(focused);
-    let UiCommand::RunQuery { .. } = command_rx.try_recv().expect("rebound query.run handles Mod+Enter") else {
+    let UiCommand::RunQuery { .. } = command_rx.try_recv().expect("rebound query.run fires") else {
         panic!("expected RunQuery");
     };
     app.preferences.settings.keybindings.overrides.remove("query.run");
@@ -357,8 +365,15 @@ fn grid_frame(
     };
     let _ = crate::test_frame::frame(ctx, input, |ui| {
         if text_focused {
-            let mut scratch = String::new();
-            ui.text_edit_singleline(&mut scratch).request_focus(); // ui-rules: test harness focuses a raw single-line editor to model editor keyboard focus
+            // Model the custom SqlEditor holding the keyboard: focused, but not
+            // an egui TextEdit.
+            ui.interact(
+                egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(10.0, 10.0)),
+                egui::Id::new("grid-frame-editor-focus"),
+                egui::Sense::click(),
+            )
+            .request_focus();
+            app.query.editor.query_editor_focused = true;
         }
         app.handle_shortcuts(ui.ctx());
         app.draw_result_grid(ui, result);
@@ -479,14 +494,14 @@ fn shortcut_matcher_accepts_extended_tokens_and_toggles_comment() {
     ));
 
     let mut bindings = settings_model::KeybindingSettings::default();
-    assert!(!bindings.save_override("query.run", "f5", "mod+banana"));
-    assert_eq!(bindings.resolved("query.run"), "f5");
-    assert!(bindings.save_override("query.run", "f5", "mod+/"));
+    assert!(!bindings.save_override("query.run", "mod+enter", "mod+banana"));
+    assert_eq!(bindings.resolved("query.run"), "mod+enter");
+    assert!(bindings.save_override("query.run", "mod+enter", "mod+/"));
     assert_eq!(bindings.resolved("query.run"), "mod+/");
-    assert!(bindings.save_override("query.run", "f5", "f12"));
+    assert!(bindings.save_override("query.run", "mod+enter", "f12"));
     assert_eq!(bindings.resolved("query.run"), "f12");
-    assert!(bindings.save_override("query.run", "f5", ""));
-    assert_eq!(bindings.resolved("query.run"), "f5");
+    assert!(bindings.save_override("query.run", "mod+enter", ""));
+    assert_eq!(bindings.resolved("query.run"), "mod+enter");
     assert_eq!(bindings.resolved("editor.comment"), "mod+/");
 
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
@@ -499,4 +514,162 @@ fn shortcut_matcher_accepts_extended_tokens_and_toggles_comment() {
     let focused = press(&mut app, &ctx, egui::Key::Slash, ctrl);
     assert!(focused);
     assert_eq!(app.query.session.documents[0].buffer.text(), "SELECT 1");
+}
+
+fn esc_frame(app: &mut DbProApp, ctx: &egui::Context, focus_text_edit: bool) {
+    let input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        events: vec![egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }],
+        ..Default::default()
+    };
+    let _ = crate::test_frame::frame(ctx, input, |ui| {
+        if focus_text_edit {
+            ui.ctx().memory_mut(|m| m.request_focus(egui::Id::new("esc-test-text")));
+        }
+        app.handle_shortcuts(ui.ctx());
+        if focus_text_edit {
+            let mut scratch = String::new();
+            egui::TextEdit::singleline(&mut scratch)
+                .id(egui::Id::new("esc-test-text"))
+                .show(ui);
+        }
+    });
+}
+
+/// Esc with the agent panel open and nothing focused still closes the panel,
+/// but Esc while a text field owns the keyboard must not (#349).
+#[test]
+fn escape_closes_agent_panel_only_when_nothing_is_focused() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect(&mut app);
+    let ctx = egui::Context::default();
+    app.set_agent_open(true, &ctx);
+
+    esc_frame(&mut app, &ctx, true);
+    assert!(ctx.text_edit_focused(), "the harness TextEdit is focused");
+    assert!(app.workspace.agent_open, "Esc while typing must not close the panel");
+
+    esc_frame(&mut app, &ctx, false);
+    // Focus still on the text edit even though it did not paint: surrender to
+    // model the user clicking out, then confirm unfocused Esc closes.
+    if let Some(id) = ctx.memory(|m| m.focused()) {
+        ctx.memory_mut(|m| m.surrender_focus(id));
+    }
+    esc_frame(&mut app, &ctx, false);
+    assert!(!app.workspace.agent_open, "unfocused Esc closes the panel");
+}
+
+/// Esc while a cell editor is open is consumed by the editor — it must not
+/// reach the global fallback and close the agent panel (#372).
+#[test]
+fn escape_in_cell_editor_does_not_close_agent_panel() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect(&mut app);
+    let ctx = egui::Context::default();
+    app.set_agent_open(true, &ctx);
+    app.table.editing.data_editing_cell = Some((0, 0));
+
+    esc_frame(&mut app, &ctx, false);
+    assert!(app.workspace.agent_open, "cell-editing Esc stays local");
+}
+
+/// An egui TextEdit holding focus (WHERE filter, agent composer) must not lose
+/// its chords to editor-scoped catalog commands like Find (#379).
+#[test]
+fn catalog_chords_yield_to_focused_text_edit() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect(&mut app);
+    let ctx = egui::Context::default();
+    let ctrl = egui::Modifiers {
+        ctrl: true,
+        ..Default::default()
+    };
+
+    let input = |key: egui::Key| egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        events: vec![
+            egui::Event::ModifiersChanged(ctrl),
+            egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: ctrl,
+            },
+        ],
+        ..Default::default()
+    };
+
+    let _ = crate::test_frame::frame(&ctx, input(egui::Key::F), |ui| {
+        ui.ctx().memory_mut(|m| m.request_focus(egui::Id::new("where-test-text")));
+        let mut scratch = String::new();
+        egui::TextEdit::singleline(&mut scratch)
+            .id(egui::Id::new("where-test-text"))
+            .show(ui);
+        app.handle_shortcuts(ui.ctx());
+    });
+    assert!(!app.query.editor.editor_search_open, "mod+f must not fire while a TextEdit is typing");
+
+    // Unfocused: the same chord opens editor search again.
+    if let Some(id) = ctx.memory(|m| m.focused()) {
+        ctx.memory_mut(|m| m.surrender_focus(id));
+    }
+    let _ = crate::test_frame::frame(&ctx, input(egui::Key::F), |ui| {
+        app.handle_shortcuts(ui.ctx());
+    });
+    assert!(app.query.editor.editor_search_open);
+}
+
+/// Non-text focus (button, grid) must not block the unfocused shortcut family —
+/// `egui_wants_keyboard_input` treated every focused widget as typing (#340).
+#[test]
+fn palette_opens_when_a_non_text_widget_holds_focus() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect(&mut app);
+    let ctx = egui::Context::default();
+
+    let input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        events: vec![
+            egui::Event::ModifiersChanged(egui::Modifiers {
+                ctrl: true,
+                ..Default::default()
+            }),
+            egui::Event::Key {
+                key: egui::Key::P,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers {
+                    ctrl: true,
+                    ..Default::default()
+                },
+            },
+        ],
+        ..Default::default()
+    };
+    let _ = crate::test_frame::frame(&ctx, input, |ui| {
+        // A clicked non-text widget owns egui focus but is not a text field.
+        ui.interact(
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(10.0, 10.0)),
+            egui::Id::new("shortcut-test-button"),
+            egui::Sense::click(),
+        )
+        .request_focus();
+        app.handle_shortcuts(ui.ctx());
+    });
+    assert!(
+        matches!(app.palette.mode, Some(PaletteMode::QuickOpen)),
+        "mod+p must open quick open while a non-text widget is focused"
+    );
 }

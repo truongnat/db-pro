@@ -60,20 +60,34 @@ impl<'a> AgentComposer<'a> {
                     .color(self.theme.text_secondary),
             );
 
-            // The editor remains multiline: the handler only submits when egui reports
-            // lost focus plus an unshifted Enter, while Shift+Enter remains a newline.
+            // Chat-composer keys are consumed before the TextEdit sees them:
+            // Enter submits, Shift+Enter stays a newline, Esc surrenders focus
+            // (a second Esc then reaches the global handler), and Ctrl/Cmd+Enter
+            // also submits so the app-level run chord never steals it (#358).
+            let composer_id = egui::Id::new("agent-composer-prompt");
+            let composer_focused = ui.memory(|memory| memory.has_focus(composer_id));
+            let mut submit = false;
+            if composer_focused {
+                ui.ctx().input_mut(|input| {
+                    if input.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter)
+                        || input.consume_key(egui::Modifiers::NONE, egui::Key::Enter)
+                    {
+                        submit = true;
+                    }
+                    if input.consume_key(egui::Modifiers::NONE, egui::Key::Escape) {
+                        ui.memory_mut(|memory| memory.surrender_focus(composer_id));
+                    }
+                });
+            }
             let text_edit = egui::TextEdit::multiline(self.prompt)
+                .id(composer_id)
                 .desired_rows(2)
                 .desired_width(ui.available_width())
                 .frame(egui::Frame::NONE)
                 .hint_text("Ask AI to generate, optimize, or investigate SQL queries...");
             let edit_resp = ui.add(text_edit);
             edit_resp.widget_info(|| WidgetInfo::labeled(WidgetType::TextEdit, true, "Prompt"));
-            let enter_pressed = ui.input(|input| input.key_pressed(egui::Key::Enter));
-            let shift_held = ui.input(|input| input.modifiers.shift);
-            if let Some(action) =
-                handler::keyboard_action(edit_resp.lost_focus(), enter_pressed, shift_held, self.prompt)
-            {
+            if let Some(action) = handler::keyboard_action(submit, self.prompt) {
                 triggered = Some(action);
             }
 

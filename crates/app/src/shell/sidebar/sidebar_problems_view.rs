@@ -9,10 +9,9 @@ pub(super) enum SidebarProblemsAction {
     SetSeverityFilter(ProblemsSeverityFilter),
     SetSourceFilter(ProblemsSourceFilter),
     Select(ProblemEntry),
-    QuickFix {
-        document_index: usize,
-        diagnostic_index: usize,
-    },
+    /// The full entry travels with the action so the apply path can verify the
+    /// buffer version captured at collection time (#425).
+    QuickFix(Box<ProblemEntry>),
 }
 
 pub(super) struct SidebarProblemsContext<'a> {
@@ -168,10 +167,7 @@ impl SidebarProblemsContext<'_> {
                     .show(ui)
                     .clicked()
                 {
-                    actions.push(SidebarProblemsAction::QuickFix {
-                        document_index: entry.document_index,
-                        diagnostic_index: entry.diagnostic_index,
-                    });
+                    actions.push(SidebarProblemsAction::QuickFix(Box::new(entry.clone())));
                 }
             });
         }

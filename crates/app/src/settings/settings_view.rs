@@ -52,7 +52,11 @@ impl DbProApp {
         let summary = self.build_diagnostics_summary();
         let active_driver = self.active_driver().to_owned();
         let backup_supported = self.supports_backup_restore();
-        let context = ui.ctx().clone();
+        let connection_label = self
+            .active_connection()
+            .map(|connection| format!("{} ({})", connection.name, connection.database))
+            .unwrap_or_else(|| "no connection".to_owned());
+        let egui_context = ui.ctx().clone();
         let actions = {
             let mut context = settings_surface_view::SettingsSurfaceContext {
                 theme: &mut self.theme,
@@ -64,13 +68,14 @@ impl DbProApp {
                 agent_auto_run_read_only: &mut self.agent.auto_run_read_only,
                 agent_provider_label: &self.agent.provider_label,
                 active_driver: &active_driver,
+                connection_label: &connection_label,
                 backup_supported,
                 diagnostics: &summary,
             };
             context.draw(ui)
         };
         for action in actions {
-            self.apply_settings_surface_action(action, &summary, &context);
+            self.apply_settings_surface_action(action, &summary, &egui_context);
         }
     }
 
@@ -133,7 +138,10 @@ impl DbProApp {
                     self.dispatch_command(pick_backup_command(request_id));
                 }
                 SettingsBackupAction::CreateBackup => {
-                    if let Some(connection) = self.active_connection().cloned() {
+                    if self.overlay.backup_output_path.trim().is_empty() {
+                        self.feedback.runtime_message =
+                            "Choose a backup destination path first".to_owned();
+                    } else if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.next_request_id();
                         self.dispatch_command(backup_command(&self.overlay, request_id, connection.id));
                     }
@@ -143,7 +151,10 @@ impl DbProApp {
                     self.dispatch_command(pick_restore_command(request_id));
                 }
                 SettingsBackupAction::ConfirmRestore => {
-                    if let Some(connection) = self.active_connection().cloned() {
+                    if self.overlay.restore_input_path.trim().is_empty() {
+                        self.feedback.runtime_message =
+                            "Choose a backup file to restore first".to_owned();
+                    } else if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.next_request_id();
                         if self.dispatch_command(restore_command(&self.overlay, request_id, connection.id)) {
                             self.overlay.restore_confirmation = false;
@@ -169,7 +180,7 @@ fn backup_command(state: &OverlayState, request_id: RequestId, connection_id: St
         request_id,
         connection_id,
         output_path: state.backup_output_path.clone(),
-        custom_format: false,
+        custom_format: is_custom_dump_path(&state.backup_output_path),
     }
 }
 
@@ -182,8 +193,15 @@ fn restore_command(state: &OverlayState, request_id: RequestId, connection_id: S
         request_id,
         connection_id,
         input_path: state.restore_input_path.clone(),
-        custom_format: false,
+        custom_format: is_custom_dump_path(&state.restore_input_path),
     }
+}
+
+/// `pg_dump` custom-format archives conventionally end in `.dump` or `.backup`;
+/// everything else routes to the plain-SQL `pg_dump`/`psql` path (#384).
+fn is_custom_dump_path(path: &str) -> bool {
+    let p = path.trim();
+    p.ends_with(".dump") || p.ends_with(".backup")
 }
 
 #[cfg(test)]

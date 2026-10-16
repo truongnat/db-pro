@@ -22,6 +22,40 @@ fn destructive_sql_detected() {
 }
 
 #[test]
+fn call_do_execute_are_destructive_via_shared_classifier() {
+    // The old token blacklist missed CALL/DO/EXECUTE; the shared classifier is
+    // the authority and rates them Destructive (#375).
+    for sql in [
+        "CALL dangerous_proc()",
+        "DO $$ BEGIN PERFORM 1; END $$",
+        "EXECUTE prepared_statement",
+    ] {
+        let payload = SavedTaskPayload::Sql { sql: sql.to_owned() };
+        assert!(payload.is_destructive(), "{sql}");
+    }
+}
+
+#[test]
+fn sql_credential_literals_are_rejected() {
+    for sql in [
+        "CREATE ROLE app WITH LOGIN PASSWORD 'hunter2'",
+        "CREATE USER u IDENTIFIED BY 's3cret'",
+        "ALTER USER bob USING 'p@ss'",
+    ] {
+        let payload = SavedTaskPayload::Sql { sql: sql.to_owned() };
+        assert!(payload.validate_no_embedded_secrets().is_err(), "{sql}");
+    }
+}
+
+#[test]
+fn sql_words_looking_like_credential_keywords_are_allowed() {
+    let payload = SavedTaskPayload::Sql {
+        sql: "SELECT password_changed_at, identified_by FROM users".into(),
+    };
+    assert!(payload.validate_no_embedded_secrets().is_ok());
+}
+
+#[test]
 fn store_upsert_and_run_history() {
     let mut store = SavedTaskStore::new();
     let id = Uuid::new_v4();

@@ -21,6 +21,8 @@ pub(super) enum ExplorerSchemaTreeAction {
 pub(super) struct ExplorerSchemaTreeModel {
     pub(super) connection_id: String,
     pub(super) database: String,
+    /// Provider label for the driver-aware schema filter (#402/#348).
+    pub(super) driver: String,
     pub(super) active_schema: String,
     pub(super) schema_error: Option<String>,
     pub(super) schema_loading: bool,
@@ -92,7 +94,7 @@ impl<'a> ExplorerSchemaTreeView<'a> {
 
         let mut actions = Vec::new();
         for schema in schemas {
-            if !is_user_visible_schema(&schema) {
+            if !is_user_visible_schema(&self.model.driver, &schema) {
                 continue;
             }
             actions.extend(self.draw_schema_node(ui, &schema));

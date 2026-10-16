@@ -245,5 +245,8 @@ pub struct UiConnectionSummary {
     pub tags: Vec<String>,
     pub group: Option<String>,
     pub favorite: bool,
-    pub environment: String,
+    /// Workspace safety classification — an enum, not a display label, so a
+    /// localized or custom string can never silently disable the production
+    /// guard (#387).
+    pub environment: db_pro_core::domain::connection::ConnectionEnvironment,
 }

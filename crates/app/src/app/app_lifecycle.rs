@@ -153,8 +153,14 @@ impl DbProApp {
         self.request_connections_once();
         let runtime_events_pending = self.apply_runtime_events();
         self.tick_saved_task_scheduler();
+        // Worker-thread results (git ops, workspace scans, file reads,
+        // transfer harness) land here so no draw path blocks on I/O (#391,
+        // #393, #377, #421).
+        self.poll_background_tasks();
         if runtime_events_pending
             || self.runtime_work_pending()
+            || self.workspace.files.background_tasks_in_flight()
+            || !self.management.transfer.pending_transfers.is_empty()
             || self
                 .saved_tasks
                 .store
@@ -293,6 +299,7 @@ impl DbProApp {
         if self.table.editing.insert_row_open {
             self.draw_insert_row_dialog(ctx);
         }
+        self.draw_workbench_apply_confirmation(ctx);
         if self.query.execution.pending_destructive_run().is_some() {
             self.draw_destructive_run_dialog(ctx);
         }

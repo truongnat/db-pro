@@ -77,7 +77,7 @@ impl TableRelationsContext<'_> {
             .id_salt("relations-table-scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                Table::new(&columns, self.theme).row_height(34.0).show(
+                Table::new(&columns, self.theme).resizable("relations-table").row_height(34.0).show(
                     ui,
                     matching.len(),
                     |_| false,

@@ -40,10 +40,11 @@
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }];
         app.connection.lifecycle.set_active_connection_id(Some("conn-1".to_owned()));
         app.overlay.restore_confirmation = true;
+        app.overlay.restore_input_path = "/tmp/fixture.dump".to_owned();
 
         app.apply_backup_actions(vec![super::settings_backup_view::SettingsBackupAction::ConfirmRestore]);
 

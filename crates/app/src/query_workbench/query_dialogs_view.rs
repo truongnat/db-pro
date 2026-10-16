@@ -2,7 +2,12 @@
 use super::query_view::write_file_atomically;
 use super::*;
 use crate::app::overlay_state::ExportFormat;
-use std::path::PathBuf;
+
+/// SQL exports need a target table; an empty dialog field degrades to a clearly-named placeholder
+/// instead of an invalid `""` identifier (#426).
+fn export_table_name_or_placeholder(name: &str) -> &str {
+    if name.is_empty() { "exported_rows" } else { name }
+}
 
 impl DbProApp {
     /// Held destructive statements render as a ctx-level overlay so the
@@ -85,6 +90,21 @@ impl DbProApp {
         if !self.overlay.export_open {
             return;
         }
+        // Freeze the exported result the first frame the dialog is open (#404):
+        // a query that finishes between open and Export must not rewrite what
+        // the user previewed.
+        if self.overlay.export_snapshot.is_none() {
+            self.overlay.export_snapshot = result.cloned();
+        }
+        if self.overlay.export_table_name.trim().is_empty() {
+            self.overlay.export_table_name = self
+                .schema
+                .explorer
+                .selected_table
+                .clone()
+                .unwrap_or_else(|| "exported_rows".to_owned());
+        }
+        let result = self.overlay.export_snapshot.clone();
         let action = query_dialog_surface_view::ExportDialogContext {
             theme: self.theme,
             overlay: &mut self.overlay,
@@ -92,16 +112,17 @@ impl DbProApp {
         .draw(ui.ctx());
         match action {
             Some(query_dialog_surface_view::ExportDialogAction::Export) => {
-                if let Some(result) = result {
+                if let Some(result) = &result {
                     self.export_result(result);
                 }
             }
             Some(query_dialog_surface_view::ExportDialogAction::Cancel) => {
                 self.overlay.export_open = false;
+                self.overlay.export_snapshot = None;
                 self.overlay.export_overwrite_pending = false;
             }
             Some(query_dialog_surface_view::ExportDialogAction::Overwrite) => {
-                if let Some(result) = result {
+                if let Some(result) = &result {
                     self.export_result_confirming_overwrite(result);
                 }
             }
@@ -130,6 +151,23 @@ impl DbProApp {
         else {
             return;
         };
+        // EXPLAIN ANALYZE executes its inner statement: a destructive one must go
+        // through the same confirmation gate as a direct run, not just a checkbox.
+        let held_destructive = request.analyze
+            && request.analyze_executes
+            && db_pro_core::domain::safety::classify_script_safety(&request.sql)
+                == Some(db_pro_core::domain::safety::StatementSafety::Destructive);
+        if held_destructive {
+            let version = self.query.session.active_buffer_version();
+            self.hold_destructive_run(
+                &request.sql,
+                PendingDestructiveRunOrigin::ExplainAnalyze,
+                (0, request.sql.len()),
+                version,
+                false,
+            );
+            return;
+        }
         let request_id = self.next_request_id();
         let command = UiCommand::ExplainQuery {
             request_id,
@@ -174,7 +212,11 @@ impl DbProApp {
             self.feedback.runtime_message = t!("query.export_path_missing").into_owned();
             return;
         }
-        let path = PathBuf::from(&path_text);
+        // #396: the written file's extension must match the chosen format — a path with a missing
+        // or wrong extension gets the format's extension appended (checked for existence after
+        // normalization so the overwrite prompt covers the real destination).
+        let path = self.overlay.effective_export_path();
+        let path_text = path.to_string_lossy().into_owned();
         if path.exists() && !overwrite {
             self.overlay.export_overwrite_pending = true;
             return;
@@ -187,13 +229,21 @@ impl DbProApp {
                     self.feedback.runtime_message = t!("query.export_failed", error = error.to_string().as_str()).into_owned();
                     self.overlay.export_overwrite_pending = false;
                     self.overlay.export_open = false;
+                    self.overlay.export_snapshot = None;
                     return;
                 }
             }
         } else {
             match self.overlay.export_format {
-                ExportFormat::SqlInsert => result_grid_export::format_result_sql_insert(result, "exported_rows"),
-                ExportFormat::SqlCopy => result_grid_export::format_result_copy(result, "exported_rows"),
+                // Empty field falls back to a visible placeholder rather than `INSERT INTO ""` (#426).
+                ExportFormat::SqlInsert => result_grid_export::format_result_sql_insert(
+                    result,
+                    export_table_name_or_placeholder(self.overlay.export_table_name.trim()),
+                ),
+                ExportFormat::SqlCopy => result_grid_export::format_result_copy(
+                    result,
+                    export_table_name_or_placeholder(self.overlay.export_table_name.trim()),
+                ),
                 ExportFormat::Json => result_grid_export::format_result_json(result),
                 ExportFormat::Markdown => result_grid_export::format_result_markdown(result),
                 ExportFormat::Csv | ExportFormat::Tsv => result_grid_export::format_result_delimited(
@@ -227,6 +277,7 @@ impl DbProApp {
         }
         self.overlay.export_overwrite_pending = false;
         self.overlay.export_open = false;
+        self.overlay.export_snapshot = None;
     }
 
     pub(super) fn save_query_document(&mut self) {

@@ -74,6 +74,21 @@ impl PgDumpEngine {
         }
     }
 
+    /// Uniquely-named sibling file `pg_dump -f` writes into before publish (#431).
+    ///
+    /// `pg_dump` resolves `-f` itself, so handing it the caller-visible `output_path` would reopen a
+    /// name that was only *reserved*, letting a symlink planted between reserve and open redirect the
+    /// dump into an unrelated file. Writing to an unpredictable name in the same directory and then
+    /// renaming it over the destination removes that window: a rename replaces whatever sits at
+    /// `output_path` (including a planted symlink) rather than following it.
+    fn backup_staging_path(output_path: &Path) -> std::path::PathBuf {
+        let name = output_path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "backup".to_owned());
+        output_path.with_file_name(format!(".{name}.pgdump-tmp-{}", uuid::Uuid::new_v4()))
+    }
+
     /// Detect `pg_dump` / `pg_restore` / `psql` on PATH before spawning (#208).
     pub fn ensure_tool_available(tool: &str) -> Result<(), DbError> {
         Self::which_tool(tool).map(|_| ()).map_err(|hint| {
@@ -112,7 +127,10 @@ impl PgDumpEngine {
     /// Split out so the argv shape is testable without a live PostgreSQL server (#244, E-2 asks for
     /// exactly that): the restore runs **without** `--single-transaction` and without
     /// `--exit-on-error`, which is the behaviour LIM-020 documents.
-    fn restore_command(options: &RestoreOptions, config: &ConnectionConfig, password: &str) -> Command {
+    ///
+    /// `pgpass_path` is the `.pgpass` file handed over via `PGPASSFILE`; the password itself never
+    /// enters the child's environment (#430).
+    fn restore_command(options: &RestoreOptions, config: &ConnectionConfig, pgpass_path: &Path) -> Command {
         let mut cmd = match options.format {
             BackupFormat::Plain => {
                 let mut command = Command::new("psql");
@@ -133,9 +151,72 @@ impl PgDumpEngine {
             .arg(&config.username)
             .arg("-d")
             .arg(&config.database)
-            .env("PGPASSWORD", password)
+            .env("PGPASSFILE", pgpass_path)
             .stdin(Stdio::null());
         cmd
+    }
+}
+
+/// `.pgpass`-format credential file handed to the child via `PGPASSFILE` (#430).
+///
+/// `PGPASSWORD` keeps the database password readable through `/proc/<pid>/environ` (and `ps eww`)
+/// for the whole dump — minutes for a large database — which is why PostgreSQL's own docs advise
+/// against it. libpq also honours `PGPASSFILE`, so the password rides in a 0600 file with an
+/// unpredictable name in the system temp dir instead of the child environment; the file is removed
+/// when this guard drops, i.e. as soon as the spawned tool exits or the run errors.
+///
+/// Residual risk: on non-Unix platforms there is no permission check to exploit, so the file relies
+/// on its unpredictable name plus the short lifetime.
+struct PgPassFile {
+    path: std::path::PathBuf,
+}
+
+impl PgPassFile {
+    /// The pgpass host/database/user fields must match the *effective* connection target — after an
+    /// SSH tunnel that is `127.0.0.1`, not the real server — so callers pass the effective config.
+    async fn create(config: &ConnectionConfig, password: &str) -> Result<Self, DbError> {
+        fn field(value: &str) -> String {
+            // `.pgpass` fields are colon-separated; `\` and `:` inside a field must be
+            // backslash-escaped.
+            value.replace('\\', "\\\\").replace(':', "\\:")
+        }
+        let contents = format!(
+            "{}:{}:{}:{}:{}\n",
+            field(&config.host),
+            config.port,
+            field(&config.database),
+            field(&config.username),
+            field(password),
+        );
+        let path = std::env::temp_dir().join(format!("db-pro-pgpass-{}", uuid::Uuid::new_v4()));
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        // libpq ignores a group/world-accessible pgpass file; create it owner-only.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        // A few hundred bytes: synchronous write keeps the guard simple.
+        let mut file = options
+            .open(&path)
+            .map_err(|error| DbError::Internal(format!("failed to create pgpass file {}: {error}", path.display())))?;
+        use std::io::Write as _;
+        file.write_all(contents.as_bytes())
+            .map_err(|error| DbError::Internal(format!("failed to write pgpass file: {error}")))?;
+        Ok(Self { path })
+    }
+
+    fn apply(&self, command: &mut Command) {
+        command.env("PGPASSFILE", &self.path);
+    }
+}
+
+impl Drop for PgPassFile {
+    fn drop(&mut self) {
+        if let Err(error) = std::fs::remove_file(&self.path) {
+            tracing::warn!(path = %self.path.display(), %error, "failed to remove temporary pgpass file");
+        }
     }
 }
 
@@ -147,8 +228,16 @@ impl BackupEngine for PgDumpEngine {
         let output_path = Path::new(&options.output_path);
         Self::reserve_backup_output(output_path).await?;
 
+        // `pg_dump -f` resolves its output path itself, so it must never see the caller-visible
+        // path: the reservation file only claims the name, and a symlink planted between the
+        // reservation and pg_dump's open would redirect the dump into an unrelated file (#431).
+        // pg_dump writes a uniquely-named sibling instead; a rename then publishes it over the
+        // reserved path, replacing (not following) whatever sits there.
+        let staging_path = Self::backup_staging_path(output_path);
+
         let result = async {
             let (config, _tunnel) = self.effective_config().await?;
+            let pgpass = PgPassFile::create(&config, password).await?;
             let mut cmd = Command::new("pg_dump");
             cmd.arg("-h")
                 .arg(&config.host)
@@ -159,8 +248,8 @@ impl BackupEngine for PgDumpEngine {
                 .arg("-d")
                 .arg(&config.database)
                 .arg("-f")
-                .arg(&options.output_path)
-                .env("PGPASSWORD", password);
+                .arg(&staging_path);
+            pgpass.apply(&mut cmd);
 
             match options.format {
                 BackupFormat::Plain => {
@@ -187,6 +276,14 @@ impl BackupEngine for PgDumpEngine {
                 return Err(DbError::Internal(format!("pg_dump failed: {stderr}")));
             }
 
+            tokio::fs::rename(&staging_path, output_path).await.map_err(|error| {
+                DbError::Internal(format!(
+                    "pg_dump wrote {} but publishing it to {} failed: {error}",
+                    staging_path.display(),
+                    output_path.display()
+                ))
+            })?;
+
             let metadata = tokio::fs::metadata(&options.output_path)
                 .await
                 .map_err(|e| DbError::Internal(format!("failed to read backup file: {e}")))?;
@@ -199,6 +296,7 @@ impl BackupEngine for PgDumpEngine {
         .await;
 
         if result.is_err() {
+            Self::remove_failed_output(&staging_path).await;
             Self::remove_failed_output(output_path).await;
         }
         result
@@ -211,7 +309,9 @@ impl BackupEngine for PgDumpEngine {
         };
         Self::ensure_tool_available(tool)?;
         let (config, _tunnel) = self.effective_config().await?;
-        let mut cmd = Self::restore_command(options, &config, password);
+        // `PgPassFile` must outlive `run_command` — the file is deleted when the guard drops.
+        let pgpass = PgPassFile::create(&config, password).await?;
+        let mut cmd = Self::restore_command(options, &config, &pgpass.path);
 
         let output = Self::run_command(&mut cmd, config.query_timeout_ms, "PostgreSQL restore").await?;
 

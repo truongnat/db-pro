@@ -4,7 +4,7 @@
 use super::*;
 
 impl DbProApp {
-    pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
+    pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, ctx: &egui::Context) {
         self.palette.mode = None;
         match action {
             PaletteAction::Welcome => self.activate_welcome_tab(),
@@ -22,7 +22,7 @@ impl DbProApp {
             PaletteAction::Transfers => self.open_palette_activity(Activity::Transfers),
             PaletteAction::Monitor => self.open_palette_activity(Activity::Monitor),
             PaletteAction::Settings => self.open_palette_activity(Activity::Settings),
-            PaletteAction::Agent => self.workspace.agent_open = true,
+            PaletteAction::Agent => self.set_agent_open(true, ctx),
             PaletteAction::Problems => self.open_palette_activity(Activity::Problems),
             PaletteAction::Diagnostics => {
                 self.open_palette_activity(Activity::Settings);

@@ -106,6 +106,7 @@ impl DbProApp {
         }
         self.draw_table_data_unified_footer(ui, table_name, &sql_prefix, can_mutate, &paging);
         self.draw_pending_changes_dialog(ui);
+        self.draw_staged_apply_confirmation(ui);
         self.draw_conflict_dialog(ui, &result);
         self.draw_export_dialog(ui, Some(&result));
         if self.table.data_query.result.is_none() {
@@ -248,7 +249,7 @@ impl DbProApp {
             return;
         }
         let execution_range = (0, sql.len());
-        if self.hold_destructive_run(&sql, execution_range, 0, false) {
+        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::InlineQuery, execution_range, 0, false) {
             self.table.data_query.pending_inline_query_confirmation = true;
             return;
         }

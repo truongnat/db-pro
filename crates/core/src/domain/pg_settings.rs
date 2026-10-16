@@ -87,6 +87,20 @@ pub fn preview_alter_system(name: &str, value: &str) -> Result<PgSettingPreviewS
     })
 }
 
+/// The session-level statement `ApplySession` will dispatch (#399). Displayed
+/// in the edit dialog so the user sees exactly what runs against their
+/// session — the value is only escaped for display; the command itself sends
+/// name/value separately and stays parameterized.
+pub fn preview_session_set(name: &str, value: &str) -> Result<PgSettingPreviewSql, String> {
+    validate_setting_ident(name)?;
+    let lit = escape_literal(value);
+    Ok(PgSettingPreviewSql {
+        kind: "SET".into(),
+        sql: format!("SET {name} = {lit};"),
+        note: "Runs against the current session only.".into(),
+    })
+}
+
 pub fn validate_setting_ident(name: &str) -> Result<(), String> {
     if name.is_empty() || name.len() > 128 {
         return Err("invalid setting name".into());

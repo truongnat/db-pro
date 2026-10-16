@@ -19,6 +19,9 @@ pub(crate) struct TableEditingState {
     pub(super) discard_changes_confirmation: bool,
     pub(super) insert_row_open: bool,
     pub(super) insert_row_values: Vec<String>,
+    /// Column names of the `table_info` the open insert dialog was built for.
+    /// A mid-edit refresh remaps values by name instead of wiping them (#369).
+    pub(super) insert_row_columns: Vec<String>,
     pub(super) insert_row_error: String,
     /// Esc/backdrop on a partially-filled insert form parks here until the
     /// user confirms discarding the values.
@@ -46,6 +49,7 @@ impl Default for TableEditingState {
             discard_changes_confirmation: false,
             insert_row_open: false,
             insert_row_values: Vec::new(),
+            insert_row_columns: Vec::new(),
             insert_row_error: String::new(),
             insert_row_discard_confirmation: false,
             fk_lookup_column: None,

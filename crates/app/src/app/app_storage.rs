@@ -147,6 +147,9 @@ impl<'a> NativeStorageContext<'a> {
         if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
             if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                 if !documents.is_empty() {
+                    // Restore observes the same tab cap as live opens (#401).
+                    let mut documents = documents;
+                    documents.truncate(query_state::MAX_QUERY_DOCUMENTS);
                     self.query.session.documents = documents;
                 }
             }
@@ -185,15 +188,15 @@ impl<'a> NativeStorageContext<'a> {
                     .map(|root| vec![root])
             })
             .unwrap_or_default();
-        for root in roots {
-            let path = std::path::PathBuf::from(root);
-            if path.is_dir() {
-                let _ = if self.workspace.files.ide_workspace.roots.is_empty() {
-                    self.workspace.files.ide_workspace.open_root(path)
-                } else {
-                    self.workspace.files.ide_workspace.add_root(path)
-                };
-            }
+        let paths: Vec<std::path::PathBuf> = roots
+            .into_iter()
+            .map(std::path::PathBuf::from)
+            .filter(|path| path.is_dir())
+            .collect();
+        if !paths.is_empty() {
+            // Restored roots scan on a worker thread; results land via
+            // poll_background_tasks (#393).
+            let _ = self.workspace.files.request_open_folders(paths, true);
         }
         if storage.get_string("dbpro.native.workspace-trusted-v1").as_deref() == Some("true") {
             self.workspace.files.ide_workspace.set_trusted(true);

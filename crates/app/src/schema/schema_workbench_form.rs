@@ -6,7 +6,6 @@ use super::schema_workbench::{
     ConstraintKindUi, SchemaWorkbenchMode, SchemaWorkbenchState, TableDesignerColumn,
 };
 use super::*;
-use crate::components::dialog::Dialog;
 use crate::components::{Button, ButtonSize, ButtonVariant, Checkbox};
 use db_pro_core::domain::object_mutation::ObjectAction;
 use lucide_icons::Icon;
@@ -18,6 +17,8 @@ pub(super) struct SchemaWorkbenchFormContext<'a> {
     /// `Some(reason)` when the active driver cannot ALTER COLUMN — the plan
     /// button stays visible but disabled with the reason on hover.
     pub(super) column_alter_limitation: Option<String>,
+    /// Dialect of the active driver — used to highlight preview SQL (#336).
+    pub(super) dialect: crate::editor::SqlDialect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -906,63 +907,19 @@ pub(super) fn draw_workbench_preview(
             );
         } else {
             ScrollArea::new(context.theme)
-                .max_height(220.0)
+                .max_height(ui.available_height().min(320.0))
                 .show(ui, |ui| {
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new(&sql)
-                                .color(context.theme.text_primary)
-                                .monospace(),
-                        )
-                        .wrap(),
-                    );
+                    CodeBlock::new(&sql, context.theme)
+                        .language("sql")
+                        .show_line_numbers(false)
+                        .sql_dialect(context.dialect)
+                        .show(ui);
                 });
         }
     });
-
-    if context.workbench.apply_confirmation {
-        let mut confirm_action = None;
-        let mut open = true;
-        Dialog::new(&mut open, "Confirm Apply DDL Mutation", context.theme)
-            .show(ui, |ui| {
-                ui.colored_label(
-                    context.theme.warning,
-                    "Applying this DDL will directly modify the active database schema.",
-                );
-                ui.add_space(SPACE_SM);
-                CodeBlock::new(&sql, context.theme).language("sql").show(ui);
-                ui.add_space(SPACE_MD);
-                ui.horizontal(|ui| {
-                    if Button::new(context.theme)
-                        .text("Apply DDL")
-                        .variant(ButtonVariant::Default)
-                        .size(ButtonSize::Sm)
-                        .icon(Icon::Check)
-                        .show(ui)
-                        .clicked()
-                    {
-                        confirm_action = Some(SchemaWorkbenchFormAction::ApplyDdl);
-                        context.workbench.apply_confirmation = false;
-                    }
-                    if Button::new(context.theme)
-                        .text("Cancel")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .icon(Icon::X)
-                        .show(ui)
-                        .clicked()
-                    {
-                        context.workbench.apply_confirmation = false;
-                    }
-                });
-            });
-        if !open {
-            context.workbench.apply_confirmation = false;
-        }
-        if confirm_action.is_some() {
-            action = confirm_action;
-        }
-    }
+    // The Apply-DDL confirm dialog draws at app level
+    // (`draw_workbench_apply_confirmation`) so flows like drop-schema from the
+    // explorer do not force a workspace navigation to reach it (#334).
 
     action
 }

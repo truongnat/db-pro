@@ -178,6 +178,8 @@ query:
   export_results_desc: "Ghi các hàng kết quả đang hiển thị ra file."
   export_format_label: "Định dạng"
   export_output_file: "File đầu ra"
+  export_table_name: "Bảng đích"
+  export_path_adjusted: "Sẽ lưu thành %{path}"
   export_visible_only: "Các hàng vượt giới hạn hiển thị không được xuất."
   export_overwrite_prompt: "%{path} đã tồn tại. Ghi đè?"
   overwrite: "Ghi đè"

@@ -251,21 +251,72 @@ pub struct ToastItem {
 }
 
 /// Multi-toast manager supporting simultaneous queued/stacked toasts across all positions.
+///
+/// Error storms can't bury the screen: identical `(variant, position, message)`
+/// pushes refresh the existing toast instead of stacking, and each position
+/// keeps at most [`MAX_TOASTS_PER_POSITION`] entries (oldest drops) (#392).
 #[derive(Debug, Clone, Default)]
 pub struct ToastManager {
     toasts: Vec<ToastItem>,
     next_id: u64,
 }
 
+/// Max stacked toasts kept per position; oldest drop past the cap (#392).
+pub const MAX_TOASTS_PER_POSITION: usize = 5;
+
 impl ToastManager {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn show(&mut self, message: impl Into<String>, variant: ToastVariant, position: ToastPosition) -> u64 {
+    /// Push a toast with dedupe + per-position cap (#392). An identical live
+    /// toast just resets its timer instead of stacking a duplicate.
+    fn push(&mut self, item: ToastItem) -> u64 {
+        if let Some(existing) = self.toasts.iter_mut().find(|existing| {
+            existing.variant == item.variant
+                && existing.position == item.position
+                && existing.message == item.message
+                && existing.action_label == item.action_label
+        }) {
+            existing.elapsed_secs = 0.0;
+            return existing.id;
+        }
+        let id = item.id;
+        let position = item.position;
+        self.toasts.push(item);
+        let at_position: Vec<usize> = self
+            .toasts
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.position == position)
+            .map(|(index, _)| index)
+            .collect();
+        if at_position.len() > MAX_TOASTS_PER_POSITION {
+            for &index in at_position[..at_position.len() - MAX_TOASTS_PER_POSITION].iter().rev() {
+                self.toasts.remove(index);
+            }
+        }
+        id
+    }
+
+    fn next_item(&mut self) -> u64 {
         let id = self.next_id;
         self.next_id += 1;
-        self.toasts.push(ToastItem {
+        id
+    }
+
+    /// Advance expiry without rendering — callers on a per-frame tick keep
+    /// toasts expiring even while the surface that renders them is hidden.
+    pub fn tick(&mut self, dt_secs: f32) {
+        for item in &mut self.toasts {
+            item.elapsed_secs += dt_secs.max(0.0);
+        }
+        self.toasts.retain(|item| item.elapsed_secs < item.duration_secs);
+    }
+
+    pub fn show(&mut self, message: impl Into<String>, variant: ToastVariant, position: ToastPosition) -> u64 {
+        let id = self.next_item();
+        self.push(ToastItem {
             id,
             message: message.into(),
             variant,
@@ -273,8 +324,7 @@ impl ToastManager {
             action_label: None,
             duration_secs: 5.0,
             elapsed_secs: 0.0,
-        });
-        id
+        })
     }
 
     pub fn show_with_action(
@@ -284,9 +334,8 @@ impl ToastManager {
         position: ToastPosition,
         action: impl Into<String>,
     ) -> u64 {
-        let id = self.next_id;
-        self.next_id += 1;
-        self.toasts.push(ToastItem {
+        let id = self.next_item();
+        self.push(ToastItem {
             id,
             message: message.into(),
             variant,
@@ -294,8 +343,7 @@ impl ToastManager {
             action_label: Some(action.into()),
             duration_secs: 8.0,
             elapsed_secs: 0.0,
-        });
-        id
+        })
     }
 
     pub fn success(&mut self, message: impl Into<String>, position: ToastPosition) -> u64 {
@@ -329,11 +377,7 @@ impl ToastManager {
     /// Renders all stacked toasts grouped by their position using an egui Context.
     pub fn render_ctx(&mut self, ctx: &egui::Context, theme: DbProTheme) -> Vec<(u64, ToastResponse)> {
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
-        for item in &mut self.toasts {
-            item.elapsed_secs += dt;
-        }
-        // Auto-dismiss expired toasts
-        self.toasts.retain(|item| item.elapsed_secs < item.duration_secs);
+        self.tick(dt);
 
         if self.toasts.is_empty() {
             return Vec::new();
@@ -371,12 +415,17 @@ impl ToastManager {
                 ToastPosition::TopLeft | ToastPosition::TopCenter | ToastPosition::TopRight
             );
 
-            for (stack_idx, (_idx, item)) in items.into_iter().enumerate() {
+            // Clamp the stack to the screen: past the cap extra toasts never
+            // render off-viewport (#392).
+            let max_stack = ((screen.height() - 2.0 * config::TOAST_SCREEN_MARGIN) / config::TOAST_STACK_OFFSET)
+                .floor()
+                .max(1.0) as usize;
+            for (stack_idx, (_idx, item)) in items.into_iter().take(max_stack).enumerate() {
                 let offset_y = stack_idx as f32 * config::TOAST_STACK_OFFSET;
                 let actual_y = if is_top {
-                    base_pos.y + offset_y
+                    (base_pos.y + offset_y).min(screen.bottom() - config::TOAST_SCREEN_MARGIN)
                 } else {
-                    base_pos.y - offset_y
+                    (base_pos.y - offset_y).max(screen.top() + config::TOAST_SCREEN_MARGIN)
                 };
                 let item_pos = Pos2::new(base_pos.x, actual_y);
 

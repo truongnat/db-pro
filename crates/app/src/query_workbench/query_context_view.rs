@@ -13,7 +13,7 @@ pub(super) struct QueryContextViewContext<'a> {
     pub(super) connected: bool,
     pub(super) connection_name: &'a str,
     pub(super) schema: &'a str,
-    pub(super) environment: &'a str,
+    pub(super) environment: db_pro_core::domain::connection::ConnectionEnvironment,
     pub(super) active_request_id: Option<RequestId>,
     /// Set while a query runs so the run control can show elapsed time.
     pub(super) execution_started_at: Option<std::time::Instant>,
@@ -189,7 +189,7 @@ fn draw_file_path_breadcrumb(theme: DbProTheme, ui: &mut egui::Ui, path: &str) {
 
 fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -> egui::Response {
     let is_production =
-        context.environment.eq_ignore_ascii_case("production") || context.environment.eq_ignore_ascii_case("prod");
+        matches!(context.environment, db_pro_core::domain::connection::ConnectionEnvironment::Production);
     let chip_text = if context.connected {
         format!(
             "{} / {}",

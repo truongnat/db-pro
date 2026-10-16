@@ -70,8 +70,13 @@ fn batch_is_classified_by_its_most_dangerous_statement() {
         AgentSqlSafety::classify("SELECT 1; DELETE FROM t WHERE id = 1"),
         AgentSqlSafety::Mutating
     );
+    // A whole-table UPDATE is destructive — the same gate as DELETE without WHERE.
     assert_eq!(
         AgentSqlSafety::classify("SELECT 1; UPDATE t SET a = 1"),
+        AgentSqlSafety::Destructive
+    );
+    assert_eq!(
+        AgentSqlSafety::classify("SELECT 1; UPDATE t SET a = 1 WHERE id = 2"),
         AgentSqlSafety::Mutating
     );
     assert_eq!(

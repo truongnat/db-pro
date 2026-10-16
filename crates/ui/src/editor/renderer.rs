@@ -1117,6 +1117,14 @@ impl<'a> SqlEditor<'a> {
                 if self.completion_open {
                     return;
                 }
+                // Enter with an open selection must not replace it — that wiped
+                // the whole buffer on Ctrl+A → Enter (#342). Collapse to the
+                // selection end and insert the newline there instead.
+                if !self.selection.is_empty() {
+                    let (_, end) = self.selection.normalized();
+                    *self.selection = SelectionRange::point(end);
+                    self.cursor.set_offset(self.buffer, end);
+                }
                 self.buffer.break_typing_group();
                 let current_line_text = self.buffer.line_at(self.cursor.line).unwrap_or("");
                 let leading_spaces: String = current_line_text
@@ -1124,7 +1132,12 @@ impl<'a> SqlEditor<'a> {
                     .take_while(|c| *c == ' ' || *c == '\t')
                     .collect();
                 let insert_text = format!("\n{leading_spaces}");
-                self.insert_text(&insert_text);
+                // `type_text` keeps the selection intact for the next keypress;
+                // `insert_text` would delete the (now empty) selection anyway.
+                let offset = self.cursor.offset;
+                self.buffer.insert(offset, &insert_text);
+                self.cursor.set_offset(self.buffer, offset + insert_text.len());
+                self.selection.collapse_to_active();
                 response.changed = true;
             }
             Key::Backspace => {

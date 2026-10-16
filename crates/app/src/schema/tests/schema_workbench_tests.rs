@@ -69,3 +69,95 @@
         assert_eq!(wb.history.len(), 100);
         assert_eq!(wb.history[0].object_name, "t_109");
     }
+
+    #[test]
+    fn replan_fingerprint_detects_form_mutation_after_plan() {
+        use db_pro_core::application::ObjectMutationService;
+        use db_pro_core::domain::object_mutation::ObjectAction;
+
+        let mut state = SchemaWorkbenchState::default();
+        state.schema = "public".into();
+        state.name = "audit".into();
+        state.mode = SchemaWorkbenchMode::SchemaDb;
+        state.cascade = true;
+
+        // Plan a drop and store the same linkage `run_plan` records.
+        let request = state
+            .build_mutation_request(ObjectAction::Drop, "postgresql")
+            .expect("request");
+        let preview = ObjectMutationService::plan_for_driver(&request).expect("plan");
+        state.preview_sql = preview.statements.join(";\n");
+        state.preview_fingerprint = preview.fingerprint.clone();
+        state.pending_plan = Some(WorkbenchPendingPlan::Object(ObjectAction::Drop));
+
+        // Unchanged form replans to the same fingerprint.
+        assert_eq!(
+            state.replan_fingerprint("postgresql").expect("replan"),
+            preview.fingerprint
+        );
+
+        // Mutating the form after the plan makes the preview stale.
+        state.name = "audit_v2".into();
+        let live = state.replan_fingerprint("postgresql").expect("replan");
+        assert_ne!(live, preview.fingerprint);
+
+        // Without a recorded plan there is nothing to verify against.
+        state.pending_plan = None;
+        assert!(state.replan_fingerprint("postgresql").is_err());
+    }
+
+    #[test]
+    fn database_action_flags_follow_the_action_kind() {
+        use db_pro_core::domain::object_mutation::ObjectAction;
+
+        let mut state = SchemaWorkbenchState::default();
+        state.name = "appdb".into();
+        state.cascade = true;
+
+        let drop = state.build_database_request(ObjectAction::Drop, "postgresql");
+        assert!(drop.options.if_exists);
+        assert!(!drop.options.if_not_exists);
+        assert!(!drop.options.cascade);
+
+        let create = state.build_database_request(ObjectAction::Create, "postgresql");
+        assert!(!create.options.if_exists);
+        assert!(create.options.if_not_exists);
+        assert!(!create.options.cascade);
+    }
+
+    #[test]
+    fn auto_increment_requires_primary_key_and_rejects_postgres_alter() {
+        use db_pro_core::domain::object_mutation::ObjectAction;
+
+        let mut state = SchemaWorkbenchState::default();
+        state.name = "t".into();
+        state.table_columns[0].auto_increment = true;
+        state.table_columns[0].is_pk = false;
+
+        // SQLite: non-PK auto_increment is rejected instead of rewriting the type.
+        assert!(state
+            .build_mutation_request(ObjectAction::Create, "sqlite")
+            .is_err());
+        // MySQL: same requirement — AUTO_INCREMENT needs a key.
+        assert!(state
+            .build_mutation_request(ObjectAction::Create, "mysql")
+            .is_err());
+
+        state.table_columns[0].is_pk = true;
+        // Postgres create path still maps to a serial type.
+        let request = state
+            .build_mutation_request(ObjectAction::Create, "postgresql")
+            .expect("request");
+        match request.definition {
+            ObjectDefinition::Table(def) => {
+                assert!(matches!(def.columns[0].data_type.as_str(), "SERIAL" | "BIGSERIAL"));
+            }
+            _ => panic!("expected a table definition"),
+        }
+
+        // Postgres alter path must not emit SERIAL.
+        state.table_baseline = state.table_columns.clone();
+        assert!(state
+            .build_mutation_request(ObjectAction::Create, "postgresql")
+            .is_err());
+    }

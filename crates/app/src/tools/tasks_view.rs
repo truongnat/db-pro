@@ -218,8 +218,9 @@ impl DbProApp {
         self.connection
             .lifecycle
             .set_active_connection_id(Some(task.connection_id.clone()));
-        self.set_active_query_text(sql);
-        self.workspace.active_tab = WorkspaceTab::Query;
+        // Open the task SQL in its own document — never overwrite the
+        // document the user is editing (#420).
+        self.open_query_document_with(sql.to_owned(), Some(task.connection_id.clone()));
         // Task-level confirmation already satisfied destructive policy (#206).
         let version = self.query.session.active_buffer_version();
         let execution_range = (0, sql.len());

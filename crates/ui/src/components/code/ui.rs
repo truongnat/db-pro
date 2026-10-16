@@ -21,6 +21,7 @@ use super::{
 };
 use crate::{
     components::interact::paint_focus_ring,
+    editor::{SqlDialect, SqlHighlighter},
     tokens::{RADIUS_CODE_BLOCK, RADIUS_XS, STROKE_THIN},
     DbProTheme,
 };
@@ -67,6 +68,8 @@ pub struct CodeBlock<'a> {
     code: &'a str,
     language: Option<&'a str>,
     show_line_numbers: bool,
+    /// When set, SQL tokens are syntax-highlighted like the query editor (#336).
+    sql_dialect: Option<SqlDialect>,
     theme: DbProTheme,
 }
 
@@ -77,6 +80,7 @@ impl<'a> CodeBlock<'a> {
             language: None,
             show_line_numbers: true,
             theme,
+            sql_dialect: None,
         }
     }
 
@@ -87,6 +91,13 @@ impl<'a> CodeBlock<'a> {
 
     pub fn show_line_numbers(mut self, show: bool) -> Self {
         self.show_line_numbers = show;
+        self
+    }
+
+    /// Highlight the code as SQL in the given dialect, matching the query
+    /// editor's token colors (#336).
+    pub fn sql_dialect(mut self, dialect: SqlDialect) -> Self {
+        self.sql_dialect = Some(dialect);
         self
     }
 
@@ -197,13 +208,52 @@ impl<'a> CodeBlock<'a> {
                 let line_count = display_lines.len().max(1);
                 let gutter_w = calculate_gutter_width(self.show_line_numbers, line_count);
                 let code_font_id = FontId::monospace(CODE_BLOCK_CODE_FONT_SIZE);
-                let code_galleys: Vec<_> = display_lines
-                    .iter()
-                    .map(|line| {
-                        ui.painter()
-                            .layout_no_wrap((*line).to_owned(), code_font_id.clone(), self.theme.text_primary)
-                    })
-                    .collect();
+                let code_galleys: Vec<_> = if let Some(dialect) = self.sql_dialect {
+                    // Tokenize the whole block once so multi-line comments and
+                    // strings keep their state, then map ranges onto lines.
+                    let highlighter = SqlHighlighter::new(dialect);
+                    let tokens = highlighter.tokenize(self.code);
+                    let mut line_start = 0usize;
+                    display_lines
+                        .iter()
+                        .map(|line| {
+                            let line_end = line_start + line.len();
+                            let mut job = egui::text::LayoutJob::default();
+                            for token in &tokens {
+                                let (s, e) = token.range;
+                                if s >= line_end || e <= line_start {
+                                    continue;
+                                }
+                                let from = s.max(line_start) - line_start;
+                                let to = e.min(line_end) - line_start;
+                                if to <= from {
+                                    continue;
+                                }
+                                job.append(
+                                    &line[from..to],
+                                    0.0,
+                                    egui::TextFormat::simple(
+                                        code_font_id.clone(),
+                                        highlighter.token_color(token.kind, &self.theme),
+                                    ),
+                                );
+                            }
+                            line_start = line_end + 1; // skip the '\n'
+                            ui.ctx().fonts_mut(|fonts| fonts.layout_job(job))
+                        })
+                        .collect()
+                } else {
+                    display_lines
+                        .iter()
+                        .map(|line| {
+                            ui.painter().layout_no_wrap(
+                                (*line).to_owned(),
+                                code_font_id.clone(),
+                                self.theme.text_primary,
+                            )
+                        })
+                        .collect()
+                };
                 let content_width = code_body_content_width(
                     code_galleys.iter().map(|galley| galley.size().x),
                     gutter_w,

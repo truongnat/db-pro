@@ -30,11 +30,17 @@ pub(super) fn cell_sql_literal(cell: &UiCell) -> String {
     }
 }
 
+/// Escape one field for CSV/TSV output (file export and clipboard).
+///
+/// Beyond RFC-4180 quoting, a value a spreadsheet would evaluate — leading `=`, `+`, `@`, tab, … —
+/// is prefixed with `'` by `guard_csv_field` so exported data stays inert in Excel/LibreOffice
+/// (#429). Numeric literals parse back as numbers and are left alone.
 pub(super) fn escape_delimited_field(value: &str, delimiter: char) -> String {
+    let value = db_pro_core::application::guard_csv_field(value);
     if value.contains(delimiter) || value.contains('"') || value.contains('\n') || value.contains('\r') {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
-        value.to_owned()
+        value.into_owned()
     }
 }
 
@@ -42,7 +48,7 @@ pub(super) fn format_cell_delimited(cell: &UiCell, delimiter: char) -> String {
     match cell {
         UiCell::Null => String::new(),
         UiCell::Boolean(value) => value.to_string(),
-        UiCell::Number(value) => value.clone(),
+        UiCell::Number(value) => escape_delimited_field(value, delimiter),
         UiCell::Text(value) => escape_delimited_field(value, delimiter),
         UiCell::Json(value) => escape_delimited_field(value, delimiter),
         UiCell::Bytes(value) => escape_delimited_field(value, delimiter),
@@ -226,15 +232,30 @@ pub(super) fn format_result_markdown(result: &UiQueryResult) -> String {
     output
 }
 
+/// Unique JSON object keys for `columns`: duplicates get `_2`, `_3`, … suffixes so a
+/// `SELECT 1 AS x, 2 AS x` or self-join result does not silently drop values in a keyed map.
+pub(super) fn unique_json_keys(columns: &[crate::UiColumn]) -> Vec<String> {
+    let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    columns
+        .iter()
+        .map(|column| {
+            let count = seen.entry(column.name.as_str()).or_insert(0);
+            *count += 1;
+            if *count == 1 { column.name.clone() } else { format!("{}_{}", column.name, count) }
+        })
+        .collect()
+}
+
 pub(super) fn format_result_json(result: &UiQueryResult) -> String {
+    let keys = unique_json_keys(&result.columns);
     let array: Vec<serde_json::Map<String, serde_json::Value>> = result
         .rows
         .iter()
         .map(|row| {
             let mut obj = serde_json::Map::new();
             for (col_idx, cell) in row.iter().enumerate() {
-                if let Some(col) = result.columns.get(col_idx) {
-                    obj.insert(col.name.clone(), cell_to_json_value(cell));
+                if let Some(key) = keys.get(col_idx) {
+                    obj.insert(key.clone(), cell_to_json_value(cell));
                 }
             }
             obj

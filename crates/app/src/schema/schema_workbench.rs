@@ -24,6 +24,15 @@ pub(super) enum SchemaWorkbenchMode {
     History,
 }
 
+/// Which plan entry point produced the current `preview_sql`, so
+/// `apply_workbench_ddl` can rebuild it and verify the fingerprint (#364/#353).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum WorkbenchPendingPlan {
+    Object(ObjectAction),
+    Database(ObjectAction),
+}
+
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct TableDesignerColumn {
     pub(super) name: String,
@@ -108,7 +117,19 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) docs_markdown: String,
     pub(super) docs_format_html: bool,
     pub(super) dependency_filter: String,
+    /// Entry point of the plan that produced `preview_sql`, kept so apply can
+    /// rebuild it and reject a stale fingerprint (#364/#353).
+    pub(super) pending_plan: Option<WorkbenchPendingPlan>,
+    /// Connection the preview was planned against — "Open in SQL Editor"
+    /// must bind the new document to it, not the query-context default (#350).
+    pub(super) preview_connection_id: Option<String>,
     pub(super) history: Vec<DdlExecutionHistoryEntry>,
+    /// Two-step confirm for "Clear history" — the list is the DDL audit trail
+    /// and a single click must not erase it (#371).
+    pub(super) history_clear_confirm: bool,
+    /// Workbench-dispatched ExecuteDdl request awaiting its terminal event, and the
+    /// history index `record_execution` returned for it (pending entries sit at index 0).
+    pub(super) pending_execution: Option<(crate::RequestId, usize)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -189,12 +210,18 @@ impl Default for SchemaWorkbenchState {
             docs_format_html: false,
             dependency_filter: String::new(),
             history: Vec::new(),
+            history_clear_confirm: false,
+            pending_execution: None,
+            pending_plan: None,
+            preview_connection_id: None,
         }
     }
 }
 
 impl SchemaWorkbenchState {
-    pub(super) fn record_execution(&mut self, kind: &str, name: &str, sql: &str, safety: &str, success: bool) {
+    /// Record a dispatched run as pending (`success=false`) and return its history index so the
+    /// completion/failure event can patch the entry with the real outcome.
+    pub(super) fn record_execution(&mut self, kind: &str, name: &str, sql: &str, safety: &str, success: bool) -> usize {
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         self.history.insert(0, DdlExecutionHistoryEntry {
             timestamp,
@@ -207,6 +234,23 @@ impl SchemaWorkbenchState {
         if self.history.len() > 100 {
             self.history.truncate(100);
         }
+        0
+    }
+
+    /// Patch the pending history entry with the terminal outcome for `request_id`.
+    /// Returns `true` when the request belonged to a workbench-dispatched DDL run.
+    pub(super) fn finalize_execution(&mut self, request_id: crate::RequestId, success: bool) -> bool {
+        let Some((pending_id, index)) = self.pending_execution.take() else {
+            return false;
+        };
+        if pending_id != request_id {
+            self.pending_execution = Some((pending_id, index));
+            return false;
+        }
+        if let Some(entry) = self.history.get_mut(index) {
+            entry.success = success;
+        }
+        true
     }
 
     pub(super) fn prepare_ddl_request(&self, connection_id: String) -> Result<SchemaWorkbenchDdlRequest, String> {
@@ -218,6 +262,62 @@ impl SchemaWorkbenchState {
             connection_id,
             sql: sql.to_owned(),
         })
+    }
+
+    /// Database-level mutation request — flags follow the action kind and
+    /// CASCADE never applies to DROP DATABASE (#354).
+    pub(super) fn build_database_request(&self, action: ObjectAction, driver: &str) -> ObjectMutationRequest {
+        ObjectMutationRequest {
+            action,
+            target: Some(ObjectRef {
+                kind: ObjectKind::Database,
+                schema: None,
+                name: self.name.clone(),
+                parent: None,
+            }),
+            definition: ObjectDefinition::Database(DatabaseDefinition {
+                name: self.name.clone(),
+                owner: None,
+                template: None,
+            }),
+            options: MutationOptions {
+                cascade: false,
+                if_exists: action == ObjectAction::Drop,
+                if_not_exists: action == ObjectAction::Create,
+                dry_run: false,
+            },
+            driver: driver.to_owned(),
+        }
+    }
+
+    /// Rebuild the mutation request recorded by `pending_plan` from the current
+    /// form and re-plan it, returning the live fingerprint for staleness checks.
+    pub(super) fn replan_fingerprint(&self, driver: &str) -> Result<String, String> {
+        let Some(pending) = self.pending_plan else {
+            return Err("Plan a mutation before applying".to_owned());
+        };
+        let request = match pending {
+            WorkbenchPendingPlan::Object(action) => self.build_mutation_request(action, driver)?,
+            WorkbenchPendingPlan::Database(action) => self.build_database_request(action, driver),
+        };
+        let preview = db_pro_core::application::ObjectMutationService::plan_for_driver(&request)
+            .map_err(|err| err.to_string())?;
+        if let Some(reason) = preview.unsupported_reason {
+            return Err(reason);
+        }
+        Ok(preview.fingerprint)
+    }
+
+    /// Clear preview/apply leftovers so a reused workbench context cannot
+    /// apply a plan built for a previous schema or table (#381).
+    pub(super) fn clear_plan_state(&mut self) {
+        self.preview_sql.clear();
+        self.preview_safety.clear();
+        self.preview_fingerprint.clear();
+        self.preview_error = None;
+        self.preview_connection_id = None;
+        self.pending_plan = None;
+        self.apply_confirmation = false;
     }
 
     pub(super) fn add_table_column(&mut self) {
@@ -305,10 +405,23 @@ pub(super) struct SchemaWorkbenchDdlRequest {
 
 impl DbProApp {
     pub(crate) fn open_schema_workbench(&mut self) {
-        if let Some(schema) = self.schema.explorer.selected_schema.clone() {
+        let new_schema = self.schema.explorer.selected_schema.clone();
+        let new_table = self.schema.explorer.selected_table.clone();
+        // A different schema/table context must not inherit the previous
+        // session's preview, confirmation, or object name (#381) — a stale
+        // plan could otherwise be applied to the wrong object.
+        let context_changed = (new_schema.is_some()
+            && new_schema.as_deref() != Some(self.schema.workbench.schema.as_str()))
+            || (new_table.is_some()
+                && new_table.as_deref() != Some(self.schema.workbench.parent_table.as_str()));
+        if context_changed {
+            self.schema.workbench.clear_plan_state();
+            self.schema.workbench.name.clear();
+        }
+        if let Some(schema) = new_schema {
             self.schema.workbench.schema = schema;
         }
-        if let Some(table) = self.schema.explorer.selected_table.clone() {
+        if let Some(table) = new_table {
             self.schema.workbench.parent_table = table;
         }
         self.workspace.activity = Activity::Schema;
@@ -407,15 +520,98 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenSqlAsQuery(sql) => {
-                self.new_query_document();
-                if let Some(doc) = self.query.session.documents.last_mut() {
-                    doc.set_text(sql);
+                // Reuse a document that already holds this statement instead of
+                // opening a duplicate editor tab on every click (#371).
+                if let Some(index) = self
+                    .query
+                    .session
+                    .documents
+                    .iter()
+                    .position(|doc| doc.text() == sql)
+                {
+                    self.query.session.active_document_index = index;
+                } else {
+                    let active_is_empty = self
+                        .query
+                        .session
+                        .documents
+                        .get(self.query.session.active_document_index)
+                        .is_some_and(|doc| doc.text().trim().is_empty());
+                    if !active_is_empty {
+                        self.new_query_document();
+                    }
+                    if let Some(doc) = self
+                        .query
+                        .session
+                        .documents
+                        .get_mut(self.query.session.active_document_index)
+                    {
+                        doc.set_text(sql);
+                    }
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::ClearHistory => {
                 self.schema.workbench.history.clear();
             }
+        }
+    }
+
+    /// App-level Apply-DDL confirmation — drawn regardless of the active
+    /// workspace tab so entry points like Explorer → Drop Schema can confirm
+    /// without navigating away (#334). `Apply` still goes through the normal
+    /// workbench action pipeline.
+    pub(super) fn draw_workbench_apply_confirmation(&mut self, ctx: &egui::Context) {
+        if !self.schema.workbench.apply_confirmation {
+            return;
+        }
+        let sql = self.schema.workbench.preview_sql.clone();
+        let dialect = self.editor_dialect();
+        let theme = self.theme;
+        let mut open = true;
+        let mut apply = false;
+        Dialog::new(&mut open, "Confirm Apply DDL Mutation", theme)
+            .width(640.0)
+            .show_ctx(ctx, |ui| {
+                ui.colored_label(
+                    theme.warning,
+                    "Applying this DDL will directly modify the active database schema.",
+                );
+                ui.add_space(SPACE_SM);
+                CodeBlock::new(&sql, theme)
+                    .language("sql")
+                    .sql_dialect(dialect)
+                    .show(ui);
+                ui.add_space(SPACE_MD);
+                ui.horizontal(|ui| {
+                    if Button::new(theme)
+                        .text("Apply DDL")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::Check)
+                        .show(ui)
+                        .clicked()
+                    {
+                        apply = true;
+                        self.schema.workbench.apply_confirmation = false;
+                    }
+                    if Button::new(theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::X)
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.schema.workbench.apply_confirmation = false;
+                    }
+                });
+            });
+        if !open {
+            self.schema.workbench.apply_confirmation = false;
+        }
+        if apply {
+            self.apply_workbench_form_action(schema_workbench_form::SchemaWorkbenchFormAction::ApplyDdl);
         }
     }
 

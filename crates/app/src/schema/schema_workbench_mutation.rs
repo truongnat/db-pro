@@ -37,24 +37,42 @@ impl SchemaWorkbenchState {
         let (definition, kind, parent) = match self.mode {
             SchemaWorkbenchMode::Table => {
                 let columns = if !self.table_columns.is_empty() {
+                    let lower_driver = driver.to_ascii_lowercase();
                     self.table_columns
                         .iter()
                         .map(|col| {
                             let mut data_type = col.data_type.clone();
                             if col.auto_increment {
-                                if driver.to_ascii_lowercase().contains("postgres") {
+                                if !col.is_pk {
+                                    // AUTO_INCREMENT semantics require a key on
+                                    // every supported driver (#365).
+                                    return Err(format!(
+                                        "auto_increment requires `{}` to be a primary key",
+                                        col.name
+                                    ));
+                                }
+                                if lower_driver.contains("postgres") {
+                                    if action == ObjectAction::Alter {
+                                        // SERIAL is create-only; ALTER … TYPE
+                                        // SERIAL is invalid Postgres (#365).
+                                        return Err(
+                                            "PostgreSQL cannot alter a column to auto-increment — add a sequence-backed default instead".to_owned(),
+                                        );
+                                    }
                                     data_type = if data_type.to_ascii_uppercase().contains("BIG") {
                                         "BIGSERIAL".into()
                                     } else {
                                         "SERIAL".into()
                                     };
-                                } else if driver.to_ascii_lowercase().contains("sqlite") {
+                                } else if lower_driver.contains("sqlite") {
+                                    // Only an integer primary key may carry
+                                    // AUTOINCREMENT — never rewrite other types.
                                     data_type = "INTEGER PRIMARY KEY AUTOINCREMENT".into();
-                                } else if driver.to_ascii_lowercase().contains("mysql") {
+                                } else if lower_driver.contains("mysql") {
                                     data_type = format!("{data_type} AUTO_INCREMENT");
                                 }
                             }
-                            ColumnDefinition {
+                            Ok(ColumnDefinition {
                                 schema: schema.clone(),
                                 table: name.clone(),
                                 name: col.name.clone(),
@@ -64,9 +82,9 @@ impl SchemaWorkbenchState {
                                 is_pk: col.is_pk,
                                 new_name: None,
                                 origin_name: nonempty_opt(&col.origin_name),
-                            }
+                            })
                         })
-                        .collect()
+                        .collect::<Result<Vec<_>, String>>()?
                 } else {
                     parse_column_defs(&schema, &name, &self.columns_csv)?
                 };

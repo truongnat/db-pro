@@ -58,6 +58,14 @@ impl DestructiveDialogContext<'_> {
                     .color(self.theme.text_secondary),
             );
         });
+        if !self.pending.target_label().is_empty() {
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new(format!("Runs on: {}", self.pending.target_label()))
+                    .strong()
+                    .color(self.theme.warning),
+            );
+        }
         ui.add_space(SPACE_SM);
         ui.colored_label(
             self.theme.warning,
@@ -130,7 +138,31 @@ impl ExportDialogContext<'_> {
                 .color(self.theme.text_muted),
         );
         ui.add_space(SPACE_XS);
-        Input::new(&mut self.overlay.export_path, "/path/to/results.csv", self.theme).show(ui);
+        let placeholder = format!("/path/to/results.{}", self.overlay.export_format.extension());
+        Input::new(&mut self.overlay.export_path, placeholder, self.theme).show(ui);
+        // #396: surface the effective file name live so a missing/wrong extension is never a
+        // silent surprise — the write itself normalizes the same way.
+        let trimmed = self.overlay.export_path.trim().to_owned();
+        if !trimmed.is_empty() {
+            let effective = self.overlay.effective_export_path();
+            if effective != std::path::Path::new(&trimmed) {
+                ui.add_space(SPACE_XS);
+                ui.colored_label(
+                    self.theme.warning,
+                    t!("query.export_path_adjusted", path = effective.display().to_string().as_str()).into_owned(),
+                );
+            }
+        }
+        if matches!(self.overlay.export_format, ExportFormat::SqlInsert | ExportFormat::SqlCopy) {
+            ui.add_space(SPACE_XS);
+            ui.label(
+                RichText::new(t!("query.export_table_name"))
+                    .font(font_ui_label())
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(SPACE_XS);
+            Input::new(&mut self.overlay.export_table_name, "exported_rows", self.theme).show(ui);
+        }
         ui.add_space(SPACE_XS);
         ui.label(
             RichText::new(t!("query.export_visible_only"))

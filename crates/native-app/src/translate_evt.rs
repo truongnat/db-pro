@@ -426,7 +426,7 @@ fn translate_connections_loaded(
                 tags: connection.tags,
                 group: connection.group,
                 favorite: connection.favorite,
-                environment: connection.environment.as_label().to_owned(),
+                environment: connection.environment,
             })
             .collect(),
     })

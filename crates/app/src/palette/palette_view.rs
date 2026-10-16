@@ -92,6 +92,12 @@ impl DbProApp {
     }
 
     pub(super) fn refresh_schema_palette(&mut self) {
+        // In-flight guard: a pending introspection already delivers the latest
+        // schema, so spam clicks must not queue more (#380).
+        if self.schema.explorer.schema_request.is_some() {
+            self.feedback.runtime_message = "Schema refresh already in progress…".to_owned();
+            return;
+        }
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             self.table.state.refresh_table_info_after_schema = self.schema.explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
@@ -101,11 +107,25 @@ impl DbProApp {
     }
 
     pub(crate) fn open_table_from_palette(&mut self, table: String) {
-        if self.schema.explorer.selected_table.as_deref() != Some(table.as_str())
-            && !self.table.mutation.staged_changes.is_empty()
-        {
-            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+        let switching_table = self.schema.explorer.selected_table.as_deref() != Some(table.as_str());
+        if switching_table && !self.table.mutation.staged_changes.is_empty() {
+            // Reuse the explorer confirm flow instead of a hard block so the
+            // user can apply or discard staged changes in the same dialog.
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable {
+                schema: None,
+                table: table.clone(),
+            });
+            self.table.editing.discard_changes_confirmation = true;
+            self.feedback.runtime_message =
+                "Apply or discard staged changes before opening another table".to_owned();
             return;
+        }
+        if switching_table {
+            // Filters apply to the previous table's metadata; they would
+            // silently hide the new table's constraints/dependencies (#370).
+            self.table.state.table_metadata_search.clear();
+            self.table.state.table_dependency_filter = "all".to_owned();
+            self.table.state.table_constraint_filter = "all".to_owned();
         }
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
@@ -143,6 +163,20 @@ impl DbProApp {
             self.feedback.runtime_message = "Saved query is no longer available".to_owned();
             return;
         };
+        // Reuse a tab already bound to this saved query instead of stacking
+        // duplicates on every palette pick (#401).
+        if let Some(index) = self
+            .query
+            .session
+            .documents
+            .iter()
+            .position(|doc| doc.saved_query_id.as_deref() == Some(query.id.as_str()))
+        {
+            self.switch_query_document(index);
+            self.workspace.active_tab = WorkspaceTab::Query;
+            self.feedback.runtime_message = format!("Opened saved query {}", query.name);
+            return;
+        }
         self.new_query_document();
         if let Some(doc) = self
             .query

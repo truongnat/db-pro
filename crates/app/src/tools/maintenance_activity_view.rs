@@ -25,6 +25,11 @@ pub(super) fn draw_maintenance_activity(
             .width(160.0)
             .show(ui);
     });
+    // A schema without a table (or a bare table name) would silently expand to
+    // a whole-database run — the service only supports full-DB or
+    // schema.table targets (#403).
+    let partial_target = schema.trim().is_empty() != table.trim().is_empty();
+    let mut rejected: Option<String> = None;
     ui.horizontal_wrapped(|ui| {
         use db_pro_core::domain::monitoring::MaintenanceAction;
         for action in [
@@ -33,9 +38,18 @@ pub(super) fn draw_maintenance_activity(
             MaintenanceAction::VacuumAnalyze,
         ] {
             if secondary_button(ui, action.as_label(), theme).clicked() {
-                selected = Some(action);
+                if partial_target {
+                    rejected = Some(
+                        "Maintenance needs both schema and table (or neither for the whole database)".to_owned(),
+                    );
+                } else {
+                    selected = Some(action);
+                }
             }
         }
     });
+    if let Some(message) = rejected {
+        ui.colored_label(theme.danger, message);
+    }
     selected
 }

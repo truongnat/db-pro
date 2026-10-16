@@ -45,6 +45,8 @@ pub(crate) struct TableMutationState {
     pub(super) table_mutation_request: Option<crate::RequestId>,
     pub(super) staged_changes: ChangeSet,
     pub(super) pending_changes_open: bool,
+    /// Delete-containing apply awaiting the "+N ~N -N" confirmation gate.
+    pub(super) staged_apply_confirm: bool,
     pub(super) staged_apply_request: Option<crate::RequestId>,
     pub(super) staged_apply_targets: Vec<MutationTarget>,
     pub(super) table_mutation_retry_after_reload: bool,
@@ -59,6 +61,7 @@ impl Default for TableMutationState {
             table_mutation_request: None,
             staged_changes: ChangeSet::new(),
             pending_changes_open: false,
+            staged_apply_confirm: false,
             staged_apply_request: None,
             staged_apply_targets: Vec::new(),
             table_mutation_retry_after_reload: false,
@@ -73,6 +76,7 @@ impl TableMutationState {
     pub(crate) fn reset_apply_lifecycle(&mut self) {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
+        self.staged_apply_confirm = false;
         self.table_mutation_retry_after_reload = false;
         self.table_mutation_retry_target = None;
     }

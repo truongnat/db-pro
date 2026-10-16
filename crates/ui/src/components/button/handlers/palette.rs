@@ -60,7 +60,9 @@ impl ButtonPalette {
                 fill_hover: Color32::TRANSPARENT,
                 stroke_rest: Stroke::NONE,
                 stroke_hover: Stroke::NONE,
-                text_color: theme.accent,
+                // AA: accent-on-surface measured 4.48:1 in audit; `info` keeps
+                // the same blue role at a passing ratio (#344).
+                text_color: theme.info,
             },
         }
     }

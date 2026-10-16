@@ -95,3 +95,55 @@ fn malformed_row_surfaces_actionable_error() {
     );
     let _ = fs::remove_file(&path);
 }
+
+// #429: a delimited writer must defuse spreadsheet formulas — database text starting with
+// `=`, `+`, `-`, `@`, tab, CR, newline or space gets the `'` literal prefix.
+#[test]
+fn guard_csv_field_prefixes_formula_leading_values() {
+    use std::borrow::Cow;
+
+    for (input, expected) in [
+        (
+            "=HYPERLINK(\"http://evil\",\"x\")",
+            "'=HYPERLINK(\"http://evil\",\"x\")",
+        ),
+        ("+1+1", "'+1+1"),
+        ("-1+1", "'-1+1"),
+        ("@SUM(A1)", "'@SUM(A1)"),
+        ("\tcmd", "'\tcmd"),
+        ("\rcmd", "'\rcmd"),
+        (" lead", "' lead"),
+    ] {
+        assert_eq!(
+            guard_csv_field(input),
+            Cow::<str>::Owned(expected.to_owned()),
+            "{input:?}"
+        );
+    }
+    // Real numeric literals stay numeric; plain text is untouched.
+    for input in ["-42", "+1.5", "-3.14e2", "plain", ""] {
+        assert_eq!(guard_csv_field(input), Cow::<str>::Borrowed(input), "{input:?}");
+    }
+}
+
+#[test]
+fn delimited_target_sanitizes_formula_cells() {
+    let path = temp_path("formula.csv");
+    let _ = fs::remove_file(&path);
+
+    let mut target =
+        DelimitedFileTarget::create(&path, DelimitedFormat::Csv, vec!["id".into(), "payload".into()]).unwrap();
+    target
+        .write_batch(&[TransferRow {
+            cells: vec!["1".into(), "=cmd|'/c calc'!A1".into()],
+        }])
+        .unwrap();
+    target.finish().unwrap();
+
+    let body = fs::read_to_string(&path).unwrap();
+    assert!(
+        body.contains("'=cmd|'/c calc'!A1"),
+        "formula-leading cell must be prefixed: {body}"
+    );
+    let _ = fs::remove_file(&path);
+}

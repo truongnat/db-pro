@@ -5,7 +5,8 @@ use super::*;
 pub(super) enum FilesGitAction {
     Refresh,
     ReloadExternalFile(String),
-    DismissExternalFile,
+    /// Dismiss a single queued path — other pending warnings stay (#414).
+    DismissExternalFile(String),
     CommitStaged,
     Stage(String),
     Unstage(String),
@@ -17,9 +18,12 @@ pub(super) struct FilesGitContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) status: Option<&'a GitWorkspaceStatus>,
     pub(super) last_error: Option<&'a str>,
-    pub(super) external_change: Option<&'a str>,
+    /// Pending disk-change warnings, one per diverged dirty file (#414).
+    pub(super) external_changes: &'a [String],
     pub(super) commit_message: &'a mut String,
     pub(super) diff: Option<&'a GitDiffResult>,
+    /// True while a git subprocess runs on a worker thread (#391).
+    pub(super) busy: bool,
 }
 
 impl FilesGitContext<'_> {
@@ -46,11 +50,15 @@ impl FilesGitContext<'_> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
             ui.label(RichText::new("GIT").font(font_caption()).strong().color(self.theme.text_secondary));
+            if self.busy {
+                ui.label(RichText::new("Git running…").small().color(self.theme.text_muted));
+            }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if Button::new(self.theme)
                     .icon(Icon::RefreshCw)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
+                    .enabled(!self.busy)
                     .tooltip("Refresh git status")
                     .access_label("Refresh git status")
                     .show(ui)
@@ -65,10 +73,26 @@ impl FilesGitContext<'_> {
     }
 
     fn draw_external_change(&self, ui: &mut egui::Ui) -> Vec<FilesGitAction> {
-        let Some(path) = self.external_change else {
+        if self.external_changes.is_empty() {
             return Vec::new();
-        };
+        }
         let mut actions = Vec::new();
+        if self.external_changes.len() > 1 {
+            ui.label(
+                RichText::new(format!("{} files changed on disk", self.external_changes.len()))
+                    .small()
+                    .strong()
+                    .color(self.theme.warning),
+            );
+        }
+        for path in self.external_changes {
+            self.draw_external_change_row(ui, path, &mut actions);
+        }
+        ui.add_space(6.0);
+        actions
+    }
+
+    fn draw_external_change_row(&self, ui: &mut egui::Ui, path: &str, actions: &mut Vec<FilesGitAction>) {
         ui.colored_label(
             self.theme.warning,
             format!("Disk changed for {path} — unsaved editor buffer was kept."),
@@ -91,12 +115,12 @@ impl FilesGitContext<'_> {
                 .show(ui)
                 .clicked()
             {
-                actions.push(FilesGitAction::DismissExternalFile);
+                actions.push(FilesGitAction::DismissExternalFile(path.to_owned()));
             }
         });
         ui.add_space(6.0);
-        actions
     }
+
 
     fn draw_status_placeholder(&self, ui: &mut egui::Ui) {
         ui.label(

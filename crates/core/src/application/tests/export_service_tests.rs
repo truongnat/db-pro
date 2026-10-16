@@ -100,6 +100,44 @@ async fn export_csv_basic() {
     assert_eq!(result.row_count, 2);
 }
 
+// #429: the service-level CSV render must defuse spreadsheet formulas in both headers and cells.
+#[test]
+fn csv_render_escapes_formula_leading_fields() {
+    let result = QueryResult {
+        columns: vec![
+            ColumnMeta {
+                name: "id".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            },
+            ColumnMeta {
+                name: "=cmd".into(),
+                data_type: "TEXT".into(),
+                nullable: true,
+            },
+        ],
+        rows: vec![
+            Row(vec![
+                CellValue::Int64(1),
+                CellValue::Text("=HYPERLINK(\"http://evil\",\"x\")".into()),
+            ]),
+            Row(vec![CellValue::Int64(-2), CellValue::Text("-1+1".into())]),
+        ],
+        row_count: 2,
+        duration_ms: 0,
+    };
+
+    let csv = String::from_utf8(render_csv(&result).expect("csv render")).expect("utf8");
+
+    assert!(csv.contains("'=cmd"), "header must be guarded: {csv}");
+    assert!(
+        csv.contains("'=HYPERLINK("),
+        "formula text cell must be prefixed: {csv}"
+    );
+    assert!(csv.contains("'-1+1"), "non-numeric `-` text must be prefixed: {csv}");
+    assert!(csv.contains("-2"), "a real negative number stays numeric: {csv}");
+}
+
 #[tokio::test]
 async fn export_json_basic() {
     let conn_id = ConnectionId::new();

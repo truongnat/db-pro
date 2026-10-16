@@ -2,8 +2,13 @@
 #[derive(Debug, Default)]
 pub(crate) struct OverlayState {
     pub(super) export_open: bool,
+    /// Result frozen at the moment the export dialog opens (#404) — a newer
+    /// result must never leak into a dialog opened against older data.
+    pub(super) export_snapshot: Option<crate::UiQueryResult>,
     pub(super) export_format: ExportFormat,
     pub(super) export_path: String,
+    /// Target table name used by SqlInsert/SqlCopy exports (#426).
+    pub(super) export_table_name: String,
     pub(super) export_overwrite_pending: bool,
     pub(super) backup_output_path: String,
     pub(super) restore_input_path: String,
@@ -14,6 +19,30 @@ pub(crate) struct OverlayState {
     /// renders the connection delete modal in `draw_overlays`.
     pub(super) saved_query_delete_id: Option<String>,
     pub(super) folder_delete_confirmation: Option<String>,
+}
+
+impl OverlayState {
+    /// The path the export will actually write (#396).
+    ///
+    /// The format's extension is appended when the typed path has none or a different one
+    /// (`out.csv` + INSERT format → `out.csv.sql`) so the file on disk always matches its contents;
+    /// an already-correct extension is kept as typed.
+    pub(crate) fn effective_export_path(&self) -> std::path::PathBuf {
+        let raw = self.export_path.trim();
+        if raw.is_empty() {
+            return std::path::PathBuf::new();
+        }
+        let path = std::path::PathBuf::from(raw);
+        let expected = self.export_format.extension();
+        match path.extension().and_then(|ext| ext.to_str()) {
+            Some(existing) if existing.eq_ignore_ascii_case(expected) => path,
+            _ => {
+                let mut name = path.into_os_string();
+                name.push(format!(".{expected}"));
+                std::path::PathBuf::from(name)
+            }
+        }
+    }
 }
 
 /// File format the result-grid export dialog writes. Owned by the overlay
@@ -65,6 +94,18 @@ impl ExportFormat {
             Self::Csv => Some(","),
             Self::Tsv => Some("\t"),
             _ => None,
+        }
+    }
+
+    /// File extension matching what the writer emits (#396).
+    pub(crate) fn extension(self) -> &'static str {
+        match self {
+            Self::Csv => "csv",
+            Self::Tsv => "tsv",
+            Self::Json => "json",
+            Self::Markdown => "md",
+            Self::SqlInsert | Self::SqlCopy => "sql",
+            Self::Excel => "xlsx",
         }
     }
 }

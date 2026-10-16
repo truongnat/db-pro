@@ -46,7 +46,10 @@ pub(super) fn register(ctx: &Context, id: Id) -> bool {
         if cur.pass != pass {
             // A new pass started: the stack accumulated during the previous pass
             // becomes the reference used to decide who is topmost this pass.
-            d.insert_temp(prev_key(), cur.ids.clone());
+            // A stack older than the immediately preceding pass is stale (its
+            // dialogs already closed) and is dropped instead of promoted.
+            let prev = if cur.pass + 1 == pass { cur.ids } else { Vec::new() };
+            d.insert_temp(prev_key(), prev);
             cur = ModalStack { pass, ids: Vec::new() };
         }
         if !cur.ids.contains(&id) {
@@ -69,10 +72,10 @@ pub fn any_open(ctx: &Context) -> bool {
     ctx.data(|d| {
         let cur: ModalStack = d.get_temp(stack_key()).unwrap_or_default();
         let pass = ctx.cumulative_pass_nr();
-        if cur.pass == pass && !cur.ids.is_empty() {
-            return true;
-        }
-        !d.get_temp::<Vec<Id>>(prev_key()).unwrap_or_default().is_empty()
+        // Only the current or immediately preceding pass counts: `prev` kept an
+        // untimestamped copy, so once the last dialog closed nothing overwrote
+        // it and `any_open` latched true, blocking every global shortcut.
+        !cur.ids.is_empty() && cur.pass + 1 >= pass
     })
 }
 

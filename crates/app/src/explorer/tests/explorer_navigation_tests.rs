@@ -16,7 +16,7 @@ fn connection() -> UiConnectionSummary {
         tags: Vec::new(),
         group: None,
         favorite: false,
-        environment: "Development".to_owned(),
+        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
     }
 }
 

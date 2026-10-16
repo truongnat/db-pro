@@ -19,7 +19,7 @@
 | Clipboard copy (cell / row / CSV / JSON) | both | **Release-qualified** | #61/#66 evidence: one shared escaping path, pinned by `test_copy_as_json_keeps_exact_numeric_digits`, `test_delimited_export_keeps_field_count_for_awkward_values`, `test_export_result_writes_escaped_delimited_text` |
 | Import | any | **Deferred / not supported** | LIM-012 ("Import deferred"); `grep -rni "import" crates/ui/src crates/runtime/src` → no import surface |
 | Backup SQLite | SQLite | **Release-qualified** (source + tests; packaged smoke owned by #91/#95) | `VACUUM INTO` into `.db-pro-<uuid>.tmp`, `flush_file` fsync, no-overwrite `hard_link` publish, sidecar (`-wal`/`-shm`/`-journal`) removal — `crates/infrastructure/src/backup/sqlite_backup.rs:131,57-76,155,19-56`; 8 regression tests (#145 evidence) |
-| Backup PostgreSQL | PostgreSQL | **Implemented but not qualified** | `pg_dump` argv construction `crates/infrastructure/src/backup/pg_dump.rs:85-112`, password via `PGPASSWORD` env (never argv), destination reserved with `create_new(true)` and deleted on failure (`:54-74,133-136`). Requires `pg_dump` on `PATH` (LIM-015 — not bundled), and a running backup **cannot be cancelled** (E-3) |
+| Backup PostgreSQL | PostgreSQL | **Implemented but not qualified** | `pg_dump` argv construction `crates/infrastructure/src/backup/pg_dump.rs`, password via a 0600 `PGPASSFILE` temp file dropped after the run (#430; never argv, no longer `PGPASSWORD`), destination reserved with `create_new(true)` and published by writing an unguessable sibling then renaming it over the reservation (#431); staging and reservation files are deleted on failure. Requires `pg_dump` on `PATH` (LIM-015 — not bundled), and a running backup **cannot be cancelled** (E-3) |
 | Restore SQLite | SQLite | **Release-qualified** | staged copy → `SQLITE_OPEN_READ_ONLY` + `PRAGMA quick_check` → sidecar removal → atomic rename, then the introspection cache is dropped (`sqlite_backup.rs:175+`, `backup_service.rs:89`); defect tests from #145 fail-before/pass-after |
 | Restore PostgreSQL | PostgreSQL | **Implemented but not qualified** | `psql -f` (plain) / `pg_restore` (custom), `pg_dump.rs:140-170`; requires the tools on `PATH`; **no transaction boundary and no partial-failure recovery** (E-2) |
 
@@ -39,8 +39,8 @@
 (`table_data_service.rs:213-250`, delete→update→insert order, readonly re-checked), so there is no
 partial-write window in the grid path; the SQLite backup and restore are snapshot-safe, fsynced, published
 without overwrite and sidecar-clean (#145 evidence); export escaping is shared with the clipboard paths and
-pinned by tests (#61); backup/restore secrets never enter argv (`PGPASSWORD`/`SSHPASS` via the child
-environment) and the SSH path is pinned by `tunnel.rs:199-218`.
+pinned by tests (#61); backup/restore secrets never enter argv (`PGPASSFILE`/`SSHPASS` via the child
+environment — the pgpass file is 0600 and removed on drop, #430) and the SSH path is pinned by `tunnel.rs:199-218`.
 
 ## 3. Partial-failure semantics summary (the question the issue asks)
 

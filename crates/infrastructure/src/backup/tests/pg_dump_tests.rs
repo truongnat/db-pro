@@ -55,12 +55,13 @@ fn restore_argv_has_no_transaction_boundary_and_is_documented_as_such() {
         format: BackupFormat::Custom,
     };
 
-    let plain_args = PgDumpEngine::restore_command(&plain, &config, "pw")
+    let pgpass_path = Path::new("/tmp/db-pro-pgpass-test");
+    let plain_args = PgDumpEngine::restore_command(&plain, &config, pgpass_path)
         .as_std()
         .get_args()
         .map(|arg| arg.to_string_lossy().into_owned())
         .collect::<Vec<_>>();
-    let custom_args = PgDumpEngine::restore_command(&custom, &config, "pw")
+    let custom_args = PgDumpEngine::restore_command(&custom, &config, pgpass_path)
         .as_std()
         .get_args()
         .map(|arg| arg.to_string_lossy().into_owned())
@@ -81,17 +82,98 @@ fn restore_argv_has_no_transaction_boundary_and_is_documented_as_such() {
         assert!(args.windows(2).any(|pair| pair == ["-d", "dbpro_fixture"]), "{args:?}");
         assert!(
             !args.iter().any(|arg| arg.contains("pw")),
-            "password must not appear in argv (use PGPASSWORD env): {args:?}"
+            "password must not appear in argv (it rides in PGPASSFILE instead): {args:?}"
         );
     }
 
-    let plain_env = PgDumpEngine::restore_command(&plain, &config, "pw")
+    // #430: credentials go through a pgpass file, never the child's environment.
+    let envs: Vec<(String, Option<String>)> = PgDumpEngine::restore_command(&plain, &config, pgpass_path)
         .as_std()
         .get_envs()
-        .find_map(|(key, value)| {
-            (key.to_string_lossy() == "PGPASSWORD").then(|| value.map(|v| v.to_string_lossy().into_owned()))
-        });
-    assert_eq!(plain_env, Some(Some("pw".to_owned())));
+        .map(|(key, value)| {
+            (
+                key.to_string_lossy().into_owned(),
+                value.map(|v| v.to_string_lossy().into_owned()),
+            )
+        })
+        .collect();
+    assert_eq!(
+        envs.iter()
+            .find(|(key, _)| key == "PGPASSFILE")
+            .and_then(|(_, v)| v.clone()),
+        Some("/tmp/db-pro-pgpass-test".to_owned()),
+        "PGPASSFILE must point at the pgpass file: {envs:?}"
+    );
+    assert!(
+        !envs.iter().any(|(key, _)| key == "PGPASSWORD"),
+        "PGPASSWORD must not reach the child environment: {envs:?}"
+    );
+}
+
+#[test]
+fn backup_staging_path_is_unpredictable_sibling() {
+    let output = Path::new("/tmp/dumps/nightly.dump");
+    let first = PgDumpEngine::backup_staging_path(output);
+    let second = PgDumpEngine::backup_staging_path(output);
+
+    assert_ne!(first, second, "each run must pick a fresh name");
+    assert_eq!(
+        first.parent(),
+        output.parent(),
+        "staging must share the destination directory"
+    );
+    assert_ne!(first, output, "pg_dump must never see the caller-visible path");
+    assert!(
+        first.file_name().unwrap().to_string_lossy().contains("pgdump-tmp"),
+        "staging name must be recognizable for cleanup: {}",
+        first.display()
+    );
+}
+
+#[tokio::test]
+async fn pgpass_file_is_owner_only_and_removed_on_drop() -> Result<(), Box<dyn std::error::Error>> {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let config = ConnectionConfig {
+        name: "fixture".to_owned(),
+        host: "db.internal".to_owned(),
+        port: 5432,
+        database: "dbpro:fixture".to_owned(),
+        username: "dbpro".to_owned(),
+        driver: db_pro_core::domain::connection::DriverType::Postgres,
+        ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+        ssh_tunnel: None,
+        ssh_profile_id: None,
+        ssl_root_cert_path: None,
+        ssl_client_cert_path: None,
+        ssl_client_key_path: None,
+        query_timeout_ms: 30_000,
+        max_rows: 500,
+        color: None,
+        tags: Vec::new(),
+        group: None,
+        favorite: false,
+        environment: Default::default(),
+        readonly: false,
+    };
+
+    let path = {
+        let guard = PgPassFile::create(&config, "p\\a:ss").await?;
+        let contents = tokio::fs::read_to_string(&guard.path).await?;
+        assert_eq!(
+            contents, "db.internal:5432:dbpro\\:fixture:dbpro:p\\\\a\\:ss\n",
+            "pgpass fields must backslash-escape `:` and `\\`: {contents}"
+        );
+        #[cfg(unix)]
+        assert_eq!(
+            std::fs::metadata(&guard.path)?.permissions().mode() & 0o777,
+            0o600,
+            "libpq rejects pgpass files others can read"
+        );
+        guard.path.clone()
+    };
+    assert!(!path.exists(), "drop must remove the credential file");
+    Ok(())
 }
 
 #[tokio::test]

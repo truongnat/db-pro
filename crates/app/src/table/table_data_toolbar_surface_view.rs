@@ -154,6 +154,11 @@ impl TableDataToolbarContext<'_> {
         );
         let mut accepted_index = None;
         let mut close_popup = false;
+        // Mod+Enter runs the filter even while the completion popup is open —
+        // consumed before the TextEdit sees it so it never reaches the field
+        // or the popup's accept handling (#339).
+        let mod_enter_pressed = ui.memory(|memory| memory.has_focus(editor_id))
+            && ui.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
         if popup_was_open && !previous_candidates.is_empty() {
             ui.input_mut(|input| {
                 for (key, selected) in [(egui::Key::ArrowDown, 1usize), (egui::Key::ArrowUp, usize::MAX)] {
@@ -212,7 +217,7 @@ impl TableDataToolbarContext<'_> {
         // `new_child` (not `allocate_new_ui`): `editor_rect` is already
         // reserved by `allocate_exact_size`, and nothing inside the editor
         // may push its min_rect back into the toolbar's placer.
-        let editor_max = editor_rect.shrink2(egui::vec2(SPACE_XXS, 0.0));
+        let editor_max = editor_rect.shrink2(egui::vec2(SPACE_XXS, 2.0));
         let mut editor_ui = ui.new_child(egui::UiBuilder::new().max_rect(editor_max));
         editor_ui.set_clip_rect(editor_ui.clip_rect().intersect(editor_max));
         let output = editor_ui
@@ -283,7 +288,7 @@ impl TableDataToolbarContext<'_> {
             == Some(&self.data_query.sql_condition_draft);
         let should_suggest = condition_should_suggest_automatically(&self.data_query.sql_condition_draft, cursor);
         self.data_query.sql_condition_suggestions_open =
-            (response.has_focus() || focused) && !close_popup && !dismissed && should_suggest && !candidates.is_empty();
+            response.has_focus() && !close_popup && !dismissed && should_suggest && !candidates.is_empty();
         if !candidates.is_empty() {
             self.data_query.sql_condition_suggestion_index =
                 self.data_query.sql_condition_suggestion_index.min(candidates.len() - 1);
@@ -313,7 +318,10 @@ impl TableDataToolbarContext<'_> {
             .clicked();
         let enter_pressed =
             accepted_index.is_none() && response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
-        if run_clicked || enter_pressed {
+        if run_clicked || enter_pressed || mod_enter_pressed {
+            // Running surrenders the single-line editor's focus; hand it back
+            // so the user can keep refining the condition without re-clicking.
+            ui.memory_mut(|memory| memory.request_focus(editor_id));
             let sql = select_with_condition(self.sql_prefix, &self.data_query.sql_condition_draft);
             return Some(if self.staged_changes.is_empty() && !self.staged_apply_pending {
                 TableDataToolbarAction::RunSql(sql)

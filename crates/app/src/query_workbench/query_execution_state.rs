@@ -3,11 +3,28 @@ use std::collections::HashMap;
 
 use db_pro_core::domain::transaction_control::{transaction_control, TransactionControl};
 
+/// Which dispatch surface held the statement — confirmation routes the run back to
+/// the matching channel (`send_query_run` vs `send_table_data_query_run`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PendingDestructiveRunOrigin {
+    /// The query editor's Ctrl+Enter / run-all path.
+    QueryEditor,
+    /// The table-data tab's inline SQL bar.
+    InlineQuery,
+    /// An EXPLAIN ANALYZE whose inner statement is destructive: confirming must
+    /// dispatch `ExplainQuery`, not a plain run.
+    ExplainAnalyze,
+}
+
 /// A statement (or script) the classifier rates `Destructive`, held until the user
 /// confirms the exact text the prompt displayed.
 #[derive(Debug, Clone)]
 pub(crate) struct PendingDestructiveRun {
     sql: String,
+    origin: PendingDestructiveRunOrigin,
+    /// Connection/schema the dialog must show — resolved when the run is held, not
+    /// when it is confirmed.
+    target_label: String,
     metadata: PendingDestructiveRunMetadata,
 }
 
@@ -29,12 +46,20 @@ impl PendingDestructiveRunMetadata {
 }
 
 impl PendingDestructiveRun {
-    pub(crate) fn new(sql: String, metadata: PendingDestructiveRunMetadata) -> Self {
-        Self { sql, metadata }
+    pub(crate) fn new(sql: String, origin: PendingDestructiveRunOrigin, target_label: String, metadata: PendingDestructiveRunMetadata) -> Self {
+        Self { sql, origin, target_label, metadata }
     }
 
     pub(crate) fn sql(&self) -> &str {
         &self.sql
+    }
+
+    pub(crate) fn origin(&self) -> PendingDestructiveRunOrigin {
+        self.origin
+    }
+
+    pub(crate) fn target_label(&self) -> &str {
+        &self.target_label
     }
 
     pub(crate) fn execution_range(&self) -> (usize, usize) {
@@ -151,6 +176,16 @@ impl QueryExecutionPolicyState {
                 .pending_transactions
                 .values()
                 .any(|(id, _)| id == document_id)
+    }
+
+    /// ID of the document holding the open transaction, if any. Server-side a
+    /// transaction is per-connection, so a second tab on the same connection
+    /// silently shares it — callers must gate cross-tab runs (#423).
+    pub(super) fn transaction_owner(&self) -> Option<&str> {
+        self.documents
+            .iter()
+            .find(|(_, document)| document.in_transaction)
+            .map(|(id, _)| id.as_str())
     }
 
     pub(super) fn forget_document(&mut self, document_id: &str) {

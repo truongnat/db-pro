@@ -88,7 +88,7 @@ fn writable_orders_app() -> DbProApp {
                     tags: vec![],
                     group: None,
                     favorite: false,
-                    environment: "Development".to_owned(),
+                    environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
                 }],
             },
             lifecycle: ConnectionLifecycleState {

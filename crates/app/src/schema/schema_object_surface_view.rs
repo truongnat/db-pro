@@ -22,6 +22,8 @@ pub(super) struct SchemaDefinitionContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) kind: &'a str,
     pub(super) definition: &'a str,
+    /// SQL dialect for highlighted definition SQL (#336).
+    pub(super) dialect: crate::editor::SqlDialect,
 }
 
 impl SchemaDefinitionContext<'_> {
@@ -30,7 +32,7 @@ impl SchemaDefinitionContext<'_> {
             ui.set_min_width(ui.available_width());
             section_label(ui, format!("{} DEFINITION", self.kind), self.theme);
             ui.add_space(SPACE_SM);
-            CodeBlock::new(self.definition, self.theme).language("sql").show(ui);
+            CodeBlock::new(self.definition, self.theme).language("sql").sql_dialect(self.dialect).show(ui);
         });
     }
 }

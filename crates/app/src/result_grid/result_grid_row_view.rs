@@ -48,7 +48,11 @@ pub(super) fn draw_row(
             .ctx()
             .input(|input| input.pointer.hover_pos())
             .or_else(debug_pointer_pos);
-        let row_hovered = hover_pos.is_some_and(|pos| row_rect.contains(pos));
+        // Raw hit test is screen-space: skip it when the pointer sits inside an
+        // overlaying surface on the same layer (the agent panel) so hover
+        // doesn't leak through (#338).
+        let row_hovered = hover_pos
+            .is_some_and(|pos| row_rect.contains(pos) && !crate::app::agent_panel_contains_pointer(ui.ctx(), pos));
         let origin_x = ui.cursor().left();
         let clip = ui.clip_rect();
         let window = crate::grid_column_window(
@@ -97,7 +101,11 @@ pub(super) fn draw_row(
         }
 
         if window.trailing > 0.0 {
-            let (skipped, _) = ui.allocate_exact_size(egui::vec2(window.trailing, 28.0), egui::Sense::hover());
+            // Paint-only filler: advance the cursor without registering an
+            // interactable rect — `Sense::hover` here ate pointer attention
+            // and landed in WidgetRects audits (#352).
+            let skipped = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(window.trailing, 28.0));
+            ui.advance_cursor_after_rect(skipped);
             let fill = if context.row_selected {
                 context.theme.soft_tint(context.theme.accent)
             } else if row_hovered {
@@ -116,7 +124,10 @@ pub(super) fn draw_row(
         // Trailing filler — the row's bottom border continues to the grid edge.
         let rest = ui.available_width();
         if rest > 0.5 {
-            let (fill_rect, _) = ui.allocate_exact_size(egui::vec2(rest, 28.0), egui::Sense::hover());
+            // Paint-only as well: `available_rect_before_wrap` sized to the
+            // remaining width; no interaction is registered (#352).
+            let fill_rect = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(rest, 28.0));
+            ui.advance_cursor_after_rect(fill_rect);
             let fill = if context.row_selected {
                 context.theme.soft_tint(context.theme.accent)
             } else if row_hovered {

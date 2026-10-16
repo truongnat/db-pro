@@ -35,7 +35,9 @@ pub use db_transfer::{
     assert_endpoint_capabilities, build_conversion_plan, ColumnConversion, ConversionKind, ConversionPlan,
     DbColumnSpec, GeneratorTableSource, MemoryTableTarget,
 };
-pub use delimited_transfer::{csv_cell_from_display, DelimitedFileSource, DelimitedFileTarget, DelimitedFormat};
+pub use delimited_transfer::{
+    csv_cell_from_display, guard_csv_field, DelimitedFileSource, DelimitedFileTarget, DelimitedFormat,
+};
 pub use driver_dialect::DriverDialect;
 pub use export_service::{ExportResult, ExportService};
 pub use extension_loader::ExtensionRegistry;

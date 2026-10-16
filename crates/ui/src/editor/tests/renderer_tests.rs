@@ -38,6 +38,69 @@ fn render_editor_event(initial_text: &str, event: egui::Event, id_salt: &str) ->
     (buffer.text().to_owned(), editor_response)
 }
 
+fn render_editor_event_with_selection(
+    initial_text: &str,
+    selection: SelectionRange,
+    cursor_offset: usize,
+    event: egui::Event,
+) -> (String, SelectionRange) {
+    let ctx = egui::Context::default();
+    let mut buffer = TextBuffer::from_string(initial_text);
+    let mut cursor = CursorPosition::from_offset(&buffer, cursor_offset);
+    let mut sel = selection;
+    let theme = DbProTheme::dark();
+
+    let _ = crate::test_frame::frame(
+        &ctx,
+        egui::RawInput {
+            focused: true,
+            events: vec![event],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor_id = ui.make_persistent_id("sel-enter");
+                ui.memory_mut(|memory| memory.request_focus(editor_id));
+                SqlEditor::new(
+                    &mut buffer,
+                    &mut cursor,
+                    &mut sel,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "sel-enter",
+                )
+                .show(ui, egui::vec2(600.0, 400.0));
+            });
+        },
+    );
+
+    (buffer.text().to_owned(), sel)
+}
+
+/// Ctrl+A → Enter used to replace the whole buffer with a newline (#342):
+/// Enter must collapse the selection and insert at its end instead.
+#[test]
+fn enter_with_selection_collapses_instead_of_deleting() {
+    let text = "SELECT 1;";
+    let (result, selection) = render_editor_event_with_selection(
+        text,
+        SelectionRange::new(0, text.len()),
+        text.len(),
+        egui::Event::Key {
+            key: egui::Key::Enter,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        },
+    );
+    assert!(result.starts_with(text), "selection content survives: {result:?}");
+    assert!(result.ends_with('\n'), "Enter still inserts a newline: {result:?}");
+    assert!(selection.is_empty(), "the selection collapses");
+}
+
 #[test]
 fn test_caret_geometry_calculation() {
     let text = "SELECT 1;\nSELECT 2;\nSELECT 3;";

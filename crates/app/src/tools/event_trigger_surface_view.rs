@@ -2,7 +2,7 @@
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 //! PostgreSQL event-trigger presentation and typed user intents.
-use super::super::event_trigger_state::EventTriggerState;
+use super::super::event_trigger_state::{EventTriggerApply, EventTriggerState};
 use super::super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +21,8 @@ pub(super) enum EventTriggerSurfaceAction {
         tags_csv: String,
     },
     Create,
+    ConfirmApply,
+    CancelApply,
     ClosePreview,
     ConfirmDrop(String),
     CancelDrop,
@@ -31,6 +33,7 @@ pub(super) struct EventTriggerSurfaceContext<'a> {
     pub(super) state: &'a mut EventTriggerState,
 }
 
+
 impl EventTriggerSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<EventTriggerSurfaceAction> {
         let mut actions = Vec::new();
@@ -39,6 +42,7 @@ impl EventTriggerSurfaceContext<'_> {
         self.draw_create_form(ui, &mut actions);
         self.draw_preview(ui, &mut actions);
         self.draw_drop_confirmation(ui, &mut actions);
+        self.draw_apply_confirmation(ui, &mut actions);
         actions
     }
 
@@ -195,6 +199,57 @@ impl EventTriggerSurfaceContext<'_> {
             });
         if !open {
             actions.push(EventTriggerSurfaceAction::ClosePreview);
+        }
+    }
+
+    fn draw_apply_confirmation(&self, ui: &mut egui::Ui, actions: &mut Vec<EventTriggerSurfaceAction>) {
+        let Some(pending) = self.state.event_trigger_apply_confirm.as_ref() else {
+            return;
+        };
+        let (title, sql) = match pending {
+            EventTriggerApply::Create { name, sql, .. } => {
+                (format!("Create event trigger `{name}`?"), sql.as_str())
+            }
+            EventTriggerApply::Alter { name, mode, sql } => {
+                (format!("Apply ALTER EVENT TRIGGER `{name}` {mode}?"), sql.as_str())
+            }
+        };
+        let mut open = true;
+        Dialog::new(&mut open, &title, self.theme)
+            .width(560.0)
+            .id_salt("event_trigger_apply_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(
+                        RichText::new("This changes global DDL hook behavior.")
+                            .small()
+                            .color(self.theme.warning),
+                    );
+                    ui.label(RichText::new(sql).monospace());
+                });
+                frame.footer(|ui| {
+                    if Button::new(self.theme)
+                        .text("Apply")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(EventTriggerSurfaceAction::ConfirmApply);
+                    }
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(EventTriggerSurfaceAction::CancelApply);
+                    }
+                });
+            });
+        if !open {
+            actions.push(EventTriggerSurfaceAction::CancelApply);
         }
     }
 

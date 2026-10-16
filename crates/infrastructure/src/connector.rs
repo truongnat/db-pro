@@ -141,10 +141,15 @@ impl db_pro_core::ports::SqlDialect for MySqlDialect {
 /// A single connection handle and the connector (built by its factory)
 /// that owns it. The connector is wrapped in `Arc` so we can clone it
 /// and drop the lock before awaiting — `RwLockWriteGuard` is not `Send`.
+/// `tunnel` keeps the SSH forwarding process alive for the connection's
+/// lifetime; dropping the handle kills the child process (#400).
 struct ActiveConnection {
     connector: Arc<dyn DbConnector>,
     inner_handle: db_pro_core::domain::connection::ConnectionHandle,
     driver: db_pro_core::domain::connection::DriverType,
+    /// Held only for its `Drop` — kills the forwarding child process.
+    #[allow(dead_code)]
+    tunnel: Option<crate::ssh::SshTunnelHandle>,
 }
 
 pub struct CompositeConnector {
@@ -243,6 +248,31 @@ impl CompositeConnector {
             .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
         Ok((Arc::clone(&conn.connector), conn.inner_handle))
     }
+    /// Establish the SSH tunnel leg before any DB traffic when the config asks
+    /// for one (#400). Returns the rewritten config (host → 127.0.0.1, port →
+    /// tunnel local port) plus the tunnel handle that must stay alive while
+    /// the connection is in use.
+    async fn effective_config(
+        config: &ConnectionConfig,
+    ) -> Result<(ConnectionConfig, Option<crate::ssh::SshTunnelHandle>), DbError> {
+        let Some(ssh) = config.ssh_tunnel.as_ref() else {
+            return Ok((config.clone(), None));
+        };
+        let tunnel_config = crate::ssh::SshTunnelConfig {
+            host: ssh.host.clone(),
+            port: ssh.port,
+            user: ssh.user.clone(),
+            private_key_path: ssh.private_key_path.clone(),
+            password: ssh.password.clone(),
+        };
+        let tunnel = crate::ssh::SshTunnel::start(&tunnel_config, &config.host, config.port)
+            .await
+            .map_err(|error| DbError::ConnectionFailed(format!("SSH tunnel to {} failed: {error}", ssh.host)))?;
+        let mut effective = config.clone();
+        effective.host = "127.0.0.1".to_owned();
+        effective.port = tunnel.local_port();
+        Ok((effective, Some(tunnel)))
+    }
 }
 
 impl Default for CompositeConnector {
@@ -262,8 +292,16 @@ impl DbConnector for CompositeConnector {
             .factories
             .get(&config.driver)
             .ok_or_else(|| DbError::Validation(format!("unsupported driver: {:?}", config.driver)))?;
+        // SSH leg first: Connect and Test both exercise the real tunnel (#400).
+        let (effective, tunnel) = Self::effective_config(config).await?;
         let connector = factory.build();
-        let inner_handle = connector.connect(config, password).await?;
+        let inner_handle = match connector.connect(&effective, password).await {
+            Ok(handle) => handle,
+            Err(error) => {
+                drop(tunnel);
+                return Err(error);
+            }
+        };
 
         let id = self.next_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
@@ -273,6 +311,7 @@ impl DbConnector for CompositeConnector {
                 connector: Arc::from(connector),
                 inner_handle,
                 driver: config.driver,
+                tunnel,
             },
         );
 
@@ -295,7 +334,12 @@ impl DbConnector for CompositeConnector {
             .factories
             .get(&config.driver)
             .ok_or_else(|| DbError::Validation(format!("unsupported driver: {:?}", config.driver)))?;
-        factory.test_connection(config, password).await
+        // Exercise the full chain: SSH tunnel → DB connect → auth (#400). The
+        // tunnel handle drops here, killing the forwarding process.
+        let (effective, tunnel) = Self::effective_config(config).await?;
+        let result = factory.test_connection(&effective, password).await;
+        drop(tunnel);
+        result
     }
 
     async fn query(

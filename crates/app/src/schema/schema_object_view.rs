@@ -62,6 +62,7 @@ impl DbProApp {
                 theme: self.theme,
                 kind: &details.kind,
                 definition: &details.definition,
+                dialect: self.editor_dialect(),
             }
             .draw(ui);
         }
@@ -98,6 +99,7 @@ impl DbProApp {
         if self.management.routine.routine_param_values.len() != input_count {
             self.management.routine.sync_from(&function);
         }
+        let dialect = self.editor_dialect();
         let action = {
             let mut context = routine_workbench_surface_view::RoutineWorkbenchContext {
                 theme: self.theme,
@@ -107,6 +109,7 @@ impl DbProApp {
                 drop_confirm: &mut self.management.routine.routine_drop_confirm,
                 parameter_values: &mut self.management.routine.routine_param_values,
                 parameter_nulls: &mut self.management.routine.routine_param_nulls,
+                dialect,
             };
             routine_workbench_surface_view::draw_workbench(&mut context, ui)
         };
@@ -144,8 +147,7 @@ impl DbProApp {
     }
 
     fn open_routine_query(&mut self, sql: String) {
-        self.set_active_query_text(sql);
-        self.workspace.active_tab = WorkspaceTab::Query;
+        self.open_query_document_with(sql, None);
     }
 
     fn execute_routine_query(&mut self, sql: String) {
@@ -198,8 +200,7 @@ impl DbProApp {
     fn apply_schema_object_surface_action(&mut self, action: schema_object_surface_view::SchemaObjectSurfaceAction) {
         match action {
             schema_object_surface_view::SchemaObjectSurfaceAction::OpenQuery(query) => {
-                self.set_active_query_text(query);
-                self.workspace.active_tab = WorkspaceTab::Query;
+                self.open_query_document_with(query, None);
             }
             schema_object_surface_view::SchemaObjectSurfaceAction::SelectView(view) => {
                 self.schema.explorer.schema_object_view = view;

@@ -178,6 +178,8 @@ query:
   export_results_desc: "将当前显示的结果行写入磁盘文件。"
   export_format_label: "格式"
   export_output_file: "输出文件"
+  export_table_name: "目标表"
+  export_path_adjusted: "将保存为 %{path}"
   export_visible_only: "超出显示上限的行不会包含在导出中。"
   export_overwrite_prompt: "%{path} 已存在。要覆盖吗?"
   overwrite: "覆盖"

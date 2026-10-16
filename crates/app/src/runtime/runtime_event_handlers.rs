@@ -167,6 +167,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
+        let driver = self.active_driver().to_owned();
         let mut context = schema_events::SchemaLoadedContext {
             schema_explorer: &mut self.schema.explorer,
             table_state: &mut self.table.state,
@@ -174,6 +175,7 @@ impl DbProApp {
             workspace: &mut self.workspace.shell,
             palette: &mut self.palette,
             feedback: &mut self.feedback,
+            driver: &driver,
         };
         let transition = schema_events::on_schema_loaded(&mut context, request_id, schema);
         if transition.refresh_selected_table {
@@ -222,6 +224,14 @@ impl DbProApp {
                 true
             }
             Some(table_events::TableFailureTransition::Handled) => {
+                if design_apply {
+                    self.schema.diagram.design.apply_request = None;
+                    self.schema.diagram.design.error = Some(message.to_owned());
+                }
+                true
+            }
+            Some(table_events::TableFailureTransition::DdlFailed) => {
+                self.schema.workbench.finalize_execution(request_id, false);
                 if design_apply {
                     self.schema.diagram.design.apply_request = None;
                     self.schema.diagram.design.error = Some(message.to_owned());
@@ -288,6 +298,11 @@ impl DbProApp {
         if transition.apply_staged_changes {
             self.table.mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
+        }
+        if transition.reload_grid {
+            self.table.editing.record_view_open = false;
+            self.table.data_query.invalidate_result();
+            self.request_table_data();
         }
     }
 }

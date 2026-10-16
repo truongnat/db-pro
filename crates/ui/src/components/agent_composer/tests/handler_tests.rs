@@ -2,15 +2,11 @@
 use super::*;
 
 #[test]
-fn keyboard_submit_requires_focus_loss_enter_and_nonblank_prompt() {
-    assert_eq!(
-        keyboard_action(true, true, false, "SELECT 1"),
-        Some(AgentComposerAction::Submit)
-    );
-    assert_eq!(keyboard_action(false, true, false, "SELECT 1"), None);
-    assert_eq!(keyboard_action(true, false, false, "SELECT 1"), None);
-    assert_eq!(keyboard_action(true, true, true, "SELECT 1"), None);
-    assert_eq!(keyboard_action(true, true, false, "  \n\t"), None);
+fn keyboard_submit_needs_the_enter_signal_and_a_nonblank_prompt() {
+    assert_eq!(keyboard_action(true, "SELECT 1"), Some(AgentComposerAction::Submit));
+    assert_eq!(keyboard_action(false, "SELECT 1"), None);
+    assert_eq!(keyboard_action(true, "  \n\t"), None);
+    assert_eq!(keyboard_action(true, ""), None);
 }
 
 #[test]

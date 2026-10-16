@@ -170,6 +170,20 @@ impl PgSettingsSurfaceContext<'_> {
                         self.theme,
                     )
                     .show(ui);
+                    // Show the exact statement Apply will run — SET is a live
+                    // session mutation, not preview-only like ALTER SYSTEM (#399).
+                    match db_pro_core::domain::pg_settings::preview_session_set(
+                        &name,
+                        &self.state.pg_settings_edit_value,
+                    ) {
+                        Ok(preview) => {
+                            ui.add_space(SPACE_XS);
+                            ui.label(RichText::new(&preview.sql).monospace().small().color(self.theme.text_secondary));
+                        }
+                        Err(error) => {
+                            ui.colored_label(self.theme.danger, error);
+                        }
+                    }
                 });
                 frame.footer(|ui| {
                     if secondary_button(ui, "Apply SET", self.theme).clicked() {

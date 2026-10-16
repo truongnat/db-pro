@@ -454,6 +454,14 @@ impl DbProApp {
             self.feedback.runtime_message = "Fix the validation error before applying changes".to_owned();
             return;
         }
+        // Deletes require the explicit "+N ~N -N" confirm gate (#408); inserts
+        // and updates alone still apply directly.
+        if self.table.mutation.staged_changes.counts().deletes > 0
+            && !self.table.mutation.staged_apply_confirm
+        {
+            self.table.mutation.staged_apply_confirm = true;
+            return;
+        }
         let Some(connection) = self.active_connection().cloned() else {
             self.feedback.runtime_message = "Connect to a database before applying changes".to_owned();
             return;
@@ -477,6 +485,7 @@ impl DbProApp {
             self.table.mutation.staged_apply_request = Some(request_id);
             self.table.mutation.table_mutation_request = Some(request_id);
             self.table.mutation.staged_apply_targets = plan.targets;
+            self.table.mutation.staged_apply_confirm = false;
             self.table.mutation.table_mutation_error = None;
             let counts = self.table.mutation.staged_changes.counts();
             self.feedback.runtime_message = format!(
@@ -493,6 +502,7 @@ impl DbProApp {
 
     pub(crate) fn staged_apply_completed(&mut self) {
         self.table.mutation.staged_apply_request = None;
+        self.table.mutation.staged_apply_confirm = false;
         self.table.mutation.table_mutation_request = None;
         self.table.mutation.table_mutation_retry_after_reload = false;
         self.table.mutation.table_mutation_retry_target = None;

@@ -181,21 +181,31 @@ impl<'a> ExplainPlanTree<'a> {
                     .color(self.theme.text_primary),
             );
 
-            if let Some(ref rel) = node.relation {
-                ui.label(
-                    RichText::new(format!("on {rel}"))
-                        .size(FONT_SIZE_CAPTION)
-                        .color(self.theme.text_secondary),
-                );
+            if let Some(rel) = &node.relation {
+                // Truncate with ellipsis instead of clipping mid-glyph; the
+                // full name stays readable on hover (#355).
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(format!("on {rel}"))
+                            .size(FONT_SIZE_CAPTION)
+                            .color(self.theme.text_secondary),
+                    )
+                    .truncate(),
+                )
+                .on_hover_text(rel);
             }
 
-            if let Some(ref idx) = node.index_name {
-                ui.label(
-                    RichText::new(format!("using {idx}"))
-                        .size(FONT_SIZE_CAPTION)
-                        .monospace()
-                        .color(self.theme.accent),
-                );
+            if let Some(idx) = &node.index_name {
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(format!("using {idx}"))
+                            .size(FONT_SIZE_CAPTION)
+                            .monospace()
+                            .color(self.theme.accent),
+                    )
+                    .truncate(),
+                )
+                .on_hover_text(idx);
             }
 
             // Visual Cost/Time Flame Bar

@@ -38,6 +38,48 @@ fn last_registered_modal_is_topmost() {
     assert!(upper_topmost, "the last-rendered dialog must be topmost");
 }
 
+/// After the last dialog closes, `any_open` must stop reporting a modal — the
+/// old untimestamped `prev` stack latched true and blocked global shortcuts.
+#[test]
+fn closed_modals_stop_reporting_open() {
+    let ctx = egui::Context::default();
+    let dialog = Id::new("closing");
+
+    // Pass 1: the dialog paints; prepare_frame of pass 2 still sees it.
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
+        register(ctx, dialog);
+    });
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
+        assert!(any_open(ctx), "a modal painted last pass still counts");
+    });
+
+    // Passes 3+: nothing registers; the stale stack must expire.
+    for _ in 0..2 {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
+            assert!(!any_open(ctx), "no modal painted this pass or last pass");
+        });
+    }
+}
+
+/// A dialog that opens long after the previous one closed is topmost on its
+/// first frame — the stale `prev` stack used to outrank it.
+#[test]
+fn reopened_modal_is_topmost_immediately() {
+    let ctx = egui::Context::default();
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
+        register(ctx, Id::new("old"));
+    });
+    // Idle passes let the reference stack expire.
+    for _ in 0..3 {
+        let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {});
+    }
+    let mut topmost = false;
+    let _ = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
+        topmost = register(ctx, Id::new("new"));
+    });
+    assert!(topmost, "a lone dialog after idle passes must be topmost");
+}
+
 #[test]
 fn stacked_modal_becomes_topmost_on_next_pass() {
     let ctx = egui::Context::default();

@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PendingNavigationAction {
-    OpenTable(String),
+    /// `schema` is `None` when the caller means the currently selected schema.
+    OpenTable { schema: Option<String>, table: String },
     ChangeSchema(String),
     ChangeConnection(String),
     /// Routed through the staged-changes confirmation: disconnecting wipes
@@ -131,6 +132,10 @@ pub(crate) enum ProblemsSourceFilter {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProblemEntry {
     pub(crate) document_index: usize,
+    /// Buffer version captured when the entry was collected (#425): a fix that
+    /// applies a byte range captured at diagnostic time must refuse to run
+    /// against a buffer that changed since.
+    pub(crate) document_version: u64,
     pub(crate) document_id: String,
     pub(crate) document_title: String,
     pub(crate) diagnostic_index: usize,
@@ -282,6 +287,24 @@ pub(crate) const SIDEBAR_MIN_WIDTH: f32 = 220.0;
 pub(crate) const SIDEBAR_MAX_WIDTH: f32 = 380.0;
 pub(crate) const AGENT_MIN_WIDTH: f32 = 300.0;
 pub(crate) const AGENT_MAX_WIDTH: f32 = 480.0;
+
+fn agent_panel_rect_key() -> egui::Id {
+    egui::Id::new("agent_panel_screen_rect")
+}
+
+/// Records the agent side panel's screen rect for this pass. Panels share the
+/// central `Order::Middle` layer with the grid, so `layer_id_at` cannot tell a
+/// grid row from the panel covering it — the stored rect is the occlusion test
+/// row hover uses instead (#338).
+pub(crate) fn store_agent_panel_rect(ctx: &egui::Context, rect: egui::Rect) {
+    ctx.data_mut(|d| d.insert_temp(agent_panel_rect_key(), rect));
+}
+
+/// Whether `pos` lands inside the agent panel painted this or last pass.
+pub(crate) fn agent_panel_contains_pointer(ctx: &egui::Context, pos: egui::Pos2) -> bool {
+    ctx.data(|d| d.get_temp::<egui::Rect>(agent_panel_rect_key()))
+        .is_some_and(|rect| rect.contains(pos))
+}
 pub(crate) const OUTPUT_MIN_HEIGHT: f32 = 120.0;
 pub(crate) const OUTPUT_MAX_HEIGHT: f32 = 420.0;
 pub(crate) const TABLE_PAGE_SIZE: u64 = 100;
@@ -292,12 +315,29 @@ pub(crate) const EXPLORER_MAX_TABLES: usize = 100;
 /// Row height used by the Codex navigator for viewport culling.
 pub(crate) const EXPLORER_ROW_HEIGHT: f32 = 26.0;
 
-/// Schemas the explorer should show. Hides PostgreSQL catalog / session-temp
-/// namespaces (`pg_temp_*`, `pg_toast_temp_*`) even if a provider still returns them.
-pub(crate) fn is_user_visible_schema(name: &str) -> bool {
-    !matches!(name, "pg_catalog" | "information_schema" | "pg_toast")
-        && !name.starts_with("pg_temp")
-        && !name.starts_with("pg_toast_temp")
+/// Schemas the explorer should show — and the destructive DROP SCHEMA guard's
+/// system-schema boundary (#348/#402). `driver` is the provider label
+/// (`"PostgreSQL"`, `"MySQL"`, `"SQL Server"`, `"SQLite"`); unknown drivers get
+/// the conservative union so a catalog name never passes as "user schema".
+pub(crate) fn is_user_visible_schema(driver: &str, name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    let postgres_system = lower == "pg_catalog"
+        || lower == "information_schema"
+        || lower == "pg_toast"
+        || lower.starts_with("pg_temp")
+        || lower.starts_with("pg_toast_temp");
+    let mysql_system = lower == "mysql" || lower == "performance_schema" || lower == "sys" || lower == "information_schema";
+    // `db_*` schemas are fixed SQL Server roles, not user schema space.
+    let sqlserver_system =
+        lower == "sys" || lower == "information_schema" || lower == "guest" || lower.starts_with("db_");
+    match driver.to_ascii_lowercase().as_str() {
+        d if d.contains("mysql") => !mysql_system,
+        d if d.contains("sql server") || d.contains("sqlserver") || d.contains("mssql") => !sqlserver_system,
+        // SQLite has no schema drops; `main`/`temp` are the user's data space.
+        d if d.contains("sqlite") => true,
+        d if d.contains("postgres") || d.is_empty() => !postgres_system,
+        _ => !(postgres_system || mysql_system || sqlserver_system),
+    }
 }
 
 /// Cached explorer table listing for one `(connection, schema, search)` key.

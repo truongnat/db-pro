@@ -29,8 +29,13 @@ impl FdwActivityContext<'_, '_> {
             match action {
                 fdw_surface_view::FdwSurfaceAction::Refresh => self.request_fdw_inventory(),
                 fdw_surface_view::FdwSurfaceAction::PreviewDropServer(name) => {
-                    self.state.fdw_ddl_preview =
-                        db_pro_core::domain::fdw::preview_drop_server(&name, true).ok();
+                    match db_pro_core::domain::fdw::preview_drop_server(&name, true) {
+                        Ok(sql) => {
+                            self.state.fdw_error = None;
+                            self.state.fdw_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.fdw_error = Some(err),
+                    }
                 }
                 fdw_surface_view::FdwSurfaceAction::RequestDropServer(name) => {
                     self.state.fdw_drop_confirm = Some(name);
@@ -42,18 +47,51 @@ impl FdwActivityContext<'_, '_> {
                     dbname,
                     port,
                 } => {
-                    self.state.fdw_ddl_preview = db_pro_core::domain::fdw::preview_create_server(
+                    match db_pro_core::domain::fdw::preview_create_server(
                         &name, &wrapper, &host, &dbname, &port,
-                    )
-                    .ok();
+                    ) {
+                        Ok(sql) => {
+                            self.state.fdw_error = None;
+                            self.state.fdw_ddl_preview = Some(sql);
+                        }
+                        Err(err) => self.state.fdw_error = Some(err),
+                    }
                 }
-                fdw_surface_view::FdwSurfaceAction::Create => self.create_fdw_server_confirmed(),
+                fdw_surface_view::FdwSurfaceAction::Create => self.request_fdw_create(),
+                fdw_surface_view::FdwSurfaceAction::ConfirmCreate => self.create_fdw_server_confirmed(),
+                fdw_surface_view::FdwSurfaceAction::CancelCreate => {
+                    self.state.fdw_create_confirm = None
+                }
                 fdw_surface_view::FdwSurfaceAction::ClosePreview => self.state.fdw_ddl_preview = None,
                 fdw_surface_view::FdwSurfaceAction::ConfirmDropServer { name, cascade } => {
                     self.drop_fdw_server_confirmed(&name, cascade);
                 }
                 fdw_surface_view::FdwSurfaceAction::CancelDrop => self.state.fdw_drop_confirm = None,
             }
+        }
+    }
+
+    /// Build the CREATE SERVER preview and hold it behind the confirm dialog.
+    fn request_fdw_create(&mut self) {
+        match db_pro_core::domain::fdw::preview_create_server(
+            &self.state.fdw_create_name,
+            &self.state.fdw_create_wrapper,
+            &self.state.fdw_create_host,
+            &self.state.fdw_create_dbname,
+            &self.state.fdw_create_port,
+        ) {
+            Ok(sql) => {
+                self.state.fdw_error = None;
+                self.state.fdw_create_confirm = Some(fdw_state::FdwCreateApply {
+                    name: self.state.fdw_create_name.clone(),
+                    fdw: self.state.fdw_create_wrapper.clone(),
+                    host: self.state.fdw_create_host.clone(),
+                    dbname: self.state.fdw_create_dbname.clone(),
+                    port: self.state.fdw_create_port.clone(),
+                    sql,
+                });
+            }
+            Err(err) => self.state.fdw_error = Some(err),
         }
     }
 
@@ -70,16 +108,18 @@ impl FdwActivityContext<'_, '_> {
         self.dispatch(list_fdw_inventory_command(request_id, connection_id.to_owned()));
     }
 
+    /// Dispatch the payload the confirm dialog displayed.
     fn create_fdw_server_confirmed(&mut self) {
         let Some(connection_id) = self.connection_id else {
             return;
         };
+        let Some(pending) = self.state.fdw_create_confirm.take() else {
+            return;
+        };
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(create_fdw_server_command(
-            self.state,
-            request_id,
-            connection_id.to_owned(),
-        ));
+        if self.dispatch(create_fdw_server_command(&pending, request_id, connection_id.to_owned())) {
+            self.state.fdw_ddl_preview = None;
+        }
     }
 
     fn drop_fdw_server_confirmed(&mut self, name: &str, cascade: bool) {
@@ -107,15 +147,19 @@ pub(super) fn list_fdw_inventory_command(request_id: RequestId, connection_id: S
     }
 }
 
-fn create_fdw_server_command(state: &FdwState, request_id: RequestId, connection_id: String) -> UiCommand {
+fn create_fdw_server_command(
+    pending: &fdw_state::FdwCreateApply,
+    request_id: RequestId,
+    connection_id: String,
+) -> UiCommand {
     UiCommand::CreateFdwServer {
         request_id,
         connection_id,
-        name: state.fdw_create_name.clone(),
-        fdw: state.fdw_create_wrapper.clone(),
-        host: state.fdw_create_host.clone(),
-        dbname: state.fdw_create_dbname.clone(),
-        port: state.fdw_create_port.clone(),
+        name: pending.name.clone(),
+        fdw: pending.fdw.clone(),
+        host: pending.host.clone(),
+        dbname: pending.dbname.clone(),
+        port: pending.port.clone(),
         confirmed: true,
     }
 }

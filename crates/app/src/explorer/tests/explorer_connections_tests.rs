@@ -16,7 +16,7 @@
             tags: Vec::new(),
             group: None,
             favorite: false,
-            environment: "Development".to_owned(),
+            environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
         }
     }
 
@@ -36,6 +36,7 @@
             .set_active_connection_id(Some("active-conn".to_owned()));
 
         app.new_query_document();
+        let baseline_docs = app.query.session.documents.len();
         assert_eq!(app.active_query_connection_id(), Some("active-conn"));
 
         let clicked = connection("clicked-conn", "clicked_db");
@@ -48,9 +49,9 @@
         assert_eq!(app.active_query_connection_id(), Some("table-conn"));
         assert!(app.query.session.active_text().contains("table_db"));
 
-        let source = include_str!("../explorer_connections.rs");
-        let needle = concat!("self.open_query_on_connection(", "&connection.id)");
-        assert_eq!(source.matches(needle).count(), 2);
+        // The sample DDL opens a dedicated document instead of overwriting
+        // the one the user had open (#420).
+        assert_eq!(app.query.session.documents.len(), baseline_docs + 2);
     }
 
     #[test]

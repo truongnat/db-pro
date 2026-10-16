@@ -1,4 +1,6 @@
-use super::diagram_design_actions::{er_design_add_fk, er_design_apply_plan, er_design_preview_plan};
+use super::diagram_design_actions::{
+    er_design_add_fk, er_design_confirm_apply, er_design_preview_plan, er_design_request_apply,
+};
 use super::diagram_view::{DiagramAction, DiagramViewContext};
 use super::*;
 
@@ -164,13 +166,13 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
                 er_design_preview_plan(ctx);
             }
             if Button::new(ctx.theme)
-                .text("Apply (confirm)")
+                .text("Apply…")
                 .variant(ButtonVariant::Default)
                 .size(ButtonSize::Sm)
                 .show(ui)
                 .clicked()
             {
-                action = er_design_apply_plan(ctx);
+                er_design_request_apply(ctx);
             }
         });
         if let Some(error) = &ctx.diagram.design.error {
@@ -190,5 +192,50 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             });
         }
     });
+    if ctx.diagram.design.apply_confirm && !ctx.diagram.design.preview_sql.is_empty() {
+        let mut open = true;
+        let mut confirm = false;
+        let mut cancel = false;
+        Dialog::new(&mut open, "Apply design plan?", ctx.theme)
+            .width(560.0)
+            .id_salt("diagram_apply_design_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(
+                        RichText::new(
+                            "Applying this design runs the generated DDL on the active database.",
+                        )
+                        .small()
+                        .color(ctx.theme.warning),
+                    );
+                    ui.label(RichText::new(&ctx.diagram.design.preview_sql).monospace());
+                });
+                frame.footer(|ui| {
+                    if Button::new(ctx.theme)
+                        .text("Apply DDL")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        confirm = true;
+                    }
+                    if Button::new(ctx.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        cancel = true;
+                    }
+                });
+            });
+        if confirm {
+            action = er_design_confirm_apply(ctx);
+        } else if cancel || !open {
+            ctx.diagram.design.apply_confirm = false;
+        }
+    }
     action
 }

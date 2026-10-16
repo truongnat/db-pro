@@ -6,6 +6,8 @@ use super::*;
 pub(crate) struct TableState {
     pub(super) table_info: Option<UiTableInfo>,
     pub(super) table_ddl: Option<String>,
+    pub(super) table_ddl_baseline: Option<String>,
+    pub(super) table_ddl_discard_confirm: bool,
     pub(super) table_info_error: Option<String>,
     pub(super) table_ddl_error: Option<String>,
     pub(super) ddl_execute_confirmation: bool,
@@ -25,6 +27,8 @@ impl Default for TableState {
         Self {
             table_info: None,
             table_ddl: None,
+            table_ddl_baseline: None,
+            table_ddl_discard_confirm: false,
             table_info_error: None,
             table_ddl_error: None,
             ddl_execute_confirmation: false,
@@ -52,6 +56,15 @@ impl TableState {
             return Err("DDL cannot be empty".to_owned());
         }
         Ok(sql)
+    }
+
+    /// The DDL script diverges from the last server-loaded baseline (#357).
+    pub(super) fn table_ddl_dirty(&self) -> bool {
+        match (self.table_ddl.as_deref(), self.table_ddl_baseline.as_deref()) {
+            (Some(current), Some(baseline)) => current != baseline,
+            (Some(current), None) => !current.trim().is_empty(),
+            (None, _) => false,
+        }
     }
 
     pub(crate) fn has_primary_key(&self) -> bool {

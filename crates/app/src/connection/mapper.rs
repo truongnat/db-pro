@@ -75,7 +75,7 @@ pub fn summary_to_edit_draft(connection: &UiConnectionSummary) -> UiConnectionDr
         group: connection.group.clone().unwrap_or_default(),
         tags: connection.tags.join(", "),
         favorite: connection.favorite,
-        environment: connection.environment.clone(),
+        environment: connection.environment.as_label().to_owned(),
         ssh_tunnel_enabled: false,
         ssh_host: String::new(),
         ssh_port: "22".to_owned(),

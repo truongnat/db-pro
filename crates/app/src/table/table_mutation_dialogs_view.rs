@@ -70,6 +70,32 @@ impl DbProApp {
         }
     }
 
+    /// Mandatory apply gate for staged changes that include deletes.
+    pub(crate) fn draw_staged_apply_confirmation(&mut self, ui: &mut egui::Ui) {
+        if !self.table.mutation.staged_apply_confirm {
+            return;
+        }
+        let counts = self.table.mutation.staged_changes.counts();
+        let table = self.schema.explorer.selected_table.clone().unwrap_or_default();
+        let action = table_mutation_dialog_surface::StagedApplyConfirmContext {
+            theme: self.theme,
+            counts,
+            table,
+        }
+        .draw(ui);
+        match action {
+            Some(table_mutation_dialog_surface::StagedApplyConfirmAction::Apply) => {
+                // Keep the flag set so `apply_staged_changes` knows this call
+                // passed the gate; dispatch clears it.
+                self.apply_staged_changes();
+            }
+            Some(table_mutation_dialog_surface::StagedApplyConfirmAction::Cancel) => {
+                self.table.mutation.staged_apply_confirm = false;
+            }
+            None => {}
+        }
+    }
+
     pub(crate) fn conflict_keep_mine(&mut self) {
         let Some(failure) = self.table.mutation.table_mutation_error.as_ref() else {
             return;
