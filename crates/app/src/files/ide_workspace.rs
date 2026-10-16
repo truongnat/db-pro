@@ -283,6 +283,7 @@ impl IdeWorkspaceState {
         }
         let root_id = root.id.clone();
         let root_path = root.path.clone();
+        let old_key = relative_path.to_string_lossy().replace('\\', "/");
         let absolute = self
             .absolute_for_relative(relative)
             .ok_or_else(|| "path escapes workspace root or is missing".to_owned())?;
@@ -296,6 +297,8 @@ impl IdeWorkspaceState {
             return Err("new path escapes workspace root".to_owned());
         }
         std::fs::rename(&absolute, &dest).map_err(|e| e.to_string())?;
+        let new_key = relative_dest.to_string_lossy().replace('\\', "/");
+        remap_expanded_prefix(&mut self.expanded, &old_key, &new_key);
         self.refresh()?;
         Ok(dest)
     }
@@ -307,6 +310,7 @@ impl IdeWorkspaceState {
         if relative_path_is_root(relative_path) {
             return Err("cannot delete workspace root".to_owned());
         }
+        let old_key = relative_path.to_string_lossy().replace('\\', "/");
         #[cfg(unix)]
         workspace_delete::remove_path(&root.path, relative_path).map_err(|e| e.to_string())?;
         #[cfg(not(unix))]
@@ -325,6 +329,7 @@ impl IdeWorkspaceState {
                 std::fs::remove_file(&absolute).map_err(|e| e.to_string())?;
             }
         }
+        prune_expanded_subtree(&mut self.expanded, &old_key);
         self.refresh()?;
         Ok(())
     }
@@ -651,6 +656,63 @@ impl IdeWorkspaceState {
 
 fn relative_path_is_root(path: &Path) -> bool {
     path.components().all(|component| matches!(component, Component::CurDir))
+}
+
+/// Remap `expanded` dir keys after a successful rename (#513).
+///
+/// `old`/`new` are plain `/`-separated relative paths. Only exact matches
+/// and `old/child` descendants move; the trailing `/` boundary keeps a
+/// `src` rename from touching a sibling `src2`. Qualified `id::suffix`
+/// entries (not produced today, but tolerated) remap their suffix part.
+fn remap_expanded_prefix(
+    expanded: &mut std::collections::BTreeSet<String>,
+    old: &str,
+    new: &str,
+) {
+    if old.is_empty() || old == new {
+        return;
+    }
+    let prefix = format!("{old}/");
+    let remapped: Vec<(String, String)> = expanded
+        .iter()
+        .filter_map(|entry| {
+            if let Some((id, suffix)) = entry.split_once("::") {
+                if suffix == old {
+                    Some((entry.clone(), format!("{id}::{new}")))
+                } else if suffix.starts_with(&prefix) {
+                    Some((entry.clone(), format!("{id}::{new}/{}", &suffix[prefix.len()..])))
+                } else {
+                    None
+                }
+            } else if entry == old {
+                Some((entry.clone(), new.to_owned()))
+            } else if entry.starts_with(&prefix) {
+                Some((entry.clone(), format!("{new}/{}", &entry[prefix.len()..])))
+            } else {
+                None
+            }
+        })
+        .collect();
+    for (old_entry, new_entry) in remapped {
+        expanded.remove(&old_entry);
+        expanded.insert(new_entry);
+    }
+}
+
+/// Drop `expanded` keys for a deleted subtree so refresh cannot keep phantom
+/// entries (#513 follow-up to the rename remap).
+fn prune_expanded_subtree(expanded: &mut std::collections::BTreeSet<String>, old: &str) {
+    if old.is_empty() {
+        return;
+    }
+    let prefix = format!("{old}/");
+    expanded.retain(|entry| {
+        if let Some((_, suffix)) = entry.split_once("::") {
+            suffix != old && !suffix.starts_with(&prefix)
+        } else {
+            entry != old && !entry.starts_with(&prefix)
+        }
+    });
 }
 
 

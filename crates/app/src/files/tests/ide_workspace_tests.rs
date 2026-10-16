@@ -118,8 +118,7 @@
 
     #[cfg(unix)]
     #[test]
-    fn delete_workspace_symlink_does_not_delete_external_target() {
-        use std::os::unix::fs::symlink;
+    fn delete_workspace_symlink_does_not_delete_external_target() {        use std::os::unix::fs::symlink;
 
         let dir = temp_dir();
         let outside = temp_dir();
@@ -137,4 +136,96 @@
         assert!(!dir.join("external-link.txt").exists());
         let _ = std::fs::remove_dir_all(dir);
         let _ = std::fs::remove_dir_all(outside);
+    }
+
+    #[test]
+    fn rename_dir_remaps_expanded_state_513() {
+        let dir = temp_dir();
+        std::fs::create_dir_all(dir.join("src/sub1")).unwrap();
+        std::fs::write(dir.join("src/sub1/note.sql"), "SELECT 1;").unwrap();
+        let mut workspace = IdeWorkspaceState::default();
+        workspace.open_root(dir.clone()).unwrap();
+        workspace.expanded.insert("src".to_owned());
+        workspace.expanded.insert("src/sub1".to_owned());
+        workspace.rename_path("src", "source").unwrap();
+        assert!(
+            workspace.expanded.contains("source"),
+            "expanded should remap src -> source, got {:?}",
+            workspace.expanded
+        );
+        assert!(
+            workspace.expanded.contains("source/sub1"),
+            "expanded should remap src/sub1 -> source/sub1, got {:?}",
+            workspace.expanded
+        );
+        assert!(!workspace.expanded.contains("src"));
+        assert!(!workspace.expanded.contains("src/sub1"));
+        assert!(dir.join("source/sub1/note.sql").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rename_nested_dir_remaps_only_its_subtree_513() {
+        let dir = temp_dir();
+        std::fs::create_dir_all(dir.join("src/sub1/deep")).unwrap();
+        std::fs::create_dir_all(dir.join("src/other")).unwrap();
+        let mut workspace = IdeWorkspaceState::default();
+        workspace.open_root(dir.clone()).unwrap();
+        for key in ["src", "src/sub1", "src/sub1/deep", "src/other"] {
+            workspace.expanded.insert(key.to_owned());
+        }
+        workspace.rename_path("src/sub1", "renamed").unwrap();
+        assert!(workspace.expanded.contains("src"));
+        assert!(workspace.expanded.contains("src/other"));
+        assert!(workspace.expanded.contains("src/renamed"));
+        assert!(workspace.expanded.contains("src/renamed/deep"));
+        assert!(!workspace.expanded.contains("src/sub1"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rename_dir_does_not_touch_sibling_prefix_513() {
+        let dir = temp_dir();
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::create_dir_all(dir.join("src2")).unwrap();
+        let mut workspace = IdeWorkspaceState::default();
+        workspace.open_root(dir.clone()).unwrap();
+        workspace.expanded.insert("src".to_owned());
+        workspace.expanded.insert("src2".to_owned());
+        workspace.rename_path("src", "source").unwrap();
+        assert!(workspace.expanded.contains("source"));
+        assert!(workspace.expanded.contains("src2"));
+        assert!(!workspace.expanded.contains("src"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rename_file_leaves_parent_expanded_513() {
+        let dir = temp_dir();
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("src/a.sql"), "SELECT 1;").unwrap();
+        let mut workspace = IdeWorkspaceState::default();
+        workspace.open_root(dir.clone()).unwrap();
+        workspace.expanded.insert("src".to_owned());
+        workspace.rename_path("src/a.sql", "b.sql").unwrap();
+        assert!(workspace.expanded.contains("src"));
+        assert!(dir.join("src/b.sql").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn delete_dir_prunes_expanded_subtree_513() {
+        let dir = temp_dir();
+        std::fs::create_dir_all(dir.join("src/sub1")).unwrap();
+        std::fs::create_dir_all(dir.join("keep")).unwrap();
+        let mut workspace = IdeWorkspaceState::default();
+        workspace.open_root(dir.clone()).unwrap();
+        for key in ["src", "src/sub1", "keep"] {
+            workspace.expanded.insert(key.to_owned());
+        }
+        workspace.delete_path("src").unwrap();
+        assert!(!workspace.expanded.contains("src"));
+        assert!(!workspace.expanded.contains("src/sub1"));
+        assert!(workspace.expanded.contains("keep"));
+        let _ = std::fs::remove_dir_all(dir);
     }
