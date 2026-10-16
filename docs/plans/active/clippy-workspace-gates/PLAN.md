@@ -10,3 +10,7 @@ Fix pre-existing warnings that made the required `cargo clippy --all -- -D warni
 - Remove needless string-reference borrows in foreign-server/publication dialogs.
 - Box the oversized monitoring-session action in its internal surface enum.
 - Keep this maintenance change isolated from product-ticket PRs.
+
+## Review Baseline
+
+PR base SHA: `beaa1882a6253d902748c27fba53b99d9969b635`.

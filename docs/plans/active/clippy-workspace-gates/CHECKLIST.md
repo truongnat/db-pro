@@ -1,6 +1,6 @@
 # Checklist — Restore Workspace Clippy Gate
 
-- [x] Reproduce workspace Clippy failures on `origin/main`.
+- [x] Reproduce workspace Clippy failures on immutable PR base `beaa1882a6253d902748c27fba53b99d9969b635`.
 - [x] Fix all six diagnostics without changing credential classification or action behavior.
 - [x] Run formatting and diff validation.
 - [x] Run workspace Clippy with warnings denied.
