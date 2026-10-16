@@ -79,6 +79,42 @@ where
         })?
 }
 
+/// Prepare metadata with the encoded argument types before starting a bounded
+/// stream, so returning capped rows never waits to describe an unused tail.
+async fn fetch_typed_query(
+    conn: &mut sqlx::PgConnection,
+    sql: &str,
+    pg_args: sqlx::postgres::PgArguments,
+    param_types: &[sqlx::postgres::PgTypeInfo],
+    max_rows: u64,
+) -> Result<QueryResult, DbError> {
+    conn.prepare_with(sql, param_types)
+        .await
+        .map_err(crate::error::from_sqlx)?;
+    let describe = conn.describe(sql).await.map_err(crate::error::from_sqlx)?;
+    let columns = super::query_mapper::columns_from_describe(&describe);
+    use futures_util::StreamExt;
+    let mut stream = sqlx::query_with(sql, pg_args).fetch(&mut *conn);
+    let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
+    while (result_rows.len() as u64) < max_rows {
+        let pg_row = match stream.next().await {
+            Some(Ok(row)) => row,
+            Some(Err(e)) => return Err(crate::error::from_sqlx(e)),
+            None => break,
+        };
+        let row = super::query_mapper::map_row(&pg_row, &columns)?;
+        result_rows.push(row);
+    }
+
+    let row_count = result_rows.len() as u64;
+    Ok(QueryResult {
+        columns,
+        rows: result_rows,
+        row_count,
+        duration_ms: 0,
+    })
+}
+
 impl Default for PostgresConnector {
     fn default() -> Self {
         Self::new()
@@ -340,7 +376,6 @@ impl DbConnector for PostgresConnector {
         result
     }
 
-    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn query(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
         let pools = self.pools.read().await;
         let entry = pools
@@ -355,9 +390,9 @@ impl DbConnector for PostgresConnector {
         let control = db_pro_core::domain::transaction_control::transaction_control(sql);
         let future = async {
             let mut pg_args = sqlx::postgres::PgArguments::default();
-            super::query_mapper::bind_params(params, &mut pg_args)?;
+            let param_types = super::query_mapper::bind_params_with_types(params, &mut pg_args)?;
 
-            // One connection for describe + fetch so cancel targets this backend.
+            // One connection for typed prepare + describe + fetch so cancel targets this backend.
             // An open transaction reuses the connection `BEGIN` checked out.
             let mut lease = crate::transaction_session::checkout(
                 session,
@@ -373,32 +408,7 @@ impl DbConnector for PostgresConnector {
             let _active = self.track_backend(handle.0, backend_pid);
             let previous = super::search_path::push_session_search_path(conn).await?;
 
-            let queried = async {
-                let describe = conn.describe(sql).await.map_err(crate::error::from_sqlx)?;
-                let columns = super::query_mapper::columns_from_describe(&describe);
-
-                use futures_util::StreamExt;
-                let mut stream = sqlx::query_with(sql, pg_args).fetch(&mut *conn);
-                let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
-                while (result_rows.len() as u64) < max_rows {
-                    let pg_row = match stream.next().await {
-                        Some(Ok(row)) => row,
-                        Some(Err(e)) => return Err(crate::error::from_sqlx(e)),
-                        None => break,
-                    };
-                    let row = super::query_mapper::map_row(&pg_row, &columns)?;
-                    result_rows.push(row);
-                }
-
-                let row_count = result_rows.len() as u64;
-                Ok(QueryResult {
-                    columns,
-                    rows: result_rows,
-                    row_count,
-                    duration_ms: 0,
-                })
-            }
-            .await;
+            let queried = fetch_typed_query(conn, sql, pg_args, &param_types, max_rows).await;
             let restored = super::search_path::pop_session_search_path(conn, previous).await;
             let result = super::search_path::combine(queried, restored);
             if result.is_ok() {

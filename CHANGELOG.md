@@ -23,6 +23,9 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 - Reconstructed table DDL uses provider-specific identifier quoting and preserves MySQL
   cross-database FK targets/supporting indexes. Primary-key reload uses the existing dialect's
   row-limit syntax, including SQL Server ordering/pagination (#442; #441 live SQL Server gate pending).
+- PostgreSQL parameterized reads prepare using actual converted argument types before describing
+  metadata, fixing INTEGER-key reloads with Int64 values while preserving contextual NULL inference,
+  empty-result metadata and capped-query completion without draining an unused slow tail (#533).
 
 ## [0.1.0] - 2026-09-14
 

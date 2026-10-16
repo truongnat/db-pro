@@ -6,62 +6,106 @@ use sqlx::postgres::PgArguments;
 use sqlx::postgres::PgValueFormat;
 use sqlx::{Arguments, Column, Row as _, TypeInfo, ValueRef};
 
-// cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
 pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), DbError> {
+    bind_params_inner(params, args, None)
+}
+
+pub(crate) fn bind_params_with_types(
+    params: &[QueryParam],
+    args: &mut PgArguments,
+) -> Result<Vec<sqlx::postgres::PgTypeInfo>, DbError> {
+    let mut types = Vec::with_capacity(params.len());
+    bind_params_inner(params, args, Some(&mut types))?;
+    Ok(types)
+}
+
+// cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
+fn bind_params_inner(
+    params: &[QueryParam],
+    args: &mut PgArguments,
+    mut types: Option<&mut Vec<sqlx::postgres::PgTypeInfo>>,
+) -> Result<(), DbError> {
     for param in params {
         let result = match param {
-            QueryParam::Null => args.add(Option::<String>::None),
-            QueryParam::Bool(v) => args.add(v),
-            QueryParam::Int64(v) => args.add(v),
-            QueryParam::Float64(v) => args.add(v),
+            QueryParam::Null => {
+                // NULL has no payload or declared domain type. PostgreSQL's
+                // Parse OID 0 preserves contextual inference instead of TEXT.
+                if let Some(types) = types.as_deref_mut() {
+                    types.push(sqlx::postgres::PgTypeInfo::with_oid(sqlx::postgres::types::Oid(0)));
+                }
+                args.add(Option::<String>::None)
+            }
+            QueryParam::Bool(v) => bind_value(v, args, types.as_deref_mut()),
+            QueryParam::Int64(v) => bind_value(v, args, types.as_deref_mut()),
+            QueryParam::Float64(v) => bind_value(v, args, types.as_deref_mut()),
             QueryParam::Decimal(v) => {
                 let decimal = v
                     .parse::<sqlx::types::BigDecimal>()
                     .map_err(|error| DbError::QueryFailed(format!("invalid decimal parameter: {error}")))?;
-                args.add(decimal)
+                bind_value(decimal, args, types.as_deref_mut())
             }
-            QueryParam::Text(v) => args.add(v.as_str()),
-            QueryParam::Bytes(v) => args.add(v.as_slice()),
+            QueryParam::Text(v) => bind_value(v.as_str(), args, types.as_deref_mut()),
+            QueryParam::Bytes(v) => bind_value(v.as_slice(), args, types.as_deref_mut()),
             QueryParam::Uuid(v) => {
                 let uuid = uuid::Uuid::parse_str(v)
                     .map_err(|e| DbError::QueryFailed(format!("invalid UUID parameter: {e}")))?;
-                args.add(uuid)
+                bind_value(uuid, args, types.as_deref_mut())
             }
             QueryParam::DateTime(v) => {
                 if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(v) {
-                    args.add(dt.with_timezone(&chrono::Utc))
+                    bind_value(dt.with_timezone(&chrono::Utc), args, types.as_deref_mut())
                 } else if let Ok(dt) = chrono::DateTime::parse_from_str(v, "%Y-%m-%d %H:%M:%S%z") {
-                    args.add(dt.with_timezone(&chrono::Utc))
+                    bind_value(dt.with_timezone(&chrono::Utc), args, types.as_deref_mut())
                 } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%d %H:%M:%S%.f") {
-                    args.add(ndt.and_utc())
+                    bind_value(ndt.and_utc(), args, types.as_deref_mut())
                 } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%d %H:%M:%S") {
-                    args.add(ndt.and_utc())
+                    bind_value(ndt.and_utc(), args, types.as_deref_mut())
                 } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%dT%H:%M:%S%.f") {
-                    args.add(ndt.and_utc())
+                    bind_value(ndt.and_utc(), args, types.as_deref_mut())
                 } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%dT%H:%M:%S") {
-                    args.add(ndt.and_utc())
+                    bind_value(ndt.and_utc(), args, types.as_deref_mut())
                 } else if let Ok(date) = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d") {
-                    args.add(date)
+                    bind_value(date, args, types.as_deref_mut())
                 } else {
                     return Err(DbError::QueryFailed(format!("invalid date/datetime parameter: {v}")));
                 }
             }
             QueryParam::Time(v) => match parse_time_parameter(v)? {
-                PostgresTimeParameter::Time(time) => args.add(time),
-                PostgresTimeParameter::TimeWithOffset(time) => args.add(time),
+                PostgresTimeParameter::Time(time) => bind_value(time, args, types.as_deref_mut()),
+                PostgresTimeParameter::TimeWithOffset(time) => bind_value(time, args, types.as_deref_mut()),
             },
-            QueryParam::Interval(v) => args.add(parse_interval_parameter(v)?),
+            QueryParam::Interval(v) => bind_value(parse_interval_parameter(v)?, args, types.as_deref_mut()),
             QueryParam::Inet(v) => {
                 let network = v
                     .parse::<ipnetwork::IpNetwork>()
                     .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INET parameter: {error}")))?;
-                args.add(network)
+                bind_value(network, args, types.as_deref_mut())
             }
-            QueryParam::Json(v) => args.add(sqlx::types::Json(v)),
+            QueryParam::Json(v) => bind_value(sqlx::types::Json(v), args, types.as_deref_mut()),
         };
         result.map_err(|e| DbError::QueryFailed(format!("failed to bind parameter: {e}")))?;
     }
     Ok(())
+}
+
+/// Capture SQLx's type selection for non-null values after conversion.
+/// Callers that only execute do not allocate or collect a second type vector.
+fn bind_value<'q, T>(
+    value: T,
+    args: &mut PgArguments,
+    types: Option<&mut Vec<sqlx::postgres::PgTypeInfo>>,
+) -> Result<(), sqlx::error::BoxDynError>
+where
+    T: sqlx::Encode<'q, sqlx::Postgres> + sqlx::Type<sqlx::Postgres> + 'q,
+{
+    if let Some(types) = types {
+        let type_info = value.produces().unwrap_or_else(T::type_info);
+        args.add(value)?;
+        types.push(type_info);
+        Ok(())
+    } else {
+        args.add(value)
+    }
 }
 
 enum PostgresTimeParameter {

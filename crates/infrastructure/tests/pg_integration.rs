@@ -1473,3 +1473,234 @@ async fn pg_connector_alone_reports_rolled_back_for_a_batch_that_committed() {
         .unwrap();
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// INTEGER keys are deliberately not BIGINT: the public service supplies Int64
+/// values, so PostgreSQL must prepare using their wire types rather than infer INT4.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL, no preloaded fixtures
+async fn pg_typed_query_integer_composite_pk_via_table_data_service() {
+    use db_pro_core::application::sql_builder::build_select_by_pk;
+    use db_pro_core::application::table_data_service::TableDataService;
+
+    let (connector, handle) = setup().await;
+    let connector = Arc::new(connector);
+    // Pin one backend so every call exercises the same statement cache.
+    connector.execute(&handle, "BEGIN", &[]).await.unwrap();
+    let table = format!("typed_pk_{}", uuid::Uuid::new_v4().simple());
+    connector
+        .execute(
+            &handle,
+            &format!(
+                "CREATE TABLE public.\"{table}\" (tenant INTEGER NOT NULL, part INTEGER NOT NULL, \
+                 amount BIGINT NOT NULL, note TEXT, PRIMARY KEY (tenant, part))"
+            ),
+            &[],
+        )
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            &format!("INSERT INTO public.\"{table}\" VALUES (10, 21, 9223372036854775807, NULL)"),
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let connection = Connection::new(pg_config().unwrap());
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(connection.id, handle);
+    let meta_dir = std::env::temp_dir().join(format!("db-pro-typed-pk-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&meta_dir).unwrap();
+    let meta_store = SQLiteMetaStore::new(&meta_dir.join("meta.db").to_string_lossy())
+        .await
+        .unwrap();
+    ConnectionRepository::save(&meta_store, &connection).await.unwrap();
+    let service = TableDataService::new(Box::new(Arc::clone(&connector)), registry, Box::new(meta_store.clone()));
+    let keys = vec!["tenant".into(), "part".into()];
+    let missing = [CellValue::Int64(10), CellValue::Int64(22)];
+    let matching = [CellValue::Int64(10), CellValue::Int64(21)];
+    let dialect = connector.dialect(&handle).unwrap();
+    let (sql, params) = build_select_by_pk(dialect.as_ref(), "public", &table, &keys, &missing).unwrap();
+
+    // First execution has no PgRow from which to obtain column metadata.
+    let empty = connector.query(&handle, &sql, &params).await.unwrap();
+    assert!(empty.rows.is_empty());
+    assert_eq!(empty.row_count, 0);
+    assert_eq!(
+        empty
+            .columns
+            .iter()
+            .map(|column| (column.name.as_str(), column.data_type.as_str(), column.nullable))
+            .collect::<Vec<_>>(),
+        vec![
+            ("tenant", "INT4", false),
+            ("part", "INT4", false),
+            ("amount", "INT8", false),
+            ("note", "TEXT", true),
+        ]
+    );
+    for values in [&matching, &missing, &matching] {
+        let result = service
+            .fetch_row_by_pk(&connection.id, "public", &table, &keys, values)
+            .await
+            .unwrap();
+        if matches!(values[1], CellValue::Int64(22)) {
+            assert!(result.is_none());
+        } else {
+            let result = result.unwrap();
+            assert_eq!(result.row_count, 1);
+            assert!(matches!(result.rows[0].0[0], CellValue::Int64(10)));
+            assert!(matches!(result.rows[0].0[1], CellValue::Int64(21)));
+            assert!(matches!(result.rows[0].0[2], CellValue::Int64(i64::MAX)));
+            assert!(matches!(result.rows[0].0[3], CellValue::Null));
+            assert!(!result.columns[2].nullable);
+            assert!(result.columns[3].nullable);
+        }
+    }
+
+    // Execute and explain already let bound arguments drive preparation.
+    assert_eq!(
+        connector
+            .execute(
+                &handle,
+                &format!("UPDATE public.\"{table}\" SET amount = $1 WHERE tenant = $2 AND part = $3"),
+                &[
+                    QueryParam::Int64(i64::MAX - 1),
+                    QueryParam::Int64(10),
+                    QueryParam::Int64(21)
+                ],
+            )
+            .await
+            .unwrap(),
+        1
+    );
+    connector.explain(&handle, &sql, &params, false).await.unwrap();
+    let updated = service
+        .fetch_row_by_pk(&connection.id, "public", &table, &keys, &matching)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(updated.rows[0].0[2], CellValue::Int64(value) if value == i64::MAX - 1));
+
+    connector.execute(&handle, "ROLLBACK", &[]).await.unwrap();
+    connector.disconnect(&handle).await.unwrap();
+    drop(service);
+    drop(meta_store);
+    std::fs::remove_dir_all(meta_dir).unwrap();
+}
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL, no preloaded fixtures
+async fn pg_typed_query_uncast_parameter_preserves_bigint_precision_and_empty_metadata() {
+    let (connector, handle) = setup().await;
+    connector.execute(&handle, "BEGIN", &[]).await.unwrap();
+    let sql = "SELECT $1 AS typed_value WHERE $2";
+    for (value, present) in [(i64::MAX, true), (i64::MIN, false), (i64::MIN, true)] {
+        let result = connector
+            .query(&handle, sql, &[QueryParam::Int64(value), QueryParam::Bool(present)])
+            .await
+            .unwrap();
+        assert_eq!(result.columns.len(), 1);
+        assert_eq!(result.columns[0].name, "typed_value");
+        assert_eq!(result.columns[0].data_type, "INT8");
+        assert_eq!(result.row_count, u64::from(present));
+        if present {
+            assert!(matches!(result.rows[0].0[0], CellValue::Int64(actual) if actual == value));
+        } else {
+            assert!(result.rows.is_empty());
+        }
+    }
+    connector.execute(&handle, "ROLLBACK", &[]).await.unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL, no preloaded fixtures
+async fn pg_typed_query_keeps_metadata_at_streaming_row_limits() {
+    for max_rows in [0, 2] {
+        let mut config = pg_config().unwrap();
+        config.max_rows = max_rows;
+        let connector = PostgresConnector::new();
+        let handle = connector.connect(&config, &pg_password()).await.unwrap();
+        let result = connector
+            .query(
+                &handle,
+                "SELECT $1 AS typed_value FROM generate_series(1, 100)",
+                &[QueryParam::Int64(i64::MAX)],
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.row_count, max_rows);
+        assert_eq!(result.rows.len() as u64, max_rows);
+        assert_eq!(result.columns.len(), 1);
+        assert_eq!(result.columns[0].data_type, "INT8");
+        for row in result.rows {
+            assert!(matches!(row.0[0], CellValue::Int64(i64::MAX)));
+        }
+        // A dropped, bounded stream must leave the connection usable.
+        connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+        connector.disconnect(&handle).await.unwrap();
+    }
+}
+
+/// PostgreSQL flushes the wide initial rows before sleeping on the tail. A
+/// post-stream Describe would drain that tail and turn this capped result into
+/// QueryTimeout; metadata must be prepared before executing the row stream.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL, no preloaded fixtures
+async fn pg_typed_query_cap_returns_before_slow_tail_without_schema_override() {
+    let mut config = pg_config().unwrap();
+    config.max_rows = 2;
+    config.query_timeout_ms = 2_000;
+    let connector = PostgresConnector::new();
+    let handle = connector.connect(&config, &pg_password()).await.unwrap();
+    let result = connector
+        .query(
+            &handle,
+            "SELECT $1 AS typed_value, repeat('x', 32768) AS payload, \
+             CASE WHEN n > 2 THEN pg_sleep(5) END AS tail_delay \
+             FROM generate_series(1, 3) AS series(n)",
+            &[QueryParam::Int64(i64::MAX)],
+        )
+        .await
+        .expect("the two flushed rows must return before the unused five-second tail");
+    assert_eq!(result.row_count, 2);
+    assert_eq!(result.columns[0].data_type, "INT8");
+    for row in &result.rows {
+        assert!(matches!(row.0[0], CellValue::Int64(i64::MAX)));
+        assert!(matches!(&row.0[1], CellValue::Text(payload) if payload.len() == 32768));
+    }
+    // Pool release may finish draining asynchronously; do not issue a query on
+    // the capped backend before observing the successful result above.
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// A domain NULL has no SQL type; fresh statements must infer it from context
+/// rather than receiving the mapper's storage-only Option<String> hint.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL, no preloaded fixtures
+async fn pg_typed_query_null_parameters_preserve_contextual_inference() {
+    let (connector, handle) = setup().await;
+    for sql in [
+        "SELECT 1 = $1 AS matched",
+        "SELECT TRUE = $1 AS matched",
+        "SELECT DATE '2026-08-17' = $1 AS matched",
+    ] {
+        let result = connector.query(&handle, sql, &[QueryParam::Null]).await.unwrap();
+        assert_eq!(result.row_count, 1);
+        assert_eq!(result.columns[0].data_type, "BOOL");
+        assert!(matches!(result.rows[0].0[0], CellValue::Null));
+    }
+    let mixed = connector
+        .query(
+            &handle,
+            "SELECT 1 = $1 AND 2 = $2 AS matched",
+            &[QueryParam::Null, QueryParam::Int64(2)],
+        )
+        .await
+        .unwrap();
+    assert_eq!(mixed.row_count, 1);
+    assert!(matches!(mixed.rows[0].0[0], CellValue::Null));
+    connector.disconnect(&handle).await.unwrap();
+}

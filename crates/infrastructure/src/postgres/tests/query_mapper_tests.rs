@@ -29,6 +29,35 @@ fn bind_params_accepts_date_only_value() {
     assert!(bind_params(&params, &mut args).is_ok());
 }
 
+#[test]
+fn bind_params_with_types_captures_the_converted_wire_types() {
+    let params = [
+        QueryParam::Int64(i64::MAX),
+        QueryParam::Null,
+        QueryParam::DateTime("2026-08-17".into()),
+        QueryParam::DateTime("2026-08-17T12:34:56Z".into()),
+        QueryParam::Time("12:34:56".into()),
+        QueryParam::Time("12:34:56+02:00".into()),
+    ];
+    let mut args = PgArguments::default();
+    let types = bind_params_with_types(&params, &mut args).unwrap();
+    assert_eq!(args.len(), params.len());
+    assert_eq!(types[1].oid(), Some(sqlx::postgres::types::Oid(0)));
+    assert_eq!(
+        types
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != 1)
+            .map(|(_, type_info)| type_info.name())
+            .collect::<Vec<_>>(),
+        vec!["INT8", "DATE", "TIMESTAMPTZ", "TIME", "TIMETZ"]
+    );
+
+    let mut plain_args = PgArguments::default();
+    bind_params(&params, &mut plain_args).unwrap();
+    assert_eq!(plain_args.len(), args.len());
+}
+
 /// A2 (#52): the canonical strings of the dedicated temporal variants bind
 /// through the typed parsers — the naive, the instant and the offset-bearing
 /// shapes each take their own branch — and a malformed value fails explicitly
