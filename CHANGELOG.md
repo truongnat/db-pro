@@ -16,6 +16,10 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 - SQLite maintenance rejects table-target VACUUM instead of widening scope; VACUUM ANALYZE runs
   both operations on the selected database. Constraint errors distinguish primary keys and retain
   otherwise-unclassified extended codes rather than reporting every failure as CHECK (#491, #498).
+- SSH password credentials reach the spawned transport process, tunnels remain alive through awaited
+  provider disconnect, and MySQL tunnel choices are no longer silently discarded. Unsupported SQL
+  Server tunnel choices reach explicit validation; tunneled diagnostics no longer invent SSH success
+  or probe the direct database route (#435, #451, #475; partial diagnostics work for #400).
 
 ## [0.1.0] - 2026-09-14
 

@@ -51,6 +51,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 | Feature | Branch | PR | State | Notes |
 |---|---|---|---|---|
+| SSH Transport Lifecycle (#435/#451/#475; #400 partial) | main | — | REVIEW | Password environment and in-flight real PostgreSQL drain reproduced before/passing after via local transport fixture; focused process/socket/native/diagnostic tests 16/16 PASS; independent review ACCEPT. No real bastion-auth claim; #400 stage granularity remains open. Plan: docs/plans/active/ssh-transport-lifecycle/. |
 | SQLite Integrity and Maintenance (#491/#498/#461) | main | — | REVIEW | Real baseline/candidate provider smoke proves maintenance/error fixes; corrected attached-schema suite 4/4 PASS; independent review ACCEPT. #461 does not reproduce: bundled engine already enables/enforces FK and cascades, now regression-covered. Plan: docs/plans/active/sqlite-integrity-maintenance/. |
 | Typed Data Diff Values (#457/#485) | main | — | REVIEW | Typed tuple keys/null identity; 11 core tests and independent real SQLite/PostgreSQL seven-row SQL round trips pass. Focused review ACCEPT, including nullable UPDATE correction; provider literal limitations unchanged. Plan: docs/plans/active/data-diff-typed-values/. |
 | Saved Task Schedule Correctness (#504/#462) | main | — | REVIEW | Zero-interval enable is atomic; SkipMissed drops full-interval backlog. Public-store smoke fails four checks before and passes all 21 after; independent review ACCEPT; integrated workspace tests pass. Plan: docs/plans/active/saved-task-schedule-correctness/. |

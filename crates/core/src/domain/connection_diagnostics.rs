@@ -52,6 +52,8 @@ impl ConnectionDiagnosticsReport {
                     .map(|s| s.message.as_str())
                     .unwrap_or("unknown")
             )
+        } else if self.stages.is_empty() {
+            "Transport preflight deferred to the full connection test".to_owned()
         } else {
             "All connection stages succeeded".to_owned()
         }
@@ -83,6 +85,15 @@ pub fn probe_network_stages(config: &ConnectionConfig) -> ConnectionDiagnosticsR
             failed_stage: None,
         };
     }
+    // The database address may only resolve or be reachable from the bastion.
+    // Direct probes bypass the requested route, and cannot establish SSH/TLS
+    // success. Defer to the actual full-chain connection test instead.
+    if config.ssh_tunnel.is_some() || config.ssh_profile_id.is_some() {
+        return ConnectionDiagnosticsReport {
+            stages: Vec::new(),
+            failed_stage: None,
+        };
+    }
 
     let host = config.host.trim();
     if host.is_empty() {
@@ -103,7 +114,7 @@ pub fn probe_network_stages(config: &ConnectionConfig) -> ConnectionDiagnosticsR
     if let Err(report) = probe_tcp(host, config.port, &mut stages) {
         return report;
     }
-    stages.push(ssh_stage(config));
+    stages.push(ssh_stage());
     stages.push(tls_stage(config));
     ConnectionDiagnosticsReport {
         stages,
@@ -176,16 +187,11 @@ fn fail_at(stages: &mut Vec<StageResult>, stage: ConnectionStage, message: Strin
     }
 }
 
-fn ssh_stage(config: &ConnectionConfig) -> StageResult {
-    let message = if config.ssh_tunnel.is_some() || config.ssh_profile_id.is_some() {
-        "SSH tunnel configured (validated separately via Test SSH when available)"
-    } else {
-        "SSH not configured — skipped"
-    };
+fn ssh_stage() -> StageResult {
     StageResult {
         stage: ConnectionStage::Ssh,
         ok: true,
-        message: message.into(),
+        message: "SSH not configured — skipped".into(),
     }
 }
 

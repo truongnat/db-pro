@@ -50,3 +50,42 @@ fn auth_stage_appended() {
     assert!(!auth.ok);
     assert!(!auth.message.contains("leak"));
 }
+
+#[test]
+fn tunneled_diagnostics_do_not_probe_direct_database_or_claim_unobserved_ssh_success() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let mut config = base_config();
+    config.port = listener.local_addr().unwrap().port();
+    config.ssh_tunnel = Some(crate::domain::connection::SshTunnelConfig {
+        host: "bastion.invalid".into(),
+        port: 22,
+        user: "deploy".into(),
+        private_key_path: "/tmp/key".into(),
+        password: None,
+    });
+
+    let report = probe_network_stages(&config);
+    assert!(
+        report.stages.is_empty(),
+        "no transport stage has been exercised by preflight"
+    );
+    assert!(!report.summary().contains("succeeded"));
+    assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+    let report = with_auth_result(report, false, "SSH tunnel to bastion.invalid failed");
+    assert!(report.failed_stage.is_some());
+    assert!(report.stages.iter().all(|stage| !stage.ok));
+    assert!(report.summary().contains("SSH tunnel to bastion.invalid failed"));
+}
+
+#[test]
+fn ssh_profile_preflight_is_deferred_to_full_connection_test() {
+    let mut config = base_config();
+    config.ssh_profile_id = Some("profile".into());
+    let report = probe_network_stages(&config);
+    assert!(report.stages.is_empty());
+    let report = with_auth_result(report, true, "Connection succeeded");
+    assert!(report.failed_stage.is_none());
+    assert_eq!(report.stages.len(), 1);
+    assert!(report.stages[0].ok);
+}

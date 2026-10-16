@@ -22,7 +22,7 @@ pub(crate) fn draft_to_domain(
         UiSslMode::VerifyCa => db_pro_core::domain::connection::SslMode::VerifyCa,
         UiSslMode::VerifyFull => db_pro_core::domain::connection::SslMode::VerifyFull,
     };
-    let ssh_tunnel = if driver == db_pro_core::domain::connection::DriverType::Postgres && draft.ssh_tunnel_enabled {
+    let ssh_tunnel = if driver != db_pro_core::domain::connection::DriverType::SQLite && draft.ssh_tunnel_enabled {
         Some(db_pro_core::domain::connection::SshTunnelConfig {
             host: draft.ssh_host.clone(),
             port: draft.ssh_port.parse::<u16>().ok()?,
@@ -1179,3 +1179,7 @@ fn map_diff_command(command: UiCommand) -> Option<RuntimeCommand> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "tests/translate_cmd_tests.rs"]
+mod tests;

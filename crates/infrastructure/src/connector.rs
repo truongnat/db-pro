@@ -148,7 +148,6 @@ struct ActiveConnection {
     inner_handle: db_pro_core::domain::connection::ConnectionHandle,
     driver: db_pro_core::domain::connection::DriverType,
     /// Held only for its `Drop` — kills the forwarding child process.
-    #[allow(dead_code)]
     tunnel: Option<crate::ssh::SshTunnelHandle>,
 }
 
@@ -319,14 +318,15 @@ impl DbConnector for CompositeConnector {
     }
 
     async fn disconnect(&self, handle: &db_pro_core::domain::connection::ConnectionHandle) -> Result<(), DbError> {
-        let (connector, inner) = {
+        let conn = {
             let mut guard = self.connections.write().unwrap_or_else(|e| e.into_inner());
-            let conn = guard
+            guard
                 .remove(&handle.0)
-                .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
-            (conn.connector, conn.inner_handle)
+                .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?
         };
-        connector.disconnect(&inner).await
+        let result = conn.connector.disconnect(&conn.inner_handle).await;
+        drop(conn.tunnel);
+        result
     }
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
@@ -455,3 +455,7 @@ fn dialect_for(driver: db_pro_core::domain::connection::DriverType) -> Box<dyn d
 #[cfg(test)]
 #[path = "tests/connector_tests.rs"]
 mod tests;
+
+#[cfg(all(test, unix))]
+#[path = "tests/connector_tunnel_tests.rs"]
+mod tunnel_tests;

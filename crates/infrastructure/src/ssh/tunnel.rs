@@ -27,6 +27,11 @@ impl SshTunnelHandle {
     pub fn local_port(&self) -> u16 {
         self.local_port
     }
+
+    #[cfg(test)]
+    pub(crate) async fn from_test_process(local_port: u16, child: Child) -> Result<Self, DbError> {
+        SshTunnel::wait_until_ready(local_port, child).await
+    }
 }
 
 impl Drop for SshTunnelHandle {
@@ -45,11 +50,23 @@ impl SshTunnel {
     ) -> Result<SshTunnelHandle, DbError> {
         let local_port = find_available_port()?;
 
-        let ssh_target = format!("{}@{}", config.user, config.host);
-        let port_forward = format!("{local_port}:{remote_host}:{remote_port}");
+        let mut command = Self::build_start_command(config, remote_host, remote_port, local_port);
+        let child = command
+            .kill_on_drop(true)
+            .spawn()
+            .map_err(|error| DbError::ConnectionFailed(format!("failed to start SSH tunnel process: {error}")))?;
+        Self::wait_until_ready(local_port, child).await
+    }
 
-        let mut cmd = Command::new("ssh");
-        cmd.args([
+    fn build_start_command(config: &SshTunnelConfig, remote_host: &str, remote_port: u16, local_port: u16) -> Command {
+        let mut command = if let Some(password) = config.password.as_deref() {
+            let mut command = Command::new("sshpass");
+            command.args(["-e", "ssh"]).env("SSHPASS", password);
+            command
+        } else {
+            Command::new("ssh")
+        };
+        command.args([
             "-N",
             "-o",
             "ExitOnForwardFailure=yes",
@@ -57,49 +74,18 @@ impl SshTunnel {
             "ServerAliveInterval=30",
             "-o",
             "ServerAliveCountMax=3",
-            "-i",
-            &config.private_key_path,
+        ]);
+        if !config.private_key_path.is_empty() {
+            command.args(["-i", &config.private_key_path]);
+        }
+        command.args([
             "-L",
-            &port_forward,
+            &format!("{local_port}:{remote_host}:{remote_port}"),
             "-p",
             &config.port.to_string(),
-            &ssh_target,
+            &format!("{}@{}", config.user, config.host),
         ]);
-
-        if let Some(ref password) = config.password {
-            cmd.env("SSHPASS", password);
-            let mut sshpass = Command::new("sshpass");
-            sshpass.args(["-e"]);
-            sshpass.arg("ssh").args([
-                "-N",
-                "-o",
-                "ExitOnForwardFailure=yes",
-                "-o",
-                "ServerAliveInterval=30",
-                "-o",
-                "ServerAliveCountMax=3",
-                "-i",
-                &config.private_key_path,
-                "-L",
-                &port_forward,
-                "-p",
-                &config.port.to_string(),
-                &ssh_target,
-            ]);
-            let child = sshpass
-                .kill_on_drop(true)
-                .spawn()
-                .map_err(|e| DbError::ConnectionFailed(format!("failed to start sshpass: {e}")))?;
-
-            return Self::wait_until_ready(local_port, child).await;
-        }
-
-        let child = cmd
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(|e| DbError::ConnectionFailed(format!("failed to start ssh: {e}")))?;
-
-        Self::wait_until_ready(local_port, child).await
+        command
     }
 
     pub async fn test(config: &SshTunnelConfig) -> Result<(), DbError> {
@@ -137,15 +123,10 @@ impl SshTunnel {
         if config.password.is_none() {
             cmd.args(["-o", "BatchMode=yes"]);
         }
-        cmd.args([
-            "-i",
-            &config.private_key_path,
-            "-p",
-            &config.port.to_string(),
-            &ssh_target,
-            "echo",
-            "ok",
-        ]);
+        if !config.private_key_path.is_empty() {
+            cmd.args(["-i", &config.private_key_path]);
+        }
+        cmd.args(["-p", &config.port.to_string(), &ssh_target, "echo", "ok"]);
         cmd
     }
 
