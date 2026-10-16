@@ -131,3 +131,61 @@ fn application_icon_asset_is_square_and_decodes_for_native_windowing() {
     assert_eq!(icon.width, 256);
     assert_eq!(icon.rgba.len(), (icon.width * icon.height * 4) as usize);
 }
+
+fn temp_dir() -> PathBuf {
+    static CTR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let count = CTR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("dbpro-sample-seed-{nanos}-{count}"));
+    std::fs::create_dir_all(&dir).expect("mkdir");
+    dir
+}
+
+#[test]
+fn sample_seed_preserves_unrecognized_existing_database() {
+    let dir = temp_dir();
+    let path = dir.join("sample.sqlite");
+    let original = b"user-owned database bytes";
+    std::fs::write(&path, original).unwrap();
+
+    assert!(initialize_sample_sqlite(&path).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn sample_seed_creates_and_verifies_only_marked_fixture() {
+    let dir = temp_dir();
+    let path = dir.join("sample.sqlite");
+
+    initialize_sample_sqlite(&path).unwrap();
+    initialize_sample_sqlite(&path).unwrap();
+    assert!(path.is_file());
+    let config = sample_sqlite_connection_config(&path);
+    assert_eq!(config.database, path.to_string_lossy());
+    assert!(config.readonly);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[cfg(unix)]
+#[test]
+fn sample_seed_rejects_symlink_without_touching_target() {
+    use std::os::unix::fs::symlink;
+
+    let dir = temp_dir();
+    let target = dir.join("user.sqlite");
+    let link = dir.join("sample.sqlite");
+    let original = b"outside user file";
+    std::fs::write(&target, original).unwrap();
+    symlink(&target, &link).unwrap();
+
+    assert!(initialize_sample_sqlite(&link).is_err());
+    assert_eq!(std::fs::read(&target).unwrap(), original);
+
+    let _ = std::fs::remove_dir_all(dir);
+}

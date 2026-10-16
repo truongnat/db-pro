@@ -299,12 +299,12 @@ const SEED_FAILURE_MESSAGE: &str = "failed to seed default Xe Lạc Hồng conne
 #[cfg(not(debug_assertions))]
 const SEED_FAILURE_MESSAGE: &str = "failed to seed the developer default connection";
 
-fn sample_sqlite_connection_config() -> db_pro_core::domain::connection::ConnectionConfig {
+fn sample_sqlite_connection_config(path: &std::path::Path) -> db_pro_core::domain::connection::ConnectionConfig {
     db_pro_core::domain::connection::ConnectionConfig {
         name: "Sample E-Commerce (SQLite)".to_owned(),
         host: String::new(),
         port: 0,
-        database: "/tmp/db_pro_sample.db".to_owned(),
+        database: path.to_string_lossy().into_owned(),
         username: String::new(),
         driver: db_pro_core::domain::connection::DriverType::SQLite,
         ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
@@ -320,24 +320,101 @@ fn sample_sqlite_connection_config() -> db_pro_core::domain::connection::Connect
         group: Some("Local Samples".to_owned()),
         favorite: true,
         environment: Default::default(),
-        readonly: false,
+        readonly: true,
+    }
+}
+
+const SAMPLE_SQLITE_APPLICATION_ID: i32 = 0x4442_5052;
+
+fn initialize_sample_sqlite(path: &std::path::Path) -> Result<(), String> {
+    use rusqlite::OpenFlags;
+    use std::fs::OpenOptions;
+    use std::io::ErrorKind;
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    match OpenOptions::new().write(true).create_new(true).open(path) {
+        Ok(file) => {
+            drop(file);
+            let result = (|| {
+                let connection = rusqlite::Connection::open(path).map_err(|error| error.to_string())?;
+                connection
+                    .execute_batch(&format!(
+                        "PRAGMA application_id = {SAMPLE_SQLITE_APPLICATION_ID};\
+                         CREATE TABLE _db_pro_sample_fixture (marker TEXT NOT NULL);\
+                         INSERT INTO _db_pro_sample_fixture (marker) VALUES ('db-pro-sample-v1');"
+                    ))
+                    .map_err(|error| error.to_string())?;
+                const FIXTURE_SQL: &str = include_str!("../../../fixtures/sqlite/fixture.sql");
+                connection
+                    .execute_batch(FIXTURE_SQL)
+                    .map_err(|error| error.to_string())?;
+                Ok(())
+            })();
+            if result.is_err() {
+                let _ = std::fs::remove_file(path);
+            }
+            result
+        }
+        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
+            let metadata = std::fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err("sample database path is not a regular file".to_owned());
+            }
+            let connection = rusqlite::Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| format!("existing sample database is not a valid fixture: {error}"))?;
+            let application_id: i32 = connection
+                .pragma_query_value(None, "application_id", |row| row.get(0))
+                .map_err(|error| error.to_string())?;
+            let marker: String = connection
+                .query_row("SELECT marker FROM _db_pro_sample_fixture LIMIT 1", [], |row| {
+                    row.get(0)
+                })
+                .map_err(|error| format!("existing sample database has no fixture marker: {error}"))?;
+            if application_id != SAMPLE_SQLITE_APPLICATION_ID || marker != "db-pro-sample-v1" {
+                return Err("existing sample database is not owned by DB Pro".to_owned());
+            }
+            Ok(())
+        }
+        Err(error) => Err(error.to_string()),
     }
 }
 
 async fn seed_sqlite_sample_fixture(runtime: &DbProRuntime) {
-    let sample_path = std::path::Path::new("/tmp/db_pro_sample.db");
-    if !sample_path.exists() {
-        const FIXTURE_SQL: &str = include_str!("../../../fixtures/sqlite/fixture.sql");
-        if let Ok(conn) = rusqlite::Connection::open(sample_path) {
-            let _ = conn.execute_batch(FIXTURE_SQL);
-        }
-    }
-    let existing = runtime.connections().list().await.unwrap_or_default();
-    if existing.iter().any(|c| c.config.database == "/tmp/db_pro_sample.db") {
+    let sample_path = runtime.data_dir().join("sample-ecommerce.sqlite");
+    if let Err(error) = initialize_sample_sqlite(&sample_path) {
+        tracing::warn!(%error, "failed to initialize Sample E-Commerce SQLite fixture");
         return;
     }
-    let config = sample_sqlite_connection_config();
-    if let Err(err) = runtime.connections().create(config, "").await {
+    let database_path = sample_path.to_string_lossy();
+    let connections = runtime.connections();
+    let existing = connections.list().await.unwrap_or_default();
+    if existing
+        .iter()
+        .any(|connection| connection.config.database == database_path)
+    {
+        return;
+    }
+
+    const LEGACY_SAMPLE_PATH: &str = "/tmp/db_pro_sample.db";
+    if let Some(legacy) = existing.iter().find(|connection| {
+        connection.config.database == LEGACY_SAMPLE_PATH
+            && connection.config.name == "Sample E-Commerce (SQLite)"
+            && connection.config.tags.iter().any(|tag| tag == "sample")
+    }) {
+        let mut config = legacy.config.clone();
+        config.database = database_path.into_owned();
+        config.readonly = true;
+        if let Err(error) = connections.update(&legacy.id, config, None).await {
+            tracing::warn!(%error, "failed to migrate legacy SQLite sample connection");
+        }
+        return;
+    }
+
+    let config = sample_sqlite_connection_config(&sample_path);
+    if let Err(err) = connections.create(config, "").await {
         tracing::warn!("failed to seed Sample E-Commerce SQLite connection: {err}");
     }
 }
