@@ -78,11 +78,13 @@ pub(super) fn build_preview(columns_csv: &str, rule: MaskRule, keyed: bool) -> M
     let sample_row = |email: &str, phone: &str, fallback_prefix: &str| {
         headers
             .iter()
-            .map(|header| match header.as_str() {
-                "email" => email.to_owned(),
-                "phone" => phone.to_owned(),
-                "id" => "42".to_owned(),
-                _ => format!("{fallback_prefix}_{header}"),
+            .map(|header| {
+                Some(match header.as_str() {
+                    "email" => email.to_owned(),
+                    "phone" => phone.to_owned(),
+                    "id" => "42".to_owned(),
+                    _ => format!("{fallback_prefix}_{header}"),
+                })
             })
             .collect::<Vec<_>>()
     };
