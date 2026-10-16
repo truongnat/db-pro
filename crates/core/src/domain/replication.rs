@@ -46,19 +46,42 @@ pub struct ReplicationInventory {
     pub message: String,
 }
 
+const SENSITIVE_CONNINFO_KEYS: [&str; 5] = ["password=", "PASSWORD=", "passfile=", "sslkey=", "sslpassword="];
+const REDACTED_CONNINFO_VALUE: &str = "[redacted]";
+
 pub fn redact_conninfo(raw: &str) -> String {
     let mut out = raw.to_owned();
-    for key in ["password=", "PASSWORD=", "passfile=", "sslkey=", "sslpassword="] {
-        if let Some(idx) = out.find(key) {
-            let start = idx + key.len();
-            let end = out[start..]
-                .find(|c: char| c.is_whitespace())
-                .map(|i| start + i)
-                .unwrap_or(out.len());
-            out.replace_range(start..end, "[redacted]");
+    for key in SENSITIVE_CONNINFO_KEYS {
+        let mut search_from = 0;
+        while let Some(offset) = out[search_from..].find(key) {
+            let value_start = search_from + offset + key.len();
+            let value_end = conninfo_value_end(out.as_bytes(), value_start);
+            out.replace_range(value_start..value_end, REDACTED_CONNINFO_VALUE);
+            search_from = value_start + REDACTED_CONNINFO_VALUE.len();
         }
     }
     out
+}
+
+/// End index of a libpq conninfo `key=value` pair: a single-quoted value runs to
+/// its closing quote (honouring `\'`/`\\` escapes), any other value to the next
+/// whitespace.
+fn conninfo_value_end(bytes: &[u8], start: usize) -> usize {
+    if bytes.get(start) == Some(&b'\'') {
+        let mut index = start + 1;
+        while index < bytes.len() {
+            match bytes[index] {
+                b'\\' if index + 1 < bytes.len() => index += 2,
+                b'\'' => return index + 1,
+                _ => index += 1,
+            }
+        }
+        return bytes.len();
+    }
+    bytes[start..]
+        .iter()
+        .position(|byte| byte.is_ascii_whitespace())
+        .map_or(bytes.len(), |offset| start + offset)
 }
 
 pub fn validate_repl_ident(name: &str) -> Result<(), String> {
