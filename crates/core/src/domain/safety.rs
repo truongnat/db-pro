@@ -1,7 +1,8 @@
 use safety_cte::classify_cte_safety;
 use safety_lexer::{
     is_identifier_continue, is_identifier_start, matching_parenthesis_end, scan_identifier, skip_block_comment,
-    skip_dollar_quote, skip_line_comment, skip_quoted, special_token_end, token_is_word, tokenize_sql, SqlTokenKind,
+    skip_dollar_quote, skip_line_comment, skip_quoted, special_token_end, token_is_word, tokenize_sql,
+    SqlStringDialect, SqlTokenKind,
 };
 pub use safety_policy::{validate_against_policy, ConnectionSafetyPolicy};
 
@@ -152,13 +153,22 @@ pub fn transaction_control_verb(sql: &str) -> Option<&'static str> {
 /// dollar-quoted bodies do not terminate a statement, and comment-only
 /// fragments are dropped rather than returned as empty statements.
 pub fn split_statements(sql: &str) -> Vec<String> {
+    split_statements_with_dialect(sql, SqlStringDialect::Postgres)
+}
+
+/// Split using the string-literal rules for a known database driver.
+pub fn split_statements_for_driver(sql: &str, driver: crate::domain::connection::DriverType) -> Vec<String> {
+    split_statements_with_dialect(sql, SqlStringDialect::from_driver(driver))
+}
+
+fn split_statements_with_dialect(sql: &str, dialect: SqlStringDialect) -> Vec<String> {
     let mut statements = Vec::new();
     let mut current = String::new();
     let bytes = sql.as_bytes();
     let mut index = 0;
 
     while index < bytes.len() {
-        if let Some(end) = special_token_end(bytes, index) {
+        if let Some(end) = special_token_end(bytes, index, dialect) {
             current.push_str(&sql[index..end]);
             index = end;
         } else if bytes[index] == b';' {
@@ -325,7 +335,7 @@ fn compact_clause(clause: &str) -> String {
                     out.push(' ');
                 }
                 pending_space = false;
-                let end = skip_quoted(bytes, index, bytes[index]);
+                let end = skip_quoted(bytes, index, bytes[index], SqlStringDialect::Postgres);
                 out.push_str(&clause[index..end]);
                 index = end;
             }
@@ -368,8 +378,8 @@ fn contains_sql_keyword(sql: &str, expected: &str) -> bool {
     let mut index = 0;
     while index < bytes.len() {
         index = match bytes[index] {
-            b'\'' => skip_quoted(bytes, index, b'\''),
-            b'"' => skip_quoted(bytes, index, b'"'),
+            b'\'' => skip_quoted(bytes, index, b'\'', SqlStringDialect::Postgres),
+            b'"' => skip_quoted(bytes, index, b'"', SqlStringDialect::Postgres),
             b'-' if bytes.get(index + 1) == Some(&b'-') => skip_line_comment(bytes, index),
             b'/' if bytes.get(index + 1) == Some(&b'*') => skip_block_comment(bytes, index),
             b'$' => skip_dollar_quote(bytes, index).unwrap_or(index + 1),

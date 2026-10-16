@@ -7,7 +7,7 @@ use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
 use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
-use super::sql_policy::reject_multi_statement;
+use super::sql_policy::reject_multi_statement_for_driver;
 use export_formats::{render_csv, render_excel, render_json};
 
 #[cfg(test)]
@@ -45,13 +45,12 @@ impl ExportService {
 
     // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     async fn execute_for_export(&self, connection_id: &ConnectionId, sql: &str) -> Result<QueryResult, DbError> {
-        reject_multi_statement(sql)?;
-
         let config = self
             .connections
             .get_config(connection_id)
             .await?
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        reject_multi_statement_for_driver(sql, config.driver)?;
         let policy = if config.readonly {
             ConnectionSafetyPolicy::read_only()
         } else {
