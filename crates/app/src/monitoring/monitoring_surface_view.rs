@@ -4,7 +4,7 @@ use super::*;
 #[derive(Debug)]
 pub(super) enum MonitoringSurfaceAction {
     Refresh,
-    Sessions(monitoring_sessions_view::MonitoringSessionsAction),
+    Sessions(Box<monitoring_sessions_view::MonitoringSessionsAction>),
     Workload(monitoring_workload_view::MonitoringWorkloadAction),
 }
 
@@ -70,7 +70,7 @@ impl MonitoringSurfaceContext<'_> {
             filter_active_only: &mut self.state.monitoring_filter_active_only,
         }
         .draw(ui);
-        actions.extend(session_actions.into_iter().map(MonitoringSurfaceAction::Sessions));
+        actions.extend(session_actions.into_iter().map(|action| MonitoringSurfaceAction::Sessions(Box::new(action))));
         monitoring_snapshot_view::draw_server_stats(ui, self.theme, snapshot);
         let workload_actions = monitoring_workload_view::MonitoringWorkloadContext {
             theme: self.theme,

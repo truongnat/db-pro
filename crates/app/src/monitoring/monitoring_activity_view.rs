@@ -37,7 +37,7 @@ impl MonitoringActivityContext<'_, '_> {
                     self.request_monitoring_snapshot();
                 }
                 monitoring_surface_view::MonitoringSurfaceAction::Sessions(action) => {
-                    self.apply_monitoring_sessions_action(action, &mut effects);
+                    self.apply_monitoring_sessions_action(*action, &mut effects);
                 }
                 monitoring_surface_view::MonitoringSurfaceAction::Workload(action) => {
                     self.apply_monitoring_workload_action(action, &mut effects);
