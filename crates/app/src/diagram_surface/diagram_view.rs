@@ -587,6 +587,33 @@ pub(super) fn paint_diagram_grid(
     }
 }
 
+
+fn diagram_edge_anchor_sides(
+    source_id: usize,
+    target_id: usize,
+    source_center_x: f32,
+    target_center_x: f32,
+) -> (bool, bool) {
+    let source_on_right = source_id == target_id || source_center_x < target_center_x;
+    let target_on_right = if source_id == target_id { source_on_right } else { !source_on_right };
+    (source_on_right, target_on_right)
+}
+
+fn diagram_edge_bend_x(
+    from_x: f32,
+    to_x: f32,
+    node_right: f32,
+    is_self_reference: bool,
+    lane: f32,
+    zoom: f32,
+) -> f32 {
+    if is_self_reference {
+        node_right + 64.0 * zoom + lane
+    } else {
+        (from_x + to_x) / 2.0 + lane
+    }
+}
+
 pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> String {
     if foreign_key.from_columns.len() > 1 || foreign_key.to_columns.len() > 1 {
         format!(
@@ -627,7 +654,13 @@ pub(super) fn paint_scene_edges(
             continue;
         };
 
-        let source_on_right = source_node.world_rect.center().x < target_node.world_rect.center().x;
+        let is_self_reference = edge.source == edge.target;
+        let (source_on_right, target_on_right) = diagram_edge_anchor_sides(
+            edge.source,
+            edge.target,
+            source_node.world_rect.center().x,
+            target_node.world_rect.center().x,
+        );
         let from_world = source_node.column_anchor(
             edge.foreign_key.from_columns.first().map(String::as_str),
             ErAnchorSpec {
@@ -638,7 +671,7 @@ pub(super) fn paint_scene_edges(
         let to_world = target_node.column_anchor(
             edge.foreign_key.to_columns.first().map(String::as_str),
             ErAnchorSpec {
-                right_side: !source_on_right,
+                right_side: target_on_right,
                 max_columns: scene.lod.max_columns(),
             },
         );
@@ -648,7 +681,14 @@ pub(super) fn paint_scene_edges(
 
         // Per-edge lane keeps parallel edges from drawing on top of each other.
         let lane = ((edge.id % 7) as f32 - 3.0) * 9.0 * zoom;
-        let bend_x = (from.x + to.x) / 2.0 + lane;
+        let bend_x = diagram_edge_bend_x(
+            from.x,
+            to.x,
+            viewport.world_to_screen_rect(source_node.world_rect).right(),
+            is_self_reference,
+            lane,
+            zoom,
+        );
         let bend_a = egui::pos2(bend_x, from.y);
         let bend_b = egui::pos2(bend_x, to.y);
         let emphasized = highlight.is_none_or(|id| edge.source == id || edge.target == id);
