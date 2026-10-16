@@ -3,6 +3,21 @@
 use super::*;
 use crate::RequestId;
 
+fn take_current_connection_request(
+    pending: &mut Option<(u64, String)>,
+    request_id: RequestId,
+    response_connection_id: &str,
+    active_connection_id: Option<&str>,
+) -> bool {
+    if !pending.as_ref().is_some_and(|(pending_id, _)| *pending_id == request_id.0) {
+        return false;
+    }
+    let Some((_, pending_connection_id)) = pending.take() else {
+        return false;
+    };
+    pending_connection_id == response_connection_id && active_connection_id == Some(response_connection_id)
+}
+
 fn is_authoritative_connection_completion(operation: &str, pending: bool) -> bool {
     !matches!(
         operation,
@@ -11,6 +26,13 @@ fn is_authoritative_connection_completion(operation: &str, pending: bool) -> boo
 }
 
 impl DbProApp {
+    fn active_database_connection_id(&self) -> Option<String> {
+        if !self.connection.lifecycle.is_connected() {
+            return None;
+        }
+        self.connection.lifecycle.active_connection_id().map(str::to_owned)
+    }
+
     pub(super) fn on_operation_progress(&mut self, operation: String, status: String) {
         management_events::on_operation_progress(&mut self.feedback, operation, status);
     }
@@ -25,19 +47,57 @@ impl DbProApp {
 
     pub(super) fn on_monitoring_snapshot_loaded(
         &mut self,
+        request_id: RequestId,
+        connection_id: String,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
     ) {
-        management_events::on_monitoring_snapshot_loaded(&mut self.management.monitoring, &mut self.feedback, snapshot);
+        let active_connection_id = self.active_database_connection_id();
+        let monitoring = &mut self.management.monitoring;
+        if !take_current_connection_request(
+            &mut monitoring.monitoring_snapshot_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
+        management_events::on_monitoring_snapshot_loaded(monitoring, &mut self.feedback, snapshot);
     }
 
     pub(super) fn on_monitoring_workload_loaded(
         &mut self,
+        request_id: RequestId,
+        connection_id: String,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     ) {
-        management_events::on_monitoring_workload_loaded(&mut self.management.monitoring, &mut self.feedback, workload);
+        let active_connection_id = self.active_database_connection_id();
+        let monitoring = &mut self.management.monitoring;
+        if !take_current_connection_request(
+            &mut monitoring.monitoring_workload_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
+        management_events::on_monitoring_workload_loaded(monitoring, &mut self.feedback, workload);
     }
 
-    pub(super) fn on_audit_page_loaded(&mut self, page: db_pro_core::domain::audit::AuditPage) {
+    pub(super) fn on_audit_page_loaded(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        page: db_pro_core::domain::audit::AuditPage,
+    ) {
+        let active_connection_id = self.active_database_connection_id();
+        if !take_current_connection_request(
+            &mut self.management.audit.audit_page_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
         management_events::on_audit_page_loaded(
             &mut self.management.audit.audit_page,
             &mut self.management.audit.audit_error,
@@ -46,40 +106,83 @@ impl DbProApp {
         );
     }
 
-    pub(super) fn on_pg_settings_loaded(&mut self, snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot) {
+    pub(super) fn on_pg_settings_loaded(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
+    ) {
+        let active_connection_id = self.active_database_connection_id();
+        if !take_current_connection_request(
+            &mut self.management.pg_settings.pg_settings_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
         management_events::on_pg_settings_loaded(&mut self.management.pg_settings, &mut self.feedback, snapshot);
     }
 
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
         management_events::on_pg_setting_action_completed(&mut self.feedback, action, name);
-        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.active_database_connection_id() {
             let request_id = self.next_request_id();
-            self.dispatch_command(super::pg_settings_activity_view::list_pg_settings_command(
+            if self.dispatch_command(super::pg_settings_activity_view::list_pg_settings_command(
                 request_id,
-                connection_id,
-            ));
+                connection_id.clone(),
+            )) {
+                self.management.pg_settings.pg_settings_request = Some((request_id.0, connection_id));
+            }
         }
     }
 
-    pub(super) fn on_fdw_inventory_loaded(&mut self, inventory: db_pro_core::domain::fdw::FdwInventory) {
+    pub(super) fn on_fdw_inventory_loaded(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        inventory: db_pro_core::domain::fdw::FdwInventory,
+    ) {
+        let active_connection_id = self.active_database_connection_id();
+        if !take_current_connection_request(
+            &mut self.management.fdw.fdw_inventory_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
         management_events::on_fdw_inventory_loaded(&mut self.management.fdw, &mut self.feedback, inventory);
     }
 
     pub(super) fn on_fdw_action_completed(&mut self, action: String, name: String) {
         management_events::on_fdw_action_completed(&mut self.management.fdw, &mut self.feedback, action, name);
-        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.active_database_connection_id() {
             let request_id = self.next_request_id();
-            self.dispatch_command(super::fdw_activity_view::list_fdw_inventory_command(
+            if self.dispatch_command(super::fdw_activity_view::list_fdw_inventory_command(
                 request_id,
-                connection_id,
-            ));
+                connection_id.clone(),
+            )) {
+                self.management.fdw.fdw_inventory_request = Some((request_id.0, connection_id));
+            }
         }
     }
 
     pub(super) fn on_replication_inventory_loaded(
         &mut self,
+        request_id: RequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     ) {
+        let active_connection_id = self.active_database_connection_id();
+        if !take_current_connection_request(
+            &mut self.management.replication.replication_inventory_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
         management_events::on_replication_inventory_loaded(
             &mut self.management.replication,
             &mut self.feedback,
@@ -94,19 +197,32 @@ impl DbProApp {
             action,
             name,
         );
-        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.active_database_connection_id() {
             let request_id = self.next_request_id();
-            self.dispatch_command(super::replication_activity_view::list_replication_inventory_command(
+            if self.dispatch_command(super::replication_activity_view::list_replication_inventory_command(
                 request_id,
-                connection_id,
-            ));
+                connection_id.clone(),
+            )) {
+                self.management.replication.replication_inventory_request = Some((request_id.0, connection_id));
+            }
         }
     }
 
     pub(super) fn on_event_trigger_inventory_loaded(
         &mut self,
+        request_id: RequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
     ) {
+        let active_connection_id = self.active_database_connection_id();
+        if !take_current_connection_request(
+            &mut self.management.event_trigger.event_trigger_inventory_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
         management_events::on_event_trigger_inventory_loaded(
             &mut self.management.event_trigger,
             &mut self.feedback,
@@ -121,12 +237,15 @@ impl DbProApp {
             action,
             name,
         );
-        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.active_database_connection_id() {
             let request_id = self.next_request_id();
-            self.dispatch_command(super::event_trigger_activity_view::list_event_triggers_command(
+            if self.dispatch_command(super::event_trigger_activity_view::list_event_triggers_command(
                 request_id,
-                connection_id,
-            ));
+                connection_id.clone(),
+            )) {
+                self.management.event_trigger.event_trigger_inventory_request =
+                    Some((request_id.0, connection_id));
+            }
         }
     }
 
@@ -150,43 +269,120 @@ impl DbProApp {
             backend_id,
             succeeded,
         );
-        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.active_database_connection_id() {
             let snapshot_request = self.next_request_id();
             let sort = self.management.monitoring.monitoring_stat_sort;
-            self.dispatch_command(super::monitoring_activity_view::snapshot_command(
+            if self.dispatch_command(super::monitoring_activity_view::snapshot_command(
                 snapshot_request,
-                connection_id,
+                connection_id.clone(),
                 sort,
-            ));
+            )) {
+                self.management.monitoring.monitoring_snapshot_request =
+                    Some((snapshot_request.0, connection_id));
+                self.management.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
+            }
         }
         self.finish_saved_task(task_request, task_outcome);
     }
 
-    pub(super) fn on_users_loaded(&mut self, users: Vec<db_pro_core::domain::user::DatabaseUser>) {
-        management_events::on_users_loaded(&mut self.management.security, &mut self.feedback, users);
+    pub(super) fn on_users_loaded(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        users: Vec<db_pro_core::domain::user::DatabaseUser>,
+    ) {
+        let active_connection_id = self.active_database_connection_id();
+        let security = &mut self.management.security;
+        if !take_current_connection_request(
+            &mut security.security_users_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
+        management_events::on_users_loaded(security, &mut self.feedback, users);
     }
 
     pub(super) fn on_privileges_loaded(
         &mut self,
+        request_id: RequestId,
+        connection_id: String,
         role_name: String,
         privileges: Vec<db_pro_core::domain::user::Privilege>,
     ) {
-        management_events::on_privileges_loaded(&mut self.management.security, role_name, privileges);
+        let active_connection_id = self.active_database_connection_id();
+        let security = &mut self.management.security;
+        if !take_current_connection_request(
+            &mut security.security_privilege_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
+        management_events::on_privileges_loaded(security, role_name, privileges);
     }
 
     pub(super) fn on_memberships_loaded(
         &mut self,
+        request_id: RequestId,
+        connection_id: String,
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
     ) {
-        management_events::on_memberships_loaded(&mut self.management.security, member, memberships);
+        let active_connection_id = self.active_database_connection_id();
+        let security = &mut self.management.security;
+        if !take_current_connection_request(
+            &mut security.security_membership_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
+        management_events::on_memberships_loaded(security, member, memberships);
     }
 
-    pub(super) fn on_table_rls_loaded(&mut self, state: db_pro_core::domain::rls::TableRlsState) {
+    pub(super) fn on_table_rls_loaded(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        state: db_pro_core::domain::rls::TableRlsState,
+    ) {
+        let active_connection_id = self.active_database_connection_id();
+        if !take_current_connection_request(
+            &mut self.management.security.security_rls_request,
+            request_id,
+            &connection_id,
+            active_connection_id.as_deref(),
+        ) {
+            return;
+        }
         management_events::on_table_rls_loaded(&mut self.management.security, &mut self.feedback, state);
     }
 
-    pub(super) fn on_data_diff_loaded(&mut self, diff: db_pro_core::domain::cross_connection::DataDiff) {
+    pub(super) fn on_data_diff_loaded(
+        &mut self,
+        request_id: RequestId,
+        source_id: String,
+        target_id: String,
+        diff: db_pro_core::domain::cross_connection::DataDiff,
+    ) {
+        let active_source_id = self.connection.lifecycle.active_connection_id();
+        let Some((pending_id, pending_source_id, pending_target_id)) =
+            self.schema.compare.data_diff_request.take()
+        else {
+            return;
+        };
+        if pending_id != request_id.0
+            || pending_source_id != source_id
+            || pending_target_id != target_id
+            || active_source_id != Some(source_id.as_str())
+            || !self.connection.lifecycle.is_connected()
+        {
+            return;
+        }
         management_events::on_data_diff_loaded(&mut self.schema.compare, &mut self.feedback, diff);
     }
 
@@ -241,9 +437,10 @@ impl DbProApp {
     }
 
     fn request_security_users(&mut self) {
-        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let connection_id = self.active_database_connection_id();
         let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
         security_activity_view::request_security_users(
+            &mut self.management.security,
             connection_id.as_deref(),
             &mut command_dispatcher,
             &mut self.feedback,
@@ -251,7 +448,7 @@ impl DbProApp {
     }
 
     fn request_security_role_details(&mut self, role_name: &str) {
-        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let connection_id = self.active_database_connection_id();
         let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
         security_activity_view::request_security_role_details(
             &mut self.management.security,
@@ -263,10 +460,10 @@ impl DbProApp {
     }
 
     fn request_security_rls(&mut self) {
-        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let connection_id = self.active_database_connection_id();
         let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
         security_activity_view::request_security_rls(
-            &self.management.security,
+            &mut self.management.security,
             connection_id.as_deref(),
             &mut command_dispatcher,
             &mut self.feedback,
@@ -419,5 +616,49 @@ impl DbProApp {
                 rolled_back,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod connection_request_tests {
+    use super::take_current_connection_request;
+    use crate::RequestId;
+
+    #[test]
+    fn accepts_only_latest_request_for_response_and_active_connection() {
+        let mut pending = Some((7, "conn-a".to_owned()));
+        assert!(take_current_connection_request(
+            &mut pending,
+            RequestId(7),
+            "conn-a",
+            Some("conn-a"),
+        ));
+        assert!(pending.is_none());
+
+        pending = Some((7, "conn-a".to_owned()));
+        assert!(!take_current_connection_request(
+            &mut pending,
+            RequestId(6),
+            "conn-a",
+            Some("conn-a"),
+        ));
+        assert_eq!(pending, Some((7, "conn-a".to_owned())));
+
+        assert!(!take_current_connection_request(
+            &mut pending,
+            RequestId(7),
+            "conn-b",
+            Some("conn-b"),
+        ));
+        assert!(pending.is_none());
+
+        pending = Some((7, "conn-a".to_owned()));
+        assert!(!take_current_connection_request(
+            &mut pending,
+            RequestId(7),
+            "conn-a",
+            Some("conn-b"),
+        ));
+        assert!(pending.is_none());
     }
 }

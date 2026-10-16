@@ -14,6 +14,7 @@ pub(super) struct FdwCreateApply {
 
 pub(super) struct FdwState {
     pub(super) fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
+    pub(super) fdw_inventory_request: Option<(u64, String)>,
     pub(super) fdw_error: Option<String>,
     pub(super) fdw_create_name: String,
     pub(super) fdw_create_wrapper: String,
@@ -29,6 +30,7 @@ impl Default for FdwState {
     fn default() -> Self {
         Self {
             fdw_inventory: None,
+            fdw_inventory_request: None,
             fdw_error: None,
             fdw_create_name: String::new(),
             fdw_create_wrapper: "postgres_fdw".to_owned(),

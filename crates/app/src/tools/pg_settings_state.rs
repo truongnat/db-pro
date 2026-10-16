@@ -3,6 +3,7 @@
 #[derive(Default)]
 pub(super) struct PgSettingsState {
     pub(super) pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
+    pub(super) pg_settings_request: Option<(u64, String)>,
     pub(super) pg_settings_filter: String,
     pub(super) pg_settings_edit_name: String,
     pub(super) pg_settings_edit_value: String,

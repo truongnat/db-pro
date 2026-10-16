@@ -38,18 +38,36 @@ impl DbProApp {
                 output_path,
                 size_bytes,
             } => self.on_backup_completed(request_id, output_path, size_bytes),
-            UiEvent::MonitoringSnapshotLoaded { snapshot, .. } => self.on_monitoring_snapshot_loaded(snapshot),
-            UiEvent::MonitoringWorkloadLoaded { workload, .. } => self.on_monitoring_workload_loaded(workload),
-            UiEvent::AuditPageLoaded { page, .. } => self.on_audit_page_loaded(page),
-            UiEvent::PgSettingsLoaded { snapshot, .. } => self.on_pg_settings_loaded(snapshot),
+            UiEvent::MonitoringSnapshotLoaded {
+                request_id,
+                connection_id,
+                snapshot,
+            } => self.on_monitoring_snapshot_loaded(request_id, connection_id, snapshot),
+            UiEvent::MonitoringWorkloadLoaded {
+                request_id,
+                connection_id,
+                workload,
+            } => self.on_monitoring_workload_loaded(request_id, connection_id, workload),
+            UiEvent::AuditPageLoaded { request_id, connection_id, page } => {
+                self.on_audit_page_loaded(request_id, connection_id, page)
+            }
+            UiEvent::PgSettingsLoaded { request_id, connection_id, snapshot } => {
+                self.on_pg_settings_loaded(request_id, connection_id, snapshot)
+            }
             UiEvent::PgSettingActionCompleted { action, name, .. } => self.on_pg_setting_action_completed(action, name),
-            UiEvent::FdwInventoryLoaded { inventory, .. } => self.on_fdw_inventory_loaded(inventory),
+            UiEvent::FdwInventoryLoaded { request_id, connection_id, inventory } => {
+                self.on_fdw_inventory_loaded(request_id, connection_id, inventory)
+            }
             UiEvent::FdwActionCompleted { action, name, .. } => self.on_fdw_action_completed(action, name),
-            UiEvent::ReplicationInventoryLoaded { inventory, .. } => self.on_replication_inventory_loaded(inventory),
+            UiEvent::ReplicationInventoryLoaded { request_id, connection_id, inventory } => {
+                self.on_replication_inventory_loaded(request_id, connection_id, inventory)
+            }
             UiEvent::ReplicationActionCompleted { action, name, .. } => {
                 self.on_replication_action_completed(action, name)
             }
-            UiEvent::EventTriggerInventoryLoaded { inventory, .. } => self.on_event_trigger_inventory_loaded(inventory),
+            UiEvent::EventTriggerInventoryLoaded { request_id, connection_id, inventory } => {
+                self.on_event_trigger_inventory_loaded(request_id, connection_id, inventory)
+            }
             UiEvent::EventTriggerActionCompleted { action, name, .. } => {
                 self.on_event_trigger_action_completed(action, name)
             }
@@ -59,15 +77,29 @@ impl DbProApp {
                 backend_id,
                 succeeded,
             } => self.on_monitoring_action_completed(request_id, action, backend_id, succeeded),
-            UiEvent::UsersLoaded { users, .. } => self.on_users_loaded(users),
+            UiEvent::UsersLoaded {
+                request_id,
+                connection_id,
+                users,
+            } => self.on_users_loaded(request_id, connection_id, users),
             UiEvent::PrivilegesLoaded {
-                role_name, privileges, ..
-            } => self.on_privileges_loaded(role_name, privileges),
+                request_id,
+                connection_id,
+                role_name,
+                privileges,
+            } => self.on_privileges_loaded(request_id, connection_id, role_name, privileges),
             UiEvent::MembershipsLoaded {
-                member, memberships, ..
-            } => self.on_memberships_loaded(member, memberships),
-            UiEvent::TableRlsLoaded { state, .. } => self.on_table_rls_loaded(state),
-            UiEvent::DataDiffLoaded { diff, .. } => self.on_data_diff_loaded(diff),
+                request_id,
+                connection_id,
+                member,
+                memberships,
+            } => self.on_memberships_loaded(request_id, connection_id, member, memberships),
+            UiEvent::TableRlsLoaded { request_id, connection_id, state } => {
+                self.on_table_rls_loaded(request_id, connection_id, state)
+            }
+            UiEvent::DataDiffLoaded { request_id, source_id, target_id, diff } => {
+                self.on_data_diff_loaded(request_id, source_id, target_id, diff)
+            }
             UiEvent::DdlCompleted {
                 request_id,
                 affected_rows,

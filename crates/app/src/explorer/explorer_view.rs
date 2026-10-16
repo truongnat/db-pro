@@ -89,6 +89,7 @@ impl DbProApp {
         if !closed {
             return;
         }
+        self.management.audit = Default::default();
         // In-flight requests bound to this connection outlive the disconnect
         // otherwise — the server keeps running them and results land on
         // documents whose connection is gone.
@@ -138,6 +139,7 @@ impl DbProApp {
         if let Some(request) = command {
             let command = connection::logic::build_connect_command(request_id, request.connection_id);
             if self.dispatch_command(command) {
+                self.management.audit = Default::default();
                 explorer_navigation::ExplorerConnectionContext::new(
                     &mut self.connection.lifecycle,
                     &mut self.schema.explorer,

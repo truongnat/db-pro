@@ -502,18 +502,22 @@ pub enum UiEvent {
     },
     MonitoringSnapshotLoaded {
         request_id: RequestId,
+        connection_id: String,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
     },
     MonitoringWorkloadLoaded {
         request_id: RequestId,
+        connection_id: String,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     },
     AuditPageLoaded {
         request_id: RequestId,
+        connection_id: String,
         page: db_pro_core::domain::audit::AuditPage,
     },
     PgSettingsLoaded {
         request_id: RequestId,
+        connection_id: String,
         snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
     },
     PgSettingActionCompleted {
@@ -523,6 +527,7 @@ pub enum UiEvent {
     },
     FdwInventoryLoaded {
         request_id: RequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::fdw::FdwInventory,
     },
     FdwActionCompleted {
@@ -532,6 +537,7 @@ pub enum UiEvent {
     },
     ReplicationInventoryLoaded {
         request_id: RequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     },
     ReplicationActionCompleted {
@@ -541,6 +547,7 @@ pub enum UiEvent {
     },
     EventTriggerInventoryLoaded {
         request_id: RequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
     },
     EventTriggerActionCompleted {
@@ -556,24 +563,30 @@ pub enum UiEvent {
     },
     UsersLoaded {
         request_id: RequestId,
+        connection_id: String,
         users: Vec<db_pro_core::domain::user::DatabaseUser>,
     },
     PrivilegesLoaded {
         request_id: RequestId,
+        connection_id: String,
         role_name: String,
         privileges: Vec<db_pro_core::domain::user::Privilege>,
     },
     MembershipsLoaded {
         request_id: RequestId,
+        connection_id: String,
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
     },
     TableRlsLoaded {
         request_id: RequestId,
+        connection_id: String,
         state: db_pro_core::domain::rls::TableRlsState,
     },
     DataDiffLoaded {
         request_id: RequestId,
+        source_id: String,
+        target_id: String,
         diff: db_pro_core::domain::cross_connection::DataDiff,
     },
     OperationCompleted {

@@ -30,20 +30,40 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             output_path,
             size_bytes,
         } => translate_backup_completed(request_id, output_path, size_bytes),
-        RuntimeEvent::MonitoringSnapshotLoaded { request_id, snapshot } => Some(UiEvent::MonitoringSnapshotLoaded {
+        RuntimeEvent::MonitoringSnapshotLoaded {
+            request_id,
+            connection_id,
+            snapshot,
+        } => Some(UiEvent::MonitoringSnapshotLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             snapshot,
         }),
-        RuntimeEvent::MonitoringWorkloadLoaded { request_id, workload } => Some(UiEvent::MonitoringWorkloadLoaded {
+        RuntimeEvent::MonitoringWorkloadLoaded {
+            request_id,
+            connection_id,
+            workload,
+        } => Some(UiEvent::MonitoringWorkloadLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             workload,
         }),
-        RuntimeEvent::AuditPageLoaded { request_id, page } => Some(UiEvent::AuditPageLoaded {
+        RuntimeEvent::AuditPageLoaded {
+            request_id,
+            connection_id,
+            page,
+        } => Some(UiEvent::AuditPageLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             page,
         }),
-        RuntimeEvent::PgSettingsLoaded { request_id, snapshot } => Some(UiEvent::PgSettingsLoaded {
+        RuntimeEvent::PgSettingsLoaded {
+            request_id,
+            connection_id,
+            snapshot,
+        } => Some(UiEvent::PgSettingsLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             snapshot,
         }),
         RuntimeEvent::PgSettingActionCompleted {
@@ -55,8 +75,13 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             action: action.to_owned(),
             name,
         }),
-        RuntimeEvent::FdwInventoryLoaded { request_id, inventory } => Some(UiEvent::FdwInventoryLoaded {
+        RuntimeEvent::FdwInventoryLoaded {
+            request_id,
+            connection_id,
+            inventory,
+        } => Some(UiEvent::FdwInventoryLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             inventory,
         }),
         RuntimeEvent::FdwActionCompleted {
@@ -68,12 +93,15 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             action: action.to_owned(),
             name,
         }),
-        RuntimeEvent::ReplicationInventoryLoaded { request_id, inventory } => {
-            Some(UiEvent::ReplicationInventoryLoaded {
-                request_id: ui_request_id(request_id),
-                inventory,
-            })
-        }
+        RuntimeEvent::ReplicationInventoryLoaded {
+            request_id,
+            connection_id,
+            inventory,
+        } => Some(UiEvent::ReplicationInventoryLoaded {
+            request_id: ui_request_id(request_id),
+            connection_id,
+            inventory,
+        }),
         RuntimeEvent::ReplicationActionCompleted {
             request_id,
             action,
@@ -83,12 +111,15 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             action: action.to_owned(),
             name,
         }),
-        RuntimeEvent::EventTriggerInventoryLoaded { request_id, inventory } => {
-            Some(UiEvent::EventTriggerInventoryLoaded {
-                request_id: ui_request_id(request_id),
-                inventory,
-            })
-        }
+        RuntimeEvent::EventTriggerInventoryLoaded {
+            request_id,
+            connection_id,
+            inventory,
+        } => Some(UiEvent::EventTriggerInventoryLoaded {
+            request_id: ui_request_id(request_id),
+            connection_id,
+            inventory,
+        }),
         RuntimeEvent::EventTriggerActionCompleted {
             request_id,
             action,
@@ -109,34 +140,55 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             backend_id,
             succeeded,
         }),
-        RuntimeEvent::UsersLoaded { request_id, users } => Some(UiEvent::UsersLoaded {
+        RuntimeEvent::UsersLoaded {
+            request_id,
+            connection_id,
+            users,
+        } => Some(UiEvent::UsersLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             users,
         }),
         RuntimeEvent::PrivilegesLoaded {
             request_id,
+            connection_id,
             role_name,
             privileges,
         } => Some(UiEvent::PrivilegesLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             role_name,
             privileges,
         }),
         RuntimeEvent::MembershipsLoaded {
             request_id,
+            connection_id,
             member,
             memberships,
         } => Some(UiEvent::MembershipsLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             member,
             memberships,
         }),
-        RuntimeEvent::TableRlsLoaded { request_id, state } => Some(UiEvent::TableRlsLoaded {
+        RuntimeEvent::TableRlsLoaded {
+            request_id,
+            connection_id,
+            state,
+        } => Some(UiEvent::TableRlsLoaded {
             request_id: ui_request_id(request_id),
+            connection_id,
             state,
         }),
-        RuntimeEvent::DataDiffLoaded { request_id, diff } => Some(UiEvent::DataDiffLoaded {
+        RuntimeEvent::DataDiffLoaded {
+            request_id,
+            source_id,
+            target_id,
+            diff,
+        } => Some(UiEvent::DataDiffLoaded {
             request_id: ui_request_id(request_id),
+            source_id,
+            target_id,
             diff,
         }),
         RuntimeEvent::OperationCompleted { request_id, operation } => {
