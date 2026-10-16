@@ -342,16 +342,17 @@ impl AgentRunOrchestrator {
         if let Some(event) = self.pending_confirmation_event(&call, &fingerprint)? {
             return Ok(Some(event));
         }
+        // Cached replays must consume the run budget too, without re-executing tools.
+        self.tool_steps += 1;
+        if self.tool_steps > MAX_AGENT_TOOL_STEPS {
+            return Err(AgentToolError::MaxStepsExceeded);
+        }
         if let Some(event) = self.cached_call_event(&call, &fingerprint)? {
             return Ok(Some(event));
         }
 
         if !self.seen_call_ids.insert(call.call_id.clone()) {
             return Err(AgentToolError::InvalidInput { tool: call.tool });
-        }
-        self.tool_steps += 1;
-        if self.tool_steps > MAX_AGENT_TOOL_STEPS {
-            return Err(AgentToolError::MaxStepsExceeded);
         }
         let run_id = self.run_id()?;
         self.provider_request

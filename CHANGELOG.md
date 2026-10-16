@@ -3,6 +3,13 @@
 All notable user-facing changes to DB Pro. The shipped application is the native Rust binary
 `db-pro-native` (`eframe`/`egui`).
 
+## [Unreleased]
+
+### Fixed
+
+- Agent runs now count cached tool-call replays toward the existing ten-step limit, stopping
+  repeated provider requests without re-executing tools or bypassing confirmation (#448).
+
 ## [0.1.0] - 2026-09-14
 
 DB Pro 0.1.0 is the first release candidate of the native desktop application. The candidate SHA is

@@ -235,6 +235,133 @@ async fn duplicate_tool_call_replays_cached_output_without_re_execution() {
     assert_eq!(completed_count, 2);
 }
 
+fn repeated_tool_responses(call: AgentToolCall, attempts: usize) -> Vec<Vec<AgentProviderEvent>> {
+    let mut responses = vec![vec![AgentProviderEvent::ToolCall(call)]; attempts];
+    responses.push(vec![AgentProviderEvent::Completed]);
+    responses
+}
+
+fn assert_step_limit_reached(events: &[AgentWorkflowEvent]) {
+    assert!(matches!(
+        events.last(),
+        Some(AgentWorkflowEvent::Failed { message, .. })
+            if message == &AgentToolError::MaxStepsExceeded.to_string()
+    ));
+}
+
+#[tokio::test]
+async fn cached_success_replays_cannot_bypass_tool_step_limit() {
+    let call = AgentToolCall {
+        call_id: "repeat-success".to_owned(),
+        tool: AgentTool::GetCurrentQuery,
+        input: AgentToolInput::None,
+    };
+    let mut orchestrator = orchestrator(repeated_tool_responses(call, MAX_AGENT_TOOL_STEPS + 1));
+
+    let events = orchestrator.run().await;
+
+    assert_step_limit_reached(&events);
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(event, AgentWorkflowEvent::ToolCompleted { .. }))
+            .count(),
+        MAX_AGENT_TOOL_STEPS
+    );
+    assert!(orchestrator.workflow().session().active_run.is_none());
+}
+
+#[tokio::test]
+async fn cached_failure_replays_cannot_bypass_tool_step_limit() {
+    let call = AgentToolCall {
+        call_id: "repeat-failure".to_owned(),
+        tool: AgentTool::InspectSchema,
+        input: AgentToolInput::Schema {
+            schema: Some("public".to_owned()),
+        },
+    };
+    let mut orchestrator = orchestrator(repeated_tool_responses(call, MAX_AGENT_TOOL_STEPS + 1));
+
+    let events = orchestrator.run().await;
+
+    assert_step_limit_reached(&events);
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(
+                event,
+                AgentWorkflowEvent::ToolFailed {
+                    error: AgentToolError::InvalidInput { .. },
+                    ..
+                }
+            ))
+            .count(),
+        MAX_AGENT_TOOL_STEPS
+    );
+}
+
+#[tokio::test]
+async fn final_provider_completion_is_allowed_at_tool_step_limit() {
+    let call = AgentToolCall {
+        call_id: "at-limit".to_owned(),
+        tool: AgentTool::GetCurrentQuery,
+        input: AgentToolInput::None,
+    };
+    let mut orchestrator = orchestrator(repeated_tool_responses(call, MAX_AGENT_TOOL_STEPS));
+
+    let events = orchestrator.run().await;
+
+    assert!(matches!(events.last(), Some(AgentWorkflowEvent::Completed { .. })));
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(event, AgentWorkflowEvent::ToolCompleted { .. }))
+            .count(),
+        MAX_AGENT_TOOL_STEPS
+    );
+}
+
+#[tokio::test]
+async fn rejected_replays_retain_the_budget_across_confirmation_continuation() {
+    let call = AgentToolCall {
+        call_id: "repeat-rejected".to_owned(),
+        tool: AgentTool::RunQuery,
+        input: AgentToolInput::Query {
+            sql: "DELETE FROM users".to_owned(),
+        },
+    };
+    let mut orchestrator = orchestrator_with_mode(
+        repeated_tool_responses(call, MAX_AGENT_TOOL_STEPS + 1),
+        AgentMode::Agent,
+    );
+    let first = orchestrator.run().await;
+    assert!(matches!(
+        first.last(),
+        Some(AgentWorkflowEvent::ConfirmationRequired { .. })
+    ));
+
+    let events = orchestrator
+        .resume_confirmation(false, Some(document(1)), None)
+        .await
+        .unwrap();
+
+    assert_step_limit_reached(&events);
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(
+                event,
+                AgentWorkflowEvent::ToolFailed {
+                    error: AgentToolError::ConfirmationRejected { .. },
+                    ..
+                }
+            ))
+            .count(),
+        MAX_AGENT_TOOL_STEPS - 1
+    );
+    assert!(!orchestrator.has_pending_confirmation());
+}
+
 #[tokio::test]
 async fn duplicate_pending_confirmation_reuses_pending_state() {
     let patch = db_pro_core::domain::agent::AgentSqlPatch {

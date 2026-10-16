@@ -51,6 +51,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 | Feature | Branch | PR | State | Notes |
 |---|---|---|---|---|
+| Agent Replay Step Budget (#448) | main | — | REVIEW | Cached success/failure/rejection replays consume the existing limit; 18 focused tests + public runtime smoke pass. Workspace fmt/check/test pass (1,964 passed, 42 ignored); runtime Clippy passes; workspace Clippy fails in unchanged app sources. No commit/PR or independent review. Plan: docs/plans/active/agent-replay-step-budget/. |
 | Workspace Clippy Gate | fix/clippy-collapse-saved-task | #532 | REVIEW | Fixed six inherited Clippy diagnostics blocking Rust CI; focused suites and full workspace Clippy pass. Plan: docs/plans/active/clippy-workspace-gates/. |
 | Workspace Path Confinement (#465) | fix/workspace-path-confinement | #528 | REVIEW | Rejects traversal/absolute paths and root aliases for delete/rename, validates canonical ancestors, and unlinks external-target symlinks safely; focused tests and app/native checks pass. Plan: docs/plans/active/workspace-path-confinement/. |
 | Safe SQLite Sample Seeding (#492) | fix/safe-sample-sqlite-seed | #529 | REVIEW | Per-user fixture path, marker validation, read-only seed, and legacy connection migration. Plan: docs/plans/active/safe-sample-sqlite-seed/. |
