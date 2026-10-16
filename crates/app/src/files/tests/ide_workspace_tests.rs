@@ -98,6 +98,8 @@
 
         assert!(workspace.create_file("../", "outside.txt", "nope").is_err());
         assert!(workspace.create_file("", "../outside.txt", "nope").is_err());
+        assert!(workspace.create_file("", "nested/outside.txt", "nope").is_err());
+        assert!(workspace.rename_path("patch.sql", "nested/renamed.sql").is_err());
         assert!(workspace.create_folder("", "../outside-dir").is_err());
         assert!(workspace.rename_path("../outside.txt", "renamed.txt").is_err());
         assert!(workspace.delete_path("../outside.txt").is_err());
@@ -122,10 +124,12 @@
         let target = outside.join("keep.txt");
         std::fs::write(&target, "keep me").unwrap();
         symlink(&target, dir.join("external-link.txt")).unwrap();
+        symlink(&outside, dir.join("external-dir-link")).unwrap();
 
         let mut workspace = IdeWorkspaceState::default();
         workspace.open_root(dir.clone()).unwrap();
         workspace.delete_path("external-link.txt").unwrap();
+        assert!(workspace.delete_path("external-dir-link/keep.txt").is_err());
 
         assert!(target.exists());
         assert!(!dir.join("external-link.txt").exists());
