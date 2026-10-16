@@ -154,6 +154,16 @@ fn sample_seed_preserves_unrecognized_existing_database() {
     assert!(initialize_sample_sqlite(&path).is_err());
     assert_eq!(std::fs::read(&path).unwrap(), original);
 
+    let unmarked = dir.join("unmarked.sqlite");
+    let connection = rusqlite::Connection::open(&unmarked).unwrap();
+    connection
+        .execute_batch("CREATE TABLE user_data (value TEXT); INSERT INTO user_data VALUES ('keep');")
+        .unwrap();
+    drop(connection);
+    let before = std::fs::read(&unmarked).unwrap();
+    assert!(initialize_sample_sqlite(&unmarked).is_err());
+    assert_eq!(std::fs::read(&unmarked).unwrap(), before);
+
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -163,7 +173,9 @@ fn sample_seed_creates_and_verifies_only_marked_fixture() {
     let path = dir.join("sample.sqlite");
 
     initialize_sample_sqlite(&path).unwrap();
+    let fixture_before_reuse = std::fs::read(&path).unwrap();
     initialize_sample_sqlite(&path).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), fixture_before_reuse);
     assert!(path.is_file());
     let config = sample_sqlite_connection_config(&path);
     assert_eq!(config.database, path.to_string_lossy());

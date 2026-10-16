@@ -339,7 +339,11 @@ fn initialize_sample_sqlite(path: &std::path::Path) -> Result<(), String> {
         Ok(file) => {
             drop(file);
             let result = (|| {
-                let connection = rusqlite::Connection::open(path).map_err(|error| error.to_string())?;
+                let connection = rusqlite::Connection::open_with_flags(
+                    path,
+                    OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+                )
+                .map_err(|error| error.to_string())?;
                 connection
                     .execute_batch(&format!(
                         "PRAGMA application_id = {SAMPLE_SQLITE_APPLICATION_ID};\
@@ -400,7 +404,8 @@ async fn seed_sqlite_sample_fixture(runtime: &DbProRuntime) {
 
     const LEGACY_SAMPLE_PATH: &str = "/tmp/db_pro_sample.db";
     if let Some(legacy) = existing.iter().find(|connection| {
-        connection.config.database == LEGACY_SAMPLE_PATH
+        connection.config.driver == db_pro_core::domain::connection::DriverType::SQLite
+            && connection.config.database == LEGACY_SAMPLE_PATH
             && connection.config.name == "Sample E-Commerce (SQLite)"
             && connection.config.tags.iter().any(|tag| tag == "sample")
     }) {
