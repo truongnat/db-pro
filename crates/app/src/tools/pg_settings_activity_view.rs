@@ -64,7 +64,9 @@ impl PgSettingsActivityContext<'_, '_> {
             return;
         }
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(list_pg_settings_command(request_id, connection_id.to_owned()));
+        if self.dispatch(list_pg_settings_command(request_id, connection_id.to_owned())) {
+            self.state.pg_settings_request = Some((request_id.0, connection_id.to_owned()));
+        }
     }
 
     fn set_pg_setting_session(&mut self, name: &str, value: &str) -> bool {

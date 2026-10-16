@@ -29,6 +29,7 @@ pub(super) struct SchemaCompareState {
     pub(super) data_diff_table: String,
     pub(super) data_diff_keys: String,
     pub(super) data_diff_result: Option<db_pro_core::domain::cross_connection::DataDiff>,
+    pub(super) data_diff_request: Option<(u64, String, String)>,
     pub(super) data_diff_filter: String,
 }
 
@@ -48,6 +49,7 @@ impl Default for SchemaCompareState {
             data_diff_table: String::new(),
             data_diff_keys: "id".to_owned(),
             data_diff_result: None,
+            data_diff_request: None,
             data_diff_filter: "all".to_owned(),
         }
     }

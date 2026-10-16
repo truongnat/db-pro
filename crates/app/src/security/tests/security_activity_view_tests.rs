@@ -163,7 +163,7 @@
             }
         }
         let request_id = privilege_request.expect("ListPrivileges was not requested");
-        assert_eq!(state.security_privilege_request, Some(request_id));
+        assert_eq!(state.security_privilege_request, Some((request_id, "conn-1".to_owned())));
         let message = "permission denied for relation usage_privileges";
         assert!(state.note_privilege_failure(request_id, message));
         assert_eq!(state.security_error.as_deref(), Some(message));

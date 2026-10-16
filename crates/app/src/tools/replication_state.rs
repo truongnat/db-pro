@@ -11,6 +11,7 @@ pub(super) struct ReplicationCreateApply {
 #[derive(Default)]
 pub(super) struct ReplicationState {
     pub(super) replication_inventory: Option<db_pro_core::domain::replication::ReplicationInventory>,
+    pub(super) replication_inventory_request: Option<(u64, String)>,
     pub(super) replication_error: Option<String>,
     pub(super) replication_create_name: String,
     pub(super) replication_create_confirm: Option<ReplicationCreateApply>,

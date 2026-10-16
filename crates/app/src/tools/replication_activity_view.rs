@@ -117,7 +117,9 @@ impl ReplicationActivityContext<'_, '_> {
             return;
         }
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(list_replication_inventory_command(request_id, connection_id.to_owned()));
+        if self.dispatch(list_replication_inventory_command(request_id, connection_id.to_owned())) {
+            self.state.replication_inventory_request = Some((request_id.0, connection_id.to_owned()));
+        }
     }
 
     /// Dispatch the payload the confirm dialog displayed.

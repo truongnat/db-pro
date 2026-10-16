@@ -3,6 +3,7 @@
 #[derive(Default)]
 pub(super) struct AuditState {
     pub(super) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
+    pub(super) audit_page_request: Option<(u64, String)>,
     pub(super) audit_error: Option<String>,
     pub(super) audit_filter_text: String,
     pub(super) audit_filter_database: String,
