@@ -6,4 +6,4 @@
 - [x] Seed the sample connection read-only and migrate the legacy sample entry.
 - [x] Add tests for idempotence, arbitrary existing files, and symlink safety.
 - [x] Native test suite, native package check, formatting, and diff validation pass.
-- [ ] Rebase, commit, push, and open a PR linked to #492.
+- [x] Rebase, commit, push, and open draft PR #529 linked to #492.
