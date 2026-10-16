@@ -142,6 +142,50 @@ fn staged_customer_id(plan: &TableApplyPlan) -> Option<UiCell> {
     })
 }
 
+#[test]
+fn composite_foreign_key_has_no_single_cell_picker_but_opens_referenced_row() {
+    let mut info = orders_info();
+    info.foreign_keys[0].from_columns = vec!["tenant_id".to_owned(), "customer_id".to_owned()];
+    info.foreign_keys[0].to_columns = vec!["tenant_id".to_owned(), "id".to_owned()];
+
+    assert!(table_fk_lookup::foreign_key_for_column(&info, "customer_id").is_some());
+    assert!(table_fk_lookup::single_column_foreign_key_for_column(&info, "customer_id").is_none());
+    assert!(table_fk_lookup::single_column_foreign_key_for_column(&info, "tenant_id").is_none());
+
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = orders_app();
+    app.task_bridge = bridge;
+    app.table.state.table_info = Some(info);
+    assert!(app.foreign_key_lookup_sql("customer_id").is_none());
+    assert!(app.foreign_key_lookup_sql("tenant_id").is_none());
+
+    let result = UiQueryResult {
+        columns: vec![
+            UiColumn { name: "id".to_owned(), data_type: "int4".to_owned(), nullable: false },
+            UiColumn { name: "tenant_id".to_owned(), data_type: "int4".to_owned(), nullable: false },
+            UiColumn { name: "customer_id".to_owned(), data_type: "int4".to_owned(), nullable: false },
+        ],
+        rows: vec![vec![
+            UiCell::Number("10".to_owned()),
+            UiCell::Number("4".to_owned()),
+            UiCell::Number("12".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 1,
+    };
+    assert!(app.open_referenced_row(&result, 0, 2));
+    match command_rx.try_recv().expect("referenced row query dispatched") {
+        UiCommand::LoadTableData { filters, .. } => {
+            assert_eq!(filters.len(), 2);
+            assert_eq!(filters[0].column, "tenant_id");
+            assert_eq!(filters[0].value, "4");
+            assert_eq!(filters[1].column, "id");
+            assert_eq!(filters[1].value, "12");
+        }
+        command => panic!("expected LoadTableData, got {command:?}"),
+    }
+}
+
 /// An FK column stays editable, offers destination values, and opens that row.
 #[test]
 fn foreign_key_lookup_edits_and_opens_referenced_row() {
