@@ -10,6 +10,17 @@ pub(crate) fn foreign_key_for_column<'a>(info: &'a UiTableInfo, column: &str) ->
         .find(|fk| fk.from_columns.iter().any(|from| from == column))
 }
 
+pub(crate) fn single_column_foreign_key_for_column<'a>(
+    info: &'a UiTableInfo,
+    column: &str,
+) -> Option<&'a UiTableForeignKey> {
+    info.foreign_keys.iter().find(|fk| {
+        fk.from_columns.len() == 1
+            && fk.to_columns.len() == 1
+            && fk.from_columns[0] == column
+    })
+}
+
 pub(crate) fn lookup_sql(dialect: &dyn SqlDialect, fk: &UiTableForeignKey) -> String {
     let columns = fk
         .to_columns

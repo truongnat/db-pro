@@ -56,7 +56,7 @@ impl DbProApp {
 
     pub(crate) fn foreign_key_lookup_sql(&self, column: &str) -> Option<String> {
         let info = self.table.state.table_info.as_ref()?;
-        let fk = table_fk_lookup::foreign_key_for_column(info, column)?;
+        let fk = table_fk_lookup::single_column_foreign_key_for_column(info, column)?;
         let driver = self
             .connection
             .lifecycle
