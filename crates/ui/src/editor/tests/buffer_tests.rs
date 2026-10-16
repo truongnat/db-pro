@@ -109,3 +109,19 @@ fn test_text_buffer_utf8_boundaries() {
     assert_eq!(buf.char_at(floor), Some('à'));
     assert_eq!(buf.prev_char(ceil), Some('à'));
 }
+
+#[test]
+fn grapheme_boundaries_handle_combining_and_zwj_sequences() {
+    let buffer = TextBuffer::from_string("ae\u{301}👩‍💻x");
+    let combining_end = "ae\u{301}".len();
+    let emoji_end = "ae\u{301}👩‍💻".len();
+
+    assert_eq!(buffer.prev_grapheme_boundary(combining_end), 1);
+    assert_eq!(buffer.next_grapheme_boundary(1), combining_end);
+    assert_eq!(buffer.next_grapheme_boundary(combining_end), emoji_end);
+    assert_eq!(buffer.prev_grapheme_boundary(emoji_end), combining_end);
+    assert_eq!(buffer.floor_grapheme_boundary(combining_end - 1), 1);
+    assert_eq!(buffer.floor_grapheme_boundary(combining_end), combining_end);
+    assert_eq!(buffer.floor_grapheme_boundary(emoji_end - 1), combining_end);
+    assert_eq!(buffer.floor_grapheme_boundary(buffer.len_bytes()), buffer.len_bytes());
+}

@@ -1307,6 +1307,7 @@ dependencies = [
  "serde_json",
  "sqlparser",
  "tracing",
+ "unicode-segmentation",
  "uuid",
 ]
 

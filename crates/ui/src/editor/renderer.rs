@@ -1146,7 +1146,7 @@ impl<'a> SqlEditor<'a> {
                     self.delete_selection();
                     response.changed = true;
                 } else if self.cursor.offset > 0 {
-                    let prev_off = self.buffer.prev_char_boundary(self.cursor.offset);
+                    let prev_off = self.buffer.prev_grapheme_boundary(self.cursor.offset);
                     let delete_end = brackets::auto_pair_range(self.buffer.text(), self.cursor.offset)
                         .map_or(self.cursor.offset, |(_, end)| end);
                     self.buffer.delete(prev_off, delete_end);
@@ -1161,7 +1161,7 @@ impl<'a> SqlEditor<'a> {
                     self.delete_selection();
                     response.changed = true;
                 } else if self.cursor.offset < self.buffer.len_bytes() {
-                    let next_off = self.buffer.next_char_boundary(self.cursor.offset);
+                    let next_off = self.buffer.next_grapheme_boundary(self.cursor.offset);
                     self.buffer.delete(self.cursor.offset, next_off);
                     self.selection.collapse_to_active();
                     response.changed = true;
@@ -1511,7 +1511,7 @@ impl<'a> SqlEditor<'a> {
             && self.selection.is_empty()
             && self.buffer.char_at(self.cursor.offset) == Some(character)
         {
-            let next = self.buffer.next_char_boundary(self.cursor.offset);
+            let next = self.buffer.next_grapheme_boundary(self.cursor.offset);
             self.cursor.set_offset(self.buffer, next);
             self.selection.collapse_to_active();
             return PairTextResult::SkippedExistingClosing;

@@ -45,3 +45,26 @@ fn test_cursor_utf8_boundary_safety() {
         assert!(buf.text().is_char_boundary(cursor.offset));
     }
 }
+
+#[test]
+fn horizontal_cursor_movement_skips_combining_sequences_and_zwj_emoji() {
+    let buffer = TextBuffer::from_string("e\u{301}👩‍💻x");
+    let mut cursor = CursorPosition::from_offset(&buffer, buffer.len_bytes());
+
+    cursor.move_left(&buffer);
+    assert_eq!(cursor.offset, 14, "one step should move before x");
+    cursor.move_left(&buffer);
+    assert_eq!(cursor.offset, 3, "one step should move before the whole ZWJ emoji");
+    cursor.move_left(&buffer);
+    assert_eq!(
+        cursor.offset, 0,
+        "one step should move before the whole combining grapheme"
+    );
+
+    cursor.move_right(&buffer);
+    assert_eq!(cursor.offset, 3);
+    cursor.move_right(&buffer);
+    assert_eq!(cursor.offset, 14);
+    cursor.move_right(&buffer);
+    assert_eq!(cursor.offset, buffer.len_bytes());
+}
