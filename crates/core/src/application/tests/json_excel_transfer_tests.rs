@@ -42,3 +42,23 @@ fn excel_export_writes_workbook() {
     assert!(fs::metadata(&path).unwrap().len() > 0);
     let _ = fs::remove_file(&path);
 }
+
+#[test]
+fn cleanup_preserves_existing_jsonl_and_excel_destinations() {
+    let jsonl_path = temp_path("preserve.jsonl");
+    let excel_path = temp_path("preserve.xlsx");
+    let jsonl_original = b"previous jsonl export";
+    let excel_original = b"previous excel export";
+    fs::write(&jsonl_path, jsonl_original).unwrap();
+    fs::write(&excel_path, excel_original).unwrap();
+
+    let mut jsonl = JsonlFileTarget::create(&jsonl_path, vec!["id".into()]).unwrap();
+    let mut excel = ExcelFileTarget::create(&excel_path, "Export", vec!["id".into()]).unwrap();
+    jsonl.cleanup_partial().unwrap();
+    excel.cleanup_partial().unwrap();
+
+    assert_eq!(fs::read(&jsonl_path).unwrap(), jsonl_original);
+    assert_eq!(fs::read(&excel_path).unwrap(), excel_original);
+    let _ = fs::remove_file(jsonl_path);
+    let _ = fs::remove_file(excel_path);
+}

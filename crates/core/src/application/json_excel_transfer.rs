@@ -65,7 +65,6 @@ impl TransferTarget for JsonlFileTarget {
     fn cleanup_partial(&mut self) -> Result<(), TransferError> {
         self.writer.take();
         let _ = fs::remove_file(&self.temp_path);
-        let _ = fs::remove_file(&self.final_path);
         Ok(())
     }
 }
@@ -215,7 +214,6 @@ impl TransferTarget for ExcelFileTarget {
     fn cleanup_partial(&mut self) -> Result<(), TransferError> {
         self.rows.clear();
         let _ = fs::remove_file(&self.temp_path);
-        let _ = fs::remove_file(&self.final_path);
         Ok(())
     }
 }

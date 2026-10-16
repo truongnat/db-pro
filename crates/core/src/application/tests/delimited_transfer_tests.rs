@@ -55,9 +55,11 @@ fn csv_round_trip_streams_without_materializing_all_at_once() {
 }
 
 #[test]
-fn cancel_removes_partial_csv_output() {
+fn cancelled_csv_export_preserves_existing_final_and_removes_partial() {
     let path = temp_path("partial.csv");
     let _ = fs::remove_file(&path);
+    let previous_export = b"previous successful export";
+    fs::write(&path, previous_export).unwrap();
     let mut job = TransferJob::new_synthetic("csv-cancel", 10_000, 50);
     job.target = TransferTargetKind::File {
         path: path.to_string_lossy().into_owned(),
@@ -73,8 +75,27 @@ fn cancel_removes_partial_csv_output() {
     cancel.cancel();
     let result = TransferService::run(&mut job, &mut source, &mut target, &cancel);
     assert_eq!(result.status, TransferStatus::Cancelled);
-    assert!(!path.exists());
+    assert_eq!(fs::read(&path).unwrap(), previous_export);
     assert!(!path.with_extension("csv.partial").exists());
+}
+
+#[test]
+fn empty_csv_export_still_publishes_headers() {
+    let path = temp_path("empty.csv");
+    let _ = fs::remove_file(&path);
+    let mut job = TransferJob::new_synthetic("csv-empty", 0, 50);
+    let mut source = crate::application::SyntheticSource::new(0);
+    let mut target =
+        DelimitedFileTarget::create(&path, DelimitedFormat::Csv, vec!["id".into(), "name".into()]).unwrap();
+    let cancel = TransferCancellation::new();
+
+    let result = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+
+    assert_eq!(result.status, TransferStatus::Succeeded);
+    let mut reader = DelimitedFileSource::open(&path, DelimitedFormat::Csv, true).unwrap();
+    assert_eq!(reader.headers(), &["id".to_owned(), "name".to_owned()]);
+    assert!(reader.next_batch(1).unwrap().is_none());
+    let _ = fs::remove_file(&path);
 }
 
 #[test]
