@@ -603,6 +603,32 @@ pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> Str
     }
 }
 
+/// Screen-space x of the vertical segment of an FK edge polyline (#512).
+/// Normal edges bend midway between endpoints (plus a deterministic lane that
+/// fans parallel edges out). Self-referencing edges (`source == target`) loop
+/// out to the right of the node instead: the offset is always positive so the
+/// route never crosses the card body, and it fans out per `edge_id` so several
+/// self-FKs on one table do not draw on top of each other.
+/// Inputs for [`edge_route_bend_x`] — grouped into one value so the helper
+/// stays a pure function of a single spec (#512).
+#[derive(Debug, Clone, Copy)]
+struct EdgeBendSpec {
+    from_x: f32,
+    to_x: f32,
+    self_edge: bool,
+    edge_id: usize,
+    zoom: f32,
+}
+
+fn edge_route_bend_x(spec: EdgeBendSpec) -> f32 {
+    if spec.self_edge {
+        spec.from_x.max(spec.to_x) + (12.0 + (spec.edge_id % 5) as f32 * 8.0) * spec.zoom
+    } else {
+        let lane = ((spec.edge_id % 7) as f32 - 3.0) * 9.0 * spec.zoom;
+        (spec.from_x + spec.to_x) / 2.0 + lane
+    }
+}
+
 /// Orthogonal three-segment edges. Parallel edges between the same column pair
 /// used to share one `bend_x` and stack their labels — each edge now gets a
 /// small deterministic lane offset so they fan out. When `highlight` names a
@@ -628,17 +654,22 @@ pub(super) fn paint_scene_edges(
         };
 
         let source_on_right = source_node.world_rect.center().x < target_node.world_rect.center().x;
+        // Self-referencing FK (#512): the center comparison is always false for
+        // `source == target`, which used to anchor opposite sides with a bend
+        // inside the card. Both ends attach to the right edge instead so the
+        // edge loops outside the node.
+        let self_edge = edge.source == edge.target;
         let from_world = source_node.column_anchor(
             edge.foreign_key.from_columns.first().map(String::as_str),
             ErAnchorSpec {
-                right_side: source_on_right,
+                right_side: self_edge || source_on_right,
                 max_columns: scene.lod.max_columns(),
             },
         );
         let to_world = target_node.column_anchor(
             edge.foreign_key.to_columns.first().map(String::as_str),
             ErAnchorSpec {
-                right_side: !source_on_right,
+                right_side: self_edge || !source_on_right,
                 max_columns: scene.lod.max_columns(),
             },
         );
@@ -646,9 +677,13 @@ pub(super) fn paint_scene_edges(
         let from = viewport.world_to_screen_pos(from_world);
         let to = viewport.world_to_screen_pos(to_world);
 
-        // Per-edge lane keeps parallel edges from drawing on top of each other.
-        let lane = ((edge.id % 7) as f32 - 3.0) * 9.0 * zoom;
-        let bend_x = (from.x + to.x) / 2.0 + lane;
+        let bend_x = edge_route_bend_x(EdgeBendSpec {
+            from_x: from.x,
+            to_x: to.x,
+            self_edge,
+            edge_id: edge.id,
+            zoom,
+        });
         let bend_a = egui::pos2(bend_x, from.y);
         let bend_b = egui::pos2(bend_x, to.y);
         let emphasized = highlight.is_none_or(|id| edge.source == id || edge.target == id);
@@ -669,7 +704,9 @@ pub(super) fn paint_scene_edges(
         // Crow's-foot notation: the FK (source, "many") side fans out into
         // three prongs; the referenced PK (target, "one") side gets a bar.
         // Both endpoints leave their nodes horizontally so `dir` is ±x.
-        let dir = if source_on_right { 1.0 } else { -1.0 };
+        // A self-edge leaves from the right edge, so its crow's foot points
+        // outward (+x) instead of into the card (#512).
+        let dir = if self_edge || source_on_right { 1.0 } else { -1.0 };
         let foot_len = (9.0 * zoom).clamp(4.5, 11.0);
         let foot_spread = foot_len * 0.8;
         let apex = egui::pos2(from.x + dir * foot_len, from.y);
@@ -1194,4 +1231,8 @@ mod viewport_tests;
 #[cfg(test)]
 #[path = "tests/diagram_view_design_apply_tests.rs"]
 mod design_apply_tests;
+
+#[cfg(test)]
+#[path = "tests/diagram_view_self_edge_tests.rs"]
+mod self_edge_tests;
 
