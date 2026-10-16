@@ -30,6 +30,8 @@ pub enum TransactionFailurePhase {
     Begin,
     Statement,
     Commit,
+    /// The connector actor panicked while processing the transaction; the exact statement is unknown.
+    Actor,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,7 +48,8 @@ pub enum TransactionFailureOutcome {
 pub struct TransactionFailure {
     pub phase: TransactionFailurePhase,
     /// The failed statement index for `Statement`; `statements.len()` is the
-    /// transaction-level sentinel for validation, begin, and commit failures.
+    /// transaction-level sentinel for validation, begin, and commit failures. Actor panics use 0
+    /// because the exact execution stage is unknown.
     pub statement_index: usize,
     pub outcome: TransactionFailureOutcome,
     pub results: Vec<TransactionStatementResult>,
