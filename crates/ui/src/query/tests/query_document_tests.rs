@@ -47,6 +47,19 @@ fn test_query_document_search_matches() {
 }
 
 #[test]
+fn query_document_search_keeps_unicode_expansion_offsets_in_original_text() {
+    let mut doc = QueryDocument::new("doc-unicode", "Unicode", "İx i̇");
+    let text = doc.text().to_owned();
+    doc.search.query = "x".to_owned();
+    doc.search.update_matches(&text);
+    assert_eq!(doc.search.matches, vec![(2, 3)]);
+
+    doc.search.query = "i".to_owned();
+    doc.search.update_matches(&text);
+    assert_eq!(doc.search.matches, vec![(0, 2), (4, 5)]);
+}
+
+#[test]
 fn test_query_document_serde_roundtrip() {
     let mut doc = QueryDocument::new("q-1", "My Query", "SELECT * FROM users;");
     doc.connection_id = Some("conn-123".to_owned());

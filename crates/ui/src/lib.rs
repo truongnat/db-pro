@@ -16,6 +16,7 @@ pub mod runtime;
 #[path = "test_frame.rs"]
 pub(crate) mod test_frame;
 mod theme;
+mod unicode_search;
 
 pub use chart::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartRenderer, ChartType};
 pub use components::*;
