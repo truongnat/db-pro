@@ -11,3 +11,6 @@ Reject non-relative paths and `ParentDir`/root/prefix components. For candidate 
 ## Scope Decision
 
 This PR addresses the single P1 security boundary in #465. Workspace scan scheduling (#393) is a separate performance concern and is not coupled to path confinement.
+
+
+Root alias review follow-up: the lexical path `.` resolves to the workspace root while remaining a distinct `PathBuf`. Delete and rename now reject empty/current-directory aliases explicitly.

@@ -275,9 +275,12 @@ impl IdeWorkspaceState {
         if !safe_name(new_name) {
             return Err("new name must be one path component".to_owned());
         }
-        let (root, _) = self
+        let (root, relative_path) = self
             .root_and_relative_path(relative)
             .ok_or_else(|| "path escapes workspace root or is missing".to_owned())?;
+        if relative_path_is_root(relative_path) {
+            return Err("cannot rename workspace root".to_owned());
+        }
         let root_id = root.id.clone();
         let root_path = root.path.clone();
         let absolute = self
@@ -302,7 +305,7 @@ impl IdeWorkspaceState {
             .root_and_relative_path(relative)
             .ok_or_else(|| "path escapes workspace root".to_owned())?;
         let absolute = root.path.join(relative_path);
-        if absolute == root.path {
+        if relative_path_is_root(relative_path) || absolute == root.path {
             return Err("cannot delete workspace root".to_owned());
         }
         let parent = absolute.parent().ok_or_else(|| "no parent".to_owned())?;
@@ -639,6 +642,10 @@ impl IdeWorkspaceState {
         self.refresh()?;
         Ok(())
     }
+}
+
+fn relative_path_is_root(path: &Path) -> bool {
+    path.components().all(|component| matches!(component, Component::CurDir))
 }
 
 fn safe_relative_path(path: &Path) -> bool {

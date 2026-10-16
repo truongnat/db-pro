@@ -102,6 +102,8 @@
         assert!(workspace.rename_path("../outside.txt", "renamed.txt").is_err());
         assert!(workspace.delete_path("../outside.txt").is_err());
         assert!(workspace.delete_path(".").is_err());
+        assert!(workspace.rename_path(".", "renamed-root").is_err());
+        assert!(dir.is_dir());
         workspace.set_trusted(true);
         assert!(workspace.apply_workspace_patch("../outside.txt", "nope").is_err());
         assert!(!outside.join("outside.txt").exists());
