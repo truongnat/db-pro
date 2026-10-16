@@ -170,6 +170,29 @@ fn test_mapper_snippet_parsing() {
 }
 
 #[test]
+fn test_mapper_clears_uri_snippet_after_successful_import() {
+    let mut draft = UiConnectionDraft::default();
+    let uri = "postgresql://myuser:plain-secret@myhost:5432/mydb";
+    draft.cloud_snippet = uri.to_owned();
+
+    apply_connection_snippet(&mut draft, uri).expect("valid URI should import");
+
+    assert_eq!(draft.username, "myuser");
+    assert_eq!(draft.password, "plain-secret");
+    assert!(draft.cloud_snippet.is_empty(), "plaintext URI should not remain in the draft");
+}
+
+#[test]
+fn test_mapper_preserves_uri_snippet_when_import_fails() {
+    let mut draft = UiConnectionDraft::default();
+    let uri = "not-a-database-uri";
+    draft.cloud_snippet = uri.to_owned();
+
+    assert!(apply_connection_snippet(&mut draft, uri).is_err());
+    assert_eq!(draft.cloud_snippet, uri, "keep input available for correction on parse error");
+}
+
+#[test]
 fn test_connection_config_mappings() {
     use super::config::*;
     assert_eq!(default_port_for_driver(UiDriver::Postgres), "5432");

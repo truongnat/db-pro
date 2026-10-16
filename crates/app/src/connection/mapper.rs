@@ -213,6 +213,9 @@ pub fn apply_connection_snippet(draft: &mut UiConnectionDraft, snippet: &str) ->
         draft.ssl_mode = ssl_mode_from_domain(mode);
     }
     draft.driver = driver_from_domain(parsed.driver);
+    // The raw URI is shown in a plain-text input. It has already been parsed into the
+    // dedicated (masked) fields, so do not retain any URI-embedded password in the draft.
+    draft.cloud_snippet.clear();
     Ok(())
 }
 
