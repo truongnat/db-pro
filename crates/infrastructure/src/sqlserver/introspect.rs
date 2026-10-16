@@ -248,9 +248,7 @@ async fn load_foreign_keys(
              FROM sys.foreign_keys fk JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id \
              JOIN sys.tables t ON t.object_id = fk.parent_object_id JOIN sys.schemas sch ON sch.schema_id = t.schema_id \
              JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id \
-             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
              JOIN sys.tables rt ON rt.object_id = fk.referenced_object_id JOIN sys.schemas rsch ON rsch.schema_id = rt.schema_id \
-             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
              JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id \
              ORDER BY sch.name, t.name, fk.name, fkc.constraint_column_id",
             &[],
@@ -265,8 +263,8 @@ async fn load_foreign_keys(
         let to_schema = text(row, 4)?;
         let to_table = text(row, 5)?;
         let to_column = text(row, 6)?;
-        let on_update = text(row, 8)?;
-        let on_delete = text(row, 9)?;
+        let on_update = foreign_key_action(row, 8)?;
+        let on_delete = foreign_key_action(row, 9)?;
         let key = (schema.clone(), table.clone(), name.clone());
         let entry = grouped.entry(key).or_insert_with(|| ForeignKey {
             name,
@@ -413,6 +411,13 @@ fn text(row: &Row, index: usize) -> Result<String, DbError> {
     }
 }
 
+fn foreign_key_action(row: &Row, index: usize) -> Result<String, DbError> {
+    match cell(row, index)? {
+        CellValue::Text(value) => Ok(value.replace('_', " ")),
+        _ => text(row, index),
+    }
+}
+
 fn optional_text(row: &Row, index: usize) -> Result<Option<String>, DbError> {
     match cell(row, index)? {
         CellValue::Null => Ok(None),
@@ -444,3 +449,7 @@ fn optional_u64(row: &Row, index: usize) -> Result<Option<u64>, DbError> {
         ))),
     }
 }
+
+#[cfg(test)]
+#[path = "tests/introspect_tests.rs"]
+mod tests;

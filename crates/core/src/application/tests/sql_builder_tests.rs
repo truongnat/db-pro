@@ -545,13 +545,59 @@ fn sqlserver_quoting_special_chars() {
 }
 
 #[test]
-fn test_build_select_by_composite_pk() {
+fn select_by_composite_pk_uses_each_provider_pagination() {
     let pk_columns = vec!["tenant_id".into(), "user_id".into()];
-    let pk_values = vec![CellValue::Int64(10), CellValue::Text("usr_99".into())];
-    let (sql, params) = build_select_by_pk(&DollarNDialect, "public", "accounts", &pk_columns, &pk_values).unwrap();
-    assert_eq!(
-        sql,
-        "SELECT * FROM \"public\".\"accounts\" WHERE \"tenant_id\" = $1 AND \"user_id\" = $2 LIMIT 1"
-    );
-    assert_eq!(params.len(), 2);
+    let pk_values = vec![CellValue::Int64(10), CellValue::Text("usr_99' OR 1=1 --".into())];
+    for (driver, dialect, schema, expected) in [
+        (
+            "postgres",
+            &DollarNDialect as &dyn SqlDialect,
+            "public",
+            "SELECT * FROM \"public\".\"accounts\" WHERE \"tenant_id\" = $1 AND \"user_id\" = $2 LIMIT 1 OFFSET 0",
+        ),
+        (
+            "sqlite",
+            &QuestionDialect,
+            "",
+            "SELECT * FROM \"accounts\" WHERE \"tenant_id\" = ? AND \"user_id\" = ? LIMIT 1 OFFSET 0",
+        ),
+        (
+            "mysql",
+            &MySqlDialect,
+            "app",
+            "SELECT * FROM `app`.`accounts` WHERE `tenant_id` = ? AND `user_id` = ? LIMIT 1 OFFSET 0",
+        ),
+        (
+            "sqlserver",
+            &SqlServerDialect,
+            "dbo",
+            concat!(
+                "SELECT * FROM [dbo].[accounts] WHERE [tenant_id] = @p1 AND [user_id] = @p2 ",
+                "ORDER BY [tenant_id], [user_id] OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY"
+            ),
+        ),
+    ] {
+        let (sql, params) = build_select_by_pk(dialect, schema, "accounts", &pk_columns, &pk_values).unwrap();
+        assert_eq!(sql, expected, "{driver}");
+        assert_eq!(params.len(), 2, "{driver}");
+        assert!(matches!(params[0], QueryParam::Int64(10)), "{driver}");
+        assert!(
+            matches!(&params[1], QueryParam::Text(value) if value == "usr_99' OR 1=1 --"),
+            "{driver}"
+        );
+    }
+}
+
+#[test]
+fn select_by_pk_rejects_missing_or_mismatched_keys() {
+    for (columns, values) in [
+        (vec![], vec![]),
+        (vec!["tenant_id".into(), "user_id".into()], vec![CellValue::Int64(10)]),
+        (vec!["id".into()], vec![]),
+    ] {
+        assert!(matches!(
+            build_select_by_pk(&SqlServerDialect, "dbo", "accounts", &columns, &values),
+            Err(DbError::Validation(_))
+        ));
+    }
 }

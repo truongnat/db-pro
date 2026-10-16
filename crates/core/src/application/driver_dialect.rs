@@ -8,10 +8,12 @@ pub struct DriverDialect {
 }
 
 impl DriverDialect {
+    pub(crate) fn new(driver: DriverType) -> Self {
+        Self { driver }
+    }
+
     pub fn from_name(driver: &str) -> Self {
-        Self {
-            driver: driver_type_from_name(driver),
-        }
+        Self::new(driver_type_from_name(driver))
     }
 }
 

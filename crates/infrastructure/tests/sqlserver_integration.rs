@@ -152,3 +152,85 @@ async fn sqlserver_transaction_rolls_back_on_failure() {
         .expect("drop transaction probe");
     connector.disconnect(&handle).await.expect("disconnect");
 }
+
+#[tokio::test]
+#[ignore = "requires SQLSERVER_URL and a live writable SQL Server database"]
+async fn sqlserver_foreign_key_actions_round_trip_through_schema_service() {
+    use db_pro_core::application::{ConnectionRegistry, SchemaService};
+    use db_pro_core::domain::connection::Connection;
+    use db_pro_core::ports::ConnectionRepository;
+    use db_pro_infrastructure::meta::store::SQLiteMetaStore;
+    use std::sync::Arc;
+
+    let (connector, handle) = setup().await.expect("requires a live SQLSERVER_URL");
+    let connector = Arc::new(connector);
+    let suffix = uuid::Uuid::new_v4().simple().to_string();
+    let parent = format!("dbpro442_action_parent_{suffix}");
+    connector
+        .execute(
+            &handle,
+            &format!("CREATE TABLE dbo.[{parent}] (id INTEGER NOT NULL PRIMARY KEY)"),
+            &[],
+        )
+        .await
+        .unwrap();
+    let mut children = Vec::new();
+    for (label, action) in [("none", "NO ACTION"), ("null", "SET NULL"), ("default", "SET DEFAULT")] {
+        let child = format!("dbpro442_action_{label}_{suffix}");
+        connector
+            .execute(
+                &handle,
+                &format!(
+                    "CREATE TABLE dbo.[{child}] (id INTEGER NOT NULL PRIMARY KEY, parent_id INTEGER NULL DEFAULT 0, \
+                     CONSTRAINT [fk_{child}] FOREIGN KEY (parent_id) REFERENCES dbo.[{parent}] (id) \
+                     ON UPDATE {action} ON DELETE {action})"
+                ),
+                &[],
+            )
+            .await
+            .expect("create FK action fixture");
+        children.push((child, action));
+    }
+    let model = connector.introspect(&handle).await.unwrap();
+    for (child, action) in &children {
+        let foreign_key = model
+            .foreign_keys
+            .iter()
+            .find(|item| item.from_table == *child)
+            .unwrap();
+        assert_eq!(foreign_key.on_update, *action);
+        assert_eq!(foreign_key.on_delete, *action);
+    }
+    let (config, _) = sqlserver_config().unwrap();
+    let connection = Connection::new(config);
+    let store = SQLiteMetaStore::new(":memory:").await.unwrap();
+    ConnectionRepository::save(&store, &connection).await.unwrap();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(connection.id, handle);
+    let service = SchemaService::new(
+        Box::new(Arc::clone(&connector)),
+        Box::new(store.clone()),
+        registry,
+        Box::new(store),
+    );
+    for (child, _) in &children {
+        let ddl = service.get_table_ddl(&connection.id, "dbo", child).await.unwrap();
+        connector
+            .execute(&handle, &format!("DROP TABLE dbo.[{child}]"), &[])
+            .await
+            .unwrap();
+        service
+            .execute_ddl(&connection.id, &ddl)
+            .await
+            .expect("recreate canonical FK actions");
+        connector
+            .execute(&handle, &format!("DROP TABLE dbo.[{child}]"), &[])
+            .await
+            .unwrap();
+    }
+    connector
+        .execute(&handle, &format!("DROP TABLE dbo.[{parent}]"), &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}

@@ -19,6 +19,27 @@ where
         .unwrap_or_else(|error| panic!("MySQL information_schema column {name} is unreadable: {error}"))
 }
 
+const FOREIGN_KEY_SQL: &str = "SELECT
+                tc.TABLE_NAME AS table_name,
+                kcu.COLUMN_NAME AS column_name,
+                kcu.REFERENCED_TABLE_NAME AS referenced_table_name,
+                kcu.REFERENCED_COLUMN_NAME AS referenced_column_name,
+                kcu.REFERENCED_TABLE_SCHEMA AS referenced_table_schema,
+                rc.CONSTRAINT_NAME AS constraint_name,
+                rc.UPDATE_RULE AS update_rule,
+                rc.DELETE_RULE AS delete_rule
+             FROM information_schema.TABLE_CONSTRAINTS tc
+             JOIN information_schema.KEY_COLUMN_USAGE kcu
+               ON tc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA
+              AND tc.TABLE_NAME = kcu.TABLE_NAME
+              AND tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+             JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+               ON tc.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
+              AND tc.TABLE_NAME = rc.TABLE_NAME
+              AND tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+             WHERE tc.TABLE_SCHEMA = ? AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+             ORDER BY tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION";
+
 pub struct MySqlIntrospect;
 
 impl MySqlIntrospect {
@@ -211,25 +232,11 @@ impl MySqlIntrospect {
     // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     async fn fetch_foreign_keys(pool: &MySqlPool, database: &str) -> Result<Vec<ForeignKey>, DbError> {
         // Foreign keys
-        let fk_rows = sqlx::query(
-            "SELECT
-                tc.TABLE_NAME AS table_name,
-                kcu.COLUMN_NAME AS column_name,
-                kcu.REFERENCED_TABLE_NAME AS referenced_table_name,
-                kcu.REFERENCED_COLUMN_NAME AS referenced_column_name,
-                rc.CONSTRAINT_NAME AS constraint_name,
-                rc.UPDATE_RULE AS update_rule,
-                rc.DELETE_RULE AS delete_rule
-             FROM information_schema.TABLE_CONSTRAINTS tc
-             JOIN information_schema.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-             JOIN information_schema.REFERENTIAL_CONSTRAINTS rc ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-             WHERE tc.TABLE_SCHEMA = ? AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
-             ORDER BY tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION",
-        )
-        .bind(database)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| DbError::QueryFailed(format!("MySQL introspect FK failed: {}", e)))?;
+        let fk_rows = sqlx::query(FOREIGN_KEY_SQL)
+            .bind(database)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| DbError::QueryFailed(format!("MySQL introspect FK failed: {}", e)))?;
 
         // allow: temporary map grouping information_schema rows by constraint_name before
         // cc-scan:allow LINE_TOO_LONG — literal must not wrap
@@ -237,7 +244,7 @@ impl MySqlIntrospect {
         #[allow(clippy::type_complexity)]
         let mut fk_groups: std::collections::HashMap<
             String,
-            (Vec<String>, Vec<String>, String, String, String, String),
+            (Vec<String>, Vec<String>, String, String, String, String, String),
         > = std::collections::HashMap::new();
         for row in &fk_rows {
             let constraint: String = info(row, "constraint_name");
@@ -247,6 +254,7 @@ impl MySqlIntrospect {
                     Vec::new(),
                     info(row, "table_name"),
                     info(row, "referenced_table_name"),
+                    info(row, "referenced_table_schema"),
                     info(row, "update_rule"),
                     info(row, "delete_rule"),
                 )
@@ -257,14 +265,14 @@ impl MySqlIntrospect {
         let foreign_keys = fk_groups
             .into_iter()
             .map(
-                |(name, (from_cols, to_cols, from_table, to_table, on_update, on_delete))| ForeignKey {
+                |(name, (from_cols, to_cols, from_table, to_table, to_schema, on_update, on_delete))| ForeignKey {
                     name,
                     from_table,
                     from_columns: from_cols,
                     to_table,
                     to_columns: to_cols,
                     schema: database.to_owned(),
-                    to_schema: database.to_owned(),
+                    to_schema,
                     on_update,
                     on_delete,
                     match_option: String::new(),

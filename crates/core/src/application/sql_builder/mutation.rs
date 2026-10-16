@@ -91,6 +91,7 @@ pub fn build_delete(
     Ok((sql, params))
 }
 
+/// Selects at most one row using the provider's pagination syntax.
 pub fn build_select_by_pk(
     dialect: &dyn SqlDialect,
     schema: &str,
@@ -104,8 +105,22 @@ pub fn build_select_by_pk(
         .iter()
         .map(|column| format!("{} = {}", dialect.quote_identifier(column), placeholders.next()))
         .collect::<Vec<_>>();
+    let order_by = if dialect.pagination_requires_order_by() {
+        let columns = pk_columns
+            .iter()
+            .map(|column| dialect.quote_identifier(column))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(" ORDER BY {columns}")
+    } else {
+        String::new()
+    };
+    let pagination = dialect.pagination_clause("1", "0");
     let target = qualify(dialect, schema, table);
-    let sql = format!("SELECT * FROM {target} WHERE {} LIMIT 1", pk_where.join(" AND "));
+    let sql = format!(
+        "SELECT * FROM {target} WHERE {}{order_by}{pagination}",
+        pk_where.join(" AND ")
+    );
     let params = pk_values.iter().map(super::cell_to_param).collect();
     Ok((sql, params))
 }

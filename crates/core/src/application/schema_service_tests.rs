@@ -371,7 +371,7 @@ async fn get_table_ddl_basic() {
     assert!(ddl.contains("CREATE TABLE \"public\".\"users\""));
     assert!(ddl.contains("\"id\" INTEGER NOT NULL"));
     assert!(ddl.contains("PRIMARY KEY (\"id\")"));
-    assert!(ddl.contains("CREATE UNIQUE INDEX \"public\".\"idx_email\" ON \"public\".\"users\""));
+    assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\" ON \"public\".\"users\""));
     assert!(ddl.contains("CREATE TRIGGER"));
     assert!(ddl.contains("audit_insert"));
     assert!(ddl.contains("AFTER INSERT"));
@@ -644,12 +644,169 @@ fn ddl_generation_groups_composite_fk_rows_into_one_constraint() {
     ));
 }
 
+fn special_identifier_introspection() -> IntrospectResult {
+    let mut result = test_introspect_result();
+    let schema = "app`\"]zone";
+    let table = "select";
+    result.tables[0].schema = schema.into();
+    result.tables[0].name = table.into();
+    for (column, name) in result.columns.iter_mut().zip(["order", "part`\"]key"]) {
+        column.schema = schema.into();
+        column.table_name = table.into();
+        column.name = name.into();
+        column.data_type = "INTEGER".into();
+        column.default = Some("1".into());
+    }
+    result.primary_keys[0].schema = schema.into();
+    result.primary_keys[0].table_name = table.into();
+    result.primary_keys[0].columns = vec!["order".into(), "part`\"]key".into()];
+    result.indexes[0].schema = schema.into();
+    result.indexes[0].table_name = table.into();
+    result.indexes[0].name = "index`\"]key".into();
+    result.indexes[0].columns = vec!["part`\"]key".into(), "order".into()];
+    result.check_constraints = vec![CheckConstraint {
+        name: "check`\"]rule".into(),
+        table_name: table.into(),
+        schema: schema.into(),
+        definition: "CHECK (\"order\" > 0)".into(),
+    }];
+    result.foreign_keys = vec![ForeignKey {
+        name: "foreign`\"]rule".into(),
+        schema: schema.into(),
+        from_table: table.into(),
+        from_columns: vec!["order".into(), "part`\"]key".into()],
+        to_schema: schema.into(),
+        to_table: "parent`\"]table".into(),
+        to_columns: vec!["order".into(), "part`\"]key".into()],
+        on_update: "CASCADE".into(),
+        on_delete: "CASCADE".into(),
+        ..Default::default()
+    }];
+    result.triggers.clear();
+    result
+}
+
+#[tokio::test]
+async fn get_table_ddl_quotes_special_identifiers_for_each_provider() {
+    // Literal expectations are independent of the production dialect formatter.
+    for (driver, schema, column, check, foreign_key, parent, index) in [
+        (
+            DriverType::Postgres,
+            r#""app`""]zone""#,
+            r#""part`""]key""#,
+            r#""check`""]rule""#,
+            r#""foreign`""]rule""#,
+            r#""parent`""]table""#,
+            r#""index`""]key""#,
+        ),
+        (
+            DriverType::SQLite,
+            "",
+            r#""part`""]key""#,
+            r#""check`""]rule""#,
+            r#""foreign`""]rule""#,
+            r#""parent`""]table""#,
+            r#""index`""]key""#,
+        ),
+        (
+            DriverType::Mysql,
+            r#"`app``"]zone`"#,
+            r#"`part``"]key`"#,
+            r#"`check``"]rule`"#,
+            r#"`foreign``"]rule`"#,
+            r#"`parent``"]table`"#,
+            r#"`index``"]key`"#,
+        ),
+        (
+            DriverType::SqlServer,
+            r#"[app`"]]zone]"#,
+            r#"[part`"]]key]"#,
+            r#"[check`"]]rule]"#,
+            r#"[foreign`"]]rule]"#,
+            r#"[parent`"]]table]"#,
+            r#"[index`"]]key]"#,
+        ),
+    ] {
+        let (table, order) = match driver {
+            DriverType::Mysql => ("`select`", "`order`"),
+            DriverType::SqlServer => ("[select]", "[order]"),
+            DriverType::Postgres | DriverType::SQLite => ("\"select\"", "\"order\""),
+        };
+        let mut introspection = special_identifier_introspection();
+        introspection.check_constraints[0].definition = format!("CHECK ({order} > 0 AND {column} > 0)");
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        let mut cache = MockIntrospectionCache::new();
+        cache.expect_get().returning(move |_| Ok(Some(introspection.clone())));
+        let service = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            registry,
+            Box::new(connections_for(driver)),
+        );
+        let ddl = service.get_table_ddl(&conn_id, "app`\"]zone", "select").await.unwrap();
+        let prefix = if schema.is_empty() {
+            String::new()
+        } else {
+            format!("{schema}.")
+        };
+        let target = format!("{prefix}{table}");
+        let foreign_key_clause = format!(
+            "CONSTRAINT {foreign_key} FOREIGN KEY ({order}, {column}) REFERENCES \
+             {prefix}{parent} ({order}, {column}) ON UPDATE CASCADE ON DELETE CASCADE"
+        );
+        let inline_index = if driver == DriverType::Mysql {
+            format!(",\n    UNIQUE INDEX {index} ({column}, {order})")
+        } else {
+            String::new()
+        };
+        let inline_fk = if driver == DriverType::Postgres {
+            String::new()
+        } else {
+            format!(",\n    {foreign_key_clause}")
+        };
+        let mut expected = format!(
+            "CREATE TABLE {target} (\n    {order} INTEGER NOT NULL DEFAULT 1,\n    \
+             {column} INTEGER NOT NULL DEFAULT 1,\n    PRIMARY KEY ({order}, {column}),\n    \
+             CONSTRAINT {check} CHECK ({order} > 0 AND {column} > 0){inline_index}{inline_fk}\n);\n"
+        );
+        if driver != DriverType::Mysql {
+            expected.push_str(&format!(
+                "CREATE UNIQUE INDEX {index} ON {target} ({column}, {order});\n"
+            ));
+        }
+        if driver == DriverType::Postgres {
+            expected.push_str(&format!("ALTER TABLE {target} ADD {foreign_key_clause};\n"));
+        }
+        assert_eq!(ddl, expected, "{driver:?}");
+    }
+}
+
 #[test]
-fn quote_identifier_handles_special_chars() {
-    assert_eq!(quote_identifier("table"), "\"table\"");
-    assert_eq!(quote_identifier("my table"), "\"my table\"");
-    assert_eq!(quote_identifier("select"), "\"select\"");
-    assert_eq!(quote_identifier("has\"quote"), "\"has\"\"quote\"");
+fn ddl_preserves_postgres_native_index_and_deferred_composite_fk() {
+    let mut introspection = special_identifier_introspection();
+    let definition = concat!(
+        "CREATE UNIQUE INDEX native_idx ON \"app`\"\"]zone\".\"select\" ",
+        "USING btree (\"order\" DESC) WHERE \"order\" > 0"
+    );
+    introspection.indexes[0].definition = definition.into();
+    let foreign_key = &mut introspection.foreign_keys[0];
+    foreign_key.match_option = "FULL".into();
+    foreign_key.deferrable = true;
+    foreign_key.initially_deferred = true;
+    let info = TableInfo {
+        table: introspection.tables.remove(0),
+        columns: introspection.columns,
+        primary_key: introspection.primary_keys.pop(),
+        indexes: introspection.indexes,
+        foreign_keys: introspection.foreign_keys,
+        check_constraints: introspection.check_constraints,
+        dependencies: vec![],
+    };
+    let ddl = build_create_table_ddl(&info, DriverType::Postgres, &info.check_constraints);
+    assert!(ddl.contains(&format!("{definition};\n")));
+    assert_eq!(ddl.matches("CREATE UNIQUE INDEX").count(), 1);
+    assert!(ddl.ends_with("MATCH FULL ON UPDATE CASCADE ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;\n"));
 }
 
 #[tokio::test]
@@ -757,4 +914,67 @@ async fn execute_ddl_runs_multiple_statements() {
         .await
         .expect("multi-statement apply runs");
     assert_eq!(affected, 0);
+}
+
+#[test]
+fn sqlserver_ddl_preserves_canonical_foreign_key_actions() {
+    for (on_update, on_delete, expected_actions) in [
+        ("NO ACTION", "NO ACTION", ""),
+        ("SET NULL", "SET DEFAULT", " ON UPDATE SET NULL ON DELETE SET DEFAULT"),
+        ("SET DEFAULT", "SET NULL", " ON UPDATE SET DEFAULT ON DELETE SET NULL"),
+    ] {
+        let mut introspection = special_identifier_introspection();
+        introspection.foreign_keys[0].on_update = on_update.into();
+        introspection.foreign_keys[0].on_delete = on_delete.into();
+        let info = TableInfo {
+            table: introspection.tables.remove(0),
+            columns: introspection.columns,
+            primary_key: introspection.primary_keys.pop(),
+            indexes: vec![],
+            foreign_keys: introspection.foreign_keys,
+            check_constraints: vec![],
+            dependencies: vec![],
+        };
+        let ddl = build_create_table_ddl(&info, DriverType::SqlServer, &[]);
+        let foreign_key_line = ddl.lines().find(|line| line.contains("FOREIGN KEY")).unwrap();
+        assert!(foreign_key_line.ends_with(&format!("([order], [part`\"]]key]){expected_actions}")));
+        if expected_actions.is_empty() {
+            assert!(!foreign_key_line.contains("ON UPDATE"));
+            assert!(!foreign_key_line.contains("ON DELETE"));
+        }
+    }
+}
+
+#[test]
+fn mysql_ddl_declares_supporting_indexes_before_foreign_keys_once() {
+    let mut introspection = special_identifier_introspection();
+    let mut supporting_index = introspection.indexes[0].clone();
+    supporting_index.name = introspection.foreign_keys[0].name.clone();
+    supporting_index.columns = introspection.foreign_keys[0].from_columns.clone();
+    supporting_index.unique = false;
+    introspection.indexes.push(supporting_index);
+    introspection.indexes.push(Index {
+        name: "PRIMARY".into(),
+        columns: vec!["order".into(), "part`\"]key".into()],
+        primary: true,
+        ..Default::default()
+    });
+    let info = TableInfo {
+        table: introspection.tables.remove(0),
+        columns: introspection.columns,
+        primary_key: introspection.primary_keys.pop(),
+        indexes: introspection.indexes,
+        foreign_keys: introspection.foreign_keys,
+        check_constraints: vec![],
+        dependencies: vec![],
+    };
+    let ddl = build_create_table_ddl(&info, DriverType::Mysql, &[]);
+    let supporting_index = "INDEX `foreign``\"]rule` (`order`, `part``\"]key`)";
+    assert_eq!(ddl.matches(supporting_index).count(), 1);
+    assert!(ddl.find(supporting_index).unwrap() < ddl.find("FOREIGN KEY").unwrap());
+    assert!(ddl.contains("UNIQUE INDEX `index``\"]key` (`part``\"]key`, `order`)"));
+    assert_eq!(ddl.matches("PRIMARY KEY").count(), 1);
+    assert!(!ddl.contains("INDEX `PRIMARY`"));
+    assert!(!ddl.contains("CREATE INDEX"));
+    assert!(!ddl.contains("CREATE UNIQUE INDEX"));
 }

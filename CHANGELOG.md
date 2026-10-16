@@ -20,6 +20,9 @@ All notable user-facing changes to DB Pro. The shipped application is the native
   provider disconnect, and MySQL tunnel choices are no longer silently discarded. Unsupported SQL
   Server tunnel choices reach explicit validation; tunneled diagnostics no longer invent SSH success
   or probe the direct database route (#435, #451, #475; partial diagnostics work for #400).
+- Reconstructed table DDL uses provider-specific identifier quoting and preserves MySQL
+  cross-database FK targets/supporting indexes. Primary-key reload uses the existing dialect's
+  row-limit syntax, including SQL Server ordering/pagination (#442; #441 live SQL Server gate pending).
 
 ## [0.1.0] - 2026-09-14
 

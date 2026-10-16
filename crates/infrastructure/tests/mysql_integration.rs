@@ -510,3 +510,123 @@ async fn mysql_table_data_change_set_round_trips() {
         .ok();
     connector.disconnect(&handle).await.unwrap();
 }
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL=mysql://... and MYSQL_REFERENCE_DATABASE with table creation privileges"]
+async fn mysql_cross_database_foreign_key_ddl_round_trips() {
+    use db_pro_core::application::{sql_builder::qualify, ConnectionRegistry, SchemaService};
+    use db_pro_core::domain::connection::Connection;
+    use db_pro_core::ports::ConnectionRepository;
+    use db_pro_infrastructure::meta::store::SQLiteMetaStore;
+    use std::sync::Arc;
+
+    let (connector, handle, database) = setup().await.expect("requires a live MySQL DATABASE_URL");
+    let reference_database = std::env::var("MYSQL_REFERENCE_DATABASE").expect("requires MYSQL_REFERENCE_DATABASE");
+    assert_ne!(database, reference_database, "the referenced database must be distinct");
+    let connector = Arc::new(connector);
+    let dialect = connector.dialect(&handle).unwrap();
+    let suffix = uuid::Uuid::new_v4().simple().to_string();
+    let parent_name = format!("dbpro442_parent_{suffix}");
+    let child_name = format!("dbpro442_child_{suffix}");
+    let constraint_name = format!("dbpro442_fk_{suffix}");
+    let local_parent = qualify(dialect.as_ref(), &database, &parent_name);
+    let remote_parent = qualify(dialect.as_ref(), &reference_database, &parent_name);
+    let local_child = qualify(dialect.as_ref(), &database, &child_name);
+    let remote_child = qualify(dialect.as_ref(), &reference_database, &child_name);
+    let constraint = dialect.quote_identifier(&constraint_name);
+    for target in [&local_parent, &remote_parent] {
+        connector
+            .execute(
+                &handle,
+                &format!(
+                    "CREATE TABLE {target} (tenant_id INT NOT NULL, id INT NOT NULL, PRIMARY KEY (tenant_id, id))"
+                ),
+                &[],
+            )
+            .await
+            .expect("create same-named parent in each database");
+    }
+    // Constraint and table names deliberately collide across databases. Catalog joins
+    // must scope every side to its database instead of multiplying matching names.
+    for target in [&local_child, &remote_child] {
+        connector
+            .execute(
+                &handle,
+                &format!(
+                    "CREATE TABLE {target} (id INT PRIMARY KEY, tenant_id INT NOT NULL, parent_id INT NOT NULL, \
+                     CONSTRAINT {constraint} FOREIGN KEY (tenant_id, parent_id) \
+                     REFERENCES {remote_parent} (tenant_id, id) ON UPDATE CASCADE ON DELETE CASCADE)"
+                ),
+                &[],
+            )
+            .await
+            .expect("create cross-database and same-database constraints");
+    }
+    connector
+        .execute(&handle, &format!("INSERT INTO {local_parent} VALUES (10, 10)"), &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, &format!("INSERT INTO {remote_parent} VALUES (10, 20)"), &[])
+        .await
+        .unwrap();
+
+    let model = connector
+        .introspect(&handle)
+        .await
+        .expect("introspect cross-database FK");
+    let foreign_keys: Vec<_> = model
+        .foreign_keys
+        .iter()
+        .filter(|foreign_key| foreign_key.from_table == child_name && foreign_key.schema == database)
+        .collect();
+    assert_eq!(foreign_keys.len(), 1);
+    assert_eq!(foreign_keys[0].to_schema, reference_database);
+    assert_eq!(foreign_keys[0].to_table, parent_name);
+    assert_eq!(foreign_keys[0].from_columns, vec!["tenant_id", "parent_id"]);
+    assert_eq!(foreign_keys[0].to_columns, vec!["tenant_id", "id"]);
+
+    let connection = Connection::new(mysql_config().unwrap());
+    let store = SQLiteMetaStore::new(":memory:").await.unwrap();
+    ConnectionRepository::save(&store, &connection).await.unwrap();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(connection.id, handle);
+    let service = SchemaService::new(
+        Box::new(Arc::clone(&connector)),
+        Box::new(store.clone()),
+        registry,
+        Box::new(store),
+    );
+    let ddl = service
+        .get_table_ddl(&connection.id, &database, &child_name)
+        .await
+        .unwrap();
+    assert!(ddl.contains(&format!("REFERENCES {remote_parent} (")));
+    assert!(!ddl.contains(&format!("REFERENCES {local_parent} (")));
+    connector
+        .execute(&handle, &format!("DROP TABLE {local_child}"), &[])
+        .await
+        .unwrap();
+    service
+        .execute_ddl(&connection.id, &ddl)
+        .await
+        .expect("recreate FK plus its supporting index without a duplicate-index error");
+    connector
+        .execute(&handle, &format!("INSERT INTO {local_child} VALUES (1, 10, 20)"), &[])
+        .await
+        .expect("reconstructed FK accepts the remote parent's key, absent from the local parent");
+    assert!(
+        connector
+            .execute(&handle, &format!("INSERT INTO {local_child} VALUES (2, 10, 10)"), &[])
+            .await
+            .is_err(),
+        "a key only present in the local parent must not satisfy the remote FK"
+    );
+    for target in [&local_child, &remote_child, &local_parent, &remote_parent] {
+        connector
+            .execute(&handle, &format!("DROP TABLE {target}"), &[])
+            .await
+            .unwrap();
+    }
+    connector.disconnect(&handle).await.unwrap();
+}

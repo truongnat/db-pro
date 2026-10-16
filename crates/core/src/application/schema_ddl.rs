@@ -1,5 +1,9 @@
 use crate::domain::connection::DriverType;
 use crate::domain::schema::{CheckConstraint, ForeignKey, IndexOrigin, TableInfo, Trigger};
+use crate::ports::SqlDialect;
+
+use super::super::driver_dialect::DriverDialect;
+use super::super::sql_builder::qualify;
 
 struct ForeignKeyDdlGroup<'a> {
     name: &'a str,
@@ -19,14 +23,17 @@ pub(super) fn build_create_table_ddl(
     driver: DriverType,
     check_constraints: &[CheckConstraint],
 ) -> String {
+    let dialect = DriverDialect::new(driver);
     let qualified = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
     let foreign_keys = group_foreign_keys_for_ddl(&info.foreign_keys);
-    let definitions = table_definitions(info, driver, check_constraints, &foreign_keys);
+    let definitions = table_definitions(info, driver, &dialect, check_constraints, &foreign_keys);
     let mut ddl = format!("CREATE TABLE {qualified} (\n{}\n);\n", definitions.join(",\n"));
 
-    append_index_ddl(&mut ddl, info, driver);
+    if driver != DriverType::Mysql {
+        append_index_ddl(&mut ddl, info, driver, &dialect);
+    }
     if driver == DriverType::Postgres {
-        append_postgres_foreign_keys(&mut ddl, &qualified, &foreign_keys);
+        append_postgres_foreign_keys(&mut ddl, &qualified, &dialect, &foreign_keys);
     }
 
     ddl
@@ -39,10 +46,11 @@ pub(super) fn format_trigger_ddl(trigger: &Trigger) -> String {
     if trigger.definition.to_ascii_uppercase().starts_with("CREATE TRIGGER") {
         format!("{};\n", trigger.definition)
     } else {
-        let qualified = qualify_name(&trigger.schema, &trigger.table_name);
+        let dialect = DriverDialect::new(DriverType::Postgres);
+        let qualified = qualify(&dialect, &trigger.schema, &trigger.table_name);
         let trigger_stmt = format!(
             "CREATE TRIGGER {}\n  {} {} ON {}\n  {};\n",
-            quote_identifier(&trigger.name),
+            dialect.quote_identifier(&trigger.name),
             trigger.timing,
             trigger.event,
             qualified,
@@ -81,45 +89,62 @@ fn group_foreign_keys_for_ddl(foreign_keys: &[ForeignKey]) -> Vec<ForeignKeyDdlG
         .collect()
 }
 
-fn qualify_name(schema: &str, name: &str) -> String {
-    if schema.is_empty() {
-        quote_identifier(name)
-    } else {
-        format!("{}.{}", quote_identifier(schema), quote_identifier(name))
-    }
-}
-
 fn table_definitions(
     info: &TableInfo,
     driver: DriverType,
+    dialect: &dyn SqlDialect,
     check_constraints: &[CheckConstraint],
     foreign_keys: &[ForeignKeyDdlGroup<'_>],
 ) -> Vec<String> {
-    let mut definitions: Vec<_> = info.columns.iter().map(format_column_definition).collect();
+    let mut definitions: Vec<_> = info
+        .columns
+        .iter()
+        .map(|column| format_column_definition(column, dialect))
+        .collect();
 
     if let Some(ref pk) = info.primary_key {
         definitions.push(format!(
             "    PRIMARY KEY ({})",
-            quote_columns(&pk.columns.iter().map(String::as_str).collect::<Vec<_>>())
+            quote_columns(dialect, &pk.columns.iter().map(String::as_str).collect::<Vec<_>>())
         ));
     }
-    definitions.extend(check_constraints.iter().map(format_check_constraint));
+    definitions.extend(
+        check_constraints
+            .iter()
+            .map(|constraint| format_check_constraint(constraint, dialect)),
+    );
 
+    if driver == DriverType::Mysql {
+        // Declare existing indexes before FKs so MySQL reuses supporting indexes
+        // rather than auto-creating one and colliding with a later CREATE INDEX.
+        definitions.extend(
+            info.indexes
+                .iter()
+                .filter(|index| !index.primary)
+                .map(|index| format_mysql_index(index, dialect)),
+        );
+    }
+    if driver != DriverType::Postgres {
+        definitions.extend(
+            foreign_keys
+                .iter()
+                .map(|foreign_key| format_foreign_key(foreign_key, driver, dialect)),
+        );
+    }
     if driver == DriverType::SQLite {
-        definitions.extend(foreign_keys.iter().map(format_sqlite_foreign_key));
         definitions.extend(
             info.indexes
                 .iter()
                 .filter(|index| index.origin == IndexOrigin::UniqueConstraint)
-                .map(format_sqlite_unique_constraint),
+                .map(|index| format_sqlite_unique_constraint(index, dialect)),
         );
     }
 
     definitions
 }
 
-fn format_column_definition(column: &crate::domain::schema::Column) -> String {
-    let mut definition = format!("    {} {}", quote_identifier(&column.name), column.data_type);
+fn format_column_definition(column: &crate::domain::schema::Column, dialect: &dyn SqlDialect) -> String {
+    let mut definition = format!("    {} {}", dialect.quote_identifier(&column.name), column.data_type);
     if column.is_identity {
         definition.push_str(" GENERATED BY DEFAULT AS IDENTITY");
     } else if column.is_generated {
@@ -138,22 +163,22 @@ fn format_column_definition(column: &crate::domain::schema::Column) -> String {
     definition
 }
 
-fn format_check_constraint(constraint: &CheckConstraint) -> String {
+fn format_check_constraint(constraint: &CheckConstraint, dialect: &dyn SqlDialect) -> String {
     format!(
         "    CONSTRAINT {} {}",
-        quote_identifier(&constraint.name),
+        dialect.quote_identifier(&constraint.name),
         check_constraint_definition(constraint),
     )
 }
 
-fn format_sqlite_foreign_key(foreign_key: &ForeignKeyDdlGroup<'_>) -> String {
-    let to_qualified = qualify_name_for_driver(DriverType::SQLite, foreign_key.to_schema, foreign_key.to_table);
-    let from_columns = quote_columns(&foreign_key.from_columns);
-    let to_columns = quote_columns(&foreign_key.to_columns);
+fn format_foreign_key(foreign_key: &ForeignKeyDdlGroup<'_>, driver: DriverType, dialect: &dyn SqlDialect) -> String {
+    let to_qualified = qualify_name_for_driver(driver, foreign_key.to_schema, foreign_key.to_table);
+    let from_columns = quote_columns(dialect, &foreign_key.from_columns);
+    let to_columns = quote_columns(dialect, &foreign_key.to_columns);
     let actions = format_foreign_key_actions(foreign_key);
     format!(
         "    CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns}){actions}",
-        quote_identifier(foreign_key.name),
+        dialect.quote_identifier(foreign_key.name),
     )
 }
 
@@ -180,12 +205,19 @@ fn format_foreign_key_actions(foreign_key: &ForeignKeyDdlGroup<'_>) -> String {
     clauses
 }
 
-fn format_sqlite_unique_constraint(index: &crate::domain::schema::Index) -> String {
-    let columns = quote_columns(&index.columns.iter().map(String::as_str).collect::<Vec<_>>());
+fn format_sqlite_unique_constraint(index: &crate::domain::schema::Index, dialect: &dyn SqlDialect) -> String {
+    let columns = quote_columns(dialect, &index.columns.iter().map(String::as_str).collect::<Vec<_>>());
     format!("    UNIQUE ({columns})")
 }
 
-fn append_index_ddl(ddl: &mut String, info: &TableInfo, driver: DriverType) {
+fn format_mysql_index(index: &crate::domain::schema::Index, dialect: &dyn SqlDialect) -> String {
+    let unique = if index.unique { "UNIQUE " } else { "" };
+    let name = dialect.quote_identifier(&index.name);
+    let columns = quote_columns(dialect, &index.columns.iter().map(String::as_str).collect::<Vec<_>>());
+    format!("    {unique}INDEX {name} ({columns})")
+}
+
+fn append_index_ddl(ddl: &mut String, info: &TableInfo, driver: DriverType, dialect: &dyn SqlDialect) {
     let index_target = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
     for index in &info.indexes {
         if index.primary || (driver == DriverType::SQLite && index.origin == IndexOrigin::UniqueConstraint) {
@@ -197,40 +229,47 @@ fn append_index_ddl(ddl: &mut String, info: &TableInfo, driver: DriverType) {
             continue;
         }
         let unique = if index.unique { "UNIQUE " } else { "" };
-        let index_name = qualify_name_for_driver(driver, &index.schema, &index.name);
-        let cols = quote_columns(&index.columns.iter().map(String::as_str).collect::<Vec<_>>());
+        // Index names are local to the target table's schema, not schema-qualified.
+        let index_name = dialect.quote_identifier(&index.name);
+        let cols = quote_columns(dialect, &index.columns.iter().map(String::as_str).collect::<Vec<_>>());
         ddl.push_str(&format!(
             "CREATE {unique}INDEX {index_name} ON {index_target} ({cols});\n"
         ));
     }
 }
 
-fn append_postgres_foreign_keys(ddl: &mut String, qualified_table: &str, foreign_keys: &[ForeignKeyDdlGroup<'_>]) {
+fn append_postgres_foreign_keys(
+    ddl: &mut String,
+    qualified_table: &str,
+    dialect: &dyn SqlDialect,
+    foreign_keys: &[ForeignKeyDdlGroup<'_>],
+) {
     for foreign_key in foreign_keys {
-        let to_qualified = qualify_name(foreign_key.to_schema, foreign_key.to_table);
-        let from_columns = quote_columns(&foreign_key.from_columns);
-        let to_columns = quote_columns(&foreign_key.to_columns);
+        let to_qualified = qualify(dialect, foreign_key.to_schema, foreign_key.to_table);
+        let from_columns = quote_columns(dialect, &foreign_key.from_columns);
+        let to_columns = quote_columns(dialect, &foreign_key.to_columns);
         ddl.push_str(&format!(
             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "ALTER TABLE {qualified_table} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns}){};\n",
-            quote_identifier(foreign_key.name),
+            dialect.quote_identifier(foreign_key.name),
             format_foreign_key_actions(foreign_key),
         ));
     }
 }
 
 fn qualify_name_for_driver(driver: DriverType, schema: &str, name: &str) -> String {
+    let dialect = DriverDialect::new(driver);
     if driver == DriverType::SQLite {
-        quote_identifier(name)
+        dialect.quote_identifier(name)
     } else {
-        qualify_name(schema, name)
+        qualify(&dialect, schema, name)
     }
 }
 
-fn quote_columns(columns: &[&str]) -> String {
+fn quote_columns(dialect: &dyn SqlDialect, columns: &[&str]) -> String {
     columns
         .iter()
-        .map(|column| quote_identifier(column))
+        .map(|column| dialect.quote_identifier(column))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -246,9 +285,4 @@ fn check_constraint_definition(constraint: &CheckConstraint) -> String {
     } else {
         format!("CHECK ({})", constraint.definition)
     }
-}
-
-pub(super) fn quote_identifier(name: &str) -> String {
-    let escaped = name.replace('"', "\"\"");
-    format!("\"{escaped}\"")
 }

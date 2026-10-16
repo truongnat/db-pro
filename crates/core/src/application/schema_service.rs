@@ -11,9 +11,6 @@ use super::sql_policy::{placeholder_remains, split_statements};
 use schema_ddl::{build_create_table_ddl, format_trigger_ddl};
 use schema_table_info::build_table_info;
 
-#[cfg(test)]
-use schema_ddl::quote_identifier;
-
 #[path = "schema_ddl.rs"]
 mod schema_ddl;
 #[path = "schema_table_info.rs"]
