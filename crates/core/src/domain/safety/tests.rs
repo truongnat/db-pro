@@ -474,6 +474,31 @@ fn split_statements_respects_quotes() {
 }
 
 #[test]
+fn postgres_splitter_uses_standard_and_escape_string_rules() {
+    use crate::domain::connection::DriverType;
+
+    let injection = r#"SELECT 'x\'; DROP TABLE important; --"#;
+    assert_eq!(split_statements(injection).len(), 2);
+    assert_eq!(split_statements_for_driver(injection, DriverType::Postgres).len(), 2);
+
+    let escaped_literal = r#"SELECT E'x\';still one'; SELECT 2"#;
+    assert_eq!(split_statements(escaped_literal).len(), 2);
+    assert_eq!(split_statements(escaped_literal)[0], r#"SELECT E'x\';still one'"#);
+}
+
+#[test]
+fn mysql_splitter_preserves_backslash_escaped_quote_behavior() {
+    use crate::domain::connection::DriverType;
+
+    let escaped_literal = r#"SELECT 'x\';still one'; SELECT 2"#;
+    assert_eq!(split_statements_for_driver(escaped_literal, DriverType::Mysql).len(), 2);
+    assert_eq!(
+        split_statements_for_driver(escaped_literal, DriverType::Mysql)[0],
+        escaped_literal.split("; SELECT 2").next().unwrap()
+    );
+}
+
+#[test]
 fn split_statements_respects_comments_and_dollar_quotes() {
     let stmts = split_statements("DO $body$ BEGIN PERFORM 1; /* nested ; comment */ PERFORM 2; END $body$; SELECT 2");
     assert_eq!(stmts.len(), 2);

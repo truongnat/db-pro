@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::domain::connection::ConnectionId;
+use crate::domain::connection::{ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
@@ -14,7 +14,8 @@ use crate::ports::{
 };
 
 use super::registry::ConnectionRegistry;
-use super::sql_policy::{reject_multi_statement, split_statements};
+use super::sql_policy::reject_multi_statement_for_driver;
+use crate::domain::safety::split_statements_for_driver;
 use multi_query_execution::MultiQueryExecution;
 use query_classification::{classify_statement, StatementClass};
 
@@ -126,6 +127,14 @@ impl QueryService {
         }
     }
 
+    async fn driver_for(&self, connection_id: &ConnectionId) -> Result<DriverType, DbError> {
+        self.connections
+            .get_config(connection_id)
+            .await?
+            .map(|config| config.driver)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))
+    }
+
     /// Build the safety policy for a connection based on its persisted config.
     async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
         let config = self
@@ -148,7 +157,8 @@ impl QueryService {
         database: Option<&str>,
         schema: Option<&str>,
     ) -> Result<QueryResult, DbError> {
-        reject_multi_statement(sql)?;
+        let driver = self.driver_for(connection_id).await?;
+        reject_multi_statement_for_driver(sql, driver)?;
 
         let handle = self
             .registry
@@ -201,7 +211,8 @@ impl QueryService {
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
         let policy = self.safety_policy_for(connection_id).await?;
-        let statements = split_statements(sql);
+        let driver = self.driver_for(connection_id).await?;
+        let statements = split_statements_for_driver(sql, driver);
         if statements.is_empty() {
             return Err(DbError::QueryFailed("empty SQL statement".into()));
         }
@@ -271,7 +282,8 @@ impl QueryService {
         analyze: bool,
         schema: Option<&str>,
     ) -> Result<serde_json::Value, DbError> {
-        reject_multi_statement(sql)?;
+        let driver = self.driver_for(connection_id).await?;
+        reject_multi_statement_for_driver(sql, driver)?;
 
         let handle = self
             .registry

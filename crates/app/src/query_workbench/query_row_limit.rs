@@ -5,7 +5,8 @@
 //! plain read is dispatched verbatim. Scripts with several statements pass
 //! through untouched — splitting and re-joining would drop text between
 //! statements.
-use db_pro_core::domain::safety::{classify_statement_safety, split_statements, StatementSafety};
+use db_pro_core::domain::connection::DriverType;
+use db_pro_core::domain::safety::{classify_statement_safety, split_statements_for_driver, StatementSafety};
 
 use crate::editor::{SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
 
@@ -16,7 +17,13 @@ pub(super) fn apply_row_limit(sql: &str, limit: Option<u64>, driver: &str) -> St
     let Some(limit) = limit.filter(|limit| *limit > 0) else {
         return sql.to_owned();
     };
-    if split_statements(sql).len() != 1 {
+    let driver_type = match driver.to_ascii_lowercase().as_str() {
+        "sqlite" => DriverType::SQLite,
+        "mysql" | "mariadb" => DriverType::Mysql,
+        "sqlserver" | "mssql" => DriverType::SqlServer,
+        _ => DriverType::Postgres,
+    };
+    if split_statements_for_driver(sql, driver_type).len() != 1 {
         return sql.to_owned();
     }
     // Only plain reads get capped — SHOW/VALUES/classified-writes keep their text.

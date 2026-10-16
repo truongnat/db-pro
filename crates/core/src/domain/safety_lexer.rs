@@ -1,7 +1,40 @@
-pub(super) fn special_token_end(bytes: &[u8], start: usize) -> Option<usize> {
+use crate::domain::connection::DriverType;
+
+/// How a provider treats a backslash inside a quoted string literal.
+///
+/// This is a lexing concern only: it decides whether `\` before a quote keeps
+/// the literal open. It is not a full SQL parser, and it does not model every
+/// provider session setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SqlStringDialect {
+    /// PostgreSQL with `standard_conforming_strings=on` (the server default since
+    /// 9.1): a backslash is an ordinary character inside `'…'`. Only the `E'…'`
+    /// escape-string form changes how the literal is scanned. This is the default
+    /// because the reported regression is PostgreSQL's default behavior.
+    #[default]
+    Postgres,
+    /// MySQL/MariaDB without `NO_BACKSLASH_ESCAPES` (the default `sql_mode`):
+    /// `\` escapes the next byte inside both `'…'` and `"…"` string literals.
+    Mysql,
+    /// SQLite and SQL Server: backslash is always literal; only a doubled quote
+    /// closes a string. Neither provider supports the `E'…'` escape-string form.
+    Standard,
+}
+
+impl SqlStringDialect {
+    pub fn from_driver(driver: DriverType) -> Self {
+        match driver {
+            DriverType::Postgres => Self::Postgres,
+            DriverType::Mysql => Self::Mysql,
+            DriverType::SQLite | DriverType::SqlServer => Self::Standard,
+        }
+    }
+}
+
+pub(super) fn special_token_end(bytes: &[u8], start: usize, dialect: SqlStringDialect) -> Option<usize> {
     match bytes[start] {
-        b'\'' => Some(skip_quoted(bytes, start, b'\'')),
-        b'"' => Some(skip_quoted(bytes, start, b'"')),
+        b'\'' => Some(skip_quoted(bytes, start, b'\'', dialect)),
+        b'"' => Some(skip_quoted(bytes, start, b'"', dialect)),
         b'-' if bytes.get(start + 1) == Some(&b'-') => Some(skip_line_comment(bytes, start)),
         b'/' if bytes.get(start + 1) == Some(&b'*') => Some(skip_block_comment(bytes, start)),
         b'$' => skip_dollar_quote(bytes, start),
@@ -15,8 +48,8 @@ pub(super) fn matching_parenthesis_end(sql: &str) -> Option<usize> {
     let mut index = 0;
     while index < bytes.len() {
         index = match bytes[index] {
-            b'\'' => skip_quoted(bytes, index, b'\''),
-            b'"' => skip_quoted(bytes, index, b'"'),
+            b'\'' => skip_quoted(bytes, index, b'\'', SqlStringDialect::Postgres),
+            b'"' => skip_quoted(bytes, index, b'"', SqlStringDialect::Postgres),
             b'-' if bytes.get(index + 1) == Some(&b'-') => skip_line_comment(bytes, index),
             b'/' if bytes.get(index + 1) == Some(&b'*') => skip_block_comment(bytes, index),
             b'$' => skip_dollar_quote(bytes, index).unwrap_or(index + 1),
@@ -54,10 +87,20 @@ pub(super) fn scan_identifier(bytes: &[u8], start: usize) -> usize {
     end
 }
 
-pub(super) fn skip_quoted(bytes: &[u8], start: usize, quote: u8) -> usize {
+fn has_escape_string_prefix(bytes: &[u8], quote: usize) -> bool {
+    quote > 0 && matches!(bytes[quote - 1], b'e' | b'E') && (quote == 1 || !is_identifier_continue(bytes[quote - 2]))
+}
+
+pub(super) fn skip_quoted(bytes: &[u8], start: usize, quote: u8, dialect: SqlStringDialect) -> usize {
+    let backslash_escapes = match dialect {
+        SqlStringDialect::Mysql => true,
+        SqlStringDialect::Postgres => quote == b'\'' && has_escape_string_prefix(bytes, start),
+        SqlStringDialect::Standard => false,
+    };
+
     let mut index = start + 1;
     while index < bytes.len() {
-        if quote == b'\'' && bytes[index] == b'\\' {
+        if backslash_escapes && bytes[index] == b'\\' {
             index = (index + 2).min(bytes.len());
         } else if bytes[index] == quote {
             if bytes.get(index + 1) == Some(&quote) {
@@ -145,8 +188,8 @@ pub(super) fn tokenize_sql(sql: &str) -> Vec<SqlToken> {
 
     while index < bytes.len() {
         if let Some(end) = match bytes[index] {
-            b'\'' => Some(skip_quoted(bytes, index, b'\'')),
-            b'"' => Some(skip_quoted(bytes, index, b'"')),
+            b'\'' => Some(skip_quoted(bytes, index, b'\'', SqlStringDialect::Postgres)),
+            b'"' => Some(skip_quoted(bytes, index, b'"', SqlStringDialect::Postgres)),
             b'-' if bytes.get(index + 1) == Some(&b'-') => Some(skip_line_comment(bytes, index)),
             b'/' if bytes.get(index + 1) == Some(&b'*') => Some(skip_block_comment(bytes, index)),
             b'$' => skip_dollar_quote(bytes, index),

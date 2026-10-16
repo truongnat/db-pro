@@ -11,6 +11,7 @@ fn reject_multi_statement_basic() {
 
 #[test]
 fn reject_multi_statement_ignores_literals_identifiers_and_comments() {
+    assert!(reject_multi_statement(r#"SELECT 'x\'; DROP TABLE important; --"#).is_err());
     assert!(reject_multi_statement("SELECT ';'").is_ok());
     assert!(reject_multi_statement("SELECT \"semi;colon\"").is_ok());
     assert!(reject_multi_statement("SELECT 1 -- ;\n").is_ok());

@@ -831,7 +831,10 @@ impl SqliteActor {
         // rollback then has nothing left to undo), so reject them outright
         // before opening it (#359).
         for stmt_sql in statements {
-            for statement in db_pro_core::domain::safety::split_statements(stmt_sql) {
+            for statement in db_pro_core::domain::safety::split_statements_for_driver(
+                stmt_sql,
+                db_pro_core::domain::connection::DriverType::SQLite,
+            ) {
                 if let Some(verb) = db_pro_core::domain::safety::transaction_control_verb(&statement) {
                     return Err(DbError::Internal(format!(
                         "batch refused: {verb} cannot run inside an atomic batch"
