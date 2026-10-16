@@ -2,11 +2,18 @@
 
 use super::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum MonitoringConfirmationAction {
-    ConfirmTerminate(i64),
+    ConfirmTerminate {
+        backend_id: i64,
+        /// Snapshot identity from `pg_stat_activity.backend_start` (#501).
+        backend_start: Option<String>,
+    },
     CancelTerminate,
-    ConfirmCancelBackend(i64),
+    ConfirmCancelBackend {
+        backend_id: i64,
+        backend_start: Option<String>,
+    },
     DismissCancelBackend,
     ConfirmMaintenance(db_pro_core::domain::monitoring::MaintenanceAction),
     CancelMaintenance,
@@ -60,7 +67,10 @@ impl MonitoringConfirmationContext<'_> {
                 });
                 frame.footer(|ui| {
                     if danger_button(ui, "Terminate", self.theme).clicked() {
-                        actions.push(MonitoringConfirmationAction::ConfirmTerminate(backend_id));
+                        actions.push(MonitoringConfirmationAction::ConfirmTerminate {
+                            backend_id,
+                            backend_start: session.backend_start.clone(),
+                        });
                     }
                     if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
                         actions.push(MonitoringConfirmationAction::CancelTerminate);
@@ -87,7 +97,10 @@ impl MonitoringConfirmationContext<'_> {
                 });
                 frame.footer(|ui| {
                     if danger_button(ui, "Cancel backend", self.theme).clicked() {
-                        actions.push(MonitoringConfirmationAction::ConfirmCancelBackend(backend_id));
+                        actions.push(MonitoringConfirmationAction::ConfirmCancelBackend {
+                            backend_id,
+                            backend_start: session.backend_start.clone(),
+                        });
                     }
                     if secondary_button_with_icon(ui, Icon::X, "Keep running", self.theme).clicked() {
                         actions.push(MonitoringConfirmationAction::DismissCancelBackend);

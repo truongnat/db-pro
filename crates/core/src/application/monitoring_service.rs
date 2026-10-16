@@ -145,18 +145,30 @@ impl MonitoringService {
             .await
     }
 
-    pub async fn cancel_backend(&self, connection_id: &ConnectionId, backend_id: i64) -> Result<bool, DbError> {
+    pub async fn cancel_backend(
+        &self,
+        connection_id: &ConnectionId,
+        backend_id: i64,
+        backend_start: Option<&str>,
+    ) -> Result<bool, DbError> {
         self.ensure_pg(connection_id).await?;
         validate_backend_id(backend_id)?;
+        let backend_start = validate_backend_start(backend_start)?;
         let handle = self.active_handle(connection_id)?;
-        self.pg.cancel_backend(&handle, backend_id).await
+        self.pg.cancel_backend(&handle, backend_id, backend_start).await
     }
 
-    pub async fn terminate_backend(&self, connection_id: &ConnectionId, backend_id: i64) -> Result<bool, DbError> {
+    pub async fn terminate_backend(
+        &self,
+        connection_id: &ConnectionId,
+        backend_id: i64,
+        backend_start: Option<&str>,
+    ) -> Result<bool, DbError> {
         self.ensure_pg(connection_id).await?;
         validate_backend_id(backend_id)?;
+        let backend_start = validate_backend_start(backend_start)?;
         let handle = self.active_handle(connection_id)?;
-        self.pg.terminate_backend(&handle, backend_id).await
+        self.pg.terminate_backend(&handle, backend_id, backend_start).await
     }
 
     fn active_handle(
@@ -185,6 +197,15 @@ fn validate_backend_id(backend_id: i64) -> Result<(), DbError> {
         ));
     }
     Ok(())
+}
+
+/// A terminate must carry the snapshot `backend_start` identity so the adapter
+/// can prove the pid still belongs to the confirmed session (#501).
+fn validate_backend_start(backend_start: Option<&str>) -> Result<&str, DbError> {
+    backend_start
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| DbError::Validation("backend action requires its snapshot backend_start identity".into()))
 }
 
 fn now_ms() -> u64 {

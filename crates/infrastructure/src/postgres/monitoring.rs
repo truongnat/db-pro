@@ -120,10 +120,32 @@ impl MonitoringPort for PostgresMonitoringPort {
         Ok(None)
     }
 
-    async fn cancel_backend(&self, handle: &ConnectionHandle, backend_id: i64) -> Result<bool, DbError> {
+    async fn cancel_backend(
+        &self,
+        handle: &ConnectionHandle,
+        backend_id: i64,
+        backend_start: &str,
+    ) -> Result<bool, DbError> {
+        if backend_start.trim().is_empty() {
+            return Err(DbError::Validation(
+                "cancel requires the snapshot backend_start identity".into(),
+            ));
+        }
         let result = self
             .connector
-            .query(handle, "SELECT pg_cancel_backend($1)", &[QueryParam::Int64(backend_id)])
+            .query(
+                handle,
+                r#"
+SELECT pg_cancel_backend(a.pid)
+FROM pg_catalog.pg_stat_activity a
+WHERE a.pid = $1
+  AND a.backend_start = $2::timestamptz
+"#,
+                &[
+                    QueryParam::Int64(backend_id),
+                    QueryParam::Text(backend_start.to_owned()),
+                ],
+            )
             .await?;
         Ok(result
             .rows
@@ -133,13 +155,34 @@ impl MonitoringPort for PostgresMonitoringPort {
             .unwrap_or(false))
     }
 
-    async fn terminate_backend(&self, handle: &ConnectionHandle, backend_id: i64) -> Result<bool, DbError> {
+    async fn terminate_backend(
+        &self,
+        handle: &ConnectionHandle,
+        backend_id: i64,
+        backend_start: &str,
+    ) -> Result<bool, DbError> {
+        if backend_start.trim().is_empty() {
+            return Err(DbError::Validation(
+                "terminate requires the snapshot backend_start identity".into(),
+            ));
+        }
+        // pid + backend_start are verified inside the same statement that
+        // terminates: a recycled pid whose backend_start differs yields no row
+        // and is never terminated (#501).
         let result = self
             .connector
             .query(
                 handle,
-                "SELECT pg_terminate_backend($1)",
-                &[QueryParam::Int64(backend_id)],
+                r#"
+SELECT pg_terminate_backend(a.pid)
+FROM pg_catalog.pg_stat_activity a
+WHERE a.pid = $1
+  AND a.backend_start = $2::timestamptz
+"#,
+                &[
+                    QueryParam::Int64(backend_id),
+                    QueryParam::Text(backend_start.to_owned()),
+                ],
             )
             .await?;
         Ok(result
@@ -172,26 +215,9 @@ impl MonitoringPort for PostgresMonitoringPort {
                 FROM pg_catalog.pg_locks l
                 JOIN pg_catalog.pg_stat_activity a ON a.pid = l.pid
                 LEFT JOIN pg_catalog.pg_class c ON c.oid = l.relation
-                LEFT JOIN LATERAL (
-                    SELECT DISTINCT blocking.pid
-                    FROM pg_catalog.pg_locks waiting
-                    JOIN pg_catalog.pg_locks blocking
-                      ON waiting.locktype = blocking.locktype
-                     AND waiting.database IS NOT DISTINCT FROM blocking.database
-                     AND waiting.relation IS NOT DISTINCT FROM blocking.relation
-                     AND waiting.page IS NOT DISTINCT FROM blocking.page
-                     AND waiting.tuple IS NOT DISTINCT FROM blocking.tuple
-                     AND waiting.virtualxid IS NOT DISTINCT FROM blocking.virtualxid
-                     AND waiting.transactionid IS NOT DISTINCT FROM blocking.transactionid
-                     AND waiting.classid IS NOT DISTINCT FROM blocking.classid
-                     AND waiting.objid IS NOT DISTINCT FROM blocking.objid
-                     AND waiting.objsubid IS NOT DISTINCT FROM blocking.objsubid
-                     AND waiting.pid <> blocking.pid
-                     AND waiting.granted = false
-                     AND blocking.granted = true
-                    WHERE waiting.pid = a.pid
-                    LIMIT 1
-                ) blocked ON true
+                LEFT JOIN LATERAL
+                    unnest(pg_catalog.pg_blocking_pids(a.pid)) AS blocked(pid)
+                    ON true
                 WHERE a.backend_type = 'client backend'
                 ORDER BY l.granted, a.pid
                 LIMIT 200
@@ -528,3 +554,7 @@ fn quote_ident(value: &str) -> Result<String, DbError> {
     }
     Ok(format!("\"{}\"", value.replace('"', "\"\"")))
 }
+
+#[cfg(test)]
+#[path = "tests/monitoring_tests.rs"]
+mod tests;

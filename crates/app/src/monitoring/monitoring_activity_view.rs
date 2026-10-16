@@ -80,16 +80,22 @@ impl MonitoringActivityContext<'_, '_> {
     ) {
         for action in actions {
             match action {
-                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate(backend_id) => {
-                    if self.terminate_monitoring_backend(backend_id) {
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate {
+                    backend_id,
+                    backend_start,
+                } => {
+                    if self.terminate_monitoring_backend(backend_id, backend_start) {
                         self.state.monitoring_terminate_confirm = None;
                     }
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::CancelTerminate => {
                     self.state.monitoring_terminate_confirm = None;
                 }
-                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend(backend_id) => {
-                    self.cancel_monitoring_backend(backend_id);
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend {
+                    backend_id,
+                    backend_start,
+                } => {
+                    self.cancel_monitoring_backend(backend_id, backend_start);
                     self.state.monitoring_cancel_confirm = None;
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::DismissCancelBackend => {
@@ -115,7 +121,7 @@ impl MonitoringActivityContext<'_, '_> {
         }
     }
 
-    fn terminate_monitoring_backend(&mut self, backend_id: i64) -> bool {
+    fn terminate_monitoring_backend(&mut self, backend_id: i64, backend_start: Option<String>) -> bool {
         let Some(connection_id) = self.connection_id else {
             self.feedback.set_runtime_message("Connect a database first");
             return false;
@@ -125,6 +131,7 @@ impl MonitoringActivityContext<'_, '_> {
             request_id,
             connection_id.to_owned(),
             backend_id,
+            backend_start,
         ))
     }
 
@@ -188,7 +195,7 @@ impl MonitoringActivityContext<'_, '_> {
         }
     }
 
-    fn cancel_monitoring_backend(&mut self, backend_id: i64) {
+    fn cancel_monitoring_backend(&mut self, backend_id: i64, backend_start: Option<String>) {
         let Some(connection_id) = self.connection_id else {
             self.feedback.set_runtime_message("Connect a database first");
             return;
@@ -198,6 +205,7 @@ impl MonitoringActivityContext<'_, '_> {
             request_id,
             connection_id.to_owned(),
             backend_id,
+            backend_start,
         ));
     }
 
@@ -253,19 +261,31 @@ fn workload_command(state: &MonitoringState, request_id: RequestId, connection_i
     }
 }
 
-fn cancel_backend_command(request_id: RequestId, connection_id: String, backend_id: i64) -> UiCommand {
+fn cancel_backend_command(
+    request_id: RequestId,
+    connection_id: String,
+    backend_id: i64,
+    backend_start: Option<String>,
+) -> UiCommand {
     UiCommand::MonitoringCancelBackend {
         request_id,
         connection_id,
         backend_id,
+        backend_start,
     }
 }
 
-fn terminate_backend_command(request_id: RequestId, connection_id: String, backend_id: i64) -> UiCommand {
+fn terminate_backend_command(
+    request_id: RequestId,
+    connection_id: String,
+    backend_id: i64,
+    backend_start: Option<String>,
+) -> UiCommand {
     UiCommand::MonitoringTerminateBackend {
         request_id,
         connection_id,
         backend_id,
+        backend_start,
     }
 }
 

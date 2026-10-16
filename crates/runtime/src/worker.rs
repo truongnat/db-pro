@@ -221,11 +221,13 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         backend_id: i64,
+        backend_start: Option<String>,
     },
     MonitoringTerminateBackend {
         request_id: RuntimeRequestId,
         connection_id: String,
         backend_id: i64,
+        backend_start: Option<String>,
     },
     MonitoringMaintenance {
         request_id: RuntimeRequestId,
@@ -1864,11 +1866,15 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     backend_id,
+                    backend_start,
                 } => {
                     let monitoring_api = runtime.monitoring_api();
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
-                        let event = match monitoring_api.cancel_backend(&connection_id, backend_id).await {
+                        let event = match monitoring_api
+                            .cancel_backend(&connection_id, backend_id, backend_start.as_deref())
+                            .await
+                        {
                             Ok(succeeded) => RuntimeEvent::MonitoringActionCompleted {
                                 request_id,
                                 action: "cancel",
@@ -1887,11 +1893,15 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     backend_id,
+                    backend_start,
                 } => {
                     let monitoring_api = runtime.monitoring_api();
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
-                        let event = match monitoring_api.terminate_backend(&connection_id, backend_id).await {
+                        let event = match monitoring_api
+                            .terminate_backend(&connection_id, backend_id, backend_start.as_deref())
+                            .await
+                        {
                             Ok(succeeded) => RuntimeEvent::MonitoringActionCompleted {
                                 request_id,
                                 action: "terminate",
