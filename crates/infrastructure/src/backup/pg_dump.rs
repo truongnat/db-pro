@@ -198,13 +198,33 @@ impl PgPassFile {
             options.mode(0o600);
         }
         // A few hundred bytes: synchronous write keeps the guard simple.
-        let mut file = options
+        let file = options
             .open(&path)
             .map_err(|error| DbError::Internal(format!("failed to create pgpass file {}: {error}", path.display())))?;
-        use std::io::Write as _;
-        file.write_all(contents.as_bytes())
-            .map_err(|error| DbError::Internal(format!("failed to write pgpass file: {error}")))?;
-        Ok(Self { path })
+        Self::write_and_guard(path, file, &contents)
+    }
+
+    /// Write `contents` into the freshly-created credential file and hand back its guard.
+    ///
+    /// The guard is constructed **before** the write so a failed `write_all` — disk full, quota,
+    /// I/O error — still removes the partial credential file on drop (#483). Previously the guard
+    /// was built only after a successful write, so the pre-`Ok` failure path could leave credential
+    /// bytes behind in the temp dir.
+    ///
+    /// The writer is dropped explicitly before returning the error: on Windows a file cannot be
+    /// removed while a handle is still open, so letting the parameter outlive the `guard` local
+    /// would defeat the cleanup there.
+    fn write_and_guard<W: std::io::Write>(
+        path: std::path::PathBuf,
+        mut writer: W,
+        contents: &str,
+    ) -> Result<Self, DbError> {
+        let guard = Self { path };
+        if let Err(error) = writer.write_all(contents.as_bytes()) {
+            drop(writer);
+            return Err(DbError::Internal(format!("failed to write pgpass file: {error}")));
+        }
+        Ok(guard)
     }
 
     fn apply(&self, command: &mut Command) {

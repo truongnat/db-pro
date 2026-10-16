@@ -176,6 +176,48 @@ async fn pgpass_file_is_owner_only_and_removed_on_drop() -> Result<(), Box<dyn s
     Ok(())
 }
 
+/// #483: a `write_all` failure after the temp file exists must not strand a partial credential
+/// file. `write_and_guard` builds the guard before writing and drops the writer before it, so a
+/// mid-stream failure still removes the path — including on Windows, where an open handle blocks
+/// deletion.
+#[test]
+fn failed_write_removes_partial_pgpass_file() -> Result<(), Box<dyn std::error::Error>> {
+    /// Writes half of the first buffer to the real file, then fails every later `write` — the shape
+    /// of a real ENOSPC/EDQUOT that hits after some credential bytes already landed.
+    struct PartialThenFailFile {
+        file: std::fs::File,
+        bytes_written: usize,
+    }
+    impl std::io::Write for PartialThenFailFile {
+        fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+            if self.bytes_written == 0 {
+                let take = (buffer.len() / 2).max(1);
+                let written = std::io::Write::write(&mut self.file, &buffer[..take])?;
+                self.bytes_written += written;
+                return Ok(written);
+            }
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "simulated disk-full"))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            std::io::Write::flush(&mut self.file)
+        }
+    }
+
+    let path = std::env::temp_dir().join(format!("db-pro-pgpass-test-{}", uuid::Uuid::new_v4()));
+    let file = std::fs::File::create(&path)?;
+    let writer = PartialThenFailFile { file, bytes_written: 0 };
+
+    let result = PgPassFile::write_and_guard(path.clone(), writer, "db.internal:5432:db:user:secret\n");
+
+    assert!(result.is_err(), "a mid-stream write failure must surface the error");
+    assert!(
+        !path.exists(),
+        "a failed write must not leave a partial credential file at {}",
+        path.display()
+    );
+    Ok(())
+}
+
 #[tokio::test]
 async fn external_command_timeout_returns_query_timeout() {
     let mut command = Command::new("sh");
