@@ -226,11 +226,16 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         backend_id: i64,
+        /// Snapshot `pg_stat_activity.backend_start` identity (#501).
+        backend_start: Option<String>,
     },
     MonitoringTerminateBackend {
         request_id: RequestId,
         connection_id: String,
         backend_id: i64,
+        /// Snapshot `pg_stat_activity.backend_start` identity. The action is
+        /// rejected when it is missing or no longer matches the pid (#501).
+        backend_start: Option<String>,
     },
     MonitoringMaintenance {
         request_id: RequestId,

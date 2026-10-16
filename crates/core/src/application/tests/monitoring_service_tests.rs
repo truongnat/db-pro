@@ -3,7 +3,6 @@ use super::*;
 use crate::domain::connection::{ConnectionConfig, ConnectionHandle, ConnectionId, DriverType, SslMode};
 use crate::domain::monitoring::{LocalMonitorState, MonitorSession};
 use crate::ports::{MockConnectionRepository, MockMonitoringPort};
-use mockall::predicate::eq;
 use std::sync::Arc;
 
 fn config(driver: DriverType) -> ConnectionConfig {
@@ -231,7 +230,10 @@ async fn cancel_rejects_non_positive_backend_id() {
         registry,
         Box::new(repo),
     );
-    let err = service.cancel_backend(&id, 0).await.unwrap_err();
+    let err = service
+        .cancel_backend(&id, 0, Some("2024-01-01 00:00:00+00"))
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("positive"));
 }
 
@@ -245,8 +247,10 @@ async fn cancel_targets_exact_backend_id() {
 
     let mut port = MockMonitoringPort::new();
     port.expect_cancel_backend()
-        .with(eq(handle), eq(99_i64))
-        .returning(|_, _| Ok(true));
+        .withf(move |actual_handle, backend_id, backend_start| {
+            *actual_handle == handle && *backend_id == 99 && backend_start == "snapshot"
+        })
+        .returning(|_, _, _| Ok(true));
 
     let registry = Arc::new(ConnectionRegistry::new());
     registry.register(id, handle);
@@ -256,7 +260,90 @@ async fn cancel_targets_exact_backend_id() {
         registry,
         Box::new(repo),
     );
-    assert!(service.cancel_backend(&id, 99).await.unwrap());
+    assert!(service.cancel_backend(&id, 99, Some("snapshot")).await.unwrap());
+}
+
+#[tokio::test]
+async fn cancel_rejects_missing_snapshot_identity() {
+    let id = ConnectionId::new();
+    let mut repo = MockConnectionRepository::new();
+    let cfg = config(DriverType::Postgres);
+    repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+    let service = MonitoringService::new(
+        Box::new(MockMonitoringPort::new()),
+        Box::new(MockMonitoringPort::new()),
+        Arc::new(ConnectionRegistry::new()),
+        Box::new(repo),
+    );
+    let err = service.cancel_backend(&id, 99, None).await.unwrap_err();
+    assert!(err.to_string().contains("backend_start"));
+}
+
+#[tokio::test]
+async fn terminate_rejects_missing_snapshot_identity() {
+    let id = ConnectionId::new();
+    let mut repo = MockConnectionRepository::new();
+    let cfg = config(DriverType::Postgres);
+    repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+    let service = MonitoringService::new(
+        Box::new(MockMonitoringPort::new()),
+        Box::new(MockMonitoringPort::new()),
+        Arc::new(ConnectionRegistry::new()),
+        Box::new(repo),
+    );
+    let err = service.terminate_backend(&id, 99, None).await.unwrap_err();
+    assert!(err.to_string().contains("backend_start"));
+}
+
+#[tokio::test]
+async fn terminate_forwards_snapshot_identity_to_port() {
+    let id = ConnectionId::new();
+    let handle = ConnectionHandle::new(7);
+    let mut repo = MockConnectionRepository::new();
+    let cfg = config(DriverType::Postgres);
+    repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+
+    let identity = "2024-01-01 00:00:00+00";
+    let mut port = MockMonitoringPort::new();
+    port.expect_terminate_backend()
+        .times(1)
+        .returning(move |_, backend_id, backend_start| {
+            assert_eq!(backend_id, 99);
+            assert_eq!(backend_start, identity);
+            Ok(true)
+        });
+
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(id, handle);
+    let service = MonitoringService::new(
+        Box::new(port),
+        Box::new(MockMonitoringPort::new()),
+        registry,
+        Box::new(repo),
+    );
+    assert!(service.terminate_backend(&id, 99, Some(identity)).await.unwrap());
+}
+
+#[tokio::test]
+async fn terminate_propagates_stale_identity_as_false() {
+    let id = ConnectionId::new();
+    let handle = ConnectionHandle::new(7);
+    let mut repo = MockConnectionRepository::new();
+    let cfg = config(DriverType::Postgres);
+    repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+
+    let mut port = MockMonitoringPort::new();
+    port.expect_terminate_backend().times(1).returning(|_, _, _| Ok(false));
+
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(id, handle);
+    let service = MonitoringService::new(
+        Box::new(port),
+        Box::new(MockMonitoringPort::new()),
+        registry,
+        Box::new(repo),
+    );
+    assert!(!service.terminate_backend(&id, 99, Some("stale")).await.unwrap());
 }
 
 #[tokio::test]

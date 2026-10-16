@@ -168,7 +168,7 @@
                         wait_event: None,
                         query_text: Some("SELECT 1".into()),
                         query_duration_ms: None,
-                        backend_start: None,
+                        backend_start: Some("2024-01-01 00:00:00+00".into()),
                         xact_start: None,
                         query_start: None,
                         xact_age_ms: None,
@@ -185,11 +185,17 @@
                 Err(std::sync::mpsc::TryRecvError::Empty)
             ));
             activity.apply_monitoring_confirmation_actions(vec![
-                crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend(42),
+                crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend {
+                    backend_id: 42,
+                    backend_start: Some("2024-01-01 00:00:00+00".into()),
+                },
             ]);
         }
         match command_rx.try_recv() {
-            Ok(UiCommand::MonitoringCancelBackend { backend_id, .. }) => assert_eq!(backend_id, 42),
+            Ok(UiCommand::MonitoringCancelBackend { backend_id, backend_start, .. }) => {
+                assert_eq!(backend_id, 42);
+                assert_eq!(backend_start.as_deref(), Some("2024-01-01 00:00:00+00"));
+            }
             Ok(_) => panic!("confirm did not cancel the backend"),
             Err(error) => panic!("cancel confirm sent no command: {error}"),
         }

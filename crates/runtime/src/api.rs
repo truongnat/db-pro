@@ -1061,18 +1061,28 @@ impl MonitoringApi {
         self.service.snapshot(&connection_id, sort).await.map_err(Into::into)
     }
 
-    pub async fn cancel_backend(&self, connection_id: &str, backend_id: i64) -> Result<bool, DbErrorDto> {
+    pub async fn cancel_backend(
+        &self,
+        connection_id: &str,
+        backend_id: i64,
+        backend_start: Option<&str>,
+    ) -> Result<bool, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
-            .cancel_backend(&connection_id, backend_id)
+            .cancel_backend(&connection_id, backend_id, backend_start)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn terminate_backend(&self, connection_id: &str, backend_id: i64) -> Result<bool, DbErrorDto> {
+    pub async fn terminate_backend(
+        &self,
+        connection_id: &str,
+        backend_id: i64,
+        backend_start: Option<&str>,
+    ) -> Result<bool, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
-            .terminate_backend(&connection_id, backend_id)
+            .terminate_backend(&connection_id, backend_id, backend_start)
             .await
             .map_err(Into::into)
     }
