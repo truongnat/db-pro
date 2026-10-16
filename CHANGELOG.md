@@ -11,6 +11,8 @@ All notable user-facing changes to DB Pro. The shipped application is the native
   repeated provider requests without re-executing tools or bypassing confirmation (#448).
 - Saved-task schedules reject zero-second intervals when enabled; SkipMissed now skips full-interval
   backlog without suppressing ordinary polling jitter, while RunOnce still runs once (#504, #462).
+- Data compare keeps SQL NULL distinct from literal `∅` and structural composite keys distinct when
+  values contain U+001F; generated sync previews preserve the intended rows and scalar values (#457, #485).
 
 ## [0.1.0] - 2026-09-14
 

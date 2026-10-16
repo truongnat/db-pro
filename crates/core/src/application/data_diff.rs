@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{btree_map::Entry, BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::domain::connection::ConnectionId;
@@ -12,6 +12,56 @@ use super::registry::ConnectionRegistry;
 const DEFAULT_SAMPLE_LIMIT: u64 = 1_000;
 const MAX_SAMPLE_LIMIT: u64 = 10_000;
 const MAX_ROW_DIFF_SAMPLES: usize = 200;
+
+/// Values retain their provider-reported kind; display text is never identity.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum DiffValue<'a> {
+    Null,
+    Bool(bool),
+    Int64(i64),
+    Float64(u64),
+    Decimal(&'a str),
+    Text(&'a str),
+    Bytes(&'a [u8]),
+    Uuid(&'a str),
+    DateTime(&'a str),
+    Timestamp(&'a str),
+    TimestampTz(&'a str),
+    TimeTz(&'a str),
+    Date(&'a str),
+    Time(&'a str),
+    Interval(&'a str),
+    Inet(&'a str),
+    Json(String),
+}
+
+impl<'a> From<&'a CellValue> for DiffValue<'a> {
+    fn from(value: &'a CellValue) -> Self {
+        match value {
+            CellValue::Null => Self::Null,
+            CellValue::Bool(value) => Self::Bool(*value),
+            CellValue::Int64(value) => Self::Int64(*value),
+            CellValue::Float64(value) => Self::Float64(value.to_bits()),
+            CellValue::Decimal(value) => Self::Decimal(value),
+            CellValue::Text(value) => Self::Text(value),
+            CellValue::Bytes(value) => Self::Bytes(value),
+            CellValue::Uuid(value) => Self::Uuid(value),
+            CellValue::DateTime(value) => Self::DateTime(value),
+            CellValue::Timestamp(value) => Self::Timestamp(value),
+            CellValue::TimestampTz(value) => Self::TimestampTz(value),
+            CellValue::TimeTz(value) => Self::TimeTz(value),
+            CellValue::Date(value) => Self::Date(value),
+            CellValue::Time(value) => Self::Time(value),
+            CellValue::Interval(value) => Self::Interval(value),
+            CellValue::Inet(value) => Self::Inet(value),
+            CellValue::Json(value) => Self::Json(value.to_string()),
+        }
+    }
+}
+
+type ComparisonKey<'a> = Vec<DiffValue<'a>>;
+type ComparisonRow<'a> = BTreeMap<&'a str, DiffValue<'a>>;
+type KeyedRows<'a> = BTreeMap<ComparisonKey<'a>, ComparisonRow<'a>>;
 
 pub struct DataDiffService {
     connector: Box<dyn DbConnector>,
@@ -116,15 +166,15 @@ impl DataDiffService {
         let mut row_diffs = Vec::new();
         let mut sync_sql_preview = Vec::new();
 
-        let all_keys: BTreeSet<_> = source_map.keys().chain(target_map.keys()).cloned().collect();
+        let all_keys: BTreeSet<_> = source_map.keys().chain(target_map.keys()).collect();
         for key in all_keys {
-            match (source_map.get(&key), target_map.get(&key)) {
+            match (source_map.get(key), target_map.get(key)) {
                 (Some(src), None) => {
                     added += 1;
                     if row_diffs.len() < MAX_ROW_DIFF_SAMPLES {
                         row_diffs.push(DataRowDiff {
                             state: DataRowState::Added,
-                            key: key.clone(),
+                            key: key_display(key),
                             column_changes: Vec::new(),
                         });
                     }
@@ -137,12 +187,12 @@ impl DataDiffService {
                     if row_diffs.len() < MAX_ROW_DIFF_SAMPLES {
                         row_diffs.push(DataRowDiff {
                             state: DataRowState::Removed,
-                            key: key.clone(),
+                            key: key_display(key),
                             column_changes: Vec::new(),
                         });
                     }
                     if sync_sql_preview.len() < 50 {
-                        sync_sql_preview.push(sync_delete(&*target_dialect, &target_qualified, key_columns, &key));
+                        sync_sql_preview.push(sync_delete(&*target_dialect, &target_qualified, key_columns, key));
                     }
                 }
                 (Some(src), Some(tgt)) => {
@@ -154,13 +204,13 @@ impl DataDiffService {
                         if row_diffs.len() < MAX_ROW_DIFF_SAMPLES {
                             row_diffs.push(DataRowDiff {
                                 state: DataRowState::Changed,
-                                key: key.clone(),
+                                key: key_display(key),
                                 column_changes: changes.clone(),
                             });
                         }
                         if sync_sql_preview.len() < 50 {
                             if let Some(sql) =
-                                sync_update(&*target_dialect, &target_qualified, key_columns, &key, &changes)
+                                sync_update(&*target_dialect, &target_qualified, key_columns, key, &changes)
                             {
                                 sync_sql_preview.push(sql);
                             }
@@ -214,21 +264,22 @@ pub fn describe_sample_window(sample_limit: Option<u64>, truncated: bool) -> Opt
     })
 }
 
-fn sync_insert(dialect: &dyn crate::ports::SqlDialect, qualified: &str, row: &BTreeMap<String, String>) -> String {
+fn sync_insert(dialect: &dyn crate::ports::SqlDialect, qualified: &str, row: &ComparisonRow<'_>) -> String {
     let columns = row
         .keys()
         .map(|column| dialect.quote_identifier(column))
         .collect::<Vec<_>>()
         .join(", ");
-    let values = row
-        .values()
-        .map(|value| sql_literal(value))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let values = row.values().map(sql_literal).collect::<Vec<_>>().join(", ");
     format!("INSERT INTO {qualified} ({columns}) VALUES ({values});")
 }
 
-fn sync_delete(dialect: &dyn crate::ports::SqlDialect, qualified: &str, key_columns: &[String], key: &str) -> String {
+fn sync_delete(
+    dialect: &dyn crate::ports::SqlDialect,
+    qualified: &str,
+    key_columns: &[String],
+    key: &[DiffValue<'_>],
+) -> String {
     format!(
         "DELETE FROM {qualified} WHERE {};",
         key_predicate(dialect, key_columns, key)
@@ -239,7 +290,7 @@ fn sync_update(
     dialect: &dyn crate::ports::SqlDialect,
     qualified: &str,
     key_columns: &[String],
-    key: &str,
+    key: &[DiffValue<'_>],
     changes: &[DataColumnChange],
 ) -> Option<String> {
     let assignments = changes
@@ -249,7 +300,10 @@ fn sync_update(
             format!(
                 "{} = {}",
                 dialect.quote_identifier(&change.column),
-                sql_literal(change.source_value.as_deref().unwrap_or("∅"))
+                change
+                    .source_value
+                    .as_deref()
+                    .map_or_else(|| "NULL".into(), |value| format!("'{}'", value.replace('\'', "''")))
             )
         })
         .collect::<Vec<_>>();
@@ -263,38 +317,66 @@ fn sync_update(
     ))
 }
 
-fn key_predicate(dialect: &dyn crate::ports::SqlDialect, key_columns: &[String], key: &str) -> String {
+fn key_predicate(dialect: &dyn crate::ports::SqlDialect, key_columns: &[String], key: &[DiffValue<'_>]) -> String {
     key_columns
         .iter()
-        .zip(key.split('\u{1f}'))
-        .map(|(column, value)| format!("{} = {}", dialect.quote_identifier(column), sql_literal(value)))
+        .zip(key)
+        .map(|(column, value)| {
+            let column = dialect.quote_identifier(column);
+            if matches!(value, DiffValue::Null) {
+                format!("{column} IS NULL")
+            } else {
+                format!("{column} = {}", sql_literal(value))
+            }
+        })
         .collect::<Vec<_>>()
         .join(" AND ")
 }
 
-fn sql_literal(value: &str) -> String {
-    if value == "∅" {
-        "NULL".into()
-    } else {
-        format!("'{}'", value.replace('\'', "''"))
+fn sql_literal(value: &DiffValue<'_>) -> String {
+    match value {
+        DiffValue::Null => "NULL".into(),
+        _ => format!("'{}'", cell_display(value).replace('\'', "''")),
     }
 }
 
-fn cell_display(cell: &CellValue) -> String {
+fn cell_display(cell: &DiffValue<'_>) -> String {
     match cell {
-        CellValue::Null => "∅".into(),
-        CellValue::Text(s) => s.clone(),
-        CellValue::Bool(b) => b.to_string(),
-        CellValue::Int64(n) => n.to_string(),
-        CellValue::Float64(n) => n.to_string(),
-        other => format!("{other:?}"),
+        DiffValue::Null => "∅".into(),
+        DiffValue::Bool(value) => value.to_string(),
+        DiffValue::Int64(value) => value.to_string(),
+        DiffValue::Float64(value) => f64::from_bits(*value).to_string(),
+        DiffValue::Decimal(value)
+        | DiffValue::Text(value)
+        | DiffValue::Uuid(value)
+        | DiffValue::DateTime(value)
+        | DiffValue::Timestamp(value)
+        | DiffValue::TimestampTz(value)
+        | DiffValue::TimeTz(value)
+        | DiffValue::Date(value)
+        | DiffValue::Time(value)
+        | DiffValue::Interval(value)
+        | DiffValue::Inet(value) => (*value).into(),
+        // Retain the pre-existing binary preview spelling; provider-specific
+        // binary literal support is outside this comparison/key correction.
+        DiffValue::Bytes(value) => format!("Bytes({value:?})"),
+        DiffValue::Json(value) => value.clone(),
     }
 }
 
-fn rows_by_key(
-    result: &QueryResult,
-    key_columns: &[String],
-) -> Result<BTreeMap<String, BTreeMap<String, String>>, DbError> {
+fn key_display(key: &[DiffValue<'_>]) -> String {
+    // This is display only. Debug escaping keeps embedded separators and NULL
+    // distinct from text, without creating a format that SQL needs to decode.
+    key.iter()
+        .map(|value| match value {
+            DiffValue::Float64(bits) => format!("Float64({})", f64::from_bits(*bits)),
+            _ => format!("{value:?}"),
+        })
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn rows_by_key<'a>(result: &'a QueryResult, key_columns: &[String]) -> Result<KeyedRows<'a>, DbError> {
     let mut key_indexes = Vec::new();
     for key in key_columns {
         let idx = result
@@ -309,39 +391,41 @@ fn rows_by_key(
     for row in &result.rows {
         let key = key_indexes
             .iter()
-            .map(|idx| cell_display(row.0.get(*idx).unwrap_or(&CellValue::Null)))
-            .collect::<Vec<_>>()
-            .join("\u{1f}");
+            .map(|idx| DiffValue::from(&row.0[*idx]))
+            .collect::<Vec<_>>();
         let mut values = BTreeMap::new();
         for (col_idx, col) in result.columns.iter().enumerate() {
-            values.insert(
-                col.name.clone(),
-                cell_display(row.0.get(col_idx).unwrap_or(&CellValue::Null)),
-            );
+            values.insert(col.name.as_str(), DiffValue::from(&row.0[col_idx]));
         }
-        if map.insert(key.clone(), values).is_some() {
-            return Err(DbError::Validation(format!(
-                "duplicate comparison key in sample: {key}"
-            )));
+        match map.entry(key) {
+            Entry::Vacant(entry) => {
+                entry.insert(values);
+            }
+            Entry::Occupied(entry) => {
+                return Err(DbError::Validation(format!(
+                    "duplicate comparison key in sample: {}",
+                    key_display(entry.key())
+                )));
+            }
         }
     }
     Ok(map)
 }
 
-fn column_changes(source: &BTreeMap<String, String>, target: &BTreeMap<String, String>) -> Vec<DataColumnChange> {
-    let columns: BTreeSet<_> = source.keys().chain(target.keys()).cloned().collect();
+fn column_changes(source: &ComparisonRow<'_>, target: &ComparisonRow<'_>) -> Vec<DataColumnChange> {
+    let columns: BTreeSet<_> = source.keys().chain(target.keys()).copied().collect();
     columns
         .into_iter()
         .filter_map(|column| {
-            let src = source.get(&column).cloned();
-            let tgt = target.get(&column).cloned();
+            let src = source.get(column);
+            let tgt = target.get(column);
             if src == tgt {
                 None
             } else {
                 Some(DataColumnChange {
-                    column,
-                    source_value: src,
-                    target_value: tgt,
+                    column: column.into(),
+                    source_value: src.filter(|value| !matches!(value, DiffValue::Null)).map(cell_display),
+                    target_value: tgt.filter(|value| !matches!(value, DiffValue::Null)).map(cell_display),
                 })
             }
         })
