@@ -4,4 +4,4 @@
 - [x] Preserve staged validation and target sidecar handling.
 - [x] Add regression coverage for committed WAL data during restore.
 - [x] SQLite backup module tests, infrastructure check, formatting, and diff validation pass.
-- [ ] Rebase, commit, push, and open a PR linked to #466.
+- [x] Rebase, commit, push, and open draft PR #531 linked to #466.
