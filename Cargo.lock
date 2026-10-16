@@ -1218,6 +1218,7 @@ dependencies = [
  "rust_xlsxwriter",
  "serde",
  "serde_json",
+ "sqlparser",
  "thiserror 2.0.19",
  "tokio",
  "tracing",

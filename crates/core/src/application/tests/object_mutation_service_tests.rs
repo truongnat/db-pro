@@ -421,3 +421,119 @@ fn column_alter_requires_type_and_names() {
     let err = ObjectMutationService::plan(&request, &PgDialect).unwrap_err();
     assert!(matches!(err, MutationError::Validation { .. }));
 }
+
+fn rls_policy_request(
+    action: ObjectAction,
+    using_expr: Option<&str>,
+    with_check_expr: Option<&str>,
+    new_name: Option<&str>,
+) -> ObjectMutationRequest {
+    ObjectMutationRequest {
+        action,
+        target: None,
+        definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
+            schema: "public".into(),
+            table: "orders".into(),
+            name: "tenant_read".into(),
+            permissive: true,
+            command: "SELECT".into(),
+            roles: vec!["app_reader".into()],
+            using_expr: using_expr.map(str::to_owned),
+            with_check_expr: with_check_expr.map(str::to_owned),
+            new_name: new_name.map(str::to_owned),
+        }),
+        options: MutationOptions::default(),
+        driver: "postgresql".into(),
+    }
+}
+
+#[test]
+fn rls_policy_create_rejects_using_expression_that_escapes_the_wrapper() {
+    let err = ObjectMutationService::plan(
+        &rls_policy_request(
+            ObjectAction::Create,
+            Some("true); DROP TABLE important_data; --"),
+            None,
+            None,
+        ),
+        &PgDialect,
+    )
+    .unwrap_err();
+    assert!(matches!(err, MutationError::Validation { ref field, .. } if field == "using_expr"));
+}
+
+#[test]
+fn rls_policy_create_rejects_with_check_expression_that_escapes_the_wrapper() {
+    let err = ObjectMutationService::plan(
+        &rls_policy_request(
+            ObjectAction::Create,
+            None,
+            Some("true); DROP TABLE important_data; --"),
+            None,
+        ),
+        &PgDialect,
+    )
+    .unwrap_err();
+    assert!(matches!(err, MutationError::Validation { ref field, .. } if field == "with_check_expr"));
+}
+
+#[test]
+fn rls_policy_alter_rejects_using_expression_that_escapes_the_wrapper() {
+    let err = ObjectMutationService::plan(
+        &rls_policy_request(
+            ObjectAction::Alter,
+            Some("true); DROP TABLE important_data; --"),
+            None,
+            None,
+        ),
+        &PgDialect,
+    )
+    .unwrap_err();
+    assert!(matches!(err, MutationError::Validation { .. }));
+}
+
+#[test]
+fn rls_policy_create_keeps_valid_expression_in_one_statement() {
+    let preview = ObjectMutationService::plan(
+        &rls_policy_request(
+            ObjectAction::Create,
+            Some("tenant_id = current_setting('app.tenant')::uuid"),
+            Some("tenant_id IS NOT NULL"),
+            None,
+        ),
+        &PgDialect,
+    )
+    .unwrap();
+    assert_eq!(preview.statements.len(), 1);
+    let sql = &preview.statements[0];
+    assert!(sql.contains("USING (tenant_id = current_setting('app.tenant')::uuid)"));
+    assert!(sql.contains("WITH CHECK (tenant_id IS NOT NULL)"));
+    assert_eq!(crate::domain::safety::split_statements(sql).len(), 1);
+}
+
+#[test]
+fn rls_policy_alter_keeps_valid_expression_in_one_statement() {
+    let preview = ObjectMutationService::plan(
+        &rls_policy_request(
+            ObjectAction::Alter,
+            Some("tenant_id = current_setting('app.tenant')::int"),
+            None,
+            Some("tenant_read_v2"),
+        ),
+        &PgDialect,
+    )
+    .unwrap();
+    assert_eq!(crate::domain::safety::split_statements(&preview.statements[0]).len(), 1);
+    assert_eq!(crate::domain::safety::split_statements(&preview.statements[1]).len(), 1);
+}
+
+#[test]
+fn rls_policy_create_keeps_builder_delimiter_outside_trailing_line_comment() {
+    let preview = ObjectMutationService::plan(
+        &rls_policy_request(ObjectAction::Create, Some("true -- trailing comment"), None, None),
+        &PgDialect,
+    )
+    .unwrap();
+    assert!(preview.statements[0].contains("USING (true -- trailing comment)\n"));
+    assert_eq!(crate::domain::safety::split_statements(&preview.statements[0]).len(), 1);
+}

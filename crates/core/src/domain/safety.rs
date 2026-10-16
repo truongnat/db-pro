@@ -185,6 +185,27 @@ fn push_statement(statements: &mut Vec<String>, current: &str) {
     }
 }
 
+/// Validate that a row-level-security predicate is exactly one PostgreSQL expression.
+///
+/// Parsing the complete input (and requiring EOF) prevents closing the builder's
+/// `USING (...)` / `WITH CHECK (...)` wrapper or appending a second statement.
+/// The original text is still emitted unchanged after validation.
+pub fn validate_policy_expression(expression: &str) -> Result<(), String> {
+    use sqlparser::{dialect::PostgreSqlDialect, parser::Parser, tokenizer::Token};
+
+    let dialect = PostgreSqlDialect {};
+    let mut parser = Parser::new(&dialect)
+        .try_with_sql(expression)
+        .map_err(|error| format!("invalid PostgreSQL policy expression: {error}"))?;
+    parser
+        .parse_expr()
+        .map_err(|error| format!("invalid PostgreSQL policy expression: {error}"))?;
+    if parser.peek_token().token != Token::EOF {
+        return Err("policy input must contain exactly one PostgreSQL expression".into());
+    }
+    Ok(())
+}
+
 fn classify_merge_safety(sql: &str) -> Option<StatementSafety> {
     if contains_sql_keyword(sql, "DELETE") {
         Some(StatementSafety::Destructive)
