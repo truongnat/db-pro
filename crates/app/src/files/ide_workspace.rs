@@ -7,7 +7,8 @@
 use super::ide_workspace_scan::{flatten_index, index_diagnostics, scan_directory, ScannedRoot};
 pub(crate) use super::ide_workspace_types::*;
 
-use std::path::{Path, PathBuf};
+use std::io::Write;
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -193,12 +194,19 @@ impl IdeWorkspaceState {
     }
 
     pub fn absolute_for_relative(&self, relative: &str) -> Option<PathBuf> {
-        // Accept "root-id::path" or plain relative against active root.
-        if let Some((root_id, path)) = relative.split_once("::") {
-            let root = self.roots.iter().find(|root| root.id == root_id)?;
-            return Some(root.path.join(path));
-        }
-        self.primary_root().map(|root| root.path.join(relative))
+        let (root, relative_path) = self.root_and_relative_path(relative)?;
+        let candidate = root.path.join(relative_path);
+        existing_ancestor_within_root(&root.path, &candidate).then_some(candidate)
+    }
+
+    fn root_and_relative_path<'a>(&'a self, relative: &'a str) -> Option<(&'a WorkspaceRoot, &'a Path)> {
+        let (root, relative) = if let Some((root_id, path)) = relative.split_once("::") {
+            (self.roots.iter().find(|root| root.id == root_id)?, path)
+        } else {
+            (self.primary_root()?, relative)
+        };
+        let relative_path = Path::new(relative);
+        safe_relative_path(relative_path).then_some((root, relative_path))
     }
 
     pub fn qualified_relative(root_id: &str, relative: &str) -> String {
@@ -214,53 +222,108 @@ impl IdeWorkspaceState {
     }
 
     pub fn create_file(&mut self, relative_dir: &str, name: &str, contents: &str) -> Result<PathBuf, String> {
-        let root = self.primary_root().ok_or_else(|| "no workspace root".to_owned())?;
-        let dir = if relative_dir.is_empty() {
-            root.path.clone()
-        } else {
-            root.path.join(relative_dir)
-        };
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(name);
-        if path.exists() {
-            return Err(format!("already exists: {}", path.display()));
+        if !safe_name(name) {
+            return Err("file name must be one path component".to_owned());
         }
-        std::fs::write(&path, contents).map_err(|e| e.to_string())?;
+        let root_id = self
+            .primary_root()
+            .map(|root| root.id.clone())
+            .ok_or_else(|| "no workspace root".to_owned())?;
+        let directory = self
+            .absolute_for_relative(&Self::qualified_relative(&root_id, relative_dir))
+            .ok_or_else(|| "directory escapes workspace root".to_owned())?;
+        std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+        if self
+            .absolute_for_relative(&Self::qualified_relative(&root_id, relative_dir))
+            .is_none()
+        {
+            return Err("directory escapes workspace root".to_owned());
+        }
+        let path = directory.join(name);
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|error| error.to_string())?;
+        file.write_all(contents.as_bytes()).map_err(|e| e.to_string())?;
         self.refresh()?;
         Ok(path)
     }
 
     pub fn create_folder(&mut self, relative_dir: &str, name: &str) -> Result<PathBuf, String> {
-        let root = self.primary_root().ok_or_else(|| "no workspace root".to_owned())?;
-        let path = if relative_dir.is_empty() {
-            root.path.join(name)
-        } else {
-            root.path.join(relative_dir).join(name)
-        };
+        if !safe_name(name) {
+            return Err("folder name must be one path component".to_owned());
+        }
+        let (root_id, root_path) = self
+            .primary_root()
+            .map(|root| (root.id.clone(), root.path.clone()))
+            .ok_or_else(|| "no workspace root".to_owned())?;
+        let directory = self
+            .absolute_for_relative(&Self::qualified_relative(&root_id, relative_dir))
+            .ok_or_else(|| "directory escapes workspace root".to_owned())?;
+        std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+        let path = directory.join(name);
+        if !existing_ancestor_within_root(&root_path, &path) {
+            return Err("folder escapes workspace root".to_owned());
+        }
         std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
         self.refresh()?;
         Ok(path)
     }
 
     pub fn rename_path(&mut self, relative: &str, new_name: &str) -> Result<PathBuf, String> {
+        if !safe_name(new_name) {
+            return Err("new name must be one path component".to_owned());
+        }
+        let (root, relative_path) = self
+            .root_and_relative_path(relative)
+            .ok_or_else(|| "path escapes workspace root or is missing".to_owned())?;
+        if relative_path_is_root(relative_path) {
+            return Err("cannot rename workspace root".to_owned());
+        }
+        let root_id = root.id.clone();
+        let root_path = root.path.clone();
         let absolute = self
             .absolute_for_relative(relative)
-            .ok_or_else(|| "missing path".to_owned())?;
+            .ok_or_else(|| "path escapes workspace root or is missing".to_owned())?;
         let parent = absolute.parent().ok_or_else(|| "no parent".to_owned())?;
         let dest = parent.join(new_name);
+        let relative_dest = dest
+            .strip_prefix(&root_path)
+            .map_err(|_| "path escapes workspace root")?;
+        let qualified_dest = Self::qualified_relative(&root_id, &relative_dest.to_string_lossy());
+        if self.absolute_for_relative(&qualified_dest).is_none() {
+            return Err("new path escapes workspace root".to_owned());
+        }
         std::fs::rename(&absolute, &dest).map_err(|e| e.to_string())?;
         self.refresh()?;
         Ok(dest)
     }
 
     pub fn delete_path(&mut self, relative: &str) -> Result<(), String> {
-        let absolute = self
-            .absolute_for_relative(relative)
-            .ok_or_else(|| "missing path".to_owned())?;
-        if absolute.is_dir() {
-            std::fs::remove_dir_all(&absolute).map_err(|e| e.to_string())?;
-        } else {
-            std::fs::remove_file(&absolute).map_err(|e| e.to_string())?;
+        let (root, relative_path) = self
+            .root_and_relative_path(relative)
+            .ok_or_else(|| "path escapes workspace root".to_owned())?;
+        if relative_path_is_root(relative_path) {
+            return Err("cannot delete workspace root".to_owned());
+        }
+        #[cfg(unix)]
+        workspace_delete::remove_path(&root.path, relative_path).map_err(|e| e.to_string())?;
+        #[cfg(not(unix))]
+        {
+            let absolute = root.path.join(relative_path);
+            let parent = absolute.parent().ok_or_else(|| "no parent".to_owned())?;
+            if !existing_ancestor_within_root(&root.path, parent) {
+                return Err("parent path escapes workspace root".to_owned());
+            }
+            let metadata = std::fs::symlink_metadata(&absolute).map_err(|e| e.to_string())?;
+            if metadata.file_type().is_symlink() {
+                std::fs::remove_file(&absolute).map_err(|e| e.to_string())?;
+            } else if metadata.is_dir() {
+                std::fs::remove_dir_all(&absolute).map_err(|e| e.to_string())?;
+            } else {
+                std::fs::remove_file(&absolute).map_err(|e| e.to_string())?;
+            }
         }
         self.refresh()?;
         Ok(())
@@ -577,10 +640,142 @@ impl IdeWorkspaceState {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
+        if self.absolute_for_relative(relative).as_deref() != Some(path.as_path()) {
+            return Err("patch path escapes workspace root".to_owned());
+        }
         std::fs::write(&path, new_contents).map_err(|e| e.to_string())?;
         self.refresh()?;
         Ok(())
     }
+}
+
+fn relative_path_is_root(path: &Path) -> bool {
+    path.components().all(|component| matches!(component, Component::CurDir))
+}
+
+
+#[cfg(unix)]
+mod workspace_delete {
+    use rustix::fd::AsFd;
+    use rustix::fs::{openat, unlinkat, AtFlags, Dir, Mode, OFlags, CWD};
+    use rustix::io::Errno;
+    use std::ffi::{CStr, CString};
+    use std::os::fd::OwnedFd;
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::{Component, Path};
+
+    fn open_dir_at(parent: impl AsFd, name: &CStr) -> std::io::Result<OwnedFd> {
+        openat(
+            parent,
+            name,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(std::io::Error::from)
+    }
+
+    fn open_root(root: &Path) -> std::io::Result<OwnedFd> {
+        let mut current = openat(
+            CWD,
+            "/",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(std::io::Error::from)?;
+        for component in root.components() {
+            match component {
+                Component::RootDir => {}
+                Component::Normal(name) => {
+                    let name = CString::new(name.as_bytes())
+                        .map_err(|_| std::io::Error::from(Errno::INVAL))?;
+                    current = open_dir_at(&current, &name)?;
+                }
+                _ => return Err(std::io::Error::from(Errno::INVAL)),
+            }
+        }
+        Ok(current)
+    }
+
+    fn remove_entry(parent: impl AsFd, name: &CStr) -> std::io::Result<()> {
+        match open_dir_at(&parent, name) {
+            Ok(directory) => {
+                let mut entries = Dir::read_from(&directory).map_err(std::io::Error::from)?;
+                let names = entries
+                    .by_ref()
+                    .map(|entry| {
+                        entry
+                            .map(|entry| entry.file_name().to_owned())
+                            .map_err(std::io::Error::from)
+                    })
+                    .collect::<std::io::Result<Vec<_>>>()?;
+                for child in names {
+                    if child.to_bytes() != b"." && child.to_bytes() != b".." {
+                        remove_entry(&directory, &child)?;
+                    }
+                }
+                unlinkat(&parent, name, AtFlags::REMOVEDIR).map_err(std::io::Error::from)
+            }
+            Err(_) => unlinkat(&parent, name, AtFlags::empty()).map_err(std::io::Error::from),
+        }
+    }
+
+    pub(super) fn remove_path(root: &Path, relative: &Path) -> std::io::Result<()> {
+        let components = relative.components().collect::<Vec<_>>();
+        let Some(Component::Normal(leaf)) = components.last() else {
+            return Err(std::io::Error::from(Errno::INVAL));
+        };
+        if components
+            .iter()
+            .any(|component| !matches!(component, Component::Normal(_)))
+        {
+            return Err(std::io::Error::from(Errno::INVAL));
+        }
+
+        let mut parent = open_root(root)?;
+        for component in &components[..components.len() - 1] {
+            let Component::Normal(name) = component else {
+                return Err(std::io::Error::from(Errno::INVAL));
+            };
+            let name = CString::new(name.as_bytes()).map_err(|_| std::io::Error::from(Errno::INVAL))?;
+            parent = open_dir_at(&parent, &name)?;
+        }
+        let leaf = CString::new(leaf.as_bytes()).map_err(|_| std::io::Error::from(Errno::INVAL))?;
+        remove_entry(&parent, &leaf)
+    }
+}
+
+fn safe_relative_path(path: &Path) -> bool {
+    !path.is_absolute()
+        && path.components().all(|component| {
+            matches!(component, Component::Normal(_) | Component::CurDir)
+        })
+}
+
+fn safe_name(name: &str) -> bool {
+    let mut components = Path::new(name).components();
+    matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none()
+}
+
+fn existing_ancestor_within_root(root: &Path, candidate: &Path) -> bool {
+    let Ok(canonical_root) = root.canonicalize() else {
+        return false;
+    };
+    let mut ancestor = candidate;
+    loop {
+        match std::fs::symlink_metadata(ancestor) {
+            Ok(_) => break,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let Some(parent) = ancestor.parent() else {
+                    return false;
+                };
+                ancestor = parent;
+            }
+            Err(_) => return false,
+        }
+    }
+    ancestor
+        .canonicalize()
+        .is_ok_and(|canonical_ancestor| canonical_ancestor.starts_with(canonical_root))
 }
 
 fn extract_table_like_tokens(sql: &str) -> Vec<String> {
