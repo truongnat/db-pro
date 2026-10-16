@@ -102,3 +102,51 @@ fn menu_and_trigger_geometry_helpers_compute_correct_values() {
     assert_eq!(min_content_width, 150.0 - ICON_TEXT_GAP);
     assert_eq!(menu_min_content_width(2.0), 0.0);
 }
+
+#[test]
+fn keyboard_navigation_recovers_when_option_list_shrinks() {
+    assert_eq!(
+        navigate_selection(
+            5,
+            2,
+            NavigationKeys {
+                arrow_down: false,
+                arrow_up: false
+            },
+        ),
+        1
+    );
+    assert_eq!(
+        navigate_selection(
+            5,
+            2,
+            NavigationKeys {
+                arrow_down: true,
+                arrow_up: false
+            },
+        ),
+        1
+    );
+    assert_eq!(
+        navigate_selection(
+            5,
+            2,
+            NavigationKeys {
+                arrow_down: false,
+                arrow_up: true
+            },
+        ),
+        0
+    );
+    assert_eq!(
+        navigate_selection(
+            5,
+            0,
+            NavigationKeys {
+                arrow_down: true,
+                arrow_up: false
+            },
+        ),
+        0
+    );
+}

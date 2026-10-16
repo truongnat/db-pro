@@ -28,10 +28,14 @@ pub fn grid_keyboard_selection(
         .enumerate()
         .map(|(position, row)| (*row, position))
         .collect();
-    let row_position = row_positions.get(&selected_row).copied().unwrap_or(0);
+    let row_position = row_positions.get(&selected_row).copied();
+    let selection_is_stale = row_position.is_none();
+    let row_position = row_position.unwrap_or(0);
     let column = selected_column.min(column_count - 1);
 
     match key {
+        eframe::egui::Key::ArrowUp if selection_is_stale => visible_rows.last().copied().map(|row| (row, column)),
+        eframe::egui::Key::ArrowDown if selection_is_stale => visible_rows.first().copied().map(|row| (row, column)),
         eframe::egui::Key::ArrowUp => visible_rows
             .get(row_position.saturating_sub(1))
             .copied()

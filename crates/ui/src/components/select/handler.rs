@@ -110,7 +110,11 @@ pub struct NavigationKeys {
 }
 
 pub fn navigate_selection(selected: usize, option_count: usize, keys: NavigationKeys) -> usize {
-    // Clamp movement at both ends; the optional load-more action is deliberately outside option_count.
+    if option_count == 0 {
+        return 0;
+    }
+    // Clamp stale selection when options shrink; load-more stays outside option_count.
+    let selected = selected.min(option_count - 1);
     let selected = if keys.arrow_down && selected.saturating_add(1) < option_count {
         selected + 1
     } else {

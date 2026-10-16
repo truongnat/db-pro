@@ -21,7 +21,7 @@ Select::new("connection.pool", &mut selected_index, &options)
 - `.width(width)` sets trigger width; `.theme(theme)` supplies semantic colors.
 - `.show(ui)` returns the trigger `egui::Response`; selection and load-more remain mutable state outputs.
 
-The selected index must refer to the provided options. An invalid index is not clamped and displays “Select an option...”. Keyboard movement stops at either end of the loaded list. An empty list can still show the paging row. The component does not fetch or append options itself and does not virtualize large lists. Popup geometry is constrained by the available screen region.
+The selected index should refer to the provided options; an out-of-range index displays “Select an option...”. If the options shrink while the menu is open, keyboard navigation clamps the stale index to the last loaded option (or returns index 0 for an empty list). Movement stops at either end of the loaded list. An empty list can still show the paging row. The component does not fetch or append options itself and does not virtualize large lists. Popup geometry is constrained by the available screen region.
 
 ## Layers
 

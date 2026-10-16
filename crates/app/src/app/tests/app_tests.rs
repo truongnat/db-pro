@@ -148,6 +148,23 @@ fn grid_keyboard_navigation_preserves_filtered_row_identity() {
 }
 
 #[test]
+fn grid_keyboard_navigation_recovers_stale_selection_from_projection_edges() {
+    let visible_rows = [2, 3, 5];
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((9, 1)), &visible_rows, 3, egui::Key::ArrowDown),
+        Some((2, 1))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((9, 1)), &visible_rows, 3, egui::Key::ArrowUp),
+        Some((5, 1))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((9, 1)), &visible_rows, 3, egui::Key::Home),
+        Some((2, 0))
+    );
+}
+
+#[test]
 fn grid_keyboard_navigation_starts_at_first_visible_cell() {
     assert_eq!(
         crate::grid_keyboard_selection(None, &[7, 9], 2, egui::Key::ArrowDown),
