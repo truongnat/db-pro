@@ -205,7 +205,7 @@ impl TableDataState {
     }
 
     /// Primary key, else the user's column set, else one non-partial UNIQUE index.
-    pub(crate) fn identity_key(info: &UiTableInfo, manual: Option<&[String]>) -> Option<IdentityKey> {
+    pub(super) fn identity_key(info: &UiTableInfo, manual: Option<&[String]>) -> Option<IdentityKey> {
         if let Some(columns) = info.primary_key.clone().filter(|columns| !columns.is_empty()) {
             return Some(IdentityKey {
                 columns,

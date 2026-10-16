@@ -19,7 +19,7 @@ impl DbProApp {
 
     pub(crate) fn request_data_diff_keyed(&mut self) {
         let Some(source_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            self.feedback.runtime_message = "Connect a source database first".into();
+            self.feedback.runtime_message = t!("workspace.connect_source_first").into_owned();
             return;
         };
         let request_id = self.next_request_id();
@@ -35,7 +35,7 @@ impl DbProApp {
                     sample_limit: request.sample_limit,
                 };
                 if self.dispatch_command(command) {
-                    self.feedback.runtime_message = "Running key-aware data compare…".into();
+                    self.feedback.runtime_message = t!("workspace.running_data_compare").into_owned();
                 }
             }
             Err(error) => self.feedback.runtime_message = error,
@@ -67,7 +67,7 @@ impl DbProApp {
         if self.dispatch_command(command) {
             self.table.state.ddl_execution_request = Some(request_id);
             self.schema.diagram.design.apply_request = Some(request_id.0);
-            self.feedback.runtime_message = "Applying design plan…".into();
+            self.feedback.runtime_message = t!("workspace.applying_design_plan").into_owned();
         }
     }
 
@@ -93,7 +93,7 @@ impl DbProApp {
                 table,
             });
             self.table.editing.discard_changes_confirmation = true;
-            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            self.feedback.runtime_message = t!("workspace.apply_or_discard_staged").into_owned();
             return;
         }
         self.workspace.pending_navigation_action = None;
@@ -127,7 +127,7 @@ impl DbProApp {
     pub(crate) fn request_open_workspace_folder(&mut self) {
         let request_id = self.next_request_id();
         if self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id }) {
-            self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
+            self.feedback.runtime_message = t!("workspace.choose_folder").into_owned();
         }
     }
 
@@ -143,7 +143,7 @@ impl DbProApp {
                 self.feedback.runtime_message = "Scanning workspace…".to_owned();
             }
             Err(error) => {
-                self.feedback.runtime_message = format!("Failed to open workspace: {error}");
+                self.feedback.runtime_message = t!("workspace.open_failed", error = error.to_string().as_str()).into_owned();
             }
         }
     }
@@ -212,7 +212,7 @@ impl DbProApp {
 
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
         let Some(absolute) = self.workspace.files.ide_workspace.absolute_for_relative(&relative_path) else {
-            self.feedback.runtime_message = "Open a workspace folder first".to_owned();
+            self.feedback.runtime_message = t!("workspace.open_folder_first").into_owned();
             return;
         };
         let absolute_str = absolute.to_string_lossy().into_owned();
@@ -262,11 +262,11 @@ impl DbProApp {
                     self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
                 self.workspace.files.dismiss_external_change(&path);
-                self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
+                self.feedback.runtime_message = t!("workspace.saved_file", path = std::path::Path::new(&path).display().to_string().as_str()).into_owned();
                 true
             }
             Err(error) => {
-                self.feedback.runtime_message = format!("Save failed: {error}");
+                self.feedback.runtime_message = t!("workspace.save_failed", error = error.to_string().as_str()).into_owned();
                 false
             }
         }
@@ -275,11 +275,11 @@ impl DbProApp {
     pub(crate) fn toggle_split_editor(&mut self) {
         if self.workspace.split_editor_secondary.is_some() {
             self.workspace.split_editor_secondary = None;
-            self.feedback.runtime_message = "Split editor closed".to_owned();
+            self.feedback.runtime_message = t!("workspace.split_editor_closed").into_owned();
             return;
         }
         if self.query.session.documents.len() < 2 {
-            self.feedback.runtime_message = "Open a second document before splitting".to_owned();
+            self.feedback.runtime_message = t!("workspace.open_second_document").into_owned();
             return;
         }
         let secondary = if self.query.session.active_document_index + 1 < self.query.session.documents.len() {
@@ -288,7 +288,7 @@ impl DbProApp {
             0
         };
         self.workspace.split_editor_secondary = Some(secondary);
-        self.feedback.runtime_message = "Split editor enabled".to_owned();
+        self.feedback.runtime_message = t!("workspace.split_editor_enabled").into_owned();
     }
 
     /// Capture/evidence helper: keep the initial connection request pending so
@@ -296,7 +296,7 @@ impl DbProApp {
     pub fn prepare_loading_for_capture(&mut self) {
         self.connection.lifecycle.mark_connections_requested();
         self.connection.lifecycle.set_connections_request_pending(true);
-        self.feedback.runtime_message = "Loading connections…".to_owned();
+        self.feedback.runtime_message = t!("workspace.loading_connections").into_owned();
     }
 
     /// Capture/evidence helper: open the connection editor with a deterministic
@@ -323,7 +323,7 @@ impl DbProApp {
             self.connection
                 .dialog
                 .set_error("Name, database, and port values are required and must be valid.");
-            self.feedback.runtime_message = "Connection details are invalid".to_owned();
+            self.feedback.runtime_message = t!("workspace.connection_invalid").into_owned();
         }
     }
 
@@ -700,7 +700,7 @@ impl DbProApp {
             }
             "error" => {
                 self.table.data_query.result = None;
-                self.table.data_query.error = Some("The database connection was interrupted.".to_owned());
+                self.table.data_query.error = Some(t!("workspace.connection_interrupted").into_owned());
             }
             "empty" => {
                 if let Some(result) = &mut self.table.data_query.result {
@@ -1234,7 +1234,7 @@ impl DbProApp {
         if self.workspace.active_tab == tab {
             self.activate_welcome_tab();
         }
-        self.feedback.runtime_message = "Workspace closed".to_owned();
+        self.feedback.runtime_message = t!("workspace.closed").into_owned();
     }
 
     /// Returns false when the close is blocked by staged table changes — the
@@ -1244,7 +1244,7 @@ impl DbProApp {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
             self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message =
-                "Apply or discard staged changes before closing the table".to_owned();
+                t!("workspace.apply_or_discard_before_close").into_owned();
             return false;
         }
         self.workspace.pending_navigation_action = None;
@@ -1255,7 +1255,7 @@ impl DbProApp {
 
     pub(crate) fn reload_workspace_file_from_disk(&mut self, path: &str) {
         let Ok(content) = std::fs::read_to_string(path) else {
-            self.feedback.runtime_message = format!("Could not reload {path}");
+            self.feedback.runtime_message = t!("workspace.reload_failed", path = path).into_owned();
             return;
         };
         if let Some(doc) = self
@@ -1274,7 +1274,7 @@ impl DbProApp {
                     .insert(path.to_owned(), mtime);
             }
             self.workspace.files.dismiss_external_change(path);
-            self.feedback.runtime_message = format!("Reloaded {path}");
+            self.feedback.runtime_message = t!("workspace.reloaded_file", path = path).into_owned();
         }
     }
 }

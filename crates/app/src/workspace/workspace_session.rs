@@ -235,9 +235,7 @@ impl WorkspaceSessionContext<'_> {
                     .set_active_connection_id(Some(conn_id.clone()));
             } else {
                 self.connection.lifecycle.set_active_connection_id(None);
-                notes.push(format!(
-                    "Connection `{conn_id}` is missing — left disconnected without crashing"
-                ));
+                notes.push(t!("workspace.restore_note_missing_connection", id = conn_id.as_str()).into_owned());
             }
         } else {
             self.connection.lifecycle.set_active_connection_id(None);
@@ -249,7 +247,7 @@ impl WorkspaceSessionContext<'_> {
                 if let Some(doc) = self.query_session_state.documents.iter().find(|d| d.id == *id).cloned() {
                     reordered.push(doc);
                 } else {
-                    notes.push(format!("Query tab `{id}` was not found in persisted documents"));
+                    notes.push(t!("workspace.restore_note_missing_query", id = id.as_str()).into_owned());
                 }
             }
             for doc in &self.query_session_state.documents {
@@ -271,20 +269,17 @@ impl WorkspaceSessionContext<'_> {
             {
                 self.query_session_state.active_document_index = idx;
             } else {
-                notes.push(format!("Active document `{active_id}` missing — kept current tab"));
+                notes.push(t!("workspace.restore_note_missing_active_document", id = active_id.as_str()).into_owned());
             }
         }
 
         self.schema_explorer.pinned_tables.retain(|t| !t.trim().is_empty());
         self.workspace.sessions.last_restore_notes = notes.clone();
         if notes.is_empty() {
-            self.feedback.runtime_message = format!("Restored workspace `{}`", session.name);
+            self.feedback.runtime_message = t!("workspace.restored", name = session.name.as_str()).into_owned();
         } else {
-            self.feedback.runtime_message = format!(
-                "Restored workspace `{}` with {} recovery note(s)",
-                session.name,
-                notes.len()
-            );
+            self.feedback.runtime_message =
+                t!("workspace.restored_with_notes", name = session.name.as_str(), n = notes.len()).into_owned();
         }
     }
 
@@ -298,12 +293,12 @@ impl WorkspaceSessionContext<'_> {
         let session = self.capture(name);
         self.workspace.sessions.name_draft.clear();
         self.workspace.sessions.upsert(session);
-        self.feedback.runtime_message = "Named workspace session saved".to_owned();
+        self.feedback.runtime_message = t!("workspace.session_saved").into_owned();
     }
 
     pub(crate) fn restore_named(&mut self, id: &str) {
         let Some(session) = self.workspace.sessions.store.get(id).cloned() else {
-            self.feedback.runtime_message = "Named session not found".to_owned();
+            self.feedback.runtime_message = t!("workspace.session_not_found").into_owned();
             return;
         };
         self.apply(&session);
@@ -311,10 +306,10 @@ impl WorkspaceSessionContext<'_> {
 
     pub(crate) fn duplicate_named(&mut self, id: &str) {
         if self.workspace.sessions.duplicate(id).is_none() {
-            self.feedback.runtime_message = "Named session not found".to_owned();
+            self.feedback.runtime_message = t!("workspace.session_not_found").into_owned();
             return;
         }
-        self.feedback.runtime_message = "Duplicated workspace session".to_owned();
+        self.feedback.runtime_message = t!("workspace.session_duplicated").into_owned();
     }
 
     pub(crate) fn persist(&self, storage: &mut dyn eframe::Storage) {

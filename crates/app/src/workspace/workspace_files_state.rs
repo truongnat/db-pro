@@ -120,7 +120,7 @@ impl WorkspaceFilesState {
         self.workspace_external_changes.clear();
         self.workspace_context_items.clear();
         shell.split_editor_secondary = None;
-        feedback.set_runtime_message("Workspace closed");
+        feedback.set_runtime_message(t!("workspace.closed"));
     }
 
     pub(super) fn refresh(&mut self, feedback: &mut FeedbackState) {
@@ -236,23 +236,23 @@ impl WorkspaceFilesState {
     pub(super) fn run_search(&mut self, feedback: &mut FeedbackState) {
         if self.ide_workspace.roots.is_empty() {
             self.workspace_search_hits.clear();
-            feedback.set_runtime_message("Open a workspace folder before searching");
+            feedback.set_runtime_message(t!("workspace.open_folder_first"));
             return;
         }
         self.workspace_search_hits = self.ide_workspace.search(&self.workspace_search_query, 100);
-        feedback.set_runtime_message(format!("{} matches", self.workspace_search_hits.len()));
+        feedback.set_runtime_message(t!("workspace.matches_count", n = self.workspace_search_hits.len()).as_ref());
     }
 
     pub(super) fn preview_replace(&mut self, feedback: &mut FeedbackState) {
         self.workspace_replace_previews = self
             .ide_workspace
             .preview_replace(&self.workspace_search_query, &self.workspace_replace_query);
-        feedback.set_runtime_message(format!("{} files would change", self.workspace_replace_previews.len()));
+        feedback.set_runtime_message(t!("workspace.files_would_change", n = self.workspace_replace_previews.len()).as_ref());
     }
 
     pub(super) fn request_replace_all(&mut self, feedback: &mut FeedbackState) {
         self.pending_replace_all = true;
-        feedback.set_runtime_message("Confirm before replacing all");
+        feedback.set_runtime_message(t!("workspace.confirm_replace_all"));
     }
 
     pub(super) fn confirm_replace_all(&mut self, feedback: &mut FeedbackState) {
@@ -271,7 +271,7 @@ impl WorkspaceFilesState {
             Ok(count) => {
                 self.preview_replace(feedback);
                 self.run_search(feedback);
-                feedback.set_runtime_message(format!("Replaced {count} occurrence(s)"));
+                feedback.set_runtime_message(t!("workspace.replaced_count", n = count).as_ref());
             }
             Err(error) => feedback.set_runtime_message(error),
         }
@@ -298,14 +298,14 @@ impl WorkspaceFilesState {
             ));
         }
         match self.ide_workspace.export_schema_snapshot(&sql) {
-            Ok(path) => feedback.set_runtime_message(format!("Wrote schema snapshot {}", path.display())),
+            Ok(path) => feedback.set_runtime_message(t!("workspace.snapshot_written", path = path.display().to_string().as_str()).as_ref()),
             Err(error) => feedback.set_runtime_message(error),
         }
     }
 
     pub(super) fn request_shell(&mut self, feedback: &mut FeedbackState) {
         self.pending_shell = true;
-        feedback.set_runtime_message("Confirm before running the shell command");
+        feedback.set_runtime_message(t!("workspace.confirm_shell_command"));
     }
 
     pub(super) fn confirm_shell(&mut self, feedback: &mut FeedbackState) {
@@ -320,7 +320,9 @@ impl WorkspaceFilesState {
         let command = self.workspace_task_command.clone();
         match self.ide_workspace.run_task(&command) {
             Ok(result) => {
-                feedback.set_runtime_message(format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms))
+            feedback.set_runtime_message(
+                t!("workspace.task_exit", code = format!("{:?}", result.exit_code).as_str(), ms = result.duration_ms).as_ref(),
+            )
             }
             Err(error) => feedback.set_runtime_message(error),
         }
@@ -330,7 +332,7 @@ impl WorkspaceFilesState {
         let from = self.workspace_refactor_from.clone();
         let to = self.workspace_refactor_to.clone();
         match self.ide_workspace.rename_symbol_across_sql(&from, &to) {
-            Ok(count) => feedback.set_runtime_message(format!("Refactored {count} occurrence(s)")),
+            Ok(count) => feedback.set_runtime_message(t!("workspace.refactored_count", n = count).as_ref()),
             Err(error) => feedback.set_runtime_message(error),
         }
     }
@@ -346,6 +348,8 @@ impl WorkspaceFilesState {
     /// Drain a finished background git operation into UI state (#391).
     pub(super) fn poll_git_task(&mut self, feedback: &mut FeedbackState) {
         let Some(receiver) = self.git_task.as_ref() else {
+            self.git_status = None;
+            self.git_last_error = Some(t!("workspace.open_folder_first").into_owned());
             return;
         };
         let outcome = match receiver.try_recv() {
@@ -445,6 +449,7 @@ impl WorkspaceFilesState {
         if message.is_empty() {
             self.git_last_error = Some("commit message is required".into());
             return;
+
         }
         self.dispatch_git_task(git_workspace::GitOperation::Commit { message }, feedback);
     }

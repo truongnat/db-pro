@@ -80,15 +80,15 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             self.draw_query_tabs(ui, modifier, &mut close_all_requested);
                             self.draw_table_tab(ui);
                             self.draw_schema_object_tab(ui);
-                            self.draw_static_tab(ui, WorkspaceTab::Results, Icon::Table2, "Results");
-                            self.draw_static_tab(ui, WorkspaceTab::Diagram, Icon::ArrowRightLeft, "ER Diagram");
-                            self.draw_static_tab(ui, WorkspaceTab::SchemaWorkbench, Icon::Boxes, "Schema Workbench");
-                            self.draw_static_tab(ui, WorkspaceTab::SchemaCompare, Icon::GitCompare, "Schema Compare");
+                            self.draw_static_tab(ui, WorkspaceTab::Results, Icon::Table2, &t!("workspace.tab_results"));
+                            self.draw_static_tab(ui, WorkspaceTab::Diagram, Icon::ArrowRightLeft, &t!("workspace.tab_diagram"));
+                            self.draw_static_tab(ui, WorkspaceTab::SchemaWorkbench, Icon::Boxes, &t!("workspace.tab_schema_workbench"));
+                            self.draw_static_tab(ui, WorkspaceTab::SchemaCompare, Icon::GitCompare, &t!("workspace.tab_schema_compare"));
                             self.draw_static_tab(
                                 ui,
                                 WorkspaceTab::ComponentGallery,
                                 Icon::Palette,
-                                "Component Gallery",
+                                &t!("workspace.tab_component_gallery"),
                             );
                             // 7. Plus Button for New Query
                             ui.add_space(SPACE_XS);
@@ -96,8 +96,8 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                                 .icon(Icon::Plus)
                                 .variant(ButtonVariant::Ghost)
                                 .size(ButtonSize::IconSm)
-                                .tooltip(format!("New Query Tab ({modifier}N)"))
-                                .access_label(format!("New Query Tab ({modifier}N)"))
+                                .tooltip(t!("workspace.new_query_tab_tip", key = modifier).into_owned())
+                                .access_label(t!("workspace.new_query_tab_tip", key = modifier).into_owned())
                                 .show(ui)
                                 .clicked()
                             {
@@ -122,13 +122,13 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 DocumentTabItem {
                     selected: welcome_selected,
                     icon: Icon::House,
-                    title: "Welcome",
+                    title: &t!("workspace.tab_welcome"),
                     unsaved: false,
                     show_close: true,
                 },
                 |ui, close_menu| {
                     ui.label(
-                        RichText::new("Welcome")
+                        RichText::new(t!("workspace.tab_welcome"))
                             .font(font_ui_label())
                             .strong()
                             .color(self.theme.text_primary),
@@ -137,7 +137,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
-                        "Close Tab",
+                        &t!("workspace.close_tab"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -150,7 +150,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Layers),
-                        "Close All Tabs",
+                        &t!("workspace.close_all_tabs"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -230,7 +230,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
-                        &format!("Close Tab ({modifier}W)"),
+                        &t!("workspace.close_tab_tip", key = modifier).into_owned(),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -243,7 +243,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Layers),
-                        "Close Other Tabs",
+                        &t!("workspace.close_other_tabs"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -257,7 +257,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                         && ctx_menu_item(
                             ui,
                             Some(Icon::ArrowRight),
-                            "Close Tabs to the Right",
+                            &t!("workspace.close_tabs_right"),
                             None,
                             self.theme.text_primary,
                             self.theme,
@@ -270,7 +270,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Layers),
-                        "Close All Tabs",
+                        &t!("workspace.close_all_tabs"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -284,7 +284,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Copy),
-                        "Duplicate Tab",
+                        &t!("workspace.duplicate_tab"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -297,7 +297,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::FileCode2),
-                        "Copy SQL Content",
+                        &t!("workspace.copy_sql_content"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -310,7 +310,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::FileText),
-                        "Copy Title",
+                        &t!("workspace.copy_title"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -324,7 +324,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Play),
-                        &format!("Run Query ({modifier}↵)"),
+                        &t!("workspace.run_query_tip", key = modifier).into_owned(),
                         None,
                         self.theme.accent,
                         self.theme,
@@ -398,7 +398,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
-                        "Close Tab",
+                        &t!("workspace.close_tab"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -412,7 +412,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::RefreshCw),
-                        "Refresh Data",
+                        &t!("workspace.refresh_data"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -425,7 +425,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Copy),
-                        "Copy Table Name",
+                        &t!("workspace.copy_table_name"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -438,7 +438,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::FileCode2),
-                        "Copy SELECT Query",
+                        &t!("workspace.copy_select_query"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -497,7 +497,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::X),
-                        "Close Tab",
+                        &t!("workspace.close_tab"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -510,7 +510,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Copy),
-                        "Copy Name",
+                        &t!("workspace.copy_name"),
                         None,
                         self.theme.text_primary,
                         self.theme,
@@ -563,7 +563,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 if ctx_menu_item(
                     ui,
                     Some(Icon::X),
-                    "Close Tab",
+                    &t!("workspace.close_tab"),
                     None,
                     self.theme.text_primary,
                     self.theme,
