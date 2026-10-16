@@ -19,7 +19,7 @@ impl CursorPosition {
     }
 
     pub fn from_offset(buffer: &TextBuffer, offset: usize) -> Self {
-        let clamped = buffer.floor_char_boundary(offset.min(buffer.len_bytes()));
+        let clamped = buffer.floor_grapheme_boundary(offset.min(buffer.len_bytes()));
         let (line, col) = buffer.offset_to_line_col(clamped);
         Self {
             offset: clamped,
@@ -41,7 +41,7 @@ impl CursorPosition {
     }
 
     pub fn set_offset(&mut self, buffer: &TextBuffer, offset: usize) {
-        let clamped = buffer.floor_char_boundary(offset.min(buffer.len_bytes()));
+        let clamped = buffer.floor_grapheme_boundary(offset.min(buffer.len_bytes()));
         let (line, col) = buffer.offset_to_line_col(clamped);
         self.offset = clamped;
         self.line = line;
@@ -51,7 +51,7 @@ impl CursorPosition {
 
     pub fn move_left(&mut self, buffer: &TextBuffer) {
         if self.offset > 0 {
-            let prev = buffer.prev_char_boundary(self.offset);
+            let prev = buffer.prev_grapheme_boundary(self.offset);
             self.set_offset(buffer, prev);
         }
     }
@@ -59,7 +59,7 @@ impl CursorPosition {
     pub fn move_right(&mut self, buffer: &TextBuffer) {
         let len = buffer.len_bytes();
         if self.offset < len {
-            let next = buffer.next_char_boundary(self.offset);
+            let next = buffer.next_grapheme_boundary(self.offset);
             self.set_offset(buffer, next);
         }
     }
@@ -143,7 +143,7 @@ impl CursorPosition {
         let mut idx = self.offset;
         // Skip leading whitespace to the left
         while idx > 0 {
-            let prev = buffer.prev_char_boundary(idx);
+            let prev = buffer.prev_grapheme_boundary(idx);
             if let Some(ch) = text[prev..idx].chars().next() {
                 if ch.is_whitespace() {
                     idx = prev;
@@ -154,16 +154,13 @@ impl CursorPosition {
         }
         // Skip word characters or punctuation
         let is_alphanumeric_mode = if idx > 0 {
-            let prev = buffer.prev_char_boundary(idx);
-            text[prev..idx]
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_alphanumeric() || c == '_')
+            let prev = buffer.prev_grapheme_boundary(idx);
+            text[prev..idx].chars().any(|c| c.is_alphanumeric() || c == '_')
         } else {
             true
         };
         while idx > 0 {
-            let prev = buffer.prev_char_boundary(idx);
+            let prev = buffer.prev_grapheme_boundary(idx);
             if let Some(ch) = text[prev..idx].chars().next() {
                 if ch.is_whitespace() {
                     break;
@@ -190,7 +187,7 @@ impl CursorPosition {
         let mut idx = self.offset;
         // Skip leading whitespace to the right
         while idx < len {
-            let next = buffer.next_char_boundary(idx);
+            let next = buffer.next_grapheme_boundary(idx);
             if let Some(ch) = text[idx..next].chars().next() {
                 if ch.is_whitespace() {
                     idx = next;
@@ -201,16 +198,13 @@ impl CursorPosition {
         }
         // Skip word chars or punctuation
         let is_alphanumeric_mode = if idx < len {
-            let next = buffer.next_char_boundary(idx);
-            text[idx..next]
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_alphanumeric() || c == '_')
+            let next = buffer.next_grapheme_boundary(idx);
+            text[idx..next].chars().any(|c| c.is_alphanumeric() || c == '_')
         } else {
             true
         };
         while idx < len {
-            let next = buffer.next_char_boundary(idx);
+            let next = buffer.next_grapheme_boundary(idx);
             if let Some(ch) = text[idx..next].chars().next() {
                 if ch.is_whitespace() {
                     break;

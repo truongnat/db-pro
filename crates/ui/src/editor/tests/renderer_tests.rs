@@ -506,3 +506,36 @@ fn str_eq_ignore_case_handles_unicode() {
     assert!(str_eq_ignore_case("Users", "users"));
     assert!(!str_eq_ignore_case("users", "user"));
 }
+
+#[test]
+fn backspace_removes_the_whole_combining_grapheme() {
+    let (result, _) = render_editor_event(
+        "e\u{301}",
+        egui::Event::Key {
+            key: egui::Key::Backspace,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        },
+        "backspace-combining-grapheme",
+    );
+    assert_eq!(result, "");
+}
+
+#[test]
+fn delete_removes_the_whole_zwj_emoji_grapheme() {
+    let (result, _) = render_editor_event_with_selection(
+        "👩‍💻x",
+        SelectionRange::point(0),
+        0,
+        egui::Event::Key {
+            key: egui::Key::Delete,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        },
+    );
+    assert_eq!(result, "x");
+}

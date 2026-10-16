@@ -1,3 +1,5 @@
+use unicode_segmentation::UnicodeSegmentation;
+
 use std::collections::VecDeque;
 
 const MAX_UNDO_HISTORY: usize = 300;
@@ -267,6 +269,43 @@ impl TextBuffer {
             idx += 1;
         }
         idx
+    }
+
+    pub fn prev_grapheme_boundary(&self, offset: usize) -> usize {
+        let clamped = self.floor_char_boundary(offset.min(self.content.len()));
+        self.content[..clamped]
+            .grapheme_indices(true)
+            .next_back()
+            .map_or(0, |(start, _)| start)
+    }
+
+    pub fn next_grapheme_boundary(&self, offset: usize) -> usize {
+        let len = self.content.len();
+        let clamped = self.floor_char_boundary(offset.min(len));
+        if clamped >= len {
+            return len;
+        }
+        self.content[clamped..]
+            .grapheme_indices(true)
+            .nth(1)
+            .map_or(len, |(relative_start, _)| clamped + relative_start)
+    }
+
+    pub fn floor_grapheme_boundary(&self, offset: usize) -> usize {
+        let clamped = self.floor_char_boundary(offset.min(self.content.len()));
+        if clamped == 0 || clamped == self.content.len() {
+            return clamped;
+        }
+
+        let Some((start, _)) = self.content[..clamped].grapheme_indices(true).next_back() else {
+            return 0;
+        };
+        let grapheme_len = self.content[start..].graphemes(true).next().map_or(0, str::len);
+        if start + grapheme_len <= clamped {
+            clamped
+        } else {
+            start
+        }
     }
 
     pub fn char_at(&self, offset: usize) -> Option<char> {

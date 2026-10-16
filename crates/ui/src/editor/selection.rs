@@ -54,53 +54,42 @@ impl SelectionRange {
         self.active = len;
     }
 
-    // cc-scan:allow COMPLEXITY,LONG_FUNCTION — classifier/dispatch ladder — one case per branch
+    // cc-scan:allow COMPLEXITY,LONG_FUNCTION — word selection expands a contiguous word/non-word grapheme run.
     pub fn select_word_at(&mut self, buffer: &TextBuffer, offset: usize) {
-        let len = buffer.len_bytes();
-        if len == 0 {
+        let text = buffer.text();
+        if text.is_empty() {
             self.anchor = 0;
             self.active = 0;
             return;
         }
-        let clamped = buffer.floor_char_boundary(offset.min(len));
-        let text = buffer.text();
 
-        let ch_at = if clamped < len {
-            buffer.char_at(clamped)
+        let clamped = buffer.floor_grapheme_boundary(offset.min(text.len()));
+        let selected_start = if clamped == text.len() {
+            buffer.prev_grapheme_boundary(clamped)
         } else {
-            buffer.prev_char(clamped)
+            clamped
         };
+        let selected_end = buffer.next_grapheme_boundary(selected_start);
+        let is_word = is_word_grapheme(&text[selected_start..selected_end]);
 
-        let is_word = ch_at.is_some_and(|c| c.is_alphanumeric() || c == '_');
-
-        // Expand left
-        let mut start = clamped;
+        let mut start = selected_start;
         while start > 0 {
-            let prev = buffer.prev_char_boundary(start);
-            if let Some(c) = text[prev..start].chars().next() {
-                let prev_is_word = c.is_alphanumeric() || c == '_';
-                if prev_is_word != is_word || c.is_whitespace() {
-                    break;
-                }
-                start = prev;
-            } else {
+            let previous_start = buffer.prev_grapheme_boundary(start);
+            let grapheme = &text[previous_start..start];
+            if is_word_grapheme(grapheme) != is_word || grapheme.chars().any(char::is_whitespace) {
                 break;
             }
+            start = previous_start;
         }
 
-        // Expand right
-        let mut end = clamped;
-        while end < len {
-            let next = buffer.next_char_boundary(end);
-            if let Some(c) = text[end..next].chars().next() {
-                let next_is_word = c.is_alphanumeric() || c == '_';
-                if next_is_word != is_word || c.is_whitespace() {
-                    break;
-                }
-                end = next;
-            } else {
+        let mut end = selected_end;
+        while end < text.len() {
+            let next_end = buffer.next_grapheme_boundary(end);
+            let grapheme = &text[end..next_end];
+            if is_word_grapheme(grapheme) != is_word || grapheme.chars().any(char::is_whitespace) {
                 break;
             }
+            end = next_end;
         }
 
         self.anchor = start;
@@ -122,3 +111,9 @@ impl SelectionRange {
 #[cfg(test)]
 #[path = "tests/selection_tests.rs"]
 mod tests;
+
+fn is_word_grapheme(grapheme: &str) -> bool {
+    grapheme
+        .chars()
+        .any(|character| character.is_alphanumeric() || character == '_')
+}
