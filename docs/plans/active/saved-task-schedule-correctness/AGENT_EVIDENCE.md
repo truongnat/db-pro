@@ -27,9 +27,9 @@
 |---|---|
 | Exact SHA | Baseline 76b120724a7542de8b587a002811ddacad28156a; candidate uncommitted, parent records final SHA |
 | Commit list | none by worker |
-| File / surface inventory | `crates/core/src/domain/saved_task.rs` — enable guard, backlog eligibility, policy docs; `crates/core/src/domain/tests/saved_task_tests.rs` — nine behavioral regressions and fixed-time fixture; this directory's PLAN/CHECKLIST/FINDINGS/VERIFICATION/AGENT_EVIDENCE and `smoke.rs` — requirements, decisions and executable public API probe |
+| File / surface inventory | saved_task.rs: enable guard, backlog eligibility/policy docs; adjacent saved_task_tests.rs: nine behavioral regressions; canonical plan/acceptance/evidence files. Temporary public-store executable removed after observed before/after proof. |
 | Acceptance mapping | #504 → zero-interval whole-store equality plus valid enable tests; #462 → jitter/boundary/gap/RunOnce tests and public smoke; adjacent safety → retry and destructive tests |
-| Commands and counts | none executed; `cargo test -p db-pro-core saved_task` plus independent smoke recipe supplied in VERIFICATION.md |
+| Commands and counts | Worker executed none; parent outcomes and public-store smoke results are authoritative in VERIFICATION.md. |
 | CI run IDs / status | not run |
 | Known limitations | Lateness shorter than an interval is intentionally current, including short downtime; no persisted poll history or configurable grace |
 | Migrations / config implications | none; disabled zero-interval drafts remain storable but cannot be enabled |

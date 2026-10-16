@@ -43,52 +43,15 @@ Existing adjacent app regression selector: `scheduled_task_tick_dispatches_once_
 
 ## Independent public-store runtime smoke
 
-`smoke.rs` is a separate executable using only the public `SavedTask` / `SavedTaskStore` API and JSON deserialization. It does not import test fixtures or private helpers and never dispatches SQL. Dates, task IDs and policy cases are fixed. The only wall clock touched is internal to `set_schedule_enabled`; failure compares the whole store, and valid enabling preserves a fixed existing next timestamp.
+The parent used an independent temporary executable over public SavedTask/SavedTaskStore and JSON deserialization, with fixed dates/task IDs and no SQL dispatch. The same harness ran against an exact baseline source export and the candidate. Both zero-interval atomicity and interval/backlog boundaries were observed, not inferred; exact outcomes are in the parent execution section.
 
-Prerequisites: Rust/Cargo toolchain compatible with this workspace, registry cache/network for existing core dependencies, and `git`, `tar`, `mktemp`. No running PostgreSQL/SQLite/SSH service, provider credentials, `DATABASE_URL`, GUI or connections are needed.
-
-Run from the repository root after all worker lanes land. This creates only temporary harness manifests outside the repository. The original checked-in smoke source is used for both versions. `--offline` requires the existing dependency cache; omit only if the cache is unavailable and network access is permitted.
-
-```sh
-run_schedule_smoke() {
-    core_path="$1"
-    probe="$(mktemp -d)"
-    mkdir "$probe/src"
-    cp docs/plans/active/saved-task-schedule-correctness/smoke.rs "$probe/src/main.rs"
-    cat > "$probe/Cargo.toml" <<EOF
-[package]
-name = "saved-task-schedule-smoke"
-version = "0.0.0"
-edition = "2021"
-[dependencies]
-db-pro-core = { path = "$core_path" }
-serde_json = "1"
-EOF
-    cargo run --offline --manifest-path "$probe/Cargo.toml"
-    result=$?
-    rm -rf "$probe"
-    return "$result"
-}
-
-baseline="$(mktemp -d)"
-git archive 76b120724a7542de8b587a002811ddacad28156a | tar -x -C "$baseline"
-# Baseline intentionally exits nonzero; do not stop before running the candidate.
-run_schedule_smoke "$baseline/crates/core"
-baseline_status=$?
-rm -rf "$baseline"
-printf 'baseline exit: %s\n' "$baseline_status"
-
-run_schedule_smoke "$PWD/crates/core"
-printf 'candidate exit: %s\n' "$?"
-```
-
-Predictions, **not executed evidence**: baseline prints FAIL for `zero_enable_rejected`, `zero_enable_atomic`, `skip_exact_boundary`, `skip_closed_gap` and exits nonzero; candidate prints PASS for all 21 checks and exits zero. Record actual output and exit statuses rather than copying predictions as evidence. If the invoking shell uses `set -e`, wrap the intentional baseline failure in an `if` or otherwise capture its status without terminating the recipe.
+Temporary executable source/manifests were removed after proof. Permanent adjacent saved-task tests retain the boundary, error, retry and destructive-policy regressions and are runnable with `cargo test -p db-pro-core saved_task`. There is no checked-in throwaway smoke executable to maintain.
 
 ## Provider matrix / lifecycle
 
 | Surface | Automated | Runtime | Notes |
 |---|---|---|---|
-| Public saved-task store | NOT RUN | NOT RUN | Parent executes above |
+| Public saved-task store | PASS (integrated tests) | PASS (21-check standalone probe) | Parent evidence above |
 | PostgreSQL | N/A | N/A | No SQL/provider path is executed |
 | SQLite | N/A | N/A | No SQL/provider path is executed |
 | Native UI | N/A | N/A | No UI edits |

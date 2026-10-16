@@ -1,6 +1,6 @@
 # PostgreSQL typed query description
 
-State: REVIEW — final five real-PG regressions, 16 mapper tests and original public INTEGER probe PASS; independent source re-review ACCEPT; publication pending.
+State: REVIEW — verified fix published at 6f94372dd5caba22e525fbc1aff918b936e0491d; #533 closed completed. Five real-PG cases, 16 mapper tests and original public INTEGER probe PASS; inherited workspace lint gate remains failed.
 
 ## Scope
 
@@ -32,4 +32,4 @@ No changes to generated SQL, schema DDL, other providers, core data diff, ports,
 | PostgreSQL | typed query preparation ordering | 5 real-provider cases + original public-service probe PASS; mapper suite 16 PASS |
 | SQLite | not affected: no SQLx PostgreSQL prepared cache | N/A; no SQLite behavior claim |
 
-Source claims above refer to baseline `76b120724a7542de8b587a002811ddacad28156a`; implementation descriptions refer to the uncommitted candidate over that baseline plus independent shared-main changes. Main must pin the final integration SHA before closure.
+Baseline claims: 76b120724a7542de8b587a002811ddacad28156a. Final implementation: 6f94372dd5caba22e525fbc1aff918b936e0491d. Publication and issue closure succeeded; feature plan stays REVIEW rather than falsely asserting all repository gates are green.

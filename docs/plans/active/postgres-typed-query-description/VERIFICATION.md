@@ -1,6 +1,6 @@
 # #533 verification and standalone smoke recipe
 
-Baseline: `76b120724a7542de8b587a002811ddacad28156a`. Candidate: uncommitted changes over this baseline plus independent shared-main fixes; Main must record the exact integrated SHA. State: REVIEW, not runtime-verified by this worker.
+Baseline: 76b120724a7542de8b587a002811ddacad28156a. Published candidate: 6f94372dd5caba22e525fbc1aff918b936e0491d; push and #533 closure succeeded. State: REVIEW due inherited lint gate, not missing provider proof.
 
 ## Parent final execution — authoritative integration result
 
@@ -12,7 +12,7 @@ Baseline: `76b120724a7542de8b587a002811ddacad28156a`. Candidate: uncommitted cha
 - `cargo check --workspace` previously PASS on integrated source. Workspace all-target Clippy FAIL remains the five unchanged app diagnostics (`artifact://143`); no claim that this global gate passes.
 - Independent reviewer ReviewPgTypedMetadata final verdict ACCEPT (source scope), no unresolved introduced P0/P1/P2 after both tail-drain and NULL-type corrections. Reviewer did not execute tests; actual provider results are parent-owned above.
 - Earlier E0309 generic bound and 4-pass/1-fail integer=text runs are retained as real intermediate failures below; final passes do not erase them.
-- Candidate staged for publication; exact SHA recorded in the cluster publication ledger. No CI or live UI claim. Different binary parameter types for identical SQL remain the existing SQLx cache limitation.
+- Published exact candidate SHA above and closed #533 with observed evidence. No CI or live UI claim. Different binary parameter types for identical SQL remain the existing SQLx cache limitation.
 
 Worker-only NOT RUN notes below are historical and superseded for integration by this section.
 

@@ -97,8 +97,8 @@ async fn round_trip(
     let registry = Arc::new(ConnectionRegistry::new());
     let source_id = ConnectionId::new();
     let target_id = ConnectionId::new();
-    registry.register(source_id, source.clone());
-    registry.register(target_id, target.clone());
+    registry.register(source_id, source);
+    registry.register(target_id, target);
     let service = DataDiffService::new(Box::new(Arc::clone(&connector)), registry);
     let keys = ["tenant".into(), "item".into()];
     let before = service

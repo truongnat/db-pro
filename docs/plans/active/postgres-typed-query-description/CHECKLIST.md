@@ -1,6 +1,6 @@
 # #533 checklist
 
-Baseline: `76b120724a7542de8b587a002811ddacad28156a`; uncommitted candidate, pending Main integration SHA. State: REVIEW.
+Baseline: 76b120724a7542de8b587a002811ddacad28156a. Published: 6f94372dd5caba22e525fbc1aff918b936e0491d. State: REVIEW due inherited global gate, not missing provider proof.
 
 - [x] Preserve parent-observed inherited P1 command/result separately from candidate evidence.
 - [x] Inspect installed SQLx 0.8.6 argument encoding, SQL-only cache, prepare_with and describe behavior.
@@ -14,6 +14,6 @@ Baseline: `76b120724a7542de8b587a002811ddacad28156a`; uncommitted candidate, pen
 - [x] Parent reran original public DbProRuntime INTEGER composite-PK probe unchanged; PASS.
 - [x] Final fmt, 5 actual-PG regressions, 16 mapper cases, owned Clippy and full workspace tests PASS; inherited global lint failure reported.
 - [x] Independent reviewer final ACCEPT after bounded-tail and NULL-type corrections; no introduced open findings.
-- [ ] Publish exact candidate SHA and close #533 with verified evidence.
+- [x] Published exact candidate SHA above; GitHub close #533 completed succeeded with real provider/public-service evidence.
 
 No build/test/lint/formatter/smoke was executed by this worker; this is an implementation checklist, not a passing test report. Different binary parameter types for identical SQL remain the inherited SQLx cache limitation.
