@@ -63,6 +63,10 @@ pub enum SqliteCommand {
         statements: Vec<ParameterizedTransactionStatement>,
         responder: oneshot::Sender<Result<Vec<TransactionStatementResult>, TransactionFailure>>,
     },
+    #[cfg(test)]
+    PanicForTest {
+        responder: oneshot::Sender<Result<(), DbError>>,
+    },
     Shutdown,
 }
 
@@ -410,6 +414,55 @@ impl SqliteHandle {
     }
 }
 
+const SQLITE_BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+fn open_connection(db_path: &str) -> Result<rusqlite::Connection, DbError> {
+    let conn = rusqlite::Connection::open(db_path).map_err(crate::error::from_rusqlite)?;
+    conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
+        .map_err(crate::error::from_rusqlite)?;
+    Ok(conn)
+}
+
+fn catch_db_handler_panic<T>(
+    operation: &'static str,
+    handler: impl FnOnce() -> Result<T, DbError>,
+) -> Result<T, DbError> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(handler)) {
+        Ok(result) => result,
+        Err(_) => {
+            tracing::error!(operation, "SQLite actor handler panicked; worker is continuing");
+            Err(DbError::Internal(format!(
+                "SQLite actor panicked while attempting to {operation}"
+            )))
+        }
+    }
+}
+
+#[allow(clippy::result_large_err)]
+fn catch_transaction_handler_panic(
+    operation: &'static str,
+    handler: impl FnOnce() -> Result<Vec<TransactionStatementResult>, TransactionFailure>,
+) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(handler)) {
+        Ok(result) => result,
+        Err(_) => {
+            tracing::error!(
+                operation,
+                "SQLite actor transaction handler panicked; outcome is unknown"
+            );
+            Err(TransactionFailure {
+                phase: TransactionFailurePhase::Actor,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::Unknown,
+                results: Vec::new(),
+                error: DbError::Internal(format!(
+                    "SQLite actor panicked while attempting to {operation}; transaction outcome is unknown"
+                )),
+            })
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // SqliteActor – owns the connection on a dedicated std::thread
 // ---------------------------------------------------------------------------
@@ -422,7 +475,7 @@ impl SqliteActor {
     /// Open (or create) the database at `db_path`, spawn the actor thread,
     /// and return a clonable handle for sending commands.
     pub fn spawn(db_path: &str) -> Result<SqliteHandle, DbError> {
-        let conn = rusqlite::Connection::open(db_path).map_err(crate::error::from_rusqlite)?;
+        let conn = open_connection(db_path)?;
         let interrupt_handle = Arc::new(conn.get_interrupt_handle());
 
         let (sender, receiver) = mpsc::channel();
@@ -439,57 +492,116 @@ impl SqliteActor {
 
     // -- main loop ----------------------------------------------------------
 
-    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn run(self, receiver: mpsc::Receiver<SqliteCommand>) {
-        for cmd in receiver {
-            match cmd {
-                SqliteCommand::Execute {
-                    sql,
-                    params,
-                    max_rows,
-                    responder,
-                } => {
-                    let _ = responder.send(self.handle_execute(&sql, &params, max_rows));
-                }
-                SqliteCommand::Interrupt { responder } => {
-                    let _ = responder.send(Ok(()));
-                }
-                SqliteCommand::Introspect { responder } => {
-                    let _ = responder.send(self.handle_introspect());
-                }
-                SqliteCommand::Explain { sql, params, responder } => {
-                    let _ = responder.send(self.handle_explain(&sql, &params));
-                }
-                SqliteCommand::RawQuery { sql, params, responder } => {
-                    let _ = responder.send(self.handle_raw_query(&sql, &params));
-                }
-                SqliteCommand::ExecuteStatement { sql, responder } => {
-                    let _ = responder.send(self.handle_execute_statement(&sql));
-                }
-                SqliteCommand::ExecuteStatementParam { sql, params, responder } => {
-                    let _ = responder.send(self.handle_execute_statement_param(&sql, &params));
-                }
-                SqliteCommand::ExecuteBatch { statements, responder } => {
-                    let _ = responder.send(self.handle_execute_batch(&statements));
-                }
-                SqliteCommand::ExecuteTransaction {
-                    statements,
-                    read_statements,
-                    max_rows,
-                    responder,
-                } => {
-                    let _ = responder.send(self.handle_execute_transaction(&statements, &read_statements, max_rows));
-                }
-                SqliteCommand::ExecuteParameterizedTransaction { statements, responder } => {
-                    let _ = responder.send(self.handle_execute_parameterized_transaction(&statements));
-                }
-                SqliteCommand::Shutdown => {
-                    tracing::info!("sqlite actor received shutdown command");
-                    break;
-                }
+        for command in receiver {
+            if !self.dispatch_command(command) {
+                break;
             }
         }
         tracing::info!("sqlite actor thread exiting");
+    }
+
+    fn dispatch_command(&self, command: SqliteCommand) -> bool {
+        match command {
+            command @ (SqliteCommand::Execute { .. }
+            | SqliteCommand::Introspect { .. }
+            | SqliteCommand::Explain { .. }
+            | SqliteCommand::RawQuery { .. }) => self.dispatch_query_command(command),
+            command @ (SqliteCommand::ExecuteStatement { .. }
+            | SqliteCommand::ExecuteStatementParam { .. }
+            | SqliteCommand::ExecuteBatch { .. }) => self.dispatch_statement_command(command),
+            command @ (SqliteCommand::ExecuteTransaction { .. }
+            | SqliteCommand::ExecuteParameterizedTransaction { .. }) => self.dispatch_transaction_command(command),
+            SqliteCommand::Interrupt { responder } => {
+                let _ = responder.send(Ok(()));
+                true
+            }
+            #[cfg(test)]
+            SqliteCommand::PanicForTest { responder } => {
+                let result = catch_db_handler_panic("test handler", || -> Result<(), DbError> {
+                    panic!("simulated SQLite actor handler panic");
+                });
+                let _ = responder.send(result);
+                true
+            }
+            SqliteCommand::Shutdown => {
+                tracing::info!("sqlite actor received shutdown command");
+                false
+            }
+        }
+    }
+
+    fn dispatch_query_command(&self, command: SqliteCommand) -> bool {
+        match command {
+            SqliteCommand::Execute {
+                sql,
+                params,
+                max_rows,
+                responder,
+            } => {
+                let result = catch_db_handler_panic("execute query", || self.handle_execute(&sql, &params, max_rows));
+                let _ = responder.send(result);
+            }
+            SqliteCommand::Introspect { responder } => {
+                let result = catch_db_handler_panic("introspect schema", || self.handle_introspect());
+                let _ = responder.send(result);
+            }
+            SqliteCommand::Explain { sql, params, responder } => {
+                let result = catch_db_handler_panic("explain query", || self.handle_explain(&sql, &params));
+                let _ = responder.send(result);
+            }
+            SqliteCommand::RawQuery { sql, params, responder } => {
+                let result = catch_db_handler_panic("run raw query", || self.handle_raw_query(&sql, &params));
+                let _ = responder.send(result);
+            }
+            _ => unreachable!("query command dispatcher received a different command"),
+        }
+        true
+    }
+
+    fn dispatch_statement_command(&self, command: SqliteCommand) -> bool {
+        match command {
+            SqliteCommand::ExecuteStatement { sql, responder } => {
+                let result = catch_db_handler_panic("execute statement", || self.handle_execute_statement(&sql));
+                let _ = responder.send(result);
+            }
+            SqliteCommand::ExecuteStatementParam { sql, params, responder } => {
+                let result = catch_db_handler_panic("execute parameterized statement", || {
+                    self.handle_execute_statement_param(&sql, &params)
+                });
+                let _ = responder.send(result);
+            }
+            SqliteCommand::ExecuteBatch { statements, responder } => {
+                let result = catch_db_handler_panic("execute batch", || self.handle_execute_batch(&statements));
+                let _ = responder.send(result);
+            }
+            _ => unreachable!("statement command dispatcher received a different command"),
+        }
+        true
+    }
+
+    fn dispatch_transaction_command(&self, command: SqliteCommand) -> bool {
+        match command {
+            SqliteCommand::ExecuteTransaction {
+                statements,
+                read_statements,
+                max_rows,
+                responder,
+            } => {
+                let result = catch_transaction_handler_panic("execute transaction", || {
+                    self.handle_execute_transaction(&statements, &read_statements, max_rows)
+                });
+                let _ = responder.send(result);
+            }
+            SqliteCommand::ExecuteParameterizedTransaction { statements, responder } => {
+                let result = catch_transaction_handler_panic("execute parameterized transaction", || {
+                    self.handle_execute_parameterized_transaction(&statements)
+                });
+                let _ = responder.send(result);
+            }
+            _ => unreachable!("transaction command dispatcher received a different command"),
+        }
+        true
     }
 
     // -- handlers -----------------------------------------------------------
