@@ -392,3 +392,31 @@ async fn restore_captures_committed_writes_that_are_still_in_the_wal() {
     drop(writer);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_accepts_read_only_sqlite_artifact() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = temporary_root("restore-read-only");
+    let source = root.join("read-only-source.db");
+    let target = root.join("target.db");
+    create_items_database(&source, "INSERT INTO items VALUES (1, 'read-only-artifact');");
+    std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o444)).unwrap();
+    create_items_database(&target, "INSERT INTO items VALUES (1, 'old-target');");
+
+    SqliteBackupEngine::new(config(&target))
+        .restore(
+            &RestoreOptions {
+                connection_id: "test".into(),
+                input_path: source.to_string_lossy().into_owned(),
+                format: BackupFormat::Plain,
+            },
+            "",
+        )
+        .await
+        .expect("read-only SQLite artifact should be restorable");
+
+    assert_eq!(values(&target), vec!["read-only-artifact"]);
+    std::fs::remove_dir_all(root).unwrap();
+}

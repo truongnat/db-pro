@@ -124,7 +124,8 @@ async fn vacuum_into(source: &Path, temporary: &Path) -> Result<(), DbError> {
     let source = source.to_path_buf();
     let vacuum_target = temporary.to_path_buf();
     tokio::task::spawn_blocking(move || {
-        let connection = rusqlite::Connection::open(&source).map_err(crate::error::from_rusqlite)?;
+        let connection = rusqlite::Connection::open_with_flags(&source, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(crate::error::from_rusqlite)?;
         connection
             .busy_timeout(std::time::Duration::from_secs(5))
             .map_err(crate::error::from_rusqlite)?;
