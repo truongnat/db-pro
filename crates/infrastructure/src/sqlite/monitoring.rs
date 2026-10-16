@@ -101,23 +101,34 @@ impl MonitoringPort for SqliteMonitoringPort {
     async fn run_maintenance(
         &self,
         handle: &ConnectionHandle,
-        _schema: Option<String>,
+        schema: Option<String>,
         table: Option<String>,
         action: MaintenanceAction,
     ) -> Result<(), DbError> {
-        let sql = match (action, table.as_deref()) {
-            (MaintenanceAction::Vacuum | MaintenanceAction::VacuumAnalyze, Some(table)) => {
-                let table = quote_ident(table)?;
-                format!("VACUUM {table}")
-            }
-            (MaintenanceAction::Vacuum | MaintenanceAction::VacuumAnalyze, None) => "VACUUM".into(),
-            (MaintenanceAction::Analyze, Some(table)) => {
-                let table = quote_ident(table)?;
-                format!("ANALYZE {table}")
-            }
-            (MaintenanceAction::Analyze, None) => "ANALYZE".into(),
+        if table.is_some() && action != MaintenanceAction::Analyze {
+            return Err(DbError::Unsupported(
+                "SQLite VACUUM does not support a table target; select the database target explicitly".into(),
+            ));
+        }
+        let target = match (schema.as_deref(), table.as_deref()) {
+            (Some(schema), Some(table)) => format!("{}.{}", quote_ident(schema)?, quote_ident(table)?),
+            (Some(schema), None) => quote_ident(schema)?,
+            (None, Some(table)) => quote_ident(table)?,
+            (None, None) => String::new(),
+        };
+        let sql = match action {
+            MaintenanceAction::Vacuum | MaintenanceAction::VacuumAnalyze => format!("VACUUM {target}"),
+            MaintenanceAction::Analyze => format!("ANALYZE {target}"),
         };
         self.connector.execute(handle, &sql, &[]).await?;
+        if action == MaintenanceAction::VacuumAnalyze {
+            // VACUUM cannot run in a transaction; ANALYZE is a separate, ordered operation.
+            // Unqualified ANALYZE includes attached databases, unlike VACUUM's main default.
+            let analyze_target = if target.is_empty() { "\"main\"" } else { &target };
+            self.connector
+                .execute(handle, &format!("ANALYZE {analyze_target}"), &[])
+                .await?;
+        }
         Ok(())
     }
 

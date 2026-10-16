@@ -46,9 +46,12 @@ impl ErrorEnvelope {
 #[serde(rename_all = "snake_case")]
 pub enum ConstraintType {
     Unique,
+    PrimaryKey,
     ForeignKey,
     NotNull,
     Check,
+    /// A provider-specific constraint without a dedicated category.
+    Other(i32),
 }
 
 /// Unified error taxonomy for the entire application.

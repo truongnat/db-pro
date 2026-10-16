@@ -13,6 +13,9 @@ All notable user-facing changes to DB Pro. The shipped application is the native
   backlog without suppressing ordinary polling jitter, while RunOnce still runs once (#504, #462).
 - Data compare keeps SQL NULL distinct from literal `∅` and structural composite keys distinct when
   values contain U+001F; generated sync previews preserve the intended rows and scalar values (#457, #485).
+- SQLite maintenance rejects table-target VACUUM instead of widening scope; VACUUM ANALYZE runs
+  both operations on the selected database. Constraint errors distinguish primary keys and retain
+  otherwise-unclassified extended codes rather than reporting every failure as CHECK (#491, #498).
 
 ## [0.1.0] - 2026-09-14
 

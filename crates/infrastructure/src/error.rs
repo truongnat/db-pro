@@ -94,11 +94,12 @@ pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
                 rusqlite::ErrorCode::CannotOpen => DbError::ConnectionFailed(message),
                 rusqlite::ErrorCode::ConstraintViolation => {
                     let constraint_type = match ffi.extended_code {
-                        2067 => ConstraintType::Unique,    // SQLITE_CONSTRAINT_UNIQUE
-                        787 => ConstraintType::ForeignKey, // SQLITE_CONSTRAINT_FOREIGNKEY
-                        1299 => ConstraintType::NotNull,   // SQLITE_CONSTRAINT_NOTNULL
-                        275 => ConstraintType::Check,      // SQLITE_CONSTRAINT_CHECK
-                        _ => ConstraintType::Check,        // fallback for generic constraint
+                        rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY => ConstraintType::PrimaryKey,
+                        rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE => ConstraintType::Unique,
+                        rusqlite::ffi::SQLITE_CONSTRAINT_FOREIGNKEY => ConstraintType::ForeignKey,
+                        rusqlite::ffi::SQLITE_CONSTRAINT_NOTNULL => ConstraintType::NotNull,
+                        rusqlite::ffi::SQLITE_CONSTRAINT_CHECK => ConstraintType::Check,
+                        code => ConstraintType::Other(code),
                     };
                     DbError::ConstraintViolation {
                         constraint_type,
@@ -118,3 +119,7 @@ pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
 pub fn from_keyring(err: keyring::Error) -> DbError {
     DbError::EncryptionFailed(err.to_string())
 }
+
+#[cfg(test)]
+#[path = "tests/error_tests.rs"]
+mod tests;
