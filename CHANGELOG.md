@@ -9,6 +9,8 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 
 - Agent runs now count cached tool-call replays toward the existing ten-step limit, stopping
   repeated provider requests without re-executing tools or bypassing confirmation (#448).
+- Saved-task schedules reject zero-second intervals when enabled; SkipMissed now skips full-interval
+  backlog without suppressing ordinary polling jitter, while RunOnce still runs once (#504, #462).
 
 ## [0.1.0] - 2026-09-14
 

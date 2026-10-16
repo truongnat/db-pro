@@ -183,7 +183,8 @@ pub enum SavedTaskRunTrigger {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum MissedRunPolicy {
-    /// Skip all missed intervals; schedule from "now".
+    /// Skip slots overdue by at least one full interval; schedule from "now".
+    /// A slot less than one interval late is still current, allowing polling jitter.
     #[default]
     SkipMissed,
     /// Run once for the backlog, then advance to the next future slot.
@@ -323,6 +324,9 @@ impl SavedTaskStore {
         if enabled && task.payload.is_destructive() && !schedule.allow_destructive {
             return Err("destructive schedule blocked".to_owned());
         }
+        if enabled && schedule.interval_secs == 0 {
+            return Err("schedule interval_secs must be >= 1".to_owned());
+        }
         schedule.enabled = enabled;
         if enabled && schedule.next_run_at.is_none() {
             schedule.next_run_at = Some(chrono::Utc::now() + chrono::Duration::seconds(schedule.interval_secs as i64));
@@ -335,6 +339,8 @@ impl SavedTaskStore {
     ///
     /// Semantics: only while the app process is alive — there is no background daemon.
     /// Missed runs while the app was closed follow [`MissedRunPolicy`].
+    /// A due slot becomes missed once it is a full interval overdue. Comparing
+    /// timestamps for exact equality would skip ordinary, slightly late app ticks.
     pub fn due_scheduled_task_ids(&mut self, now: chrono::DateTime<chrono::Utc>) -> Vec<Uuid> {
         let mut due = Vec::new();
         for task in &mut self.tasks {
@@ -360,19 +366,14 @@ impl SavedTaskStore {
                 schedule.next_run_at = Some(next + chrono::Duration::seconds(schedule.interval_secs as i64));
                 continue;
             }
-            match schedule.missed_run_policy {
-                MissedRunPolicy::SkipMissed => {
-                    // Advance from now so closed-app gaps are not backfilled.
-                    schedule.last_scheduled_at = Some(next);
-                    schedule.next_run_at = Some(now + chrono::Duration::seconds(schedule.interval_secs as i64));
-                    due.push(task.id);
-                }
-                MissedRunPolicy::RunOnce => {
-                    schedule.last_scheduled_at = Some(next);
-                    schedule.next_run_at = Some(now + chrono::Duration::seconds(schedule.interval_secs as i64));
-                    due.push(task.id);
-                }
+            let interval = chrono::Duration::seconds(schedule.interval_secs as i64);
+            schedule.next_run_at = Some(now + interval);
+            if schedule.missed_run_policy == MissedRunPolicy::SkipMissed && now - next >= interval {
+                // Consume the backlog without dispatch; the next slot starts from now.
+                continue;
             }
+            schedule.last_scheduled_at = Some(next);
+            due.push(task.id);
         }
         due
     }
