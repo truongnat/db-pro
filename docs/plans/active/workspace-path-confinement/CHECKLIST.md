@@ -6,4 +6,4 @@
 - [x] Delete symlink leaves without following their targets.
 - [x] Add regression tests for traversal, absolute paths, and symlink targets.
 - [x] Focused workspace tests, app/native checks, formatting, and diff checks pass.
-- [ ] Rebase on latest `origin/main`, commit, push, and open a draft PR linked to #465.
+- [x] Rebase on `origin/main`, commit, push, and open draft PR #528 linked to #465.
