@@ -264,13 +264,14 @@ impl<'a> PaletteSearchContext<'a> {
     }
 
     fn query_history_items(&self) -> Vec<(SearchKind, PaletteItem)> {
+        // History is stored oldest → newest; show newest first (#500).
         self.query
             .editor
             .query_history_entries
             .iter()
+            .rev()
             .take(30)
-            .enumerate()
-            .map(|(index, entry)| {
+            .map(|entry| {
                 let preview = entry.sql.chars().take(72).collect::<String>();
                 let status = match entry.status {
                     UiQueryHistoryStatus::Success => "success",
@@ -291,7 +292,7 @@ impl<'a> PaletteSearchContext<'a> {
                             entry.connection_id.clone().unwrap_or_else(|| "any".to_owned())
                         ),
                         shortcut: None,
-                        action: PaletteAction::OpenHistoryEntry(index),
+                        action: PaletteAction::OpenHistoryEntry(entry.id.clone()),
                     },
                 )
             })

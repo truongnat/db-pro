@@ -258,7 +258,7 @@ pub(crate) enum PaletteAction {
     OpenView(String),
     OpenFunction { name: String, identity_arguments: String },
     OpenSavedQuery(String),
-    OpenHistoryEntry(usize),
+    OpenHistoryEntry(String),
     OpenWorkspaceFile(String),
     OpenWorkspaceFolder,
     CloseWorkspaceFolder,

@@ -63,8 +63,15 @@ impl DbProApp {
                 .files
                 .close(&mut self.workspace.shell, &mut self.feedback),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
-            PaletteAction::OpenHistoryEntry(index) => {
-                if let Some(entry) = self.query.editor.query_history_entries.get(index).cloned() {
+            PaletteAction::OpenHistoryEntry(entry_id) => {
+                let entry = self
+                    .query
+                    .editor
+                    .query_history_entries
+                    .iter()
+                    .find(|entry| entry.id == entry_id)
+                    .cloned();
+                if let Some(entry) = entry {
                     self.open_history_entry(&entry, false);
                 } else {
                     self.feedback.runtime_message = "History entry is no longer available".to_owned();

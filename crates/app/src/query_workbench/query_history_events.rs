@@ -27,3 +27,7 @@ pub(super) fn record_query_history(query_editor: &mut QueryEditorState, record: 
         query_editor.query_history_entries.drain(..excess);
     }
 }
+
+#[cfg(test)]
+#[path = "tests/query_history_events_tests.rs"]
+mod tests;

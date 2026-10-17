@@ -38,6 +38,19 @@ impl DbProApp {
             .into_iter()
             .filter(|entry| entry.is_sql)
             .count();
+        // History entries carry UUIDs; `len + last id` changes on every push
+        // (including pushes that drain the front at the retention cap) and on
+        // restores/clears, so the palette index can never go stale (#500).
+        let history = format!(
+            "{}:{}",
+            self.query.editor.query_history_entries.len(),
+            self.query
+                .editor
+                .query_history_entries
+                .last()
+                .map(|entry| entry.id.as_str())
+                .unwrap_or("-")
+        );
         SearchService::build_fingerprint(SearchFingerprintParts {
             connection_id: self.connection.lifecycle.active_connection_id(),
             schema: self.active_schema(),
@@ -46,7 +59,7 @@ impl DbProApp {
             functions: self.schema.explorer.schema.functions.len(),
             columns: self.active_schema_column_names().len(),
             saved_queries: self.query.library.saved_queries.len(),
-            history: self.query.editor.query_history_entries.len(),
+            history: &history,
             connections: self.connection.catalog.len(),
             workspace_files,
         })
@@ -304,3 +317,7 @@ impl DbProApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/palette_view_tests.rs"]
+mod tests;

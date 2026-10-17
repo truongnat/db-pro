@@ -14,7 +14,8 @@ pub(crate) struct SearchFingerprintParts<'a> {
     pub functions: usize,
     pub columns: usize,
     pub saved_queries: usize,
-    pub history: usize,
+    /// `len:last_entry_id` — id changes on every push, len catches clears (#500).
+    pub history: &'a str,
     pub connections: usize,
     pub workspace_files: usize,
 }
