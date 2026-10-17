@@ -168,3 +168,16 @@ fn cursor_move_to_broken_statement_resyncs_syntax_diagnostic() {
     doc.sync_cursor_diagnostic(SqlDialect::Postgres);
     assert!(doc.diagnostics.is_empty());
 }
+
+#[test]
+fn set_text_clears_undo_history_from_previous_content() {
+    let mut doc = QueryDocument::new("q-1", "Query", "SELECT old_stuff;");
+    doc.buffer.insert(doc.buffer.len_bytes(), " -- more");
+    doc.buffer.insert(doc.buffer.len_bytes(), " -- even more");
+
+    doc.set_text("SELECT new;");
+    assert_eq!(doc.text(), "SELECT new;");
+    // Undo must not resurrect the pre-replace buffer (#471).
+    assert!(doc.buffer.undo().is_none());
+    assert_eq!(doc.text(), "SELECT new;");
+}

@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use unicode_segmentation::GraphemeCursor;
+
 const MAX_UNDO_HISTORY: usize = 300;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -268,6 +270,40 @@ impl TextBuffer {
         }
         idx
     }
+
+    /// Start of the grapheme cluster containing or ending at `offset` — caret
+    /// steps must not land inside ZWJ emoji or base+combining-mark sequences.
+    /// `offset` inside a cluster resolves to that cluster's start.
+    pub fn prev_grapheme_boundary(&self, offset: usize) -> usize {
+        let len = self.content.len();
+        let offset = self.floor_char_boundary(offset.min(len));
+        if offset == 0 {
+            return 0;
+        }
+        let mut cursor = GraphemeCursor::new(offset, len, true);
+        match cursor.prev_boundary(&self.content, 0) {
+            Ok(Some(boundary)) => boundary,
+            Ok(None) => 0,
+            Err(_) => self.prev_char_boundary(offset),
+        }
+    }
+
+    /// End of the grapheme cluster starting at `offset`; `offset` inside a
+    /// cluster resolves to that cluster's end.
+    pub fn next_grapheme_boundary(&self, offset: usize) -> usize {
+        let len = self.content.len();
+        let offset = self.floor_char_boundary(offset.min(len));
+        if offset >= len {
+            return len;
+        }
+        let mut cursor = GraphemeCursor::new(offset, len, true);
+        match cursor.next_boundary(&self.content, 0) {
+            Ok(Some(boundary)) => boundary,
+            Ok(None) => len,
+            Err(_) => self.next_char_boundary(offset),
+        }
+    }
+
 
     pub fn char_at(&self, offset: usize) -> Option<char> {
         let valid = self.floor_char_boundary(offset);

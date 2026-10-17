@@ -186,14 +186,24 @@ fn statement_range_at(text: &str, cursor: usize, dialect: SqlDialect) -> (usize,
             continue;
         }
         if bytes[index] == b'/' && index + 1 < bytes.len() && bytes[index + 1] == b'*' {
+            // Nested like syntax.rs: `/*` inside a Postgres block comment
+            // re-opens it; `*/` drops one level (#474).
+            let mut depth = 1usize;
             index += 2;
-            while index + 1 < bytes.len() && !(bytes[index] == b'*' && bytes[index + 1] == b'/') {
-                index += 1;
-            }
-            if index + 1 < bytes.len() {
-                index += 2;
-            } else {
-                index = bytes.len();
+            while index < bytes.len() && depth > 0 {
+                if bytes[index] == b'*' && index + 1 < bytes.len() && bytes[index + 1] == b'/' {
+                    depth -= 1;
+                    index += 2;
+                } else if dialect == SqlDialect::Postgres
+                    && bytes[index] == b'/'
+                    && index + 1 < bytes.len()
+                    && bytes[index + 1] == b'*'
+                {
+                    depth += 1;
+                    index += 2;
+                } else {
+                    index += 1;
+                }
             }
             continue;
         }

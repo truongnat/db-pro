@@ -253,8 +253,12 @@ impl QueryDocument {
         self.buffer.text()
     }
 
+    /// Replaces the whole buffer with externally loaded/generated content.
+    /// Uses `set_text_initial`: undo history from the previous content must not
+    /// carry across the replace — Ctrl+Z after an open-file/agent-patch reload
+    /// would resurrect text that no longer belongs to this document (#471).
     pub fn set_text(&mut self, text: impl Into<String>) {
-        self.buffer.set_text(text);
+        self.buffer.set_text_initial(text);
         self.cursor.set_offset(&self.buffer, 0);
         self.selection.collapse_to_active();
         self.reanalyze(SqlDialect::Postgres);

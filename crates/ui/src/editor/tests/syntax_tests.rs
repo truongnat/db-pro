@@ -83,3 +83,30 @@ fn incremental_token_multiline_comment_falls_back_to_full_tokenize() {
     let full = SqlHighlighter::new(SqlDialect::Postgres).tokenize(buf.text());
     assert_tokens_match(&spliced, &full);
 }
+
+#[test]
+fn postgres_block_comment_nests() {
+    // `/* a /* b */ c */` is ONE comment under Postgres; the inner `*/` only
+    // drops the nested level (#474).
+    let text = "/* a /* b */ c */ SELECT 1;";
+    let tokens = SqlHighlighter::new(SqlDialect::Postgres).tokenize(text);
+    assert_eq!(tokens[0].kind, SyntaxTokenKind::Comment);
+    assert_eq!(tokens[0].range, (0, 17));
+    let select = tokens.iter().find(|t| t.kind == SyntaxTokenKind::Keyword).expect("SELECT token");
+    assert_eq!(&text[select.range.0..select.range.1], "SELECT");
+}
+
+#[test]
+fn generic_dialect_block_comment_stops_at_first_close() {
+    let text = "/* a /* b */ c */";
+    let tokens = SqlHighlighter::new(SqlDialect::Generic).tokenize(text);
+    assert_eq!(tokens[0].kind, SyntaxTokenKind::Comment);
+    assert_eq!(tokens[0].range, (0, 12), "non-nesting dialects still end at the first */");
+}
+
+#[test]
+fn unterminated_nested_comment_consumes_to_eof() {
+    let tokens = SqlHighlighter::new(SqlDialect::Postgres).tokenize("/* a /* b */ c");
+    assert_eq!(tokens[0].kind, SyntaxTokenKind::Comment);
+    assert_eq!(tokens[0].range, (0, 14));
+}

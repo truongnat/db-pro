@@ -51,7 +51,9 @@ impl CursorPosition {
 
     pub fn move_left(&mut self, buffer: &TextBuffer) {
         if self.offset > 0 {
-            let prev = buffer.prev_char_boundary(self.offset);
+            // Grapheme step: a scalar step can park the caret inside a ZWJ
+            // emoji or between a base letter and its combining mark.
+            let prev = buffer.prev_grapheme_boundary(self.offset);
             self.set_offset(buffer, prev);
         }
     }
@@ -59,7 +61,7 @@ impl CursorPosition {
     pub fn move_right(&mut self, buffer: &TextBuffer) {
         let len = buffer.len_bytes();
         if self.offset < len {
-            let next = buffer.next_char_boundary(self.offset);
+            let next = buffer.next_grapheme_boundary(self.offset);
             self.set_offset(buffer, next);
         }
     }

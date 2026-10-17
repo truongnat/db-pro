@@ -471,16 +471,29 @@ impl SqlHighlighter {
                 continue;
             }
 
-            // Block comment: /* ... */
+            // Block comment: /* ... */ — Postgres comments nest, so a `/*`
+            // inside the body re-opens and a `*/` only drops one level;
+            // other dialects end at the first `*/` (#474).
             if b == b'/' && i + 1 < len && bytes[i + 1] == b'*' {
+                let mut depth = 1usize;
                 i += 2;
-                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
-                    i += 1;
-                }
-                if i + 1 < len {
-                    i += 2;
-                } else {
-                    i = len;
+                while i < len {
+                    if bytes[i] == b'*' && i + 1 < len && bytes[i + 1] == b'/' {
+                        depth -= 1;
+                        i += 2;
+                        if depth == 0 {
+                            break;
+                        }
+                    } else if self.dialect == SqlDialect::Postgres
+                        && bytes[i] == b'/'
+                        && i + 1 < len
+                        && bytes[i + 1] == b'*'
+                    {
+                        depth += 1;
+                        i += 2;
+                    } else {
+                        i += 1;
+                    }
                 }
                 tokens.push(SyntaxToken {
                     range: (start, i),

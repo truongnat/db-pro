@@ -45,3 +45,32 @@ fn test_cursor_utf8_boundary_safety() {
         assert!(buf.text().is_char_boundary(cursor.offset));
     }
 }
+
+#[test]
+fn move_left_right_step_whole_grapheme_clusters() {
+    // 👩‍💻 is one grapheme but five scalars (woman + ZWJ + laptop).
+    let text = "a 👩\u{200d}💻 b";
+    let buf = TextBuffer::from_string(text);
+    let emoji_start = text.find('👩').unwrap();
+    let emoji_end = emoji_start + "👩\u{200d}💻".len();
+
+    let mut cursor = CursorPosition::from_offset(&buf, emoji_end);
+    cursor.move_left(&buf);
+    assert_eq!(cursor.offset, emoji_start, "left must not stop mid-cluster");
+    cursor.move_right(&buf);
+    assert_eq!(cursor.offset, emoji_end, "right must not stop mid-cluster");
+}
+
+#[test]
+fn move_left_skips_combining_mark_with_base_letter() {
+    // "é" decomposed: 'e' + U+0301 — one grapheme, two scalars.
+    let text = "e\u{301}x";
+    let buf = TextBuffer::from_string(text);
+    let cluster_end = "e\u{301}".len();
+
+    let mut cursor = CursorPosition::from_offset(&buf, cluster_end);
+    cursor.move_left(&buf);
+    assert_eq!(cursor.offset, 0, "combining mark must move with its base");
+    cursor.move_right(&buf);
+    assert_eq!(cursor.offset, cluster_end);
+}

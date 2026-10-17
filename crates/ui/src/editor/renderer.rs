@@ -1148,7 +1148,7 @@ impl<'a> SqlEditor<'a> {
                     self.delete_selection();
                     response.changed = true;
                 } else if self.cursor.offset > 0 {
-                    let prev_off = self.buffer.prev_char_boundary(self.cursor.offset);
+                    let prev_off = self.buffer.prev_grapheme_boundary(self.cursor.offset);
                     let delete_end = brackets::auto_pair_range(self.buffer.text(), self.cursor.offset)
                         .map_or(self.cursor.offset, |(_, end)| end);
                     self.buffer.delete(prev_off, delete_end);
@@ -1163,7 +1163,7 @@ impl<'a> SqlEditor<'a> {
                     self.delete_selection();
                     response.changed = true;
                 } else if self.cursor.offset < self.buffer.len_bytes() {
-                    let next_off = self.buffer.next_char_boundary(self.cursor.offset);
+                    let next_off = self.buffer.next_grapheme_boundary(self.cursor.offset);
                     self.buffer.delete(self.cursor.offset, next_off);
                     self.selection.collapse_to_active();
                     response.changed = true;
@@ -1658,19 +1658,35 @@ impl<'a> SqlEditor<'a> {
             end_line
         };
 
-        let mut total_removed = 0;
+        let mut removed_before_start = 0usize;
+        let mut removed_before_end = 0usize;
         for l_idx in (start_line..=actual_end_line).rev() {
             let l_text = self.buffer.line_at(l_idx).unwrap_or("");
             let l_start = self.buffer.line_start_offset(l_idx);
-            if l_text.starts_with("  ") {
+            let removed = if l_text.starts_with("  ") {
                 self.buffer.delete(l_start, l_start + 2);
-                total_removed += 2;
+                2
             } else if l_text.starts_with(' ') || l_text.starts_with('\t') {
                 self.buffer.delete(l_start, l_start + 1);
-                total_removed += 1;
-            }
+                1
+            } else {
+                0
+            };
+            // Only bytes actually deleted before each edge shift it — a line
+            // with no indent must not move the anchor (#470).
+            removed_before_start += removed.min(start.saturating_sub(l_start));
+            removed_before_end += removed.min(end.saturating_sub(l_start));
         }
-        *self.selection = SelectionRange::new(start.saturating_sub(2), end.saturating_sub(total_removed));
+        let (new_lo, new_hi) = (
+            start - removed_before_start,
+            end.saturating_sub(removed_before_end),
+        );
+        // Keep the original anchor/active direction.
+        if self.selection.anchor <= self.selection.active {
+            *self.selection = SelectionRange::new(new_lo, new_hi);
+        } else {
+            *self.selection = SelectionRange::new(new_hi, new_lo);
+        }
         self.cursor.set_offset(self.buffer, self.selection.active);
     }
 

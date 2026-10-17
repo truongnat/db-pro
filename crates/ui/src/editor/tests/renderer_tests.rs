@@ -506,3 +506,67 @@ fn str_eq_ignore_case_handles_unicode() {
     assert!(str_eq_ignore_case("Users", "users"));
     assert!(!str_eq_ignore_case("users", "user"));
 }
+
+/// Shift-Tab must not slide the anchor when the first selected line has no
+/// indent to remove (#470) — only bytes actually deleted before an edge
+/// shift that edge.
+#[test]
+fn shift_tab_unindent_keeps_anchor_when_first_line_not_indented() {
+    let text = "ab\n  cd";
+    let (result, selection) = render_editor_event_with_selection(
+        text,
+        SelectionRange::new(2, text.len()),
+        text.len(),
+        egui::Event::Key {
+            key: egui::Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::SHIFT,
+        },
+    );
+    assert_eq!(result, "ab\ncd");
+    assert_eq!(selection.normalized(), (2, 5), "anchor stays; end shifts by the 2 removed bytes");
+}
+
+/// Shift-Tab must preserve a backwards selection's direction (#470).
+#[test]
+fn shift_tab_unindent_preserves_backward_selection() {
+    let text = "ab\n  cd";
+    let (result, selection) = render_editor_event_with_selection(
+        text,
+        SelectionRange::new(text.len(), 2),
+        2,
+        egui::Event::Key {
+            key: egui::Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::SHIFT,
+        },
+    );
+    assert_eq!(result, "ab\ncd");
+    assert_eq!(selection.anchor, 5);
+    assert_eq!(selection.active, 2);
+}
+
+/// Shift-Tab on an indented first line moves the anchor by only the bytes
+/// deleted before it.
+#[test]
+fn shift_tab_unindent_shifts_anchor_by_actual_removal() {
+    let text = "  ab\n  cd";
+    let (result, selection) = render_editor_event_with_selection(
+        text,
+        SelectionRange::new(3, text.len()),
+        text.len(),
+        egui::Event::Key {
+            key: egui::Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::SHIFT,
+        },
+    );
+    assert_eq!(result, "ab\ncd");
+    assert_eq!(selection.normalized(), (1, 5));
+}
