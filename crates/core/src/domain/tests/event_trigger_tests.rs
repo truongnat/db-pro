@@ -71,3 +71,21 @@ fn rejects_overlong_function_identifier_components() {
     assert!(validate_function_ref(&format!("public.{}()", "a".repeat(64))).is_err());
     assert!(validate_function_ref(&format!("{}.{}()", "a".repeat(63), "b".repeat(63))).is_ok());
 }
+
+#[test]
+fn create_preview_normalizes_and_quotes_function_call() {
+    for (function_ref, expected_call) in [
+        ("on_ddl", "\"on_ddl\"()"),
+        ("on_ddl()", "\"on_ddl\"()"),
+        ("public.on_ddl", "\"public\".\"on_ddl\"()"),
+        ("public.on_ddl()", "\"public\".\"on_ddl\"()"),
+        ("PUBLIC.On_Ddl", "\"public\".\"on_ddl\"()"),
+    ] {
+        let sql = preview_create_event_trigger("audit_ddl", "ddl_command_end", function_ref, "").unwrap();
+        assert_eq!(
+            sql,
+            format!("CREATE EVENT TRIGGER \"audit_ddl\" ON ddl_command_end EXECUTE FUNCTION {expected_call};"),
+            "{function_ref}"
+        );
+    }
+}
