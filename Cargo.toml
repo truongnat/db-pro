@@ -63,3 +63,4 @@ lucide-icons = "1.39"
 bigdecimal = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rust-i18n = "3.1"
+unicode-segmentation = "1"

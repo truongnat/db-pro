@@ -1,3 +1,5 @@
+use unicode_segmentation::UnicodeSegmentation;
+
 use super::buffer::TextBuffer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -65,46 +67,49 @@ impl SelectionRange {
         let clamped = buffer.floor_char_boundary(offset.min(len));
         let text = buffer.text();
 
-        let ch_at = if clamped < len {
-            buffer.char_at(clamped)
-        } else {
-            buffer.prev_char(clamped)
-        };
+        // Expand by grapheme cluster, not per-char: combining marks (U+0301,
+        // Vietnamese combining tones) are not alphanumeric and would split
+        // words like "café" at the mark. A cluster is word-classed by its
+        // base char; the cluster itself becomes indivisible.
+        let is_word_class = |grapheme: &str| grapheme.chars().next().is_some_and(|c| c.is_alphanumeric() || c == '_');
+        let is_space_class = |grapheme: &str| grapheme.chars().all(char::is_whitespace);
 
-        let is_word = ch_at.is_some_and(|c| c.is_alphanumeric() || c == '_');
+        // `ends[i]..ends[i+1]` is grapheme i. `partition_point` lands a
+        // mid-cluster offset on the owning cluster; an offset at end-of-
+        // buffer selects the last grapheme (previous `prev_char` behavior).
+        let ends: Vec<usize> = text
+            .grapheme_indices(true)
+            .map(|(i, _)| i)
+            .chain(std::iter::once(len))
+            .collect();
+        let at = ends
+            .partition_point(|end| *end <= clamped)
+            .saturating_sub(1)
+            .min(ends.len() - 2);
+        let clicked_start = ends[at];
+        let clicked_end = ends[at + 1];
+        let clicked_is_word = is_word_class(&text[clicked_start..clicked_end]);
 
-        // Expand left
-        let mut start = clamped;
+        // Expand left/right across same-class graphemes; whitespace always breaks.
+        let mut start = at;
         while start > 0 {
-            let prev = buffer.prev_char_boundary(start);
-            if let Some(c) = text[prev..start].chars().next() {
-                let prev_is_word = c.is_alphanumeric() || c == '_';
-                if prev_is_word != is_word || c.is_whitespace() {
-                    break;
-                }
-                start = prev;
-            } else {
+            let g = &text[ends[start - 1]..ends[start]];
+            if is_space_class(g) || is_word_class(g) != clicked_is_word {
                 break;
             }
+            start -= 1;
         }
-
-        // Expand right
-        let mut end = clamped;
-        while end < len {
-            let next = buffer.next_char_boundary(end);
-            if let Some(c) = text[end..next].chars().next() {
-                let next_is_word = c.is_alphanumeric() || c == '_';
-                if next_is_word != is_word || c.is_whitespace() {
-                    break;
-                }
-                end = next;
-            } else {
+        let mut end = at + 1;
+        while end + 1 < ends.len() {
+            let g = &text[ends[end]..ends[end + 1]];
+            if is_space_class(g) || is_word_class(g) != clicked_is_word {
                 break;
             }
+            end += 1;
         }
 
-        self.anchor = start;
-        self.active = end;
+        self.anchor = ends[start];
+        self.active = ends[end];
     }
 
     pub fn select_line_at(&mut self, buffer: &TextBuffer, line: usize) {
