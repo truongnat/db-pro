@@ -67,3 +67,45 @@ fn copy_as_insert_uses_selected_table_in_table_data_view() {
 
     assert!(text.contains("INSERT INTO \"public\".\"orders\""), "{text}");
 }
+
+// #487: an empty string is a real value — copying it must not report "nothing to copy" —
+// and a NULL cell copies the Postgres `\copy` sentinel so it cannot be mistaken for `''`.
+#[test]
+fn copy_cell_copies_empty_text_and_null_sentinel() {
+    let mut app = DbProApp::default();
+    let result = UiQueryResult {
+        columns: vec![
+            crate::UiColumn { name: "a".to_owned(), data_type: "text".to_owned(), nullable: true },
+            crate::UiColumn { name: "b".to_owned(), data_type: "text".to_owned(), nullable: true },
+        ],
+        rows: vec![vec![UiCell::Text(String::new()), UiCell::Null]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+
+    assert_eq!(app.copy_cell_value(&result, 0, 0), Some(UiCell::Text(String::new())));
+    let text = copied_text(&mut app, |app, ui| app.copy_cell_at(ui, &result, 0, 0));
+    assert_eq!(app.feedback.copy_status, "Cell copied");
+    // egui emits an empty CopyText; whether the OS clipboard stores it is platform-defined.
+    assert_eq!(text, "");
+
+    let text = copied_text(&mut app, |app, ui| app.copy_cell_at(ui, &result, 0, 1));
+    assert_eq!(text, "\\N");
+    assert_eq!(app.feedback.copy_status, "Cell copied");
+}
+
+// #487: row copy uses the same `\N` sentinel so a pasted row round-trips NULL vs ''.
+#[test]
+fn copied_row_text_distinguishes_null_from_empty_text() {
+    let app = DbProApp::default();
+    let result = UiQueryResult {
+        columns: vec![
+            crate::UiColumn { name: "a".to_owned(), data_type: "text".to_owned(), nullable: true },
+            crate::UiColumn { name: "b".to_owned(), data_type: "text".to_owned(), nullable: true },
+        ],
+        rows: vec![vec![UiCell::Null, UiCell::Text(String::new())]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+    assert_eq!(app.copied_row_text(&result, 0, &result.rows[0]), "\\N\t");
+}

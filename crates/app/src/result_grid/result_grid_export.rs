@@ -44,9 +44,16 @@ pub(super) fn escape_delimited_field(value: &str, delimiter: char) -> String {
     }
 }
 
+/// Format one cell as a CSV/TSV field.
+///
+/// NULL uses the Postgres `\copy` sentinel `\N` so a paste/export round-trip keeps the NULL vs
+/// empty-string distinction (`UiCell::Text("")` stays an empty field). A literal `\N` text cell
+/// collides with the sentinel on re-import — Postgres `COPY` itself escapes the backslash in text
+/// fields, but this formatter emits RFC-4180 quoting for spreadsheet compatibility instead, so the
+/// ambiguity is accepted and documented here (#487).
 pub(super) fn format_cell_delimited(cell: &UiCell, delimiter: char) -> String {
     match cell {
-        UiCell::Null => String::new(),
+        UiCell::Null => "\\N".to_owned(),
         UiCell::Boolean(value) => value.to_string(),
         UiCell::Number(value) => escape_delimited_field(value, delimiter),
         UiCell::Text(value) => escape_delimited_field(value, delimiter),

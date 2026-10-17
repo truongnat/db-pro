@@ -92,3 +92,23 @@
         };
         assert_eq!(format_result_delimited(&result, ","), "'=evil\n'-1+1\n");
     }
+
+    // #487: NULL must not collapse into the same field as `''` — the Postgres `\copy`
+    // sentinel `\N` keeps the distinction through a delimited round-trip.
+    #[test]
+    fn delimited_cells_distinguish_null_from_empty_text() {
+        assert_eq!(format_cell_delimited(&UiCell::Null, '\t'), "\\N");
+        assert_eq!(format_cell_delimited(&UiCell::Text(String::new()), '\t'), "");
+        assert_eq!(format_cell_delimited(&UiCell::Null, ','), "\\N");
+
+        let result = UiQueryResult {
+            columns: vec![
+                crate::UiColumn { name: "a".to_owned(), data_type: "text".to_owned(), nullable: true },
+                crate::UiColumn { name: "b".to_owned(), data_type: "text".to_owned(), nullable: true },
+            ],
+            rows: vec![vec![UiCell::Null, UiCell::Text(String::new())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        assert_eq!(format_result_delimited(&result, "\t"), "a\tb\n\\N\t\n");
+    }

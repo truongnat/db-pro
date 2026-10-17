@@ -4523,7 +4523,7 @@ fn test_column_order_and_move_column() {
 
 #[test]
 fn test_format_cell_csv_and_cell_to_json() {
-    assert_eq!(result_grid_export::format_cell_csv(&UiCell::Null), "");
+    assert_eq!(result_grid_export::format_cell_csv(&UiCell::Null), "\\N");
     assert_eq!(result_grid_export::format_cell_csv(&UiCell::Boolean(true)), "true");
     assert_eq!(
         result_grid_export::format_cell_csv(&UiCell::Number("42.50".to_owned())),
@@ -4666,8 +4666,8 @@ fn test_export_result_writes_escaped_delimited_text() {
     let written = std::fs::read_to_string(&path).expect("export file must exist");
     let _ = std::fs::remove_file(&path);
     assert_eq!(
-        written, "note,amount\n\"line, one\ntwo\",42.50\n,9007199254740993\n",
-        "NULL is an empty field, the exact digits survive, and the embedded newline stays quoted"
+        written, "note,amount\n\"line, one\ntwo\",42.50\n\\N,9007199254740993\n",
+        "NULL is the \\N sentinel, the exact digits survive, and the embedded newline stays quoted"
     );
 }
 

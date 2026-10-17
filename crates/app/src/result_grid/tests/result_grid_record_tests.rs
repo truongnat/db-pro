@@ -121,7 +121,9 @@ fn record_click_copies_label_and_full_staged_value() {
 }
 
 #[test]
-fn record_click_copies_null_and_reports_empty_value() {
+fn record_click_copies_null_and_empty_values() {
+    // #487: `''` is a real value and must copy (as an empty clipboard write), while NULL
+    // copies as the Postgres `\copy` sentinel `\N` — neither reports "nothing to copy".
     let mut app = DbProApp::default();
     app.open_table_workspace_for_capture();
     let mut result = app.table.data_query.result.take().unwrap();
@@ -135,11 +137,12 @@ fn record_click_copies_null_and_reports_empty_value() {
         copied_text(&click_record_text(&mut app, &ctx, &result, "(empty)")),
         ""
     );
-    assert_eq!(app.feedback.copy_status, "Empty value: nothing to copy");
+    assert_eq!(app.feedback.copy_status, "Cell copied");
     assert_eq!(
         copied_text(&click_record_text(&mut app, &ctx, &result, "NULL")),
-        "NULL"
+        "\\N"
     );
+    assert_eq!(app.feedback.copy_status, "Cell copied");
 }
 
 #[test]

@@ -21,12 +21,14 @@ impl DbProApp {
             self.feedback.copy_status = "Selected cell is no longer available".to_owned();
             return;
         };
-        let text = crate::cell_text(&cell);
-        if text.is_empty() {
-            // egui-winit ignores empty clipboard output; do not report a successful copy.
-            self.feedback.copy_status = "Empty value: nothing to copy".to_owned();
-            return;
-        }
+        // Postgres `\copy` convention: NULL copies as `\N` (matching row-copy, which emits
+        // `format_cell_delimited`), and an empty string is a real value that must be
+        // copyable (#487). egui-winit may ignore an empty `CopyText` command; that is a
+        // platform limitation, not a reason to report "nothing to copy" for `''`.
+        let text = match &cell {
+            UiCell::Null => "\\N".to_owned(),
+            _ => crate::cell_text(&cell),
+        };
         ui.output_mut(|output| output.commands.push(egui::OutputCommand::CopyText(text)));
         self.feedback.copy_status = "Cell copied".to_owned();
     }
