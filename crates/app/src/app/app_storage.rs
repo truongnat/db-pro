@@ -53,13 +53,21 @@ impl<'a> NativeStorageContext<'a> {
         let Some(raw) = storage.get_string(crate::diagram::ER_LAYOUTS_STORAGE_KEY) else {
             return;
         };
-        if let Ok(layouts) =
+        if let Ok(mut layouts) =
             serde_json::from_str::<std::collections::HashMap<String, crate::diagram::ErLayoutSnapshot>>(&raw)
         {
+            // Reject NaN, inf, or wild coordinates from corrupt storage (#455).
+            const MAX_PAN: f32 = 1_000_000.0;
+            for snapshot in layouts.values_mut() {
+                if let Some([x, y]) = snapshot.pan {
+                    if !x.is_finite() || !y.is_finite() || x.abs() > MAX_PAN || y.abs() > MAX_PAN {
+                        snapshot.pan = None;
+                    }
+                }
+            }
             self.diagram.saved_layouts = layouts;
         }
     }
-
     pub(crate) fn restore_preferences(&mut self, storage: &dyn eframe::Storage) {
         self.preferences.dark_mode =
             if storage.get_string("dbpro.native.theme-version").as_deref() == Some(THEME_STORAGE_VERSION) {

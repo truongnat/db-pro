@@ -194,8 +194,12 @@ impl ErGraph {
         for node in &mut self.nodes {
             let key = er_table_key(&node.table.schema, &node.table.name);
             if let Some(&[x, y]) = positions.get(&key) {
-                node.world_rect = egui::Rect::from_min_size(egui::pos2(x, y), node.world_rect.size());
-                moved = true;
+                // Reject NaN, inf, and wild out-of-bounds coordinates from corrupted storage (#455).
+                const MAX_COORD: f32 = 1_000_000.0;
+                if x.is_finite() && y.is_finite() && x.abs() <= MAX_COORD && y.abs() <= MAX_COORD {
+                    node.world_rect = egui::Rect::from_min_size(egui::pos2(x, y), node.world_rect.size());
+                    moved = true;
+                }
             }
         }
         if moved {
