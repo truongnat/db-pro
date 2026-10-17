@@ -61,7 +61,7 @@ pub use card::{
     card_content, card_footer, card_header, Card, MetricCard, MetricTrend, MetricTrendDirection, MetricTrendTone,
 };
 pub use chrome::{toolbar_button, Avatar, AvatarShape, AvatarSize, AvatarStatus, EmptyState, Skeleton, Toolbar};
-pub use code::{CodeBlock, InlineCode};
+pub use code::{sql_layouter, CodeBlock, InlineCode};
 pub use collapsible::Collapsible;
 pub use command::{CommandEmpty, CommandGroup, CommandInput, CommandItem};
 pub use common::{

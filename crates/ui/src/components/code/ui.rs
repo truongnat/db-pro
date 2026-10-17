@@ -2,6 +2,9 @@
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use std::time::Duration;
+use std::sync::Arc;
+
+use egui::text::LayoutJob;
 
 use egui::{
     Align2, Color32, CornerRadius, FontFamily, FontId, Pos2, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType,
@@ -295,6 +298,36 @@ impl<'a> CodeBlock<'a> {
             .response;
 
         resp
+    }
+}
+
+/// Layouter for editable SQL surfaces (`TextEdit`/`Textarea`): builds one
+/// `LayoutJob` section per `SqlHighlighter` token so editable previews get the
+/// same syntax colors as the query editor and [`CodeBlock`] (#336).
+///
+/// Pass to egui's `TextEdit::layouter` / the `Textarea::layouter` builder.
+pub fn sql_layouter(
+    dialect: SqlDialect,
+    theme: DbProTheme,
+    font_id: FontId,
+) -> impl FnMut(&Ui, &dyn egui::TextBuffer, f32) -> Arc<egui::Galley> {
+    move |ui: &Ui, buffer: &dyn egui::TextBuffer, wrap_width: f32| {
+        let text = buffer.as_str();
+        let highlighter = SqlHighlighter::new(dialect);
+        let mut job = LayoutJob::default();
+        for token in highlighter.tokenize(text) {
+            let (start, end) = token.range;
+            job.append(
+                &text[start..end],
+                0.0,
+                egui::TextFormat::simple(
+                    font_id.clone(),
+                    highlighter.token_color(token.kind, &theme),
+                ),
+            );
+        }
+        job.wrap.max_width = wrap_width;
+        ui.ctx().fonts_mut(|fonts| fonts.layout_job(job))
     }
 }
 

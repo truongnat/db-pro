@@ -4,4 +4,4 @@ mod ui;
 
 pub use config::*;
 pub use handler::*;
-pub use ui::{CodeBlock, InlineCode};
+pub use ui::{sql_layouter, CodeBlock, InlineCode};
