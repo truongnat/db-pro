@@ -41,7 +41,7 @@ impl DelimitedFileSource {
         let mut builder = csv::ReaderBuilder::new();
         builder.delimiter(format.delimiter()).has_headers(has_headers);
         let mut reader = builder.from_reader(BufReader::new(file));
-        let headers = if has_headers {
+        let mut headers = if has_headers {
             reader
                 .headers()
                 .map_err(|e| TransferError::Source(e.to_string()))?
@@ -51,6 +51,13 @@ impl DelimitedFileSource {
         } else {
             Vec::new()
         };
+        // A UTF-8 BOM (`\u{feff}`) precedes the first column — Excel exports it
+        // routinely and it would otherwise poison header mapping (#486).
+        if let Some(first) = headers.first_mut() {
+            if let Some(stripped) = first.strip_prefix('\u{feff}') {
+                *first = stripped.to_owned();
+            }
+        }
         Ok(Self { reader, headers })
     }
 
