@@ -213,6 +213,9 @@ pub fn apply_connection_snippet(draft: &mut UiConnectionDraft, snippet: &str) ->
         draft.ssl_mode = ssl_mode_from_domain(mode);
     }
     draft.driver = driver_from_domain(parsed.driver);
+    // The URI was consumed into draft fields; dropping it keeps any embedded
+    // plaintext password out of the persisted draft state.
+    draft.cloud_snippet.clear();
     Ok(())
 }
 
@@ -279,3 +282,7 @@ pub fn apply_cloud_preset_to_draft(draft: &mut UiConnectionDraft, key: &str) -> 
 
     Ok(guidance)
 }
+
+#[cfg(test)]
+#[path = "tests/mapper_tests.rs"]
+mod tests;
