@@ -215,6 +215,44 @@ pub fn split_statements_for_driver(sql: &str, driver: DriverType) -> Vec<String>
     push_statement(&mut statements, &current);
     statements
 }
+/// True when `sql` is a single, self-contained expression fragment — no
+/// statement terminator, no comments, balanced parentheses. Used to vet raw
+/// expression text (RLS `USING`/`WITH CHECK` bodies) before it is embedded in
+/// a generated statement (#507).
+///
+/// `backslash_escapes` must match the target driver's string rules
+/// (`backslash_escapes_for_driver`).
+pub fn single_expression_fragment(sql: &str, backslash_escapes: bool) -> bool {
+    let bytes = sql.as_bytes();
+    let mut depth = 0i64;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' => index = skip_quoted(bytes, index, b'\'', backslash_escapes),
+            b'"' => index = skip_quoted(bytes, index, b'"', backslash_escapes),
+            byte if is_escape_string_start(bytes, index, byte) => index = skip_quoted(bytes, index + 1, b'\'', true),
+            // Comment introducers are rejected outright: comment text inside a
+            // generated policy statement can swallow the rest of the SQL.
+            b'-' if bytes.get(index + 1) == Some(&b'-') => return false,
+            b'/' if bytes.get(index + 1) == Some(&b'*') => return false,
+            b'$' => index = skip_dollar_quote(bytes, index).unwrap_or(index + 1),
+            b';' => return false,
+            b'(' => {
+                depth += 1;
+                index += 1;
+            }
+            b')' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+                index += 1;
+            }
+            _ => index += 1,
+        }
+    }
+    depth == 0
+}
 
 fn push_statement(statements: &mut Vec<String>, current: &str) {
     let statement = current.trim();

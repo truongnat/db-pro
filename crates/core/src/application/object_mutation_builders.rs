@@ -1,5 +1,7 @@
 use crate::application::ddl_builder::{self, ColumnAlterDef, ColumnDef};
+use crate::domain::connection::DriverType;
 use crate::domain::object_mutation::*;
+use crate::domain::safety::{backslash_escapes_for_driver, single_expression_fragment};
 use crate::ports::SqlDialect;
 
 pub(super) fn build_statements(
@@ -587,6 +589,22 @@ fn validate_rls_command(command: &str) -> Result<&'static str, MutationError> {
     }
 }
 
+/// RLS `USING`/`WITH CHECK` bodies are pasted verbatim into the generated
+/// statement — vet them as a single expression fragment so a stray `;`,
+/// comment, or unbalanced paren cannot smuggle a second statement into the
+/// batch executor (#507). RLS policies are PostgreSQL-only, so the fragment is
+/// scanned with PG string rules.
+fn validate_rls_expression(expr: &str, field: &'static str) -> Result<(), MutationError> {
+    if single_expression_fragment(expr, backslash_escapes_for_driver(DriverType::Postgres)) {
+        Ok(())
+    } else {
+        Err(MutationError::Validation {
+            field: field.into(),
+            message: "expression must be a single SQL expression: no statement separators, comments, or unbalanced parentheses".into(),
+        })
+    }
+}
+
 fn build_rls_statements(
     request: &ObjectMutationRequest,
     dialect: &dyn SqlDialect,
@@ -629,12 +647,15 @@ fn build_rls_statements(
             };
             let mut sql = format!("CREATE POLICY {name} ON {schema}.{table} AS {permissive} FOR {command} TO {roles}");
             if let Some(using_expr) = def.using_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                // Preserve expression text exactly — do not rewrite.
+                // Preserve expression text exactly — do not rewrite — but it must
+                // stay a single expression (#507).
+                validate_rls_expression(using_expr, "using_expr")?;
                 sql.push_str(" USING (");
                 sql.push_str(using_expr);
                 sql.push(')');
             }
             if let Some(check_expr) = def.with_check_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                validate_rls_expression(check_expr, "with_check_expr")?;
                 sql.push_str(" WITH CHECK (");
                 sql.push_str(check_expr);
                 sql.push(')');
@@ -661,11 +682,13 @@ fn build_rls_statements(
             };
             let mut alter = format!("ALTER POLICY {name} ON {schema}.{table} TO {roles}");
             if let Some(using_expr) = def.using_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                validate_rls_expression(using_expr, "using_expr")?;
                 alter.push_str(" USING (");
                 alter.push_str(using_expr);
                 alter.push(')');
             }
             if let Some(check_expr) = def.with_check_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                validate_rls_expression(check_expr, "with_check_expr")?;
                 alter.push_str(" WITH CHECK (");
                 alter.push_str(check_expr);
                 alter.push(')');

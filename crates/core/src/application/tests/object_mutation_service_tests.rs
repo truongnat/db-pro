@@ -358,6 +358,64 @@ fn blocks_rls_on_sqlite() {
     assert!(preview.unsupported_reason.unwrap().contains("SQLite"));
 }
 
+fn rls_create_request(using_expr: Option<&str>, with_check_expr: Option<&str>) -> ObjectMutationRequest {
+    ObjectMutationRequest {
+        action: ObjectAction::Create,
+        target: None,
+        definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
+            schema: "public".into(),
+            table: "orders".into(),
+            name: "p".into(),
+            permissive: true,
+            command: "SELECT".into(),
+            roles: vec![],
+            using_expr: using_expr.map(str::to_owned),
+            with_check_expr: with_check_expr.map(str::to_owned),
+            new_name: None,
+        }),
+        options: MutationOptions::default(),
+        driver: "postgresql".into(),
+    }
+}
+
+#[test]
+fn rls_using_expr_rejects_statement_injection() {
+    // #507: a `;` inside the raw expression must not reach the generated SQL —
+    // the batch executor would run the trailing DROP as a second statement.
+    let err = ObjectMutationService::plan(
+        &rls_create_request(Some("true); DROP TABLE important_data; --"), None),
+        &PgDialect,
+    )
+    .unwrap_err();
+    assert!(matches!(err, MutationError::Validation { .. }));
+}
+
+#[test]
+fn rls_with_check_expr_rejects_comment_and_unbalanced_parens() {
+    for bad in ["true -- comment", "a = (1", "true /* hidden */", "true; select 1"] {
+        let err = ObjectMutationService::plan(&rls_create_request(None, Some(bad)), &PgDialect).unwrap_err();
+        assert!(
+            matches!(err, MutationError::Validation { .. }),
+            "expected rejection: {bad}"
+        );
+    }
+}
+
+#[test]
+fn rls_using_expr_allows_quoted_semicolon_and_subquery() {
+    // Semicolons inside string literals and a balanced subquery stay legal.
+    let preview = ObjectMutationService::plan(
+        &rls_create_request(
+            Some("note <> ';' AND id IN (SELECT order_id FROM allowed)"),
+            Some("price > 0"),
+        ),
+        &PgDialect,
+    )
+    .unwrap();
+    assert!(preview.statements[0].contains("USING (note <> ';' AND id IN (SELECT order_id FROM allowed))"));
+    assert!(preview.statements[0].contains("WITH CHECK (price > 0)"));
+}
+
 fn column_alter_request(driver: &str) -> ObjectMutationRequest {
     ObjectMutationRequest {
         action: ObjectAction::Alter,
