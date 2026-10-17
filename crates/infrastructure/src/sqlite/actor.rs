@@ -63,6 +63,12 @@ pub enum SqliteCommand {
         statements: Vec<ParameterizedTransactionStatement>,
         responder: oneshot::Sender<Result<Vec<TransactionStatementResult>, TransactionFailure>>,
     },
+    /// Test-only command that panics inside the dispatch loop so tests can
+    /// verify the panic guard keeps the actor alive (#494).
+    #[cfg(test)]
+    Poison {
+        responder: oneshot::Sender<Result<(), DbError>>,
+    },
     Shutdown,
 }
 
@@ -423,6 +429,10 @@ impl SqliteActor {
     /// and return a clonable handle for sending commands.
     pub fn spawn(db_path: &str) -> Result<SqliteHandle, DbError> {
         let conn = rusqlite::Connection::open(db_path).map_err(crate::error::from_rusqlite)?;
+        // Two connections to the same database file would otherwise hit
+        // SQLITE_BUSY immediately; wait up to 10s for a competing lock (#493).
+        conn.busy_timeout(std::time::Duration::from_secs(10))
+            .map_err(crate::error::from_rusqlite)?;
         let interrupt_handle = Arc::new(conn.get_interrupt_handle());
 
         let (sender, receiver) = mpsc::channel();
@@ -440,8 +450,13 @@ impl SqliteActor {
     // -- main loop ----------------------------------------------------------
 
     // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
+    // allow: closures return TransactionFailure by value — same convention as the handlers below.
+    #[allow(clippy::result_large_err)]
     fn run(self, receiver: mpsc::Receiver<SqliteCommand>) {
         for cmd in receiver {
+            // Every handler runs under catch_unwind: a panic inside one command
+            // must not kill the actor thread and strand every queued responder
+            // with a bare SendError (#494).
             match cmd {
                 SqliteCommand::Execute {
                     sql,
@@ -449,28 +464,32 @@ impl SqliteActor {
                     max_rows,
                     responder,
                 } => {
-                    let _ = responder.send(self.handle_execute(&sql, &params, max_rows));
+                    let _ = responder.send(dispatch_guarded(&self, |actor| {
+                        actor.handle_execute(&sql, &params, max_rows)
+                    }));
                 }
                 SqliteCommand::Interrupt { responder } => {
                     let _ = responder.send(Ok(()));
                 }
                 SqliteCommand::Introspect { responder } => {
-                    let _ = responder.send(self.handle_introspect());
+                    let _ = responder.send(dispatch_guarded(&self, Self::handle_introspect));
                 }
                 SqliteCommand::Explain { sql, params, responder } => {
-                    let _ = responder.send(self.handle_explain(&sql, &params));
+                    let _ = responder.send(dispatch_guarded(&self, |actor| actor.handle_explain(&sql, &params)));
                 }
                 SqliteCommand::RawQuery { sql, params, responder } => {
-                    let _ = responder.send(self.handle_raw_query(&sql, &params));
+                    let _ = responder.send(dispatch_guarded(&self, |actor| actor.handle_raw_query(&sql, &params)));
                 }
                 SqliteCommand::ExecuteStatement { sql, responder } => {
-                    let _ = responder.send(self.handle_execute_statement(&sql));
+                    let _ = responder.send(dispatch_guarded(&self, |actor| actor.handle_execute_statement(&sql)));
                 }
                 SqliteCommand::ExecuteStatementParam { sql, params, responder } => {
-                    let _ = responder.send(self.handle_execute_statement_param(&sql, &params));
+                    let _ = responder.send(dispatch_guarded(&self, |actor| {
+                        actor.handle_execute_statement_param(&sql, &params)
+                    }));
                 }
                 SqliteCommand::ExecuteBatch { statements, responder } => {
-                    let _ = responder.send(self.handle_execute_batch(&statements));
+                    let _ = responder.send(dispatch_guarded(&self, |actor| actor.handle_execute_batch(&statements)));
                 }
                 SqliteCommand::ExecuteTransaction {
                     statements,
@@ -478,10 +497,21 @@ impl SqliteActor {
                     max_rows,
                     responder,
                 } => {
-                    let _ = responder.send(self.handle_execute_transaction(&statements, &read_statements, max_rows));
+                    let _ = responder.send(dispatch_transaction_guarded(&self, statements.len(), |actor| {
+                        actor.handle_execute_transaction(&statements, &read_statements, max_rows)
+                    }));
                 }
                 SqliteCommand::ExecuteParameterizedTransaction { statements, responder } => {
-                    let _ = responder.send(self.handle_execute_parameterized_transaction(&statements));
+                    let _ = responder.send(dispatch_transaction_guarded(&self, statements.len(), |actor| {
+                        actor.handle_execute_parameterized_transaction(&statements)
+                    }));
+                }
+                #[cfg(test)]
+                SqliteCommand::Poison { responder } => {
+                    let _ = responder.send(dispatch_guarded(&self, |actor| {
+                        let _: &SqliteActor = actor;
+                        panic!("poison command injected for panic-guard test")
+                    }));
                 }
                 SqliteCommand::Shutdown => {
                     tracing::info!("sqlite actor received shutdown command");
@@ -867,6 +897,63 @@ impl SqliteActor {
         }
         tx.commit().map_err(crate::error::from_rusqlite)?;
         Ok(total)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panic guards for actor command handlers (#494)
+// ---------------------------------------------------------------------------
+
+fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    let payload = match payload.downcast::<&str>() {
+        Ok(message) => return (*message).to_string(),
+        Err(payload) => payload,
+    };
+    match payload.downcast::<String>() {
+        Ok(message) => *message,
+        Err(_) => "unknown panic payload".to_string(),
+    }
+}
+
+/// Run a handler that yields `Result<T, DbError>` under `catch_unwind`. A
+/// panic is converted into `DbError::Internal` carrying the panic message so
+/// the caller gets context instead of a bare dropped-oneshot error.
+fn dispatch_guarded<T>(
+    actor: &SqliteActor,
+    handler: impl FnOnce(&SqliteActor) -> Result<T, DbError>,
+) -> Result<T, DbError> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(actor))) {
+        Ok(result) => result,
+        Err(payload) => {
+            let message = panic_message(payload);
+            tracing::error!(message, "sqlite actor handler panicked");
+            Err(DbError::Internal(format!("sqlite actor handler panicked: {message}")))
+        }
+    }
+}
+
+/// Same guard for handlers yielding `Result<_, TransactionFailure>`. A panic
+/// mid-transaction leaves the transaction state indeterminate, so the outcome
+/// is reported as `Unknown`.
+#[allow(clippy::result_large_err)]
+fn dispatch_transaction_guarded(
+    actor: &SqliteActor,
+    statement_count: usize,
+    handler: impl FnOnce(&SqliteActor) -> Result<Vec<TransactionStatementResult>, TransactionFailure>,
+) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(actor))) {
+        Ok(result) => result,
+        Err(payload) => {
+            let message = panic_message(payload);
+            tracing::error!(message, "sqlite actor transaction handler panicked");
+            Err(TransactionFailure {
+                phase: TransactionFailurePhase::Validation,
+                statement_index: statement_count,
+                outcome: TransactionFailureOutcome::Unknown,
+                results: Vec::new(),
+                error: DbError::Internal(format!("sqlite actor handler panicked: {message}")),
+            })
+        }
     }
 }
 
