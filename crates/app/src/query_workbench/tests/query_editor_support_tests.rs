@@ -140,3 +140,29 @@
         assert_eq!(doc.cursor.offset, doc.buffer.len_bytes());
         assert!(doc.completion_due_at.is_some());
     }
+
+    #[test]
+    fn completion_apply_syncs_selection_anchor_to_new_cursor() {
+        // #488: collapse_to_active alone left `active` at the pre-edit offset —
+        // anchor and active must both land on the post-insert cursor.
+        let mut doc = QueryDocument::new("q", "Query", "SELECT pu");
+        let version = doc.buffer.version();
+        // Simulate a stale selection left over from the prefix range.
+        doc.selection = crate::editor::SelectionRange::new(7, 9);
+        let item = column_item("purchase_order_id", (7, 9));
+        doc.completion.open(
+            9,
+            version,
+            egui::Pos2::ZERO,
+            "pu".to_owned(),
+            vec![item.clone()],
+            CompletionTriggerKind::Automatic,
+        );
+
+        assert!(apply_completion_item(&mut doc, &item, SqlDialect::Postgres));
+        assert_eq!(doc.buffer.text(), "SELECT purchase_order_id");
+        let cursor = 7 + "purchase_order_id".len();
+        assert_eq!(doc.selection.anchor, cursor);
+        assert_eq!(doc.selection.active, cursor);
+        assert!(doc.selection.is_empty());
+    }

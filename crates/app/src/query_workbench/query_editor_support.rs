@@ -423,8 +423,12 @@ pub(super) fn apply_completion_item(doc: &mut QueryDocument, item: &CompletionIt
     }
 
     doc.buffer.replace(start, end, &item.insert_text);
-    doc.cursor.set_offset(&doc.buffer, start + item.insert_text.len());
-    doc.selection.collapse_to_active();
+    let cursor = start + item.insert_text.len();
+    doc.cursor.set_offset(&doc.buffer, cursor);
+    // Anchor AND active must land on the post-insert offset — collapse_to_active
+    // alone keeps the stale pre-edit offset, so Shift+Arrow/Delete would operate
+    // from the wrong position (#488).
+    doc.selection = crate::editor::SelectionRange::point(cursor);
     doc.reanalyze(dialect);
     doc.dirty = true;
     doc.prediction = None;
