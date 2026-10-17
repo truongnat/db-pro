@@ -54,8 +54,27 @@ impl SqlServerConnector {
         sql: &str,
         params: &[QueryParam],
     ) -> Result<QueryResult, DbError> {
-        let client = self.client(handle).await?;
         let max_rows = self.max_rows.read().await.get(&handle.0).copied().unwrap_or(500);
+        self.query_internal(handle, sql, params, Some(max_rows)).await
+    }
+
+    pub(crate) async fn query_uncapped(
+        &self,
+        handle: &ConnectionHandle,
+        sql: &str,
+        params: &[QueryParam],
+    ) -> Result<QueryResult, DbError> {
+        self.query_internal(handle, sql, params, None).await
+    }
+
+    async fn query_internal(
+        &self,
+        handle: &ConnectionHandle,
+        sql: &str,
+        params: &[QueryParam],
+        max_rows: Option<u64>,
+    ) -> Result<QueryResult, DbError> {
+        let client = self.client(handle).await?;
         let mut client = client.lock().await;
         let query = bind_query(sql, params)?;
         let started = Instant::now();
@@ -83,8 +102,10 @@ impl SqlServerConnector {
                         .collect();
                 }
                 QueryItem::Row(row) if row.result_index() == 0 => {
-                    if rows.len() as u64 >= max_rows {
-                        break;
+                    if let Some(max) = max_rows {
+                        if rows.len() as u64 >= max {
+                            break;
+                        }
                     }
                     let cells = (0..row.len())
                         .map(|index| decode_cell(&row, index))

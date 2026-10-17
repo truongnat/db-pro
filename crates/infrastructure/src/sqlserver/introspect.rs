@@ -74,7 +74,7 @@ impl SqlServerIntrospect {
 
 async fn load_schemas(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<Schema>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT name FROM sys.schemas WHERE name NOT IN ('guest', 'INFORMATION_SCHEMA', 'sys') ORDER BY name",
             &[],
@@ -89,7 +89,7 @@ async fn load_schemas(connector: &SqlServerConnector, handle: &ConnectionHandle)
 
 async fn load_tables(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<Table>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name AS schema_name, t.name AS table_name, COALESCE(SUM(p.rows), 0) AS row_count \
              FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id \
@@ -114,7 +114,7 @@ async fn load_tables(connector: &SqlServerConnector, handle: &ConnectionHandle) 
 // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 async fn load_columns(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<Column>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name AS schema_name, t.name AS table_name, c.name AS column_name, ty.name AS data_type, \
              c.column_id, c.is_nullable, dc.definition, c.is_identity, c.is_computed, c.collation_name \
@@ -156,7 +156,7 @@ async fn load_primary_keys(
     handle: &ConnectionHandle,
 ) -> Result<Vec<PrimaryKey>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name, t.name, i.name, c.name, ic.key_ordinal \
              FROM sys.indexes i JOIN sys.tables t ON t.object_id = i.object_id \
@@ -187,7 +187,7 @@ async fn load_primary_keys(
 // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
 async fn load_indexes(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<Index>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "SELECT s.name, t.name, i.name, i.is_unique, i.is_unique_constraint, i.type_desc, ic.is_included_column, c.name, ic.key_ordinal, i.filter_definition \
@@ -241,7 +241,7 @@ async fn load_foreign_keys(
     handle: &ConnectionHandle,
 ) -> Result<Vec<ForeignKey>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
             "SELECT sch.name, t.name, fk.name, c.name, rsch.name, rt.name, rc.name, fkc.constraint_column_id, fk.update_referential_action_desc, fk.delete_referential_action_desc \
@@ -289,7 +289,7 @@ async fn load_checks(
     handle: &ConnectionHandle,
 ) -> Result<Vec<CheckConstraint>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name, t.name, cc.name, cc.definition FROM sys.check_constraints cc \
              JOIN sys.tables t ON t.object_id = cc.parent_object_id JOIN sys.schemas s ON s.schema_id = t.schema_id \
@@ -313,7 +313,7 @@ async fn load_checks(
 
 async fn load_views(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<View>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name, v.name, COALESCE(sm.definition, '') FROM sys.views v \
              JOIN sys.schemas s ON s.schema_id = v.schema_id LEFT JOIN sys.sql_modules sm ON sm.object_id = v.object_id \
@@ -336,7 +336,7 @@ async fn load_views(connector: &SqlServerConnector, handle: &ConnectionHandle) -
 
 async fn load_triggers(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<Trigger>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name, t.name, tr.name, tr.is_disabled, COALESCE(sm.definition, '') \
              FROM sys.triggers tr JOIN sys.tables t ON t.object_id = tr.parent_id \
@@ -365,7 +365,7 @@ async fn load_triggers(connector: &SqlServerConnector, handle: &ConnectionHandle
 
 async fn load_routines(connector: &SqlServerConnector, handle: &ConnectionHandle) -> Result<Vec<Function>, DbError> {
     let result = connector
-        .query(
+        .query_uncapped(
             handle,
             "SELECT s.name, o.name, o.type_desc, COALESCE(sm.definition, ''), o.object_id \
              FROM sys.objects o JOIN sys.schemas s ON s.schema_id = o.schema_id \
