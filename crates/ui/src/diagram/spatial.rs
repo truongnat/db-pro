@@ -90,13 +90,45 @@ impl ErSpatialIndex {
 
     pub fn insert_edge(&mut self, edge_id: usize, bbox: egui::Rect) {
         let (min_x, max_x, min_y, max_y) = self.cell_range(bbox);
-        // Bound the cell expansion for pathological long edges
+        let span_x = (max_x - min_x).max(0) as usize;
+        let span_y = (max_y - min_y).max(0) as usize;
         let max_span = 32;
-        let bounded_max_x = max_x.min(min_x + max_span);
-        let bounded_max_y = max_y.min(min_y + max_span);
-        for x in min_x..=bounded_max_x {
-            for y in min_y..=bounded_max_y {
-                self.edge_cells.entry((x, y)).or_default().push(edge_id);
+
+        if span_x <= max_span && span_y <= max_span {
+            for x in min_x..=max_x {
+                for y in min_y..=max_y {
+                    self.edge_cells.entry((x, y)).or_default().push(edge_id);
+                }
+            }
+        } else {
+            // For very long edges spanning > 32 cells, sample buckets along the span
+            // instead of truncating from min_corner (#449). Always index endpoints.
+            let step_x = ((span_x + max_span - 1) / max_span).max(1) as i32;
+            let step_y = ((span_y + max_span - 1) / max_span).max(1) as i32;
+            let mut xs: Vec<i32> = (min_x..=max_x).step_by(step_x as usize).collect();
+            if xs.last() != Some(&max_x) {
+                if xs.len() > max_span {
+                    if let Some(last) = xs.last_mut() {
+                        *last = max_x;
+                    }
+                } else {
+                    xs.push(max_x);
+                }
+            }
+            let mut ys: Vec<i32> = (min_y..=max_y).step_by(step_y as usize).collect();
+            if ys.last() != Some(&max_y) {
+                if ys.len() > max_span {
+                    if let Some(last) = ys.last_mut() {
+                        *last = max_y;
+                    }
+                } else {
+                    ys.push(max_y);
+                }
+            }
+            for &x in &xs {
+                for &y in &ys {
+                    self.edge_cells.entry((x, y)).or_default().push(edge_id);
+                }
             }
         }
     }
