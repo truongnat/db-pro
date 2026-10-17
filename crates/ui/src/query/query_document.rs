@@ -53,16 +53,9 @@ pub struct EditorSearchState {
 
 impl EditorSearchState {
     pub fn update_matches(&mut self, text: &str) {
-        self.matches.clear();
-        if self.query.is_empty() {
-            self.active_match_index = 0;
-            return;
-        }
-        let q = self.query.to_lowercase();
-        let t = text.to_lowercase();
-        for (idx, _) in t.match_indices(&q) {
-            self.matches.push((idx, idx + q.len()));
-        }
+        // Ranges are original-text byte offsets — see editor::search docs for
+        // why matching a lowercased copy would corrupt them.
+        self.matches = crate::editor::search::case_insensitive_matches(text, &self.query);
         if self.active_match_index >= self.matches.len() {
             self.active_match_index = 0;
         }
@@ -112,6 +105,11 @@ pub struct QueryDocument {
     pub execution_state: QueryExecutionState,
     pub analysis: SqlDocumentAnalysis,
     pub diagnostics: Vec<Diagnostic>,
+    /// Cursor offset the statement-under-cursor syntax diagnostic was last
+    /// synced for. Tracked separately from `analysis.version` so a pure
+    /// cursor move into a different statement still refreshes the diagnostic
+    /// without a buffer change (#510).
+    diagnostic_cursor: Option<usize>,
     pub completion: CompletionState,
     pub completion_due_at: Option<Instant>,
     /// Active `${n:placeholder}` stops. `$1` query parameters are not stops.
@@ -188,6 +186,7 @@ impl QueryDocument {
             execution_state: QueryExecutionState::Idle,
             analysis,
             diagnostics: Vec::new(),
+            diagnostic_cursor: None,
             completion: CompletionState::new(),
             completion_due_at: None,
             snippet: None,
@@ -278,6 +277,25 @@ impl QueryDocument {
             self.cursor.offset,
             dialect,
         );
+        self.diagnostic_cursor = Some(self.cursor.offset);
+    }
+
+    /// Re-syncs the statement-under-cursor syntax diagnostic after a cursor
+    /// move that did not touch the buffer. `reanalyze` gates on
+    /// `buffer.version()` and would leave a stale diagnostic pinned to the
+    /// old statement — call this whenever `cursor.offset` may have changed.
+    /// No-op when the cursor has not moved since the last sync.
+    pub fn sync_cursor_diagnostic(&mut self, dialect: SqlDialect) {
+        if self.diagnostic_cursor == Some(self.cursor.offset) {
+            return;
+        }
+        crate::editor::diagnostics::sync_statement_syntax_diagnostic(
+            &mut self.diagnostics,
+            self.buffer.text(),
+            self.cursor.offset,
+            dialect,
+        );
+        self.diagnostic_cursor = Some(self.cursor.offset);
     }
 
     // cc-scan:allow LINE_TOO_LONG — literal must not wrap

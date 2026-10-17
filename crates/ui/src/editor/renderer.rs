@@ -442,10 +442,12 @@ impl<'a> SqlEditor<'a> {
     fn paint_search_and_execution(&self, ui: &Ui, frame: &EditorFrame) {
         // Search Matches Highlights
         if !self.search_query.trim().is_empty() {
-            let query = self.search_query.to_lowercase();
-            let text_lower = self.buffer.text().to_lowercase();
-            for (idx, (match_start, _)) in text_lower.match_indices(&query).enumerate() {
-                let match_end = match_start + query.len();
+            for (idx, (match_start, match_end)) in
+                super::search::case_insensitive_matches(self.buffer.text(), self.search_query)
+                    .iter()
+                    .enumerate()
+            {
+                let (match_start, match_end) = (*match_start, *match_end);
                 let is_active_match = idx == self.active_search_match_index;
                 let rects = self.range_to_screen_rects(
                     self.buffer,

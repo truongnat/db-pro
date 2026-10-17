@@ -9,6 +9,7 @@ pub mod hover;
 pub mod interaction;
 pub mod prediction;
 pub mod renderer;
+pub mod search;
 pub mod selection;
 pub mod snippet;
 pub mod syntax;

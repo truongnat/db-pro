@@ -120,3 +120,51 @@ fn prediction_request_is_deduped_within_cache_window() {
     assert!(doc.should_dedupe_prediction(7, now));
     assert!(!doc.should_dedupe_prediction(8, now));
 }
+
+#[test]
+fn search_match_ranges_are_original_text_byte_offsets() {
+    // Issue #509: offsets computed on text.to_lowercase() shift when case
+    // folding changes byte width — slicing the original text with them
+    // panics mid-char or highlights wrong characters.
+    let mut doc = QueryDocument::new("doc-1", "Doc 1", "x \u{0130}zmir end");
+    doc.search.query = "end".to_owned();
+    let text = doc.text().to_owned();
+    doc.search.update_matches(&text);
+    assert_eq!(doc.search.matches.len(), 1);
+    let (s, e) = doc.search.matches[0];
+    assert_eq!(&text[s..e], "end");
+    assert!(text.is_char_boundary(s) && text.is_char_boundary(e));
+
+    // Kelvin sign K (U+212A) uppercases to 'K': query "k" must match it at
+    // its real byte range (0..3), and a later 'k' stays unshifted.
+    let mut doc = QueryDocument::new("doc-2", "Doc 2", "\u{212A} x k");
+    doc.search.query = "k".to_owned();
+    let text = doc.text().to_owned();
+    doc.search.update_matches(&text);
+    assert_eq!(doc.search.matches, vec![(0, 3), (6, 7)]);
+}
+
+#[test]
+fn cursor_move_to_broken_statement_resyncs_syntax_diagnostic() {
+    // Issue #510: reanalyze gates on buffer.version() — a pure cursor move
+    // into a broken statement used to leave the diagnostic stuck on the old
+    // statement. sync_cursor_diagnostic is the cursor-move trigger.
+    let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT 1;\nSELEC");
+
+    doc.cursor.set_offset(&doc.buffer, 2);
+    doc.sync_cursor_diagnostic(SqlDialect::Postgres);
+    assert!(doc.diagnostics.is_empty());
+
+    // Same buffer version, cursor now inside the unparseable statement.
+    doc.cursor.set_offset(&doc.buffer, 12);
+    doc.sync_cursor_diagnostic(SqlDialect::Postgres);
+    assert_eq!(doc.diagnostics.len(), 1);
+    assert_eq!(doc.diagnostics[0].code.as_deref(), Some("syntax"));
+
+    // Moving back clears it again; calling twice at the same offset is a no-op.
+    doc.cursor.set_offset(&doc.buffer, 2);
+    doc.sync_cursor_diagnostic(SqlDialect::Postgres);
+    assert!(doc.diagnostics.is_empty());
+    doc.sync_cursor_diagnostic(SqlDialect::Postgres);
+    assert!(doc.diagnostics.is_empty());
+}
