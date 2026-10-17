@@ -215,28 +215,54 @@ impl DbProApp {
         if sql.trim().is_empty() {
             return Err("SQL payload is empty".to_owned());
         }
-        self.connection
-            .lifecycle
-            .set_active_connection_id(Some(task.connection_id.clone()));
-        // Open the task SQL in its own document — never overwrite the
-        // document the user is editing (#420).
-        self.open_query_document_with(sql.to_owned(), Some(task.connection_id.clone()));
         // Task-level confirmation already satisfied destructive policy (#206).
-        let version = self.query.session.active_buffer_version();
-        let execution_range = (0, sql.len());
-        self.send_query_run(
-            task.connection_id.clone(),
-            sql.to_owned(),
-            execution_range,
-            version,
-            false,
-        )
-        .map(|request_id| TaskQueued {
+        self.dispatch_task_query(task, sql, None)
+    }
+
+    /// Dispatch `sql` on the task's own connection without touching the user's
+    /// workspace — no query document is opened, the active connection and the
+    /// active workspace tab are left alone (#375).
+    ///
+    /// `session_id: None` keeps the run out of any tab transaction, and with no
+    /// `document_requests` entry the completion updates only the task's run
+    /// history (`complete_saved_task_query`), never the open editor or grid.
+    ///
+    /// Bind parameters are an editor feature: a scheduled task has no
+    /// parameter panel, so a parameterized payload fails fast instead of
+    /// sending a statement that errors on the server.
+    fn dispatch_task_query(
+        &mut self,
+        task: &SavedTask,
+        sql: &str,
+        export: Option<(String, String)>,
+    ) -> Result<TaskQueued, String> {
+        let driver = self
+            .connection
+            .catalog
+            .find(&task.connection_id)
+            .map(|connection| connection.driver.clone())
+            .ok_or_else(|| "saved task connection is not available".to_owned())?;
+        let discovered = crate::query::discover_sql_parameters_for_driver(sql, &driver);
+        if let Some(parameter) = discovered.first() {
+            return Err(format!("saved task SQL cannot use bind parameters ({})", parameter.name));
+        }
+        let request_id = self.next_request_id();
+        if !self.dispatch_command(UiCommand::RunQuery {
             request_id,
-            export_path: None,
-            export_format: None,
+            connection_id: task.connection_id.clone(),
+            sql: sql.to_owned(),
+            params: Vec::new(),
+            schema: None,
+            session_id: None,
+        }) {
+            return Err("Runtime worker unavailable".to_owned());
+        }
+        let (export_path, export_format) = export.unzip();
+        Ok(TaskQueued {
+            request_id,
+            export_path,
+            export_format,
         })
-        .ok_or_else(|| self.feedback.runtime_message.clone())
     }
 
     fn dispatch_backup_task(
