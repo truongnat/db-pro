@@ -393,15 +393,25 @@ impl KeybindingSettings {
 
     /// Returns shortcut tokens that map to more than one command.
     pub(crate) fn conflicts(&self) -> Vec<(String, Vec<String>)> {
-        let mut by_shortcut: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        // Group by canonical parsed chord (key + modifiers) instead of raw string
+        // so aliases like "ctrl+k" vs "mod+k" or "cmd+k" detect conflicts (#453).
+        let mut by_canonical: BTreeMap<(egui::Key, bool, bool, bool), (String, Vec<String>)> = BTreeMap::new();
         for cmd in default_keybinding_catalog() {
-            let shortcut = self.resolved(cmd.id).to_ascii_lowercase();
-            if shortcut.is_empty() {
+            let shortcut = self.resolved(cmd.id);
+            let Some(parts) = shortcut_parts(&shortcut) else {
                 continue;
-            }
-            by_shortcut.entry(shortcut).or_default().push(cmd.id.to_owned());
+            };
+            let key = (parts.key, parts.want_mod, parts.want_shift, parts.want_alt);
+            by_canonical
+                .entry(key)
+                .or_insert_with(|| (shortcut.to_ascii_lowercase(), Vec::new()))
+                .1
+                .push(cmd.id.to_owned());
         }
-        by_shortcut.into_iter().filter(|(_, ids)| ids.len() > 1).collect()
+        by_canonical
+            .into_values()
+            .filter(|(_, ids)| ids.len() > 1)
+            .collect()
     }
 
     pub(crate) fn conflict_ids(&self) -> BTreeSet<String> {
