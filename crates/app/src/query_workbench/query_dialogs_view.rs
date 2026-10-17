@@ -96,13 +96,14 @@ impl DbProApp {
         if self.overlay.export_snapshot.is_none() {
             self.overlay.export_snapshot = result.cloned();
         }
+        // #396: pre-fill the export target only from the source the result actually shows —
+        // a browsed table (or view) in the Table/SchemaObject data view. A query result has no
+        // derivable source table, so the field stays empty and the user types the target rather
+        // than silently getting whatever happens to be selected in the explorer.
         if self.overlay.export_table_name.trim().is_empty() {
             self.overlay.export_table_name = self
-                .schema
-                .explorer
-                .selected_table
-                .clone()
-                .unwrap_or_else(|| "exported_rows".to_owned());
+                .export_source_table_name()
+                .unwrap_or_default();
         }
         let result = self.overlay.export_snapshot.clone();
         let action = query_dialog_surface_view::ExportDialogContext {
@@ -120,6 +121,7 @@ impl DbProApp {
                 self.overlay.export_open = false;
                 self.overlay.export_snapshot = None;
                 self.overlay.export_overwrite_pending = false;
+                self.overlay.export_table_name.clear();
             }
             Some(query_dialog_surface_view::ExportDialogAction::Overwrite) => {
                 if let Some(result) = &result {
@@ -130,6 +132,25 @@ impl DbProApp {
                 self.overlay.export_overwrite_pending = false;
             }
             None => {}
+        }
+    }
+
+    /// The table the export dialog's data actually comes from, when it is a browsed table/view:
+    /// `None` for arbitrary query results (#396).
+    fn export_source_table_name(&self) -> Option<String> {
+        match self.workspace.active_tab {
+            WorkspaceTab::Table if self.table.state.table_view == TableView::Data => {
+                self.schema.explorer.selected_table.clone()
+            }
+            WorkspaceTab::SchemaObject
+                if self.schema.explorer.schema_object_view == SchemaObjectView::Data =>
+            {
+                match &self.schema.explorer.selected_schema_object {
+                    Some(SchemaObjectSelection::View(name)) => Some(name.clone()),
+                    _ => None,
+                }
+            }
+            _ => None,
         }
     }
 
@@ -230,6 +251,7 @@ impl DbProApp {
                     self.overlay.export_overwrite_pending = false;
                     self.overlay.export_open = false;
                     self.overlay.export_snapshot = None;
+                    self.overlay.export_table_name.clear();
                     return;
                 }
             }
@@ -278,6 +300,7 @@ impl DbProApp {
         self.overlay.export_overwrite_pending = false;
         self.overlay.export_open = false;
         self.overlay.export_snapshot = None;
+        self.overlay.export_table_name.clear();
     }
 
     pub(super) fn save_query_document(&mut self) {

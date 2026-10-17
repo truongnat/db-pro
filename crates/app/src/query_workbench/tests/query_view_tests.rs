@@ -266,4 +266,102 @@ mod export_tests {
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// #396: an arbitrary query result has no derivable source table, so the export dialog must
+    /// not pre-fill the target with whatever table is selected in the explorer — that produced
+    /// INSERT/COPY scripts aimed at the wrong table.
+    #[test]
+    fn export_dialog_leaves_table_name_empty_for_query_results() {
+        let mut app = DbProApp::default();
+        app.schema.explorer.selected_table = Some("orders".to_owned());
+        app.workspace.active_tab = WorkspaceTab::Query;
+        app.overlay.export_open = true;
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        crate::test_frame::frame(&ctx, Default::default(), |ui| {
+            app.draw_export_dialog(ui, Some(&result));
+        });
+
+        assert_eq!(
+            app.overlay.export_table_name, "",
+            "the explorer's selected table must not leak into a query-result export"
+        );
+    }
+
+    /// #396: a table-data export does know its source — the field pre-fills with the browsed
+    /// table's real name so the generated script targets it out of the box.
+    #[test]
+    fn export_dialog_prefills_table_name_in_table_data_view() {
+        let mut app = DbProApp::default();
+        app.schema.explorer.selected_table = Some("orders".to_owned());
+        app.workspace.active_tab = WorkspaceTab::Table;
+        app.table.state.table_view = TableView::Data;
+        app.overlay.export_open = true;
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        crate::test_frame::frame(&ctx, Default::default(), |ui| {
+            app.draw_export_dialog(ui, Some(&result));
+        });
+
+        assert_eq!(app.overlay.export_table_name, "orders");
+    }
+
+    /// #396: a finished export clears the seeded name so reopening the dialog against a
+    /// different table does not reuse the previous target.
+    #[test]
+    fn export_clears_seeded_table_name_after_writing() {
+        let dir = temp_dir("clear-name");
+        let path = dir.join("out.sql");
+        let mut app = DbProApp {
+            overlay: OverlayState {
+                export_open: true,
+                export_path: path.to_string_lossy().into_owned(),
+                export_format: ExportFormat::SqlInsert,
+                export_table_name: "orders".to_owned(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        app.export_result(&result);
+
+        assert_eq!(app.overlay.export_table_name, "");
+        assert!(
+            std::fs::read_to_string(&path).expect("read").contains("INSERT INTO \"orders\""),
+            "the seeded table name must still drive the generated SQL"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
