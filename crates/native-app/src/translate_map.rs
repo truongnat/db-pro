@@ -2,14 +2,34 @@
 //! UiCommand → RuntimeCommand mapping.
 use super::super::*;
 
+pub(crate) fn escape_like_pattern(val: &str) -> String {
+    let mut escaped = String::with_capacity(val.len());
+    for c in val.chars() {
+        if c == '%' || c == '_' || c == '\\' {
+            escaped.push('\\');
+        }
+        escaped.push(c);
+    }
+    escaped
+}
+
 pub(crate) fn map_table_data_filter(filter: UiTableDataFilter) -> TableFilter {
     let value = parse_filter_value(&filter.data_type, &filter.value);
     let (op, value) = match filter.operator {
         UiTableFilterOperator::Equals => (FilterOp::Eq, value),
         UiTableFilterOperator::NotEquals => (FilterOp::Neq, value),
-        UiTableFilterOperator::Contains => (FilterOp::Like, CellValue::Text(format!("%{}%", filter.value))),
-        UiTableFilterOperator::StartsWith => (FilterOp::Like, CellValue::Text(format!("{}%", filter.value))),
-        UiTableFilterOperator::EndsWith => (FilterOp::Like, CellValue::Text(format!("%{}", filter.value))),
+        UiTableFilterOperator::Contains => {
+            let escaped = escape_like_pattern(&filter.value);
+            (FilterOp::Like, CellValue::Text(format!("%{escaped}%")))
+        }
+        UiTableFilterOperator::StartsWith => {
+            let escaped = escape_like_pattern(&filter.value);
+            (FilterOp::Like, CellValue::Text(format!("{escaped}%")))
+        }
+        UiTableFilterOperator::EndsWith => {
+            let escaped = escape_like_pattern(&filter.value);
+            (FilterOp::Like, CellValue::Text(format!("%{escaped}")))
+        }
         UiTableFilterOperator::GreaterThan => (FilterOp::Gt, value),
         UiTableFilterOperator::GreaterThanOrEqual => (FilterOp::Gte, value),
         UiTableFilterOperator::LessThan => (FilterOp::Lt, value),

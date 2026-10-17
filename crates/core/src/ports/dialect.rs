@@ -11,6 +11,6 @@ pub trait SqlDialect: Send + Sync {
     /// Text comparison for contains / starts with / ends with.
     /// Postgres and SQLite accept `CAST AS TEXT`. MySQL and SQL Server do not.
     fn text_like(&self, column: &str, placeholder: &str) -> String {
-        format!("CAST({column} AS TEXT) LIKE {placeholder}")
+        format!("CAST({column} AS TEXT) LIKE {placeholder} ESCAPE '\\'")
     }
 }
