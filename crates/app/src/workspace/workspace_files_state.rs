@@ -468,6 +468,12 @@ impl WorkspaceFilesState {
         for (path, buffer, dirty) in documents {
             let path_buf = std::path::PathBuf::from(path);
             let Some(mtime) = git_workspace::disk_mtime_secs(&path_buf) else {
+                // If a file previously known on disk vanished, flag it as externally changed (#468).
+                if self.workspace_file_mtimes.contains_key(*path)
+                    && !self.workspace_external_changes.iter().any(|queued| queued == path)
+                {
+                    self.workspace_external_changes.push((*path).to_owned());
+                }
                 continue;
             };
             let known = self.workspace_file_mtimes.get(*path).copied();
