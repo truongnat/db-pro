@@ -10,6 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs::File;
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
@@ -204,9 +205,7 @@ pub fn parse_postgres_csv_line(line: &str) -> Option<AuditEvent> {
     let timestamp = field(&cols, 0);
     let username = field(&cols, 1);
     let database = field(&cols, 2);
-    let pid = field(&cols, 3).unwrap_or_default();
     let client_addr = field(&cols, 4);
-    let session_line = field(&cols, 6).unwrap_or_default();
     let command_tag = field(&cols, 7);
     let severity = field(&cols, 11);
     let raw_message = field(&cols, 13).unwrap_or_default();
@@ -230,13 +229,13 @@ pub fn parse_postgres_csv_line(line: &str) -> Option<AuditEvent> {
         None => (None, false),
     };
     let redacted = msg_redacted || query_redacted || detail_redacted;
-    let id = format!(
-        "{}|{}|{}|{}",
-        timestamp.as_deref().unwrap_or(""),
-        pid,
-        session_line,
-        message.chars().take(48).collect::<String>()
-    );
+    // Local identity must be unique per record, not per timestamp prefix (#490):
+    // the raw line hash distinguishes messages that share their first 48 chars,
+    // and `read_csvlog_page` appends the byte offset so even byte-identical
+    // lines inside one file produce distinct ids.
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    line.hash(&mut hasher);
+    let id = format!("csvlog:{:016x}", hasher.finish());
     Some(AuditEvent {
         id,
         timestamp,
@@ -317,13 +316,19 @@ pub fn read_csvlog_page(
         text.as_ref()
     };
 
+    // Byte offsets make ids unique even for byte-identical lines (#490).
+    let body_offset = text.len() - body.len();
+    let mut cursor = start + body_offset as u64;
     let mut matched = Vec::new();
-    for line in body.lines() {
-        let line = line.trim_end_matches('\r');
+    for raw in body.split_inclusive('\n') {
+        let line_start = cursor;
+        cursor += raw.len() as u64;
+        let line = raw.trim_end_matches('\n').trim_end_matches('\r');
         if line.is_empty() {
             continue;
         }
-        if let Some(event) = parse_postgres_csv_line(line) {
+        if let Some(mut event) = parse_postgres_csv_line(line) {
+            event.id = format!("{}@{line_start}", event.id);
             if filter.matches(&event) {
                 matched.push(event);
             }

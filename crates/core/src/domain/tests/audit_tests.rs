@@ -79,3 +79,51 @@ fn export_csv_includes_header() {
     let csv = export_events_csv(&[]);
     assert!(csv.starts_with("timestamp,"));
 }
+
+#[test]
+fn event_ids_differ_when_only_the_message_tail_differs() {
+    // Regression (#490): ids built from timestamp|pid|session|first-48-chars
+    // of the message collided for rows sharing that prefix.
+    let line = |tail: &str| {
+        format!(
+            r#"2024-01-01 00:00:00.000 UTC,"u","db",1,"127.0.0.1",s,1,"SELECT",t,v,0,"LOG","00000","{}{tail}",,,,,,,,,,"app","client",,"0""#,
+            "x".repeat(64)
+        )
+    };
+    let a = parse_postgres_csv_line(&line("insert into a")).unwrap();
+    let b = parse_postgres_csv_line(&line("insert into b")).unwrap();
+    assert_ne!(a.id, b.id);
+}
+
+#[test]
+fn event_id_is_stable_for_the_same_line() {
+    let raw = r#"2024-01-01 00:00:00.000 UTC,"u","db",1,"127.0.0.1",s,1,"SELECT",t,v,0,"LOG","00000","stable msg",,,,,,,,,,"app","client",,"0""#;
+    let a = parse_postgres_csv_line(raw).unwrap();
+    let b = parse_postgres_csv_line(raw).unwrap();
+    assert_eq!(a.id, b.id);
+}
+
+#[test]
+fn identical_log_lines_get_distinct_ids_within_a_file() {
+    // Byte-identical lines can repeat (retry loops); the file offset suffix
+    // keeps their ids unique for selection/bookmark/export (#490).
+    let dir = std::env::temp_dir();
+    let path = dir.join(format!("db-pro-audit-dup-{}.csv", std::process::id()));
+    {
+        let mut tmp = File::create(&path).unwrap();
+        for _ in 0..3 {
+            writeln!(
+                    tmp,
+                    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
+                    r#"2024-01-01 00:00:00.000 UTC,"u","db",1,"127.0.0.1",s,1,"SELECT",t,v,0,"LOG","00000","same message",,,,,,,,,,"app","client",,"0""#
+                )
+                .unwrap();
+        }
+        tmp.flush().unwrap();
+    }
+    let page = read_csvlog_page(&path, &AuditFilter::default(), 10, 64 * 1024).unwrap();
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(page.events.len(), 3);
+    let ids: std::collections::BTreeSet<&str> = page.events.iter().map(|event| event.id.as_str()).collect();
+    assert_eq!(ids.len(), 3);
+}
