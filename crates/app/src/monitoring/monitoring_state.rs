@@ -19,6 +19,17 @@ pub(super) struct MonitoringState {
     pub(super) monitoring_workload_filter: String,
 }
 
+impl MonitoringState {
+    pub(crate) fn reset_connection_scope(&mut self) {
+        self.monitoring_snapshot = None;
+        self.monitoring_error = None;
+        self.monitoring_last_poll = None;
+        self.monitoring_terminate_confirm = None;
+        self.monitoring_cancel_confirm = None;
+        self.monitoring_maintenance_confirm = None;
+        self.monitoring_workload_prev = None;
+    }
+}
 impl Default for MonitoringState {
     fn default() -> Self {
         Self {
