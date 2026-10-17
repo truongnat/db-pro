@@ -49,6 +49,21 @@ fn batch_publishes_connection_before_statements() {
     assert!(id < track && track < statements);
 }
 
+#[test]
+fn execute_parameterized_transaction_publishes_connection_id_before_statements() {
+    let source = include_str!("../connector.rs");
+    let param_at = source
+        .find("async fn execute_parameterized_transaction(")
+        .expect("execute_parameterized_transaction");
+    let body = &source[param_at..];
+    let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
+    let track = body.find("self.track_guard(").expect("id is published for Stop");
+    let statements = body
+        .find("for (index, statement) in statements.iter().enumerate()")
+        .expect("statements follow the publish");
+    assert!(id < track && track < statements);
+}
+
 #[tokio::test]
 async fn recorded_batch_connection_is_what_cancel_targets() {
     batch_publishes_connection_before_statements();
