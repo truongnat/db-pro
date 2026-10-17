@@ -197,19 +197,30 @@ impl PgPassFile {
             use std::os::unix::fs::OpenOptionsExt as _;
             options.mode(0o600);
         }
-        // A few hundred bytes: synchronous write keeps the guard simple.
-        let mut file = options
+        // A few hundred bytes: synchronous write keeps the guard simple. The file must not
+        // outlive a failed write — `Self` does not exist yet, so Drop cannot clean it (#483).
+        let file = options
             .open(&path)
             .map_err(|error| DbError::Internal(format!("failed to create pgpass file {}: {error}", path.display())))?;
-        use std::io::Write as _;
-        file.write_all(contents.as_bytes())
-            .map_err(|error| DbError::Internal(format!("failed to write pgpass file: {error}")))?;
+        write_pgpass(file, &path, contents.as_bytes())?;
         Ok(Self { path })
     }
 
     fn apply(&self, command: &mut Command) {
         command.env("PGPASSFILE", &self.path);
     }
+}
+
+/// Writes `contents` to the freshly opened pgpass sink; on failure the partial file is
+/// removed because no `PgPassFile` guard exists yet to drop it. The sink is consumed so the
+/// handle closes before unlink (Windows refuses to remove an open file).
+fn write_pgpass(mut sink: impl std::io::Write, path: &Path, contents: &[u8]) -> Result<(), DbError> {
+    if let Err(error) = sink.write_all(contents) {
+        drop(sink);
+        let _ = std::fs::remove_file(path);
+        return Err(DbError::Internal(format!("failed to write pgpass file: {error}")));
+    }
+    Ok(())
 }
 
 impl Drop for PgPassFile {

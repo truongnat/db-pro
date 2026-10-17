@@ -202,3 +202,36 @@ async fn backup_output_reservation_rejects_existing_file() -> Result<(), Box<dyn
     tokio::fs::remove_file(path).await?;
     Ok(())
 }
+
+#[test]
+fn failed_pgpass_write_removes_the_partial_file() {
+    // #483: when write_all fails, `create` returns before the `PgPassFile` guard exists, so
+    // the credential file the OpenOptions call already made must be unlinked here.
+    struct Failing;
+    impl std::io::Write for Failing {
+        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(std::io::ErrorKind::StorageFull, "disk full"))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let path = std::env::temp_dir().join(format!("db-pro-pgpass-test-{}", uuid::Uuid::new_v4()));
+    std::fs::write(&path, b"").expect("fixture file");
+    assert!(path.exists());
+
+    let error = write_pgpass(Failing, &path, b"h:5432:d:u:p\n").expect_err("failing sink must error");
+    assert!(matches!(error, DbError::Internal(_)), "{error:?}");
+    assert!(!path.exists(), "partial credential file must be removed");
+}
+
+#[test]
+fn successful_pgpass_write_leaves_file_for_guard() {
+    let path = std::env::temp_dir().join(format!("db-pro-pgpass-test-{}", uuid::Uuid::new_v4()));
+    let file = std::fs::File::create(&path).expect("fixture file");
+
+    write_pgpass(file, &path, b"h:5432:d:u:p\n").expect("write succeeds");
+    assert_eq!(std::fs::read(&path).expect("read back"), b"h:5432:d:u:p\n");
+    std::fs::remove_file(path).expect("cleanup fixture");
+}
