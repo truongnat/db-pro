@@ -4,8 +4,6 @@
 #[path = "chart_engine.rs"]
 mod chart_engine;
 
-use std::collections::HashSet;
-
 pub use chart_engine::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartType};
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Stroke, Vec2};
 use lucide_icons::Icon;
@@ -82,31 +80,21 @@ impl ChartRenderer {
             );
         }
 
-        // X-axis labels (categorical — show at most 8)
-        let unique_labels: Vec<String> = points
-            .iter()
-            .map(|p| p.label.clone())
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-        let x_ticks = unique_labels.len().min(8);
-        // allow: `x_ticks > 0` above guards against division by zero; checked_div would make
-        // the step calculation harder to read. #[allow(unknown_lints)] below is a compatibility marker.
-        #[allow(unknown_lints)]
-        #[allow(clippy::manual_checked_ops)]
-        if x_ticks > 0 {
-            let step = unique_labels.len() / x_ticks;
-            for i in 0..x_ticks {
-                let idx = i * step;
-                let px = rect.left() + (idx as f32 / points.len().max(1) as f32) * rect.width();
-                painter.text(
-                    Pos2::new(px, chart_rect.bottom() + 5.0),
-                    Align2::CENTER_TOP,
-                    &unique_labels[idx],
-                    egui::FontId::proportional(9.0),
-                    theme.text_secondary,
-                );
-            }
+        // X-axis labels (categorical — show at most 8). First-appearance order
+        // keeps labels stable frame-to-frame (HashSet iteration order does not),
+        // and each label is placed at the data index of its first occurrence so
+        // it lines up with the row it names instead of piling at the left edge.
+        let unique_labels = x_axis_labels(points);
+        for label_idx in evenly_spread_indices(unique_labels.len(), 8) {
+            let (label, data_idx) = &unique_labels[label_idx];
+            let px = chart_rect.left() + (*data_idx as f32 / points.len().max(1) as f32) * chart_rect.width();
+            painter.text(
+                Pos2::new(px, chart_rect.bottom() + 5.0),
+                Align2::CENTER_TOP,
+                label,
+                egui::FontId::proportional(9.0),
+                theme.text_secondary,
+            );
         }
 
         // Draw chart based on type
@@ -394,3 +382,31 @@ fn format_value(v: f64) -> String {
         format!("{:.2}", v)
     }
 }
+
+/// Unique labels in first-appearance order, paired with the data index at
+/// which each label first occurs — the position its tick is drawn at.
+fn x_axis_labels(points: &[ChartPoint]) -> Vec<(String, usize)> {
+    let mut labels: Vec<(String, usize)> = Vec::new();
+    for (data_idx, point) in points.iter().enumerate() {
+        if !labels.iter().any(|(seen, _)| seen == &point.label) {
+            labels.push((point.label.clone(), data_idx));
+        }
+    }
+    labels
+}
+
+/// `max` evenly spread indices into `0..count`, always including 0 and
+/// `count - 1`. Empty when `count == 0` or `max == 0`.
+fn evenly_spread_indices(count: usize, max: usize) -> Vec<usize> {
+    if count == 0 || max == 0 {
+        return Vec::new();
+    }
+    let ticks = count.min(max);
+    (0..ticks)
+        .map(|i| i * count.saturating_sub(1) / ticks.saturating_sub(1).max(1))
+        .collect()
+}
+
+#[cfg(test)]
+#[path = "tests/mod_tests.rs"]
+mod tests;
