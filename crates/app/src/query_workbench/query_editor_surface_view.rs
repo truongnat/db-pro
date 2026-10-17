@@ -200,6 +200,9 @@ impl<'view> QueryEditorSurfaceContext<'view> {
             doc.dirty = true;
             doc.execution_diagnostic = None;
         }
+        // reanalyze gates on buffer.version(): a cursor move into a different
+        // statement must still re-sync the statement syntax diagnostic (#510).
+        doc.sync_cursor_diagnostic(self.dialect);
         let cursor_in_string_or_comment = doc
             .cached_tokens
             .is_in_string_or_comment(doc.cursor.offset.saturating_sub(1));
