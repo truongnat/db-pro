@@ -1715,19 +1715,40 @@ pub fn spawn_worker(
                     schema,
                     session_id,
                 } => {
+                    let (cancel_tx, cancel_rx) = oneshot::channel();
                     let query_api = runtime.query_api();
+                    query_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(
+                            request_id,
+                            QueryCancellation {
+                                sender: cancel_tx,
+                                query_api: query_api.clone(),
+                                connection_id: connection_id.clone(),
+                            },
+                        );
                     let event_tx = event_tx.clone();
+                    let query_cancellations = Arc::clone(&query_cancellations);
                     tokio::spawn(async move {
                         let bound: Vec<db_pro_core::domain::query::QueryParam> = params
                             .into_iter()
                             .map(db_pro_core::domain::query::QueryParam::Text)
                             .collect();
-                        let event = match db_pro_core::application::with_query_session(
-                            session_id.as_deref(),
-                            query_api.explain(&connection_id, &sql, &bound, analyze, schema.as_deref()),
-                        )
-                        .await
-                        {
+                        let result = tokio::select! {
+                            result = db_pro_core::application::with_query_session(
+                                session_id.as_deref(),
+                                query_api.explain(&connection_id, &sql, &bound, analyze, schema.as_deref()),
+                            ) => result,
+                            _ = cancel_rx => Err(crate::DbErrorDto {
+                                code: "QUERY_CANCELLED".to_owned(),
+                                message: "Query cancelled".to_owned(),
+                                message_id: "error.query.cancelled".to_owned(),
+                                retryable: false,
+                                position: None,
+                            }),
+                        };
+                        let event = match result {
                             Ok(plan) => match serde_json::to_string_pretty(&plan) {
                                 Ok(plan) => RuntimeEvent::ExplainCompleted { request_id, plan },
                                 Err(error) => RuntimeEvent::Failed {
@@ -1735,11 +1756,18 @@ pub fn spawn_worker(
                                     message: format!("failed to format query plan: {error}"),
                                 },
                             },
+                            Err(error) if error.code == "QUERY_CANCELLED" => {
+                                RuntimeEvent::QueryCancelled { request_id }
+                            }
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
                             },
                         };
+                        query_cancellations
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&request_id);
                         let _ = event_tx.send(event).await;
                     });
                 }
