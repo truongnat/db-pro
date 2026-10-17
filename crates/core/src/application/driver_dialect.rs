@@ -51,7 +51,9 @@ impl SqlDialect for DriverDialect {
         match self.driver {
             DriverType::Mysql => format!("CAST({column} AS CHAR) LIKE {placeholder} ESCAPE '\\\\'"),
             DriverType::SqlServer => format!("CAST({column} AS NVARCHAR(MAX)) LIKE {placeholder} ESCAPE '\\'"),
-            DriverType::Postgres | DriverType::SQLite => format!("CAST({column} AS TEXT) LIKE {placeholder} ESCAPE '\\'"),
+            DriverType::Postgres | DriverType::SQLite => {
+                format!("CAST({column} AS TEXT) LIKE {placeholder} ESCAPE '\\'")
+            }
         }
     }
 }

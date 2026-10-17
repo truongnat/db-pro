@@ -304,7 +304,6 @@ impl TextBuffer {
         }
     }
 
-
     pub fn char_at(&self, offset: usize) -> Option<char> {
         let valid = self.floor_char_boundary(offset);
         self.content[valid..].chars().next()

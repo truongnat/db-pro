@@ -74,7 +74,13 @@ impl MySqlConnector {
     ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
         use db_pro_core::ports::{TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase};
 
-        let max_rows = self.pools.read().await.get(&handle.0).map(|entry| entry.max_rows).unwrap_or(1000);
+        let max_rows = self
+            .pools
+            .read()
+            .await
+            .get(&handle.0)
+            .map(|entry| entry.max_rows)
+            .unwrap_or(1000);
         let result = {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
             let connection_id = match sqlx::query_scalar::<_, u64>("SELECT CONNECTION_ID()")

@@ -1,8 +1,8 @@
 // cc-scan:allow-file HUGE_FUNCTION,LONG_FUNCTION,HARD_COMPLEXITY,COMPLEXITY,DEEP_NESTING
 // cc-scan:allow-file HARD_PARAMS,TOO_MANY_PARAMS,DUPLICATE_BLOCK
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 
 use egui::text::LayoutJob;
 
@@ -320,10 +320,7 @@ pub fn sql_layouter(
             job.append(
                 &text[start..end],
                 0.0,
-                egui::TextFormat::simple(
-                    font_id.clone(),
-                    highlighter.token_color(token.kind, &theme),
-                ),
+                egui::TextFormat::simple(font_id.clone(), highlighter.token_color(token.kind, &theme)),
             );
         }
         job.wrap.max_width = wrap_width;

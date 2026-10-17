@@ -92,7 +92,10 @@ fn postgres_block_comment_nests() {
     let tokens = SqlHighlighter::new(SqlDialect::Postgres).tokenize(text);
     assert_eq!(tokens[0].kind, SyntaxTokenKind::Comment);
     assert_eq!(tokens[0].range, (0, 17));
-    let select = tokens.iter().find(|t| t.kind == SyntaxTokenKind::Keyword).expect("SELECT token");
+    let select = tokens
+        .iter()
+        .find(|t| t.kind == SyntaxTokenKind::Keyword)
+        .expect("SELECT token");
     assert_eq!(&text[select.range.0..select.range.1], "SELECT");
 }
 
@@ -101,7 +104,11 @@ fn generic_dialect_block_comment_stops_at_first_close() {
     let text = "/* a /* b */ c */";
     let tokens = SqlHighlighter::new(SqlDialect::Generic).tokenize(text);
     assert_eq!(tokens[0].kind, SyntaxTokenKind::Comment);
-    assert_eq!(tokens[0].range, (0, 12), "non-nesting dialects still end at the first */");
+    assert_eq!(
+        tokens[0].range,
+        (0, 12),
+        "non-nesting dialects still end at the first */"
+    );
 }
 
 #[test]

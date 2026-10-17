@@ -1677,10 +1677,7 @@ impl<'a> SqlEditor<'a> {
             removed_before_start += removed.min(start.saturating_sub(l_start));
             removed_before_end += removed.min(end.saturating_sub(l_start));
         }
-        let (new_lo, new_hi) = (
-            start - removed_before_start,
-            end.saturating_sub(removed_before_end),
-        );
+        let (new_lo, new_hi) = (start - removed_before_start, end.saturating_sub(removed_before_end));
         // Keep the original anchor/active direction.
         if self.selection.anchor <= self.selection.active {
             *self.selection = SelectionRange::new(new_lo, new_hi);

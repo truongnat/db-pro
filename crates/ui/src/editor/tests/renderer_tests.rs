@@ -526,7 +526,11 @@ fn shift_tab_unindent_keeps_anchor_when_first_line_not_indented() {
         },
     );
     assert_eq!(result, "ab\ncd");
-    assert_eq!(selection.normalized(), (2, 5), "anchor stays; end shifts by the 2 removed bytes");
+    assert_eq!(
+        selection.normalized(),
+        (2, 5),
+        "anchor stays; end shifts by the 2 removed bytes"
+    );
 }
 
 /// Shift-Tab must preserve a backwards selection's direction (#470).
