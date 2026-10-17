@@ -19,6 +19,16 @@ fn test_field_rules_validation() {
     assert!(port.validate("0").is_err());
     assert!(port.validate("99999").is_err());
     assert!(port.validate("abc").is_err());
+    let numeric = FieldRule::numeric("Must be a finite number");
+    assert!(numeric.validate("12.5").is_ok());
+    assert!(numeric.validate("-3").is_ok());
+    assert!(numeric.validate("").is_ok());
+    // `parse::<f64>` accepts these but they are not finite (#464).
+    assert!(numeric.validate("NaN").is_err());
+    assert!(numeric.validate("inf").is_err());
+    assert!(numeric.validate("-inf").is_err());
+    assert!(numeric.validate("1e999").is_err());
+    assert!(numeric.validate("abc").is_err());
 }
 
 #[test]

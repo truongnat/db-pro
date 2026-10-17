@@ -138,8 +138,13 @@ impl FieldRule {
                 }
             }
             FieldRule::Numeric(msg) => {
-                if !value.is_empty() && value.trim().parse::<f64>().is_err() {
-                    Err(msg.clone())
+                // `parse::<f64>` accepts NaN/inf/-inf; a numeric field must hold
+                // a finite value or downstream binds fail with opaque errors (#464).
+                if !value.is_empty() {
+                    match value.trim().parse::<f64>() {
+                        Ok(v) if v.is_finite() => Ok(()),
+                        _ => Err(msg.clone()),
+                    }
                 } else {
                     Ok(())
                 }
