@@ -73,6 +73,7 @@ impl MySqlConnector {
     ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
         use db_pro_core::ports::{TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase};
 
+        let max_rows = self.pools.read().await.get(&handle.0).map(|entry| entry.max_rows).unwrap_or(1000);
         let result = {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
             let connection_id = match sqlx::query_scalar::<_, u64>("SELECT CONNECTION_ID()")
@@ -96,15 +97,28 @@ impl MySqlConnector {
             for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
                 let started = std::time::Instant::now();
                 let statement_result = if *is_read {
-                    match sqlx::query(statement).fetch_all(&mut *conn).await {
-                        Ok(rows) => match MySqlQueryMapper::map_rows(rows) {
-                            Ok(mut query_result) => {
-                                query_result.duration_ms = started.elapsed().as_millis() as u64;
-                                Ok(db_pro_core::ports::TransactionStatementResult::Query(query_result))
+                    use futures_util::StreamExt;
+                    let mut stream = sqlx::query(statement).fetch(&mut *conn);
+                    let mut rows = Vec::new();
+                    let res = loop {
+                        if rows.len() as u64 >= max_rows {
+                            break MySqlQueryMapper::map_rows(rows);
+                        }
+                        match stream.next().await {
+                            Some(Ok(row)) => rows.push(row),
+                            Some(Err(error)) => {
+                                break Err(DbError::QueryFailed(format!("MySQL statement {index} failed: {error}")));
                             }
-                            Err(error) => Err(error),
-                        },
-                        Err(error) => Err(DbError::QueryFailed(format!("MySQL statement {index} failed: {error}"))),
+                            None => break MySqlQueryMapper::map_rows(rows),
+                        }
+                    };
+                    drop(stream);
+                    match res {
+                        Ok(mut query_result) => {
+                            query_result.duration_ms = started.elapsed().as_millis() as u64;
+                            Ok(db_pro_core::ports::TransactionStatementResult::Query(query_result))
+                        }
+                        Err(error) => Err(error),
                     }
                 } else {
                     match sqlx::query(statement).execute(&mut *conn).await {
