@@ -103,10 +103,11 @@ impl SchemaExplorerState {
         self.schema_error = None;
         self.schema_request = None;
         self.selected_table = None;
+        self.pinned_tables.clear();
+        self.recent_tables.clear();
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
     }
-
     pub(super) fn matching_table_count(&self, schema: &str, query: &str) -> usize {
         super::connection_status::schema_matching_table_count(self, schema, query)
     }
