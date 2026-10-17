@@ -30,6 +30,41 @@
     }
 
     #[test]
+    fn schema_loaded_after_disconnect_is_dropped() {
+        // Disconnect cleared the pending request before the reply arrived —
+        // the stale introspection must not land on the new state (#440).
+        let mut schema_explorer = SchemaExplorerState::default();
+        let mut table_state = TableState::default();
+        let mut data_query = TableDataQueryState::default();
+        let mut workspace = WorkspaceShellState::default();
+        let mut palette = PaletteState::default();
+        let mut feedback = FeedbackState::default();
+
+        let mut context = SchemaLoadedContext {
+            schema_explorer: &mut schema_explorer,
+            table_state: &mut table_state,
+            data_query: &mut data_query,
+            workspace: &mut workspace,
+            palette: &mut palette,
+            feedback: &mut feedback,
+            driver: "PostgreSQL",
+        };
+        let transition = on_schema_loaded(
+            &mut context,
+            RequestId(7),
+            UiSchemaSummary {
+                schemas: vec!["old_conn".to_owned()],
+                tables: vec!["stale_table".to_owned()],
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(transition, SchemaLoadedTransition::default());
+        assert!(schema_explorer.schema.tables.is_empty());
+        assert!(schema_explorer.schema.schemas.is_empty());
+    }
+
+    #[test]
     fn missing_selected_table_clears_table_state_and_returns_to_welcome() {
         let mut schema_explorer = SchemaExplorerState {
             schema_request: Some(RequestId(7)),

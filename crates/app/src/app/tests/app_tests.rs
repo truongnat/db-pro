@@ -4225,6 +4225,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     app.schema.explorer.selected_table = Some("customers".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
     app.table.state.refresh_table_info_after_schema = true;
+    app.schema.explorer.schema_request = Some(crate::RequestId(1));
     event_tx
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
@@ -4263,6 +4264,7 @@ fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.schema.explorer.selected_table = Some("deleted_table".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
+    app.schema.explorer.schema_request = Some(crate::RequestId(1));
     event_tx
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),

@@ -45,11 +45,10 @@ pub(crate) fn on_schema_loaded(
     request_id: RequestId,
     mut schema: UiSchemaSummary,
 ) -> SchemaLoadedTransition {
-    if context
-        .schema_explorer
-        .schema_request
-        .is_some_and(|expected_request| expected_request != request_id)
-    {
+    // Only the response to the currently pending request may be applied —
+    // `None` (disconnect/reset raced with the reply) must not adopt a stale
+    // introspection from a previous connection (#440).
+    if context.schema_explorer.schema_request != Some(request_id) {
         return SchemaLoadedTransition::default();
     }
 
