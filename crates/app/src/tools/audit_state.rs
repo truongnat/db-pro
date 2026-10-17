@@ -14,6 +14,17 @@ pub(super) struct AuditState {
 }
 
 impl AuditState {
+    pub(crate) fn reset_connection_scope(&mut self) {
+        self.audit_page = None;
+        self.audit_error = None;
+        self.audit_filter_text.clear();
+        self.audit_filter_database.clear();
+        self.audit_filter_username.clear();
+        self.audit_filter_severity.clear();
+        self.audit_bookmarks.clear();
+        self.audit_selected.clear();
+        self.audit_export_preview = None;
+    }
     pub(super) fn audit_filter(&self) -> db_pro_core::domain::audit::AuditFilter {
         db_pro_core::domain::audit::AuditFilter {
             text: self.audit_filter_text.clone(),

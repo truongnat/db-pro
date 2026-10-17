@@ -89,6 +89,7 @@ impl DbProApp {
         if !closed {
             return;
         }
+        self.management.audit.reset_connection_scope();
         // In-flight requests bound to this connection outlive the disconnect
         // otherwise — the server keeps running them and results land on
         // documents whose connection is gone.
@@ -148,6 +149,7 @@ impl DbProApp {
                     &mut self.feedback,
                 )
                 .commit_connect(connection, request_id);
+                self.management.audit.reset_connection_scope();
             }
         }
     }
