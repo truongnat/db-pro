@@ -26,24 +26,40 @@ impl IntrospectionCache for SQLiteMetaStore {
         let rows = self
             .actor
             .raw_query(
-                "SELECT data FROM introspection_cache WHERE connection_id = ?1".into(),
+                "SELECT data, updated_at FROM introspection_cache WHERE connection_id = ?1".into(),
                 vec![connection_id.to_string()],
             )
             .await?;
-        match rows.first() {
-            Some(row) => match serde_json::from_str::<IntrospectResult>(&row[0]) {
-                Ok(result) => Ok(Some(result)),
-                Err(error) => {
-                    tracing::warn!(
+        let Some(row) = rows.first() else {
+            return Ok(None);
+        };
+        // TTL guard: caches older than 10 minutes are expired to prevent serving stale schemas indefinitely (#467).
+        const CACHE_TTL_SECS: i64 = 600;
+        if let Some(updated_at_str) = row.get(1) {
+            if let Ok(updated_at) = chrono::DateTime::parse_from_rfc3339(updated_at_str) {
+                let age = chrono::Utc::now().signed_duration_since(updated_at).num_seconds();
+                if age > CACHE_TTL_SECS {
+                    tracing::info!(
                         connection_id = %connection_id,
-                        error = %error,
-                        "discarding malformed introspection cache"
+                        age_secs = age,
+                        "introspection cache expired by TTL"
                     );
                     self.invalidate(connection_id).await?;
-                    Ok(None)
+                    return Ok(None);
                 }
-            },
-            None => Ok(None),
+            }
+        }
+        match serde_json::from_str::<IntrospectResult>(&row[0]) {
+            Ok(result) => Ok(Some(result)),
+            Err(error) => {
+                tracing::warn!(
+                    connection_id = %connection_id,
+                    error = %error,
+                    "discarding malformed introspection cache"
+                );
+                self.invalidate(connection_id).await?;
+                Ok(None)
+            }
         }
     }
 

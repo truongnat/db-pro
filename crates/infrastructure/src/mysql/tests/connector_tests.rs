@@ -64,6 +64,7 @@ async fn recorded_batch_connection_is_what_cancel_targets() {
         MySqlEntry {
             pool,
             max_rows: 10,
+            query_timeout: std::time::Duration::from_secs(5),
             active_connections: std::sync::Mutex::new(Vec::new()),
             open_session: crate::transaction_session::SessionSlot::default(),
         },
@@ -104,6 +105,7 @@ async fn execute_batch_that_never_starts_does_not_leave_a_connection_published()
         MySqlEntry {
             pool,
             max_rows: 10,
+            query_timeout: std::time::Duration::from_secs(5),
             active_connections: std::sync::Mutex::new(Vec::new()),
             open_session: crate::transaction_session::SessionSlot::default(),
         },
