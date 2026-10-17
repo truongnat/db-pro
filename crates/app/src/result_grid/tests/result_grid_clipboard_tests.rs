@@ -109,3 +109,31 @@ fn copied_row_text_distinguishes_null_from_empty_text() {
     };
     assert_eq!(app.copied_row_text(&result, 0, &result.rows[0]), "\\N\t");
 }
+
+// #463: a sorted projection displays rows out of source order; copying the
+// selection must emit them in the displayed order, not BTreeSet source order.
+#[test]
+fn copy_selected_rows_follows_displayed_sort_order() {
+    let mut app = DbProApp::default();
+    let result = UiQueryResult {
+        columns: vec![crate::UiColumn {
+            name: "id".to_owned(),
+            data_type: "int".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![
+            vec![UiCell::Number("1".to_owned())],
+            vec![UiCell::Number("2".to_owned())],
+            vec![UiCell::Number("3".to_owned())],
+        ],
+        row_count: 3,
+        duration_ms: 0,
+    };
+    app.table.data.selected_rows = [0, 1, 2].into_iter().collect();
+    // Descending projection: row index 2 renders first.
+    let lookup = GridSelectionLookup::new(&[2, 1, 0], &[0]);
+
+    let text = copied_text(&mut app, |app, ui| app.copy_selected_rows(ui, &result, &lookup));
+
+    assert_eq!(text, "3\n2\n1", "{text}");
+}

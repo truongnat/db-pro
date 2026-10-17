@@ -1,4 +1,5 @@
 //! Result-grid clipboard, export formatting, and copy helpers.
+use super::result_grid_view::GridSelectionLookup;
 use super::*;
 
 impl DbProApp {
@@ -45,6 +46,25 @@ impl DbProApp {
             .collect::<Vec<_>>()
             .join("\t")
     }
+    /// Selected row indexes in the order the user sees them: sorted by position
+    /// in the active filtered/sorted projection instead of source order (#463).
+    /// Rows the projection filters out keep their selection and copy last, in
+    /// source order.
+    pub(super) fn selected_row_indexes_display_ordered(
+        &self,
+        selection_lookup: &GridSelectionLookup,
+    ) -> Vec<usize> {
+        let mut indexes = self.table.data.selected_row_indexes();
+        indexes.sort_by_key(|row| {
+            selection_lookup
+                .row_positions
+                .get(row)
+                .copied()
+                .unwrap_or(usize::MAX)
+        });
+        indexes
+    }
+
 
     pub(super) fn copy_selected_row(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         let Some(row_index) = self.table.data.selected_row else {
@@ -60,8 +80,13 @@ impl DbProApp {
         self.feedback.copy_status = "Row copied".to_owned();
     }
 
-    pub(super) fn copy_selected_rows(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.table.data.selected_row_indexes();
+    pub(super) fn copy_selected_rows(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let row_indexes = self.selected_row_indexes_display_ordered(selection_lookup);
         if row_indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -76,8 +101,13 @@ impl DbProApp {
         self.feedback.copy_status = format!("{} rows copied", rows.len());
     }
 
-    pub(super) fn copy_selected_rows_with_headers(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.table.data.selected_row_indexes();
+    pub(super) fn copy_selected_rows_with_headers(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let row_indexes = self.selected_row_indexes_display_ordered(selection_lookup);
         if row_indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -100,18 +130,33 @@ impl DbProApp {
         self.feedback.copy_status = format!("{} rows copied with headers", row_indexes.len());
     }
 
-    pub(super) fn copy_selected_rows_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.table.data.selected_row_indexes();
+    pub(super) fn copy_selected_rows_as_json(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let indexes = self.selected_row_indexes_display_ordered(selection_lookup);
         self.copy_all_as_json(ui, result, &indexes);
     }
 
-    pub(super) fn copy_selected_rows_as_markdown(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.table.data.selected_row_indexes();
+    pub(super) fn copy_selected_rows_as_markdown(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let indexes = self.selected_row_indexes_display_ordered(selection_lookup);
         self.copy_all_as_markdown(ui, result, &indexes);
     }
 
-    pub(super) fn copy_selected_rows_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.table.data.selected_row_indexes();
+    pub(super) fn copy_selected_rows_as_insert(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let indexes = self.selected_row_indexes_display_ordered(selection_lookup);
         if indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;

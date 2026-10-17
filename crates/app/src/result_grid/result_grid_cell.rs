@@ -219,6 +219,7 @@ impl DbProApp {
             column_index,
             editable,
             display_cell,
+            selection_lookup,
             ..
         } = *interaction;
         let Some(action) = action else {
@@ -233,23 +234,23 @@ impl DbProApp {
             }
             Action::CopySelectedRows => {
                 self.ensure_selected_row(row_index);
-                self.copy_selected_rows(ui, result);
+                self.copy_selected_rows(ui, result, selection_lookup);
             }
             Action::CopySelectedRowsHeaders => {
                 self.ensure_selected_row(row_index);
-                self.copy_selected_rows_with_headers(ui, result);
+                self.copy_selected_rows_with_headers(ui, result, selection_lookup);
             }
             Action::CopySelectedRowsJson => {
                 self.ensure_selected_row(row_index);
-                self.copy_selected_rows_as_json(ui, result);
+                self.copy_selected_rows_as_json(ui, result, selection_lookup);
             }
             Action::CopySelectedRowsMarkdown => {
                 self.ensure_selected_row(row_index);
-                self.copy_selected_rows_as_markdown(ui, result);
+                self.copy_selected_rows_as_markdown(ui, result, selection_lookup);
             }
             Action::CopySelectedRowsInsert => {
                 self.ensure_selected_row(row_index);
-                self.copy_selected_rows_as_insert(ui, result);
+                self.copy_selected_rows_as_insert(ui, result, selection_lookup);
             }
             Action::CopyJson => {
                 self.table.data.selected_row = Some(row_index);

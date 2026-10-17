@@ -339,7 +339,9 @@ impl DbProApp {
 
         for action in actions {
             match action {
-                Action::CopySelectedRows => self.copy_selected_rows(context.ui, context.result),
+                Action::CopySelectedRows => {
+                    self.copy_selected_rows(context.ui, context.result, context.selection_lookup)
+                }
                 Action::CopySelectedCell => self.copy_selected_cell(context.ui, context.result),
                 Action::ApplyStagedChanges => self.apply_staged_changes(),
                 Action::DiscardStagedChanges => self.discard_staged_changes(),
