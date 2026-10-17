@@ -187,3 +187,43 @@ fn projection_cache_keeps_a_newer_entry_over_the_frame_copy() {
     assert_eq!(cache.take(newer_key, &result), vec![1, 2, 0]);
     assert_eq!(cache.rebuilds(), 1);
 }
+
+// #505: a selection whose row left the filtered/sorted projection must re-enter the
+// visible range instead of treating the row as position 0 (which skipped the first
+// row on ArrowDown and dead-ended ArrowUp).
+#[test]
+fn keyboard_selection_reenters_projection_from_filtered_out_row() {
+    let visible_rows = vec![4, 7, 9];
+
+    assert_eq!(
+        grid_keyboard_selection(Some((3, 1)), &visible_rows, 3, eframe::egui::Key::ArrowDown),
+        Some((4, 1))
+    );
+    assert_eq!(
+        grid_keyboard_selection(Some((3, 1)), &visible_rows, 3, eframe::egui::Key::ArrowUp),
+        Some((9, 1))
+    );
+    // Home/End keep their row anchored on the first visible row (unchanged fallback).
+    assert_eq!(
+        grid_keyboard_selection(Some((3, 1)), &visible_rows, 3, eframe::egui::Key::Home),
+        Some((4, 0))
+    );
+    assert_eq!(
+        grid_keyboard_selection(Some((3, 1)), &visible_rows, 3, eframe::egui::Key::End),
+        Some((4, 2))
+    );
+}
+
+#[test]
+fn keyboard_selection_moves_within_projection_when_row_is_visible() {
+    let visible_rows = vec![4, 7, 9];
+
+    assert_eq!(
+        grid_keyboard_selection(Some((7, 0)), &visible_rows, 3, eframe::egui::Key::ArrowDown),
+        Some((9, 0))
+    );
+    assert_eq!(
+        grid_keyboard_selection(Some((7, 0)), &visible_rows, 3, eframe::egui::Key::ArrowUp),
+        Some((4, 0))
+    );
+}

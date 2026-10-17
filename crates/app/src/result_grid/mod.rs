@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{UiCell, UiQueryResult};
 
 pub fn displayed_row_number(offset: u64, row_index: usize) -> u64 {
@@ -23,27 +21,30 @@ pub fn grid_keyboard_selection(
     let Some((selected_row, selected_column)) = selected else {
         return Some((visible_rows[0], 0));
     };
-    let row_positions: HashMap<usize, usize> = visible_rows
-        .iter()
-        .enumerate()
-        .map(|(position, row)| (*row, position))
-        .collect();
-    let row_position = row_positions.get(&selected_row).copied().unwrap_or(0);
+    // `None` means the selection survived a filter/sort change that dropped its row from the
+    // projection (#505). Arrow keys then re-enter the visible range instead of assuming
+    // position 0 (which skipped the first row on ArrowDown and made ArrowUp a no-op).
+    let row_position = visible_rows.iter().position(|row| *row == selected_row);
     let column = selected_column.min(column_count - 1);
 
     match key {
-        eframe::egui::Key::ArrowUp => visible_rows
-            .get(row_position.saturating_sub(1))
-            .copied()
-            .map(|row| (row, column)),
-        eframe::egui::Key::ArrowDown => visible_rows
-            .get((row_position + 1).min(visible_rows.len() - 1))
-            .copied()
-            .map(|row| (row, column)),
-        eframe::egui::Key::ArrowLeft => Some((visible_rows[row_position], column.saturating_sub(1))),
-        eframe::egui::Key::ArrowRight => Some((visible_rows[row_position], (column + 1).min(column_count - 1))),
-        eframe::egui::Key::Home => Some((visible_rows[row_position], 0)),
-        eframe::egui::Key::End => Some((visible_rows[row_position], column_count - 1)),
+        eframe::egui::Key::ArrowUp => match row_position {
+            Some(position) => visible_rows.get(position.saturating_sub(1)).copied(),
+            None => visible_rows.last().copied(),
+        }
+        .map(|row| (row, column)),
+        eframe::egui::Key::ArrowDown => match row_position {
+            Some(position) => visible_rows.get((position + 1).min(visible_rows.len() - 1)).copied(),
+            None => visible_rows.first().copied(),
+        }
+        .map(|row| (row, column)),
+        eframe::egui::Key::ArrowLeft => Some((visible_rows[row_position.unwrap_or(0)], column.saturating_sub(1))),
+        eframe::egui::Key::ArrowRight => Some((
+            visible_rows[row_position.unwrap_or(0)],
+            (column + 1).min(column_count - 1),
+        )),
+        eframe::egui::Key::Home => Some((visible_rows[row_position.unwrap_or(0)], 0)),
+        eframe::egui::Key::End => Some((visible_rows[row_position.unwrap_or(0)], column_count - 1)),
         _ => None,
     }
 }
