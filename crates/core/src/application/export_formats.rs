@@ -4,7 +4,24 @@ use crate::application::guard_csv_field;
 use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryResult};
 
+/// Hard cap on exported rows (#484). The connector may still fetch the full
+/// result, but renderers never buffer or write more than this many rows.
+pub(super) const MAX_EXPORT_ROWS: usize = 500_000;
+
+/// Reject results that exceed the export row cap before any row materialization.
+pub(super) fn ensure_within_export_cap(result: &QueryResult) -> Result<(), DbError> {
+    if result.rows.len() > MAX_EXPORT_ROWS {
+        return Err(DbError::Validation(format!(
+            "export row cap exceeded: query returned {} rows but exports are limited to \
+             {MAX_EXPORT_ROWS} rows; add a LIMIT clause to reduce the result set",
+            result.rows.len()
+        )));
+    }
+    Ok(())
+}
+
 pub(super) fn render_csv(result: &QueryResult) -> Result<Vec<u8>, DbError> {
+    ensure_within_export_cap(result)?;
     let mut writer = csv::Writer::from_writer(Vec::new());
     // Guard headers too: a column literally named `=cmd|...` is just as evaluable (#429).
     let headers: Vec<String> = result
@@ -34,6 +51,7 @@ pub(super) fn render_csv(result: &QueryResult) -> Result<Vec<u8>, DbError> {
 }
 
 pub(super) fn render_json(result: &QueryResult) -> Result<Vec<u8>, DbError> {
+    ensure_within_export_cap(result)?;
     validate_json_column_names(result)?;
     let rows: Vec<serde_json::Map<String, serde_json::Value>> = result
         .rows
@@ -51,6 +69,7 @@ pub(super) fn render_json(result: &QueryResult) -> Result<Vec<u8>, DbError> {
 }
 
 pub(super) fn render_excel(result: &QueryResult) -> Result<Vec<u8>, DbError> {
+    ensure_within_export_cap(result)?;
     let mut workbook = rust_xlsxwriter::Workbook::new();
     let worksheet = workbook.add_worksheet();
     let header_format = rust_xlsxwriter::Format::new().set_bold();

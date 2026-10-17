@@ -8,10 +8,12 @@ use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
 use super::sql_policy::reject_multi_statement;
-use export_formats::{render_csv, render_excel, render_json};
+use export_formats::{ensure_within_export_cap, render_csv, render_excel, render_json};
 
 #[cfg(test)]
-use export_formats::{excel_column_index, excel_integer_is_exact, excel_row_index, MAX_EXACT_EXCEL_INTEGER};
+use export_formats::{
+    excel_column_index, excel_integer_is_exact, excel_row_index, MAX_EXACT_EXCEL_INTEGER, MAX_EXPORT_ROWS,
+};
 
 #[path = "export_formats.rs"]
 mod export_formats;
@@ -67,6 +69,8 @@ impl ExportService {
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
 
         let result = self.connector.query(&handle, sql, &[]).await?;
+        // Hard row cap (#484): reject before renderers buffer per-row output.
+        ensure_within_export_cap(&result)?;
         result.validate().map_err(DbError::QueryFailed)?;
         Ok(result)
     }

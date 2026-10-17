@@ -325,3 +325,63 @@ async fn export_rejects_malformed_query_result_shape() {
 
     assert!(matches!(error, DbError::QueryFailed(message) if message.contains("expected 1")));
 }
+
+// #484: results must never materialize more than MAX_EXPORT_ROWS rows for export.
+fn oversized_result(row_total: usize) -> QueryResult {
+    QueryResult {
+        columns: vec![ColumnMeta {
+            name: "id".into(),
+            data_type: "INT".into(),
+            nullable: false,
+        }],
+        rows: vec![Row(vec![CellValue::Int64(0)]); row_total],
+        row_count: row_total as u64,
+        duration_ms: 0,
+    }
+}
+
+#[test]
+fn export_cap_allows_exactly_max_rows() {
+    assert!(ensure_within_export_cap(&oversized_result(MAX_EXPORT_ROWS)).is_ok());
+}
+
+#[test]
+fn export_cap_rejects_one_row_over_max() {
+    let error = ensure_within_export_cap(&oversized_result(MAX_EXPORT_ROWS + 1))
+        .expect_err("one row over the cap must be rejected");
+    let DbError::Validation(message) = error else {
+        panic!("expected DbError::Validation, got {error:?}");
+    };
+    assert!(message.contains("500000") || message.contains("500_000"));
+    assert!(message.contains("LIMIT"));
+}
+
+#[test]
+fn csv_render_rejects_result_over_row_cap() {
+    // Defense in depth: renderers refuse oversized results even if called directly.
+    let error = export_formats::render_csv(&oversized_result(MAX_EXPORT_ROWS + 1))
+        .expect_err("csv render must reject oversized results");
+    assert!(matches!(error, DbError::Validation(_)));
+}
+
+#[tokio::test]
+async fn export_csv_rejects_result_over_row_cap() {
+    let conn_id = ConnectionId::new();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(conn_id, ConnectionHandle(1));
+
+    let mut connector = MockDbConnector::new();
+    connector
+        .expect_query()
+        .returning(|_, _, _| Ok(oversized_result(MAX_EXPORT_ROWS + 1)));
+
+    let error = build_service(connector, registry)
+        .export_csv(&conn_id, "SELECT * FROM huge_table")
+        .await
+        .expect_err("export must reject results over the row cap");
+
+    let DbError::Validation(message) = error else {
+        panic!("expected DbError::Validation, got {error:?}");
+    };
+    assert!(message.contains("LIMIT"));
+}
