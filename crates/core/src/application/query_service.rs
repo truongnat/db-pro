@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use crate::domain::connection::ConnectionId;
+use crate::domain::connection::{ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
 use crate::domain::safety::{
-    classify_statement_safety, validate_against_policy, ConnectionSafetyPolicy, StatementSafety,
+    classify_statement_safety_for_driver, validate_against_policy, ConnectionSafetyPolicy, StatementSafety,
 };
 use crate::ports::{
     ConnectionRepository, DbConnector, IntrospectionCache, QueryHistoryRepository, RunConfigRepository,
@@ -14,7 +14,7 @@ use crate::ports::{
 };
 
 use super::registry::ConnectionRegistry;
-use super::sql_policy::{reject_multi_statement, split_statements};
+use super::sql_policy::{reject_multi_statement, split_statements_for_driver};
 use multi_query_execution::MultiQueryExecution;
 use query_classification::{classify_statement, StatementClass};
 
@@ -120,8 +120,22 @@ impl QueryService {
         }
     }
 
-    async fn invalidate_schema_cache_if_ddl(&self, connection_id: &ConnectionId, sql: &str) {
-        if matches!(classify_statement_safety(sql), Some(StatementSafety::Ddl)) {
+    /// The connection's driver — statement splitting must lex `'…'` strings the
+    /// way the target engine does, so gates agree with the server (#477).
+    async fn driver_for(&self, connection_id: &ConnectionId) -> Result<DriverType, DbError> {
+        Ok(self
+            .connections
+            .get_config(connection_id)
+            .await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?
+            .driver)
+    }
+
+    async fn invalidate_schema_cache_if_ddl(&self, connection_id: &ConnectionId, sql: &str, driver: DriverType) {
+        if matches!(
+            classify_statement_safety_for_driver(sql, driver),
+            Some(StatementSafety::Ddl)
+        ) {
             self.invalidate_schema_cache(connection_id).await;
         }
     }
@@ -148,7 +162,8 @@ impl QueryService {
         database: Option<&str>,
         schema: Option<&str>,
     ) -> Result<QueryResult, DbError> {
-        reject_multi_statement(sql)?;
+        let driver = self.driver_for(connection_id).await?;
+        reject_multi_statement(sql, driver)?;
 
         let handle = self
             .registry
@@ -161,7 +176,7 @@ impl QueryService {
 
         let result = super::query_schema::with_query_schema(schema, self.connector.query(&handle, sql, params)).await?;
         result.validate().map_err(DbError::QueryFailed)?;
-        self.invalidate_schema_cache_if_ddl(connection_id, sql).await;
+        self.invalidate_schema_cache_if_ddl(connection_id, sql, driver).await;
 
         if let Err(e) = self
             .history
@@ -200,27 +215,35 @@ impl QueryService {
             .registry
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let driver = self.driver_for(connection_id).await?;
         let policy = self.safety_policy_for(connection_id).await?;
-        let statements = split_statements(sql);
+        let statements = split_statements_for_driver(sql, driver);
         if statements.is_empty() {
             return Err(DbError::QueryFailed("empty SQL statement".into()));
         }
 
         let query_statements = statements
             .iter()
-            .map(|statement| matches!(classify_statement(statement), StatementClass::Read))
+            .map(|statement| matches!(classify_statement(statement, driver), StatementClass::Read))
             .collect::<Vec<_>>();
-        let has_mutation = statements
-            .iter()
-            .any(|statement| !matches!(classify_statement_safety(statement), Some(StatementSafety::Read)));
-        let has_schema_change = statements
-            .iter()
-            .any(|statement| matches!(classify_statement_safety(statement), Some(StatementSafety::Ddl)));
+        let has_mutation = statements.iter().any(|statement| {
+            !matches!(
+                classify_statement_safety_for_driver(statement, driver),
+                Some(StatementSafety::Read)
+            )
+        });
+        let has_schema_change = statements.iter().any(|statement| {
+            matches!(
+                classify_statement_safety_for_driver(statement, driver),
+                Some(StatementSafety::Ddl)
+            )
+        });
         let execution = MultiQueryExecution {
             service: self,
             connection_id,
             handle: &handle,
             policy: &policy,
+            driver,
             statements: &statements,
             query_statements: &query_statements,
             has_schema_change,
@@ -271,7 +294,8 @@ impl QueryService {
         analyze: bool,
         schema: Option<&str>,
     ) -> Result<serde_json::Value, DbError> {
-        reject_multi_statement(sql)?;
+        let driver = self.driver_for(connection_id).await?;
+        reject_multi_statement(sql, driver)?;
 
         let handle = self
             .registry

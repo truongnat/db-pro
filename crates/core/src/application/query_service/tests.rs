@@ -30,7 +30,7 @@ fn build_service(connector: MockDbConnector, registry: Arc<ConnectionRegistry>) 
         Box::new(MockSavedQueryRepository::new()),
         Box::new(MockRunConfigRepository::new()),
         registry,
-        Box::new(MockConnectionRepository::new()),
+        Box::new(mock_connections_full_access()),
     )
 }
 
@@ -311,13 +311,16 @@ async fn execute_history_save_failure_non_fatal() {
 
 #[test]
 fn classify_simple_select_is_read() {
-    assert!(matches!(classify_statement("SELECT 1"), StatementClass::Read));
+    assert!(matches!(
+        classify_statement("SELECT 1", DriverType::Postgres),
+        StatementClass::Read
+    ));
 }
 
 #[test]
 fn classify_simple_insert_is_write() {
     assert!(matches!(
-        classify_statement("INSERT INTO t VALUES (1)"),
+        classify_statement("INSERT INTO t VALUES (1)", DriverType::Postgres),
         StatementClass::Write
     ));
 }
@@ -329,62 +332,92 @@ fn classify_row_producing_mutations_as_reads_for_result_routing() {
         "UPDATE t SET name = 'one' RETURNING id",
         "DELETE FROM t WHERE id = 1 RETURNING id",
     ] {
-        assert!(matches!(classify_statement(sql), StatementClass::Read), "{sql}");
+        assert!(
+            matches!(classify_statement(sql, DriverType::Postgres), StatementClass::Read),
+            "{sql}"
+        );
     }
 }
 
 #[test]
 fn returning_inside_cte_does_not_make_outer_mutation_row_producing() {
     let sql = "WITH deleted AS (DELETE FROM t WHERE id = 1 RETURNING id) UPDATE t SET archived = true";
-    assert!(matches!(classify_statement(sql), StatementClass::Write));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Write
+    ));
 }
 
 #[test]
 fn classify_with_select_is_read() {
     let sql = "WITH cte AS (SELECT id FROM t) SELECT * FROM cte";
-    assert!(matches!(classify_statement(sql), StatementClass::Read));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Read
+    ));
 }
 
 #[test]
 fn classify_with_update_is_write() {
     let sql = "WITH changed AS (SELECT id FROM t) UPDATE t SET x = 1 WHERE id IN (SELECT id FROM changed)";
-    assert!(matches!(classify_statement(sql), StatementClass::Write));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Write
+    ));
 }
 
 #[test]
 fn classify_with_delete_is_write() {
     let sql = "WITH deleted AS (SELECT id FROM t) DELETE FROM t WHERE id IN (SELECT id FROM deleted)";
-    assert!(matches!(classify_statement(sql), StatementClass::Write));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Write
+    ));
 }
 
 #[test]
 fn classify_with_multiple_ctes_update_is_write() {
     let sql = "WITH a AS (SELECT 1), b AS (SELECT 2) UPDATE t SET x = 1";
-    assert!(matches!(classify_statement(sql), StatementClass::Write));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Write
+    ));
 }
 
 #[test]
 fn classify_leading_comment_stripped() {
     let sql = "-- comment\nSELECT 1";
-    assert!(matches!(classify_statement(sql), StatementClass::Read));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Read
+    ));
 }
 
 #[test]
 fn classify_leading_block_comment_stripped() {
     let sql = "/* block */ INSERT INTO t VALUES (1)";
-    assert!(matches!(classify_statement(sql), StatementClass::Write));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Write
+    ));
 }
 
 #[test]
 fn classify_with_paren_in_string_literal() {
     let sql = "WITH cte AS (SELECT 'value )' AS text) UPDATE t SET x = 1";
-    assert!(matches!(classify_statement(sql), StatementClass::Write));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Write
+    ));
 }
 
 #[test]
 fn classify_with_escaped_quote_in_string() {
     let sql = "WITH cte AS (SELECT 'it''s )' AS text) SELECT * FROM cte";
-    assert!(matches!(classify_statement(sql), StatementClass::Read));
+    assert!(matches!(
+        classify_statement(sql, DriverType::Postgres),
+        StatementClass::Read
+    ));
 }
 
 #[tokio::test]

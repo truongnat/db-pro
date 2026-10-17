@@ -1,7 +1,9 @@
+use super::connection::DriverType;
 use safety_cte::classify_cte_safety;
 use safety_lexer::{
-    is_identifier_continue, is_identifier_start, matching_parenthesis_end, scan_identifier, skip_block_comment,
-    skip_dollar_quote, skip_line_comment, skip_quoted, special_token_end, token_is_word, tokenize_sql, SqlTokenKind,
+    is_escape_string_start, is_identifier_continue, is_identifier_start, matching_parenthesis_end, scan_identifier,
+    skip_block_comment, skip_dollar_quote, skip_line_comment, skip_quoted, special_token_end, token_is_word,
+    tokenize_sql, SqlTokenKind,
 };
 pub use safety_policy::{validate_against_policy, ConnectionSafetyPolicy};
 
@@ -45,6 +47,24 @@ impl StatementSafety {
 /// Classify a SQL statement for safety enforcement.
 /// This is a best-effort heuristic, not a full SQL parser.
 pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
+    classify_statement_safety_for_driver(sql, DriverType::Postgres)
+}
+
+/// `classify_statement_safety` honouring the driver's string-escape rules.
+/// Only MySQL turns on backslash escapes inside `'…'` strings; PostgreSQL's
+/// `standard_conforming_strings` (on by default) does not (#477).
+pub fn classify_statement_safety_for_driver(sql: &str, driver: DriverType) -> Option<StatementSafety> {
+    classify_statement_safety_lexed(sql, backslash_escapes_for_driver(driver))
+}
+
+/// `true` only for drivers whose `'…'` strings treat `\` as an escape by
+/// default. The lexers enable the same behaviour for `E'…'` literals on their
+/// own, without this flag.
+pub(crate) fn backslash_escapes_for_driver(driver: DriverType) -> bool {
+    matches!(driver, DriverType::Mysql)
+}
+
+fn classify_statement_safety_lexed(sql: &str, backslash_escapes: bool) -> Option<StatementSafety> {
     let trimmed = sql.trim().trim_end_matches(';').trim();
     if trimmed.is_empty() {
         return None;
@@ -60,24 +80,24 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
         "SELECT" => {
             // SELECT … INTO creates a table (Postgres) or writes a file (MySQL OUTFILE):
             // a top-level INTO is DDL-shaped, not a plain read.
-            if has_top_level_sql_keyword(trimmed, "INTO") {
+            if has_top_level_sql_keyword(trimmed, "INTO", backslash_escapes) {
                 Some(StatementSafety::Ddl)
             } else {
                 Some(StatementSafety::Read)
             }
         }
-        "EXPLAIN" => classify_explain_safety(trimmed),
-        "WITH" => classify_cte_safety(trimmed),
+        "EXPLAIN" => classify_explain_safety(trimmed, backslash_escapes),
+        "WITH" => classify_cte_safety(trimmed, backslash_escapes),
         "INSERT" => Some(StatementSafety::Write),
         "UPDATE" => {
-            if statement_lacks_effective_where(trimmed) {
+            if statement_lacks_effective_where(trimmed, backslash_escapes) {
                 Some(StatementSafety::Destructive)
             } else {
                 Some(StatementSafety::Write)
             }
         }
         "DELETE" => {
-            if statement_lacks_effective_where(trimmed) {
+            if statement_lacks_effective_where(trimmed, backslash_escapes) {
                 Some(StatementSafety::Destructive)
             } else {
                 Some(StatementSafety::Write)
@@ -94,7 +114,7 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
         // These statements can execute server-side or dynamically prepared
         // mutations that the client-side classifier cannot inspect safely.
         "DO" | "CALL" | "EXECUTE" => Some(StatementSafety::Destructive),
-        "MERGE" => classify_merge_safety(trimmed),
+        "MERGE" => classify_merge_safety(trimmed, backslash_escapes),
         _ => Some(StatementSafety::Write),
     }
 }
@@ -107,9 +127,15 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
 /// statement in it (#147, #129). Returns `None` only when the script holds no
 /// statement at all.
 pub fn classify_script_safety(sql: &str) -> Option<StatementSafety> {
-    split_statements(sql)
+    classify_script_safety_for_driver(sql, DriverType::Postgres)
+}
+
+/// `classify_script_safety` honouring the driver's string-escape rules (#477).
+pub fn classify_script_safety_for_driver(sql: &str, driver: DriverType) -> Option<StatementSafety> {
+    let backslash_escapes = backslash_escapes_for_driver(driver);
+    split_statements_for_driver(sql, driver)
         .into_iter()
-        .filter_map(|statement| classify_statement_safety(&statement))
+        .filter_map(|statement| classify_statement_safety_lexed(&statement, backslash_escapes))
         .max_by_key(|safety| safety.severity_rank())
 }
 
@@ -152,13 +178,25 @@ pub fn transaction_control_verb(sql: &str) -> Option<&'static str> {
 /// dollar-quoted bodies do not terminate a statement, and comment-only
 /// fragments are dropped rather than returned as empty statements.
 pub fn split_statements(sql: &str) -> Vec<String> {
+    split_statements_for_driver(sql, DriverType::Postgres)
+}
+
+/// `split_statements` honouring the driver's string-escape rules.
+///
+/// PostgreSQL's `standard_conforming_strings` (on by default) means a trailing
+/// `\` inside `'…'` is plain text, so `'x\'; …` is a closed string followed by a
+/// real statement boundary. MySQL's default sql_mode treats `\'` as an escaped
+/// quote instead. The default `split_statements` keeps the PostgreSQL reading,
+/// which is the safe interpretation for every other driver (#477).
+pub fn split_statements_for_driver(sql: &str, driver: DriverType) -> Vec<String> {
+    let backslash_escapes = backslash_escapes_for_driver(driver);
     let mut statements = Vec::new();
     let mut current = String::new();
     let bytes = sql.as_bytes();
     let mut index = 0;
 
     while index < bytes.len() {
-        if let Some(end) = special_token_end(bytes, index) {
+        if let Some(end) = special_token_end(bytes, index, backslash_escapes) {
             current.push_str(&sql[index..end]);
             index = end;
         } else if bytes[index] == b';' {
@@ -185,8 +223,8 @@ fn push_statement(statements: &mut Vec<String>, current: &str) {
     }
 }
 
-fn classify_merge_safety(sql: &str) -> Option<StatementSafety> {
-    if contains_sql_keyword(sql, "DELETE") {
+fn classify_merge_safety(sql: &str, backslash_escapes: bool) -> Option<StatementSafety> {
+    if contains_sql_keyword(sql, "DELETE", backslash_escapes) {
         Some(StatementSafety::Destructive)
     } else {
         Some(StatementSafety::Write)
@@ -195,19 +233,21 @@ fn classify_merge_safety(sql: &str) -> Option<StatementSafety> {
 
 /// For EXPLAIN statements: plain EXPLAIN is Read, but EXPLAIN ANALYZE actually
 /// executes the inner statement, so its safety depends on the inner statement.
-fn classify_explain_safety(sql: &str) -> Option<StatementSafety> {
+fn classify_explain_safety(sql: &str, backslash_escapes: bool) -> Option<StatementSafety> {
     let mut remainder = strip_leading_comments(consume_keyword(sql, "EXPLAIN")?.1).trim_start();
 
     // PostgreSQL's parenthesized EXPLAIN options are metadata, not the query
     // being explained. Only ANALYZE causes the inner statement to execute.
     if remainder.starts_with('(') {
-        let end = matching_parenthesis_end(remainder)?;
+        let end = matching_parenthesis_end(remainder, backslash_escapes)?;
         let options = &remainder[1..end - 1];
-        if !contains_sql_keyword(options, "ANALYZE") && !contains_sql_keyword(options, "ANALYSE") {
+        if !contains_sql_keyword(options, "ANALYZE", backslash_escapes)
+            && !contains_sql_keyword(options, "ANALYSE", backslash_escapes)
+        {
             return Some(StatementSafety::Read);
         }
         remainder = remainder[end..].trim_start();
-        return classify_statement_safety(remainder);
+        return classify_statement_safety_lexed(remainder, backslash_escapes);
     }
 
     // The legacy spelling is EXPLAIN [ANALYZE] [VERBOSE] statement. Match
@@ -224,7 +264,7 @@ fn classify_explain_safety(sql: &str) -> Option<StatementSafety> {
         inner_sql = strip_leading_comments(after_verbose).trim_start();
     }
 
-    classify_statement_safety(inner_sql)
+    classify_statement_safety_lexed(inner_sql, backslash_escapes)
 }
 
 fn consume_keyword<'a>(sql: &'a str, expected: &str) -> Option<(&'a str, &'a str)> {
@@ -249,22 +289,22 @@ fn consume_keyword<'a>(sql: &'a str, expected: &str) -> Option<(&'a str, &'a str
 
 /// Check whether a DELETE/UPDATE's top-level WHERE clause is missing or is a
 /// trivially-true predicate (`WHERE TRUE`, `WHERE 1=1`, `WHERE 'a'='a'`).
-fn statement_lacks_effective_where(sql: &str) -> bool {
-    let Some(clause) = top_level_where_clause(sql) else {
+fn statement_lacks_effective_where(sql: &str, backslash_escapes: bool) -> bool {
+    let Some(clause) = top_level_where_clause(sql, backslash_escapes) else {
         return true;
     };
-    where_clause_is_tautology(clause)
+    where_clause_is_tautology(clause, backslash_escapes)
 }
 
 /// The text of the depth-0 WHERE clause, up to the next clause keyword
 /// (`RETURNING`, `ORDER BY`, `LIMIT`, …). `None` when no top-level WHERE exists —
 /// a WHERE inside a subquery does not restrict the outer mutation.
-fn top_level_where_clause(sql: &str) -> Option<&str> {
+fn top_level_where_clause(sql: &str, backslash_escapes: bool) -> Option<&str> {
     const CLAUSE_ENDERS: [&str; 6] = ["returning", "order", "group", "limit", "offset", "output"];
     let mut depth = 0usize;
     let mut where_start = None;
     let mut clause_end = sql.len();
-    for token in tokenize_sql(sql) {
+    for token in tokenize_sql(sql, backslash_escapes) {
         match token.kind {
             SqlTokenKind::OpenParen => depth += 1,
             SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),
@@ -283,13 +323,12 @@ fn top_level_where_clause(sql: &str) -> Option<&str> {
     }
     where_start.map(|start| &sql[start..clause_end])
 }
-
 /// True when the clause text is a single literal truthy expression:
 /// `TRUE`, a non-zero number, or `LITERAL = LITERAL` with equal literals.
 /// Anything more complex stays effective — false negatives keep writes gated.
-fn where_clause_is_tautology(clause: &str) -> bool {
-    let compact = compact_clause(clause);
-    let compact = strip_outer_parentheses(&compact);
+fn where_clause_is_tautology(clause: &str, backslash_escapes: bool) -> bool {
+    let compact = compact_clause(clause, backslash_escapes);
+    let compact = strip_outer_parentheses(compact.as_str(), backslash_escapes);
     if compact.eq_ignore_ascii_case("true") {
         return true;
     }
@@ -313,7 +352,7 @@ fn is_sql_literal(text: &str) -> bool {
 
 /// Remove whitespace, comments and `;` outside of quoted strings, then collapse
 /// runs of real whitespace to a single space so tokens stay separated.
-fn compact_clause(clause: &str) -> String {
+fn compact_clause(clause: &str, backslash_escapes: bool) -> String {
     let bytes = clause.as_bytes();
     let mut out = String::with_capacity(clause.len());
     let mut index = 0;
@@ -325,7 +364,16 @@ fn compact_clause(clause: &str) -> String {
                     out.push(' ');
                 }
                 pending_space = false;
-                let end = skip_quoted(bytes, index, bytes[index]);
+                let end = skip_quoted(bytes, index, bytes[index], backslash_escapes);
+                out.push_str(&clause[index..end]);
+                index = end;
+            }
+            byte if is_escape_string_start(bytes, index, byte) => {
+                if pending_space && !out.is_empty() {
+                    out.push(' ');
+                }
+                pending_space = false;
+                let end = skip_quoted(bytes, index + 1, b'\'', true);
                 out.push_str(&clause[index..end]);
                 index = end;
             }
@@ -349,10 +397,13 @@ fn compact_clause(clause: &str) -> String {
 }
 
 /// Strip balanced outer parentheses: `((1=1))` reduces to `1=1`.
-fn strip_outer_parentheses(text: &str) -> &str {
+fn strip_outer_parentheses(text: &str, backslash_escapes: bool) -> &str {
     let mut text = text.trim();
     loop {
-        if text.starts_with('(') && text.ends_with(')') && matching_parenthesis_end(text) == Some(text.len()) {
+        if text.starts_with('(')
+            && text.ends_with(')')
+            && matching_parenthesis_end(text, backslash_escapes) == Some(text.len())
+        {
             text = text[1..text.len() - 1].trim();
         } else {
             return text;
@@ -363,13 +414,14 @@ fn strip_outer_parentheses(text: &str) -> &str {
 /// Find a keyword while ignoring quoted strings, quoted identifiers, and SQL
 /// comments. This is intentionally not a full SQL parser; it prevents a
 /// keyword-like substring from changing the destructive-operation decision.
-fn contains_sql_keyword(sql: &str, expected: &str) -> bool {
+fn contains_sql_keyword(sql: &str, expected: &str, backslash_escapes: bool) -> bool {
     let bytes = sql.as_bytes();
     let mut index = 0;
     while index < bytes.len() {
         index = match bytes[index] {
-            b'\'' => skip_quoted(bytes, index, b'\''),
-            b'"' => skip_quoted(bytes, index, b'"'),
+            b'\'' => skip_quoted(bytes, index, b'\'', backslash_escapes),
+            b'"' => skip_quoted(bytes, index, b'"', backslash_escapes),
+            byte if is_escape_string_start(bytes, index, byte) => skip_quoted(bytes, index + 1, b'\'', true),
             b'-' if bytes.get(index + 1) == Some(&b'-') => skip_line_comment(bytes, index),
             b'/' if bytes.get(index + 1) == Some(&b'*') => skip_block_comment(bytes, index),
             b'$' => skip_dollar_quote(bytes, index).unwrap_or(index + 1),
@@ -387,9 +439,9 @@ fn contains_sql_keyword(sql: &str, expected: &str) -> bool {
     false
 }
 
-pub(crate) fn has_top_level_sql_keyword(sql: &str, expected: &str) -> bool {
+pub(crate) fn has_top_level_sql_keyword(sql: &str, expected: &str, backslash_escapes: bool) -> bool {
     let mut depth = 0usize;
-    for token in tokenize_sql(sql) {
+    for token in tokenize_sql(sql, backslash_escapes) {
         match token.kind {
             SqlTokenKind::OpenParen => depth += 1,
             SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),

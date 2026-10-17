@@ -596,3 +596,64 @@ fn transaction_control_detection_does_not_match_inside_a_statement() {
         assert_eq!(transaction_control_verb(statement), None, "statement: {statement}");
     }
 }
+
+// #477: `standard_conforming_strings` is on by default in PostgreSQL, so `\`
+// inside `'…'` is a literal backslash, not an escape. `'x\'` closes the string
+// and the tail is a real second statement — splitting it as one would let a
+// destructive statement ride through `reject_multi_statement`.
+#[test]
+fn split_statements_postgres_backslash_does_not_escape_quote() {
+    let stmts = split_statements("SELECT 'x\\'; SELECT 2");
+    assert_eq!(stmts.len(), 2, "{stmts:?}");
+
+    let stmts = split_statements_for_driver("SELECT 'x\\'; SELECT 2", DriverType::Postgres);
+    assert_eq!(stmts.len(), 2, "{stmts:?}");
+
+    // SQLite, SQL Server, and every non-MySQL driver share the standard reading.
+    for driver in [DriverType::SQLite, DriverType::SqlServer] {
+        assert_eq!(split_statements_for_driver("SELECT 'x\\'; SELECT 2", driver).len(), 2);
+    }
+}
+
+// MySQL's default sql_mode keeps `\'` as an escaped quote, so the same text
+// stays a single statement there.
+#[test]
+fn split_statements_mysql_backslash_escapes_quote() {
+    let stmts = split_statements_for_driver("SELECT 'x\\'; SELECT 2", DriverType::Mysql);
+    assert_eq!(stmts.len(), 1, "{stmts:?}");
+    assert_eq!(stmts[0], "SELECT 'x\\'; SELECT 2");
+
+    let stmts = split_statements_for_driver("SELECT 'it\\'s ok'; SELECT 2", DriverType::Mysql);
+    assert_eq!(stmts.len(), 2, "{stmts:?}");
+}
+
+// `E'…'` literals opt into backslash escapes on their own, whatever the driver.
+#[test]
+fn split_statements_escape_string_literal() {
+    let stmts = split_statements("SELECT E'x\\''; SELECT 2");
+    assert_eq!(stmts.len(), 2, "{stmts:?}");
+    assert_eq!(stmts[0], "SELECT E'x\\''");
+
+    // Lowercase prefix, and content after the escape-string's closing quote.
+    let stmts = split_statements("SELECT e'a\\'b' AS s; SELECT 2");
+    assert_eq!(stmts.len(), 2, "{stmts:?}");
+
+    // `E` glued to an identifier is not an escape-string prefix — the `'…'`
+    // runs as a standard string with no backslash escapes.
+    let stmts = split_statements("SELECT someE'x\\'; SELECT 2");
+    assert_eq!(stmts.len(), 2, "{stmts:?}");
+}
+
+#[test]
+fn script_safety_sees_statements_after_a_closed_backslash_string() {
+    assert_eq!(
+        classify_script_safety("SELECT 'x\\'; DROP TABLE important; --"),
+        Some(StatementSafety::Destructive)
+    );
+    // On MySQL the same text is a single read; the follow-up only fires where
+    // the string actually closes.
+    assert_eq!(
+        classify_script_safety_for_driver("SELECT 'x\\'; DROP TABLE important; --", DriverType::Mysql),
+        Some(StatementSafety::Read)
+    );
+}

@@ -7,7 +7,7 @@ use crate::domain::schema::{IntrospectResult, TableInfo};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
-use super::sql_policy::{placeholder_remains, split_statements};
+use super::sql_policy::{placeholder_remains, split_statements_for_driver};
 use schema_ddl::{build_create_table_ddl, format_trigger_ddl};
 use schema_table_info::build_table_info;
 
@@ -213,7 +213,8 @@ impl SchemaService {
 
     pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<u64, DbError> {
         reject_unexpanded_placeholder(sql)?;
-        let statements = split_statements(sql);
+        let driver = self.connection_config(connection_id).await?.driver;
+        let statements = split_statements_for_driver(sql, driver);
         if statements.is_empty() {
             return Err(DbError::QueryFailed("empty SQL statement".into()));
         }
@@ -221,11 +222,12 @@ impl SchemaService {
     }
 
     pub async fn execute_ddl_batch(&self, connection_id: &ConnectionId, statements: &[String]) -> Result<u64, DbError> {
+        let driver = self.connection_config(connection_id).await?.driver;
         let policy = self.safety_policy_for(connection_id).await?;
         let mut flat = Vec::new();
         for sql in statements {
             reject_unexpanded_placeholder(sql)?;
-            let parts = split_statements(sql);
+            let parts = split_statements_for_driver(sql, driver);
             if parts.is_empty() {
                 return Err(DbError::QueryFailed("empty SQL statement".into()));
             }

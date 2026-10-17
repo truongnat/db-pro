@@ -45,13 +45,15 @@ impl ExportService {
 
     // cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
     async fn execute_for_export(&self, connection_id: &ConnectionId, sql: &str) -> Result<QueryResult, DbError> {
-        reject_multi_statement(sql)?;
-
         let config = self
             .connections
             .get_config(connection_id)
             .await?
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+
+        // Split with the driver's escape rules so MySQL `\'` literals don't
+        // falsely read as multi-statement — and PG `x\` strings can't hide one (#477).
+        reject_multi_statement(sql, config.driver)?;
         let policy = if config.readonly {
             ConnectionSafetyPolicy::read_only()
         } else {

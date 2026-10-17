@@ -1,15 +1,16 @@
 use super::safety_lexer::{token_is_word, tokenize_sql, SqlToken, SqlTokenKind};
-use super::{classify_statement_safety, StatementSafety};
+use super::{classify_statement_safety_lexed, StatementSafety};
 
 /// For WITH (CTE) statements, find the main keyword after the CTE definitions.
 /// Data-modifying CTE bodies execute as side effects even when the outer query
 /// returns rows, so their mutations must participate in safety classification.
-pub(super) fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
-    CteSafetyAnalyzer::new(sql)?.classify()
+pub(super) fn classify_cte_safety(sql: &str, backslash_escapes: bool) -> Option<StatementSafety> {
+    CteSafetyAnalyzer::new(sql, backslash_escapes)?.classify()
 }
 
 struct CteSafetyAnalyzer<'a> {
     sql: &'a str,
+    backslash_escapes: bool,
     tokens: Vec<SqlToken>,
     cursor: usize,
     has_mutation: bool,
@@ -17,8 +18,8 @@ struct CteSafetyAnalyzer<'a> {
 }
 
 impl<'a> CteSafetyAnalyzer<'a> {
-    fn new(sql: &'a str) -> Option<Self> {
-        let tokens = tokenize_sql(sql);
+    fn new(sql: &'a str, backslash_escapes: bool) -> Option<Self> {
+        let tokens = tokenize_sql(sql, backslash_escapes);
         let with_index = tokens.iter().position(|token| token_is_word(sql, *token, "WITH"))?;
         let mut cursor = with_index + 1;
         if tokens
@@ -29,6 +30,7 @@ impl<'a> CteSafetyAnalyzer<'a> {
         }
         Some(Self {
             sql,
+            backslash_escapes,
             tokens,
             cursor,
             has_mutation: false,
@@ -54,7 +56,7 @@ impl<'a> CteSafetyAnalyzer<'a> {
         let outer_safety = self
             .tokens
             .get(outer_index)
-            .and_then(|token| classify_statement_safety(&self.sql[token.start..]));
+            .and_then(|token| classify_statement_safety_lexed(&self.sql[token.start..], self.backslash_escapes));
         combine_cte_safety(outer_safety, self.has_mutation, self.has_destructive_delete)
     }
 

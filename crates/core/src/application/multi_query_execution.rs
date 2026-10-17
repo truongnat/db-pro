@@ -2,7 +2,7 @@ use super::{
     classify_statement, format_transaction_failure, transaction_control_rejection, MultiQueryError, MultiQueryResult,
     QueryService, StatementClass, StatementResultKind,
 };
-use crate::domain::connection::ConnectionId;
+use crate::domain::connection::{ConnectionId, DriverType};
 use crate::domain::query::QueryResult;
 use crate::domain::safety::{transaction_control_verb, validate_against_policy, ConnectionSafetyPolicy};
 use crate::ports::{TransactionFailure, TransactionFailureOutcome, TransactionStatementResult};
@@ -12,6 +12,7 @@ pub(super) struct MultiQueryExecution<'a> {
     pub(super) connection_id: &'a ConnectionId,
     pub(super) handle: &'a crate::domain::connection::ConnectionHandle,
     pub(super) policy: &'a ConnectionSafetyPolicy,
+    pub(super) driver: DriverType,
     pub(super) statements: &'a [String],
     pub(super) query_statements: &'a [bool],
     pub(super) has_schema_change: bool,
@@ -117,7 +118,7 @@ impl MultiQueryExecution<'_> {
                 return self.finish(results, result_kinds, Some((index, MultiQueryError::message(message))));
             }
 
-            match classify_statement(statement) {
+            match classify_statement(statement, self.driver) {
                 StatementClass::Read => match self.service.connector.query(self.handle, statement, &[]).await {
                     Ok(result) => {
                         if let Err(error) = result.validate() {

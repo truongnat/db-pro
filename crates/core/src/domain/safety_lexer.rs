@@ -1,7 +1,12 @@
-pub(super) fn special_token_end(bytes: &[u8], start: usize) -> Option<usize> {
+pub(super) fn special_token_end(bytes: &[u8], start: usize, backslash_escapes: bool) -> Option<usize> {
     match bytes[start] {
-        b'\'' => Some(skip_quoted(bytes, start, b'\'')),
-        b'"' => Some(skip_quoted(bytes, start, b'"')),
+        b'\'' => Some(skip_quoted(bytes, start, b'\'', backslash_escapes)),
+        b'"' => Some(skip_quoted(bytes, start, b'"', backslash_escapes)),
+        byte if is_escape_string_start(bytes, start, byte) => {
+            // PostgreSQL `E'…'` literals opt into backslash escapes regardless of
+            // `standard_conforming_strings`.
+            Some(skip_quoted(bytes, start + 1, b'\'', true))
+        }
         b'-' if bytes.get(start + 1) == Some(&b'-') => Some(skip_line_comment(bytes, start)),
         b'/' if bytes.get(start + 1) == Some(&b'*') => Some(skip_block_comment(bytes, start)),
         b'$' => skip_dollar_quote(bytes, start),
@@ -9,14 +14,23 @@ pub(super) fn special_token_end(bytes: &[u8], start: usize) -> Option<usize> {
     }
 }
 
-pub(super) fn matching_parenthesis_end(sql: &str) -> Option<usize> {
+/// `E`/`e` directly followed by `'`, where the `E` is not the tail of an
+/// identifier (`someE'…'` is an identifier followed by a plain string).
+pub(super) fn is_escape_string_start(bytes: &[u8], start: usize, byte: u8) -> bool {
+    (byte == b'E' || byte == b'e')
+        && bytes.get(start + 1) == Some(&b'\'')
+        && (start == 0 || !is_identifier_continue(bytes[start - 1]))
+}
+
+pub(super) fn matching_parenthesis_end(sql: &str, backslash_escapes: bool) -> Option<usize> {
     let bytes = sql.as_bytes();
     let mut depth = 0;
     let mut index = 0;
     while index < bytes.len() {
         index = match bytes[index] {
-            b'\'' => skip_quoted(bytes, index, b'\''),
-            b'"' => skip_quoted(bytes, index, b'"'),
+            b'\'' => skip_quoted(bytes, index, b'\'', backslash_escapes),
+            b'"' => skip_quoted(bytes, index, b'"', backslash_escapes),
+            byte if is_escape_string_start(bytes, index, byte) => skip_quoted(bytes, index + 1, b'\'', true),
             b'-' if bytes.get(index + 1) == Some(&b'-') => skip_line_comment(bytes, index),
             b'/' if bytes.get(index + 1) == Some(&b'*') => skip_block_comment(bytes, index),
             b'$' => skip_dollar_quote(bytes, index).unwrap_or(index + 1),
@@ -54,10 +68,19 @@ pub(super) fn scan_identifier(bytes: &[u8], start: usize) -> usize {
     end
 }
 
-pub(super) fn skip_quoted(bytes: &[u8], start: usize, quote: u8) -> usize {
+/// Scan a quoted run that starts at `bytes[start] == quote` and return the index
+/// just past its closing quote. Doubled quotes (`''`, `""`) always stay inside.
+///
+/// `backslash_escapes` controls whether `\x` hides `x` from the closing-quote
+/// scan. It must only be true for MySQL (whose default sql_mode enables
+/// backslash escapes) or for PostgreSQL `E'…'` literals — callers opt into those
+/// cases. With `standard_conforming_strings=on` (the PostgreSQL default) `'x\'`
+/// is the string `x\` followed by a closing quote, so a trailing backslash never
+/// escapes a quote (#477).
+pub(super) fn skip_quoted(bytes: &[u8], start: usize, quote: u8, escapes_enabled: bool) -> usize {
     let mut index = start + 1;
     while index < bytes.len() {
-        if quote == b'\'' && bytes[index] == b'\\' {
+        if escapes_enabled && quote == b'\'' && bytes[index] == b'\\' {
             index = (index + 2).min(bytes.len());
         } else if bytes[index] == quote {
             if bytes.get(index + 1) == Some(&quote) {
@@ -138,15 +161,16 @@ pub(super) struct SqlToken {
     pub(super) end: usize,
 }
 
-pub(super) fn tokenize_sql(sql: &str) -> Vec<SqlToken> {
+pub(super) fn tokenize_sql(sql: &str, backslash_escapes: bool) -> Vec<SqlToken> {
     let bytes = sql.as_bytes();
     let mut tokens = Vec::new();
     let mut index = 0;
 
     while index < bytes.len() {
         if let Some(end) = match bytes[index] {
-            b'\'' => Some(skip_quoted(bytes, index, b'\'')),
-            b'"' => Some(skip_quoted(bytes, index, b'"')),
+            b'\'' => Some(skip_quoted(bytes, index, b'\'', backslash_escapes)),
+            b'"' => Some(skip_quoted(bytes, index, b'"', backslash_escapes)),
+            byte if is_escape_string_start(bytes, index, byte) => Some(skip_quoted(bytes, index + 1, b'\'', true)),
             b'-' if bytes.get(index + 1) == Some(&b'-') => Some(skip_line_comment(bytes, index)),
             b'/' if bytes.get(index + 1) == Some(&b'*') => Some(skip_block_comment(bytes, index)),
             b'$' => skip_dollar_quote(bytes, index),

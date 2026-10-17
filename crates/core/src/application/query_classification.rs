@@ -1,21 +1,24 @@
-use crate::domain::safety::has_top_level_sql_keyword;
+use crate::domain::connection::DriverType;
+use crate::domain::safety::{backslash_escapes_for_driver, has_top_level_sql_keyword};
 
 pub(super) enum StatementClass {
     Read,
     Write,
 }
 
-pub(super) fn classify_statement(sql: &str) -> StatementClass {
+pub(super) fn classify_statement(sql: &str, driver: DriverType) -> StatementClass {
+    let backslash_escapes = backslash_escapes_for_driver(driver);
     let keyword = effective_keyword(sql);
     match keyword {
         Some(k) if is_read_keyword(&k) => StatementClass::Read,
-        Some(k) if is_row_producing_mutation(&k, sql) => StatementClass::Read,
+        Some(k) if is_row_producing_mutation(&k, sql, backslash_escapes) => StatementClass::Read,
         _ => StatementClass::Write,
     }
 }
 
-fn is_row_producing_mutation(keyword: &str, sql: &str) -> bool {
-    matches!(keyword, "INSERT" | "UPDATE" | "DELETE" | "MERGE") && has_top_level_sql_keyword(sql, "RETURNING")
+fn is_row_producing_mutation(keyword: &str, sql: &str, backslash_escapes: bool) -> bool {
+    matches!(keyword, "INSERT" | "UPDATE" | "DELETE" | "MERGE")
+        && has_top_level_sql_keyword(sql, "RETURNING", backslash_escapes)
 }
 
 fn is_read_keyword(word: &str) -> bool {

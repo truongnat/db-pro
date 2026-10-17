@@ -1,7 +1,8 @@
+use crate::domain::connection::DriverType;
 use crate::domain::error::DbError;
 
-pub(crate) fn reject_multi_statement(sql: &str) -> Result<(), DbError> {
-    let statements = split_statements(sql);
+pub(crate) fn reject_multi_statement(sql: &str, driver: DriverType) -> Result<(), DbError> {
+    let statements = split_statements_for_driver(sql, driver);
     if statements.is_empty() {
         return Err(DbError::QueryFailed("empty SQL statement".into()));
     }
@@ -16,7 +17,7 @@ pub(crate) fn reject_multi_statement(sql: &str) -> Result<(), DbError> {
 // The statement splitter lives in the domain layer (`crate::domain::safety`) so that the
 // safety classifier and the execution policy share one token/quote/dollar-quote-aware
 // implementation instead of two drifting copies.
-pub use crate::domain::safety::split_statements;
+pub use crate::domain::safety::split_statements_for_driver;
 
 /// Leftover migration markers. Apply must refuse these instead of creating a fake table.
 pub fn placeholder_remains(sql: &str) -> bool {
