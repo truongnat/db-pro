@@ -791,19 +791,23 @@ fn map_monitoring_command(command: UiCommand) -> Option<RuntimeCommand> {
             request_id,
             connection_id,
             backend_id,
+            expected_backend_start,
         } => Some(RuntimeCommand::MonitoringCancelBackend {
             request_id: runtime_request_id(request_id),
             connection_id,
             backend_id,
+            expected_backend_start,
         }),
         UiCommand::MonitoringTerminateBackend {
             request_id,
             connection_id,
             backend_id,
+            expected_backend_start,
         } => Some(RuntimeCommand::MonitoringTerminateBackend {
             request_id: runtime_request_id(request_id),
             connection_id,
             backend_id,
+            expected_backend_start,
         }),
         UiCommand::MonitoringMaintenance {
             request_id,

@@ -145,18 +145,34 @@ impl MonitoringService {
             .await
     }
 
-    pub async fn cancel_backend(&self, connection_id: &ConnectionId, backend_id: i64) -> Result<bool, DbError> {
+    pub async fn cancel_backend(
+        &self,
+        connection_id: &ConnectionId,
+        backend_id: i64,
+        expected_backend_start: &str,
+    ) -> Result<bool, DbError> {
         self.ensure_pg(connection_id).await?;
         validate_backend_id(backend_id)?;
+        validate_backend_start(expected_backend_start)?;
         let handle = self.active_handle(connection_id)?;
-        self.pg.cancel_backend(&handle, backend_id).await
+        self.pg
+            .cancel_backend(&handle, backend_id, expected_backend_start)
+            .await
     }
 
-    pub async fn terminate_backend(&self, connection_id: &ConnectionId, backend_id: i64) -> Result<bool, DbError> {
+    pub async fn terminate_backend(
+        &self,
+        connection_id: &ConnectionId,
+        backend_id: i64,
+        expected_backend_start: &str,
+    ) -> Result<bool, DbError> {
         self.ensure_pg(connection_id).await?;
         validate_backend_id(backend_id)?;
+        validate_backend_start(expected_backend_start)?;
         let handle = self.active_handle(connection_id)?;
-        self.pg.terminate_backend(&handle, backend_id).await
+        self.pg
+            .terminate_backend(&handle, backend_id, expected_backend_start)
+            .await
     }
 
     fn active_handle(
@@ -182,6 +198,17 @@ fn validate_backend_id(backend_id: i64) -> Result<(), DbError> {
     if backend_id <= 0 {
         return Err(DbError::Validation(
             "backend id must be a positive PostgreSQL pid".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_backend_start(expected_backend_start: &str) -> Result<(), DbError> {
+    if expected_backend_start.trim().is_empty() {
+        // Without the snapshot timestamp the pid is ambiguous — a recycled pid
+        // must never receive a cancel/terminate signal (#501).
+        return Err(DbError::Validation(
+            "expected backend_start timestamp is required to guard against pid reuse".into(),
         ));
     }
     Ok(())

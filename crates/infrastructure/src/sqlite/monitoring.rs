@@ -70,13 +70,23 @@ impl MonitoringPort for SqliteMonitoringPort {
         }))
     }
 
-    async fn cancel_backend(&self, _handle: &ConnectionHandle, _backend_id: i64) -> Result<bool, DbError> {
+    async fn cancel_backend(
+        &self,
+        _handle: &ConnectionHandle,
+        _backend_id: i64,
+        _expected_backend_start: &str,
+    ) -> Result<bool, DbError> {
         Err(DbError::Unsupported(
             "SQLite has no backend sessions to cancel; use query interrupt on the active connection".into(),
         ))
     }
 
-    async fn terminate_backend(&self, _handle: &ConnectionHandle, _backend_id: i64) -> Result<bool, DbError> {
+    async fn terminate_backend(
+        &self,
+        _handle: &ConnectionHandle,
+        _backend_id: i64,
+        _expected_backend_start: &str,
+    ) -> Result<bool, DbError> {
         Err(DbError::Unsupported(
             "SQLite has no backend sessions to terminate".into(),
         ))

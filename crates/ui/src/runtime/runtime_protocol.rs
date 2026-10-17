@@ -226,11 +226,15 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         backend_id: i64,
+        /// `pg_stat_activity.backend_start` from the confirmed snapshot row —
+        /// guards against pid reuse between snapshot and confirm (#501).
+        expected_backend_start: String,
     },
     MonitoringTerminateBackend {
         request_id: RequestId,
         connection_id: String,
         backend_id: i64,
+        expected_backend_start: String,
     },
     MonitoringMaintenance {
         request_id: RequestId,

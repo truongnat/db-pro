@@ -17,10 +17,25 @@ pub trait MonitoringPort: Send + Sync {
     async fn local_state(&self, handle: &ConnectionHandle) -> Result<Option<LocalMonitorState>, DbError>;
 
     /// Cancel the query running on `backend_id` (PostgreSQL `pg_cancel_backend`).
-    async fn cancel_backend(&self, handle: &ConnectionHandle, backend_id: i64) -> Result<bool, DbError>;
+    /// `expected_backend_start` is the `pg_stat_activity.backend_start` captured
+    /// in the monitoring snapshot; implementations MUST refuse the signal when
+    /// the pid's current `backend_start` differs, so a recycled pid can never
+    /// hit an innocent session (#501).
+    async fn cancel_backend(
+        &self,
+        handle: &ConnectionHandle,
+        backend_id: i64,
+        expected_backend_start: &str,
+    ) -> Result<bool, DbError>;
 
     /// Terminate the backend session (PostgreSQL `pg_terminate_backend`).
-    async fn terminate_backend(&self, handle: &ConnectionHandle, backend_id: i64) -> Result<bool, DbError>;
+    /// Same recycled-pid contract as [`Self::cancel_backend`] (#501).
+    async fn terminate_backend(
+        &self,
+        handle: &ConnectionHandle,
+        backend_id: i64,
+        expected_backend_start: &str,
+    ) -> Result<bool, DbError>;
 
     /// Lock + blocker relationships (#197).
     async fn list_locks(&self, handle: &ConnectionHandle) -> Result<Vec<MonitorLock>, DbError>;

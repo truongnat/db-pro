@@ -170,6 +170,22 @@ impl DbProApp {
         {
             ctx.request_repaint_after(Duration::from_millis(50));
         }
+        // Monitoring auto-refresh is draw-driven; egui never wakes on its own,
+        // so schedule the repaint that lets request_monitoring_poll_if_due
+        // fire while the user is idle (#489). Gated on the Monitor activity —
+        // when it is hidden last_poll goes stale and the remaining time would
+        // clamp to the floor, repainting at ~20fps for nothing.
+        if self.workspace.activity == Activity::Monitor
+            && self.management.monitoring.monitoring_poll
+            && self.connection.lifecycle.is_connected()
+            && self.connection.lifecycle.active_connection_id().is_some()
+        {
+            let remaining = monitoring_activity_view::monitoring_poll_remaining(
+                self.management.monitoring.monitoring_last_poll,
+                std::time::Instant::now(),
+            );
+            ctx.request_repaint_after(remaining.max(Duration::from_millis(50)));
+        }
         self.theme = if self.preferences.dark_mode {
             DbProTheme::dark()
         } else {

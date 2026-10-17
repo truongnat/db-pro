@@ -221,11 +221,15 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         backend_id: i64,
+        /// `pg_stat_activity.backend_start` from the snapshot the user
+        /// confirmed — guards against pid reuse (#501).
+        expected_backend_start: String,
     },
     MonitoringTerminateBackend {
         request_id: RuntimeRequestId,
         connection_id: String,
         backend_id: i64,
+        expected_backend_start: String,
     },
     MonitoringMaintenance {
         request_id: RuntimeRequestId,
@@ -1864,11 +1868,15 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     backend_id,
+                    expected_backend_start,
                 } => {
                     let monitoring_api = runtime.monitoring_api();
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
-                        let event = match monitoring_api.cancel_backend(&connection_id, backend_id).await {
+                        let event = match monitoring_api
+                            .cancel_backend(&connection_id, backend_id, &expected_backend_start)
+                            .await
+                        {
                             Ok(succeeded) => RuntimeEvent::MonitoringActionCompleted {
                                 request_id,
                                 action: "cancel",
@@ -1887,11 +1895,15 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     backend_id,
+                    expected_backend_start,
                 } => {
                     let monitoring_api = runtime.monitoring_api();
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
-                        let event = match monitoring_api.terminate_backend(&connection_id, backend_id).await {
+                        let event = match monitoring_api
+                            .terminate_backend(&connection_id, backend_id, &expected_backend_start)
+                            .await
+                        {
                             Ok(succeeded) => RuntimeEvent::MonitoringActionCompleted {
                                 request_id,
                                 action: "terminate",

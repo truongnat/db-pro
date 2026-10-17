@@ -168,7 +168,7 @@
                         wait_event: None,
                         query_text: Some("SELECT 1".into()),
                         query_duration_ms: None,
-                        backend_start: None,
+                        backend_start: Some("2026-10-17 08:15:00.123456+00".into()),
                         xact_start: None,
                         query_start: None,
                         xact_age_ms: None,
@@ -185,11 +185,21 @@
                 Err(std::sync::mpsc::TryRecvError::Empty)
             ));
             activity.apply_monitoring_confirmation_actions(vec![
-                crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend(42),
+                crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend {
+                    backend_id: 42,
+                    backend_start: Some("2026-10-17 08:15:00.123456+00".into()),
+                },
             ]);
         }
         match command_rx.try_recv() {
-            Ok(UiCommand::MonitoringCancelBackend { backend_id, .. }) => assert_eq!(backend_id, 42),
+            Ok(UiCommand::MonitoringCancelBackend {
+                backend_id,
+                expected_backend_start,
+                ..
+            }) => {
+                assert_eq!(backend_id, 42);
+                assert_eq!(expected_backend_start, "2026-10-17 08:15:00.123456+00");
+            }
             Ok(_) => panic!("confirm did not cancel the backend"),
             Err(error) => panic!("cancel confirm sent no command: {error}"),
         }
@@ -260,4 +270,117 @@
         assert!(files_tab.contains("request_shell"));
         assert!(files_tab.contains("confirm_replace_all"));
         assert!(files_tab.contains("confirm_shell"));
+    }
+
+    #[test]
+    fn terminate_confirm_carries_backend_start_into_command() {
+        let (mut bridge, command_rx, _event_tx) = crate::TaskBridge::with_channels();
+        let mut dispatcher = crate::app::command_dispatch::RuntimeCommandDispatcher::new(&mut bridge);
+        let mut state = MonitoringState::default();
+        let mut feedback = crate::app::FeedbackState::default();
+        {
+            let mut activity = MonitoringActivityContext {
+                theme: crate::DbProTheme::default(),
+                state: &mut state,
+                connected: true,
+                driver: "PostgreSQL",
+                connection_name: "source",
+                connection_id: Some("conn-1"),
+                command_dispatcher: &mut dispatcher,
+                feedback: &mut feedback,
+            };
+            activity.apply_monitoring_confirmation_actions(vec![
+                crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate {
+                    backend_id: 77,
+                    backend_start: Some("2026-10-17 08:15:00.5+00".into()),
+                },
+            ]);
+        }
+        match command_rx.try_recv() {
+            Ok(UiCommand::MonitoringTerminateBackend {
+                backend_id,
+                expected_backend_start,
+                ..
+            }) => {
+                assert_eq!(backend_id, 77);
+                assert_eq!(expected_backend_start, "2026-10-17 08:15:00.5+00");
+            }
+            Ok(_) => panic!("confirm did not terminate the backend"),
+            Err(error) => panic!("terminate confirm sent no command: {error}"),
+        }
+    }
+
+    #[test]
+    fn terminate_without_backend_start_refuses_to_signal_ambiguous_pid() {
+        // A missing snapshot timestamp means the pid is unverifiable — the
+        // action must be a no-op, never a blind terminate (#501).
+        let (mut bridge, command_rx, _event_tx) = crate::TaskBridge::with_channels();
+        let mut dispatcher = crate::app::command_dispatch::RuntimeCommandDispatcher::new(&mut bridge);
+        let mut state = MonitoringState::default();
+        let mut feedback = crate::app::FeedbackState::default();
+        {
+            let mut activity = MonitoringActivityContext {
+                theme: crate::DbProTheme::default(),
+                state: &mut state,
+                connected: true,
+                driver: "PostgreSQL",
+                connection_name: "source",
+                connection_id: Some("conn-1"),
+                command_dispatcher: &mut dispatcher,
+                feedback: &mut feedback,
+            };
+            activity.apply_monitoring_confirmation_actions(vec![
+                crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate {
+                    backend_id: 77,
+                    backend_start: None,
+                },
+            ]);
+        }
+        assert!(matches!(
+            command_rx.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ));
+        assert!(feedback.runtime_message.contains("session start time"));
+    }
+
+    #[test]
+    fn monitoring_poll_remaining_drives_idle_repaint() {
+        use std::time::{Duration, Instant};
+        let now = Instant::now();
+        // Never polled → due immediately.
+        assert_eq!(super::monitoring_poll_remaining(None, now), Duration::ZERO);
+        // Just polled → full interval remains.
+        assert_eq!(
+            super::monitoring_poll_remaining(Some(now), now),
+            super::MONITORING_POLL_INTERVAL
+        );
+        // Mid-interval → the leftover is what prepare_frame must wait (#489).
+        let last = now - Duration::from_secs(2);
+        assert_eq!(
+            super::monitoring_poll_remaining(Some(last), now),
+            Duration::from_secs(3)
+        );
+        // Overdue (e.g. monitor was hidden) → due immediately, not negative.
+        let stale = now - Duration::from_secs(60);
+        assert_eq!(
+            super::monitoring_poll_remaining(Some(stale), now),
+            Duration::ZERO
+        );
+        // A future last_poll (clock skew) must saturate, not panic.
+        let future = now + Duration::from_secs(60);
+        assert_eq!(
+            super::monitoring_poll_remaining(Some(future), now),
+            super::MONITORING_POLL_INTERVAL
+        );
+        // prepare_frame must request the repaint — otherwise egui idles and
+        // the poll never fires without user input.
+        let lifecycle = include_str!("../../app/app_lifecycle.rs");
+        assert!(
+            lifecycle.contains("request_repaint_after(remaining.max"),
+            "prepare_frame must schedule the monitoring poll repaint"
+        );
+        assert!(
+            lifecycle.contains("monitoring_poll_remaining"),
+            "prepare_frame must compute the remaining poll interval"
+        );
     }

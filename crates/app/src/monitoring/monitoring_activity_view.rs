@@ -64,12 +64,7 @@ impl MonitoringActivityContext<'_, '_> {
         if !self.connected || !self.state.monitoring_poll {
             return;
         }
-        let due = self
-            .state
-            .monitoring_last_poll
-            .map(|time| time.elapsed() >= std::time::Duration::from_secs(5))
-            .unwrap_or(true);
-        if due {
+        if monitoring_poll_remaining(self.state.monitoring_last_poll, std::time::Instant::now()).is_zero() {
             self.request_monitoring_snapshot();
         }
     }
@@ -80,17 +75,24 @@ impl MonitoringActivityContext<'_, '_> {
     ) {
         for action in actions {
             match action {
-                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate(backend_id) => {
-                    if self.terminate_monitoring_backend(backend_id) {
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate {
+                    backend_id,
+                    backend_start,
+                } => {
+                    if self.terminate_monitoring_backend(backend_id, backend_start) {
                         self.state.monitoring_terminate_confirm = None;
                     }
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::CancelTerminate => {
                     self.state.monitoring_terminate_confirm = None;
                 }
-                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend(backend_id) => {
-                    self.cancel_monitoring_backend(backend_id);
-                    self.state.monitoring_cancel_confirm = None;
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmCancelBackend {
+                    backend_id,
+                    backend_start,
+                } => {
+                    if self.cancel_monitoring_backend(backend_id, backend_start) {
+                        self.state.monitoring_cancel_confirm = None;
+                    }
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::DismissCancelBackend => {
                     self.state.monitoring_cancel_confirm = None;
@@ -115,9 +117,16 @@ impl MonitoringActivityContext<'_, '_> {
         }
     }
 
-    fn terminate_monitoring_backend(&mut self, backend_id: i64) -> bool {
+    fn terminate_monitoring_backend(&mut self, backend_id: i64, backend_start: Option<String>) -> bool {
         let Some(connection_id) = self.connection_id else {
             self.feedback.set_runtime_message("Connect a database first");
+            return false;
+        };
+        let Some(backend_start) = backend_start else {
+            // No snapshot timestamp → the pid is ambiguous; never signal a
+            // possibly-recycled pid (#501).
+            self.feedback
+                .set_runtime_message("Cannot terminate: session start time is unknown — refresh and retry");
             return false;
         };
         let request_id = self.command_dispatcher.next_request_id();
@@ -125,6 +134,7 @@ impl MonitoringActivityContext<'_, '_> {
             request_id,
             connection_id.to_owned(),
             backend_id,
+            backend_start,
         ))
     }
 
@@ -188,17 +198,23 @@ impl MonitoringActivityContext<'_, '_> {
         }
     }
 
-    fn cancel_monitoring_backend(&mut self, backend_id: i64) {
+    fn cancel_monitoring_backend(&mut self, backend_id: i64, backend_start: Option<String>) -> bool {
         let Some(connection_id) = self.connection_id else {
             self.feedback.set_runtime_message("Connect a database first");
-            return;
+            return false;
+        };
+        let Some(backend_start) = backend_start else {
+            self.feedback
+                .set_runtime_message("Cannot cancel: session start time is unknown — refresh and retry");
+            return false;
         };
         let request_id = self.command_dispatcher.next_request_id();
         self.dispatch(cancel_backend_command(
             request_id,
             connection_id.to_owned(),
             backend_id,
-        ));
+            backend_start,
+        ))
     }
 
     fn request_monitoring_workload(&mut self) {
@@ -253,19 +269,31 @@ fn workload_command(state: &MonitoringState, request_id: RequestId, connection_i
     }
 }
 
-fn cancel_backend_command(request_id: RequestId, connection_id: String, backend_id: i64) -> UiCommand {
+fn cancel_backend_command(
+    request_id: RequestId,
+    connection_id: String,
+    backend_id: i64,
+    expected_backend_start: String,
+) -> UiCommand {
     UiCommand::MonitoringCancelBackend {
         request_id,
         connection_id,
         backend_id,
+        expected_backend_start,
     }
 }
 
-fn terminate_backend_command(request_id: RequestId, connection_id: String, backend_id: i64) -> UiCommand {
+fn terminate_backend_command(
+    request_id: RequestId,
+    connection_id: String,
+    backend_id: i64,
+    expected_backend_start: String,
+) -> UiCommand {
     UiCommand::MonitoringTerminateBackend {
         request_id,
         connection_id,
         backend_id,
+        expected_backend_start,
     }
 }
 
@@ -312,6 +340,24 @@ fn reset_statements_command(request_id: RequestId, connection_id: String) -> UiC
         connection_id,
         confirmed: true,
     }
+}
+
+/// Monitoring auto-refresh cadence. The poll only fires while a frame is
+/// painted, so `prepare_frame` schedules `request_repaint_after` with exactly
+/// this remaining time — without it egui idles forever and the view goes stale
+/// (#489).
+pub(super) const MONITORING_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Time until the next monitoring poll is due; `ZERO` means poll now.
+/// `saturating_duration_since` tolerates a `last_poll` recorded after `now`.
+pub(super) fn monitoring_poll_remaining(
+    last_poll: Option<std::time::Instant>,
+    now: std::time::Instant,
+) -> std::time::Duration {
+    let Some(last_poll) = last_poll else {
+        return std::time::Duration::ZERO;
+    };
+    MONITORING_POLL_INTERVAL.saturating_sub(now.saturating_duration_since(last_poll))
 }
 
 #[cfg(test)]

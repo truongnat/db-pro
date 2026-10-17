@@ -49,6 +49,46 @@ ORDER BY
     pid
 "#;
 
+const LIST_LOCKS_SQL: &str = r#"
+SELECT
+    a.pid AS locked_pid,
+    -- pg_blocking_pids is PostgreSQL's own answer: it accounts for lock-mode
+    -- conflict, fast-path locks, and prepared-xact/group blockers, so
+    -- compatible grants are never misreported as blockers (#482).
+    (pg_catalog.pg_blocking_pids(a.pid))[1]::bigint AS blocker_pid,
+    COALESCE(c.relname, l.locktype::text) AS relation,
+    l.locktype::text,
+    l.mode::text,
+    l.granted,
+    CASE
+        WHEN a.state = 'active' AND a.wait_event_type = 'Lock' AND a.query_start IS NOT NULL
+        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - a.query_start)) * 1000))::bigint
+        ELSE NULL
+    END AS waiting_ms
+FROM pg_catalog.pg_locks l
+JOIN pg_catalog.pg_stat_activity a ON a.pid = l.pid
+LEFT JOIN pg_catalog.pg_class c ON c.oid = l.relation
+WHERE a.backend_type = 'client backend'
+ORDER BY l.granted, a.pid
+LIMIT 200
+"#;
+
+// backend_start disambiguates recycled PIDs: between the snapshot and the
+// confirm click another session may have taken over the pid (#501). The guard
+// compares as timestamptz (not text) so a differing connection TimeZone cannot
+// produce a false mismatch.
+const CANCEL_BACKEND_SQL: &str = r#"
+SELECT pg_catalog.pg_cancel_backend(a.pid)
+FROM pg_catalog.pg_stat_activity a
+WHERE a.pid = $1 AND a.backend_start = $2::timestamptz
+"#;
+
+const TERMINATE_BACKEND_SQL: &str = r#"
+SELECT pg_catalog.pg_terminate_backend(a.pid)
+FROM pg_catalog.pg_stat_activity a
+WHERE a.pid = $1 AND a.backend_start = $2::timestamptz
+"#;
+
 pub struct PostgresMonitoringPort {
     connector: Arc<dyn DbConnector>,
 }
@@ -120,26 +160,21 @@ impl MonitoringPort for PostgresMonitoringPort {
         Ok(None)
     }
 
-    async fn cancel_backend(&self, handle: &ConnectionHandle, backend_id: i64) -> Result<bool, DbError> {
-        let result = self
-            .connector
-            .query(handle, "SELECT pg_cancel_backend($1)", &[QueryParam::Int64(backend_id)])
-            .await?;
-        Ok(result
-            .rows
-            .first()
-            .and_then(|row| row.0.first())
-            .map(cell_bool)
-            .unwrap_or(false))
-    }
-
-    async fn terminate_backend(&self, handle: &ConnectionHandle, backend_id: i64) -> Result<bool, DbError> {
+    async fn cancel_backend(
+        &self,
+        handle: &ConnectionHandle,
+        backend_id: i64,
+        expected_backend_start: &str,
+    ) -> Result<bool, DbError> {
         let result = self
             .connector
             .query(
                 handle,
-                "SELECT pg_terminate_backend($1)",
-                &[QueryParam::Int64(backend_id)],
+                CANCEL_BACKEND_SQL,
+                &[
+                    QueryParam::Int64(backend_id),
+                    QueryParam::Text(expected_backend_start.to_owned()),
+                ],
             )
             .await?;
         Ok(result
@@ -150,55 +185,33 @@ impl MonitoringPort for PostgresMonitoringPort {
             .unwrap_or(false))
     }
 
-    // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
+    async fn terminate_backend(
+        &self,
+        handle: &ConnectionHandle,
+        backend_id: i64,
+        expected_backend_start: &str,
+    ) -> Result<bool, DbError> {
+        let result = self
+            .connector
+            .query(
+                handle,
+                TERMINATE_BACKEND_SQL,
+                &[
+                    QueryParam::Int64(backend_id),
+                    QueryParam::Text(expected_backend_start.to_owned()),
+                ],
+            )
+            .await?;
+        Ok(result
+            .rows
+            .first()
+            .and_then(|row| row.0.first())
+            .map(cell_bool)
+            .unwrap_or(false))
+    }
+
     async fn list_locks(&self, handle: &ConnectionHandle) -> Result<Vec<MonitorLock>, DbError> {
-        let result = self
-            .connector
-            .query(
-                handle,
-                r#"
-                SELECT
-                    a.pid AS locked_pid,
-                    blocked.pid AS blocker_pid,
-                    COALESCE(c.relname, l.locktype::text) AS relation,
-                    l.locktype::text,
-                    l.mode::text,
-                    l.granted,
-                    CASE
-                        WHEN a.state = 'active' AND a.wait_event_type = 'Lock' AND a.query_start IS NOT NULL
-                        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - a.query_start)) * 1000))::bigint
-                        ELSE NULL
-                    END AS waiting_ms
-                FROM pg_catalog.pg_locks l
-                JOIN pg_catalog.pg_stat_activity a ON a.pid = l.pid
-                LEFT JOIN pg_catalog.pg_class c ON c.oid = l.relation
-                LEFT JOIN LATERAL (
-                    SELECT DISTINCT blocking.pid
-                    FROM pg_catalog.pg_locks waiting
-                    JOIN pg_catalog.pg_locks blocking
-                      ON waiting.locktype = blocking.locktype
-                     AND waiting.database IS NOT DISTINCT FROM blocking.database
-                     AND waiting.relation IS NOT DISTINCT FROM blocking.relation
-                     AND waiting.page IS NOT DISTINCT FROM blocking.page
-                     AND waiting.tuple IS NOT DISTINCT FROM blocking.tuple
-                     AND waiting.virtualxid IS NOT DISTINCT FROM blocking.virtualxid
-                     AND waiting.transactionid IS NOT DISTINCT FROM blocking.transactionid
-                     AND waiting.classid IS NOT DISTINCT FROM blocking.classid
-                     AND waiting.objid IS NOT DISTINCT FROM blocking.objid
-                     AND waiting.objsubid IS NOT DISTINCT FROM blocking.objsubid
-                     AND waiting.pid <> blocking.pid
-                     AND waiting.granted = false
-                     AND blocking.granted = true
-                    WHERE waiting.pid = a.pid
-                    LIMIT 1
-                ) blocked ON true
-                WHERE a.backend_type = 'client backend'
-                ORDER BY l.granted, a.pid
-                LIMIT 200
-                "#,
-                &[],
-            )
-            .await?;
+        let result = self.connector.query(handle, LIST_LOCKS_SQL, &[]).await?;
         let mut locks = Vec::with_capacity(result.rows.len());
         for row in result.rows {
             let cells = &row.0;
@@ -528,3 +541,7 @@ fn quote_ident(value: &str) -> Result<String, DbError> {
     }
     Ok(format!("\"{}\"", value.replace('"', "\"\"")))
 }
+
+#[cfg(test)]
+#[path = "tests/monitoring_tests.rs"]
+mod tests;

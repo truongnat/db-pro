@@ -231,8 +231,31 @@ async fn cancel_rejects_non_positive_backend_id() {
         registry,
         Box::new(repo),
     );
-    let err = service.cancel_backend(&id, 0).await.unwrap_err();
+    let err = service
+        .cancel_backend(&id, 0, "2026-10-17 08:15:00+00")
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("positive"));
+}
+
+#[tokio::test]
+async fn cancel_and_terminate_reject_missing_backend_start() {
+    // Without the snapshot's backend_start the pid is ambiguous — signalling a
+    // possibly-recycled pid could kill an innocent session (#501).
+    let id = ConnectionId::new();
+    let mut repo = MockConnectionRepository::new();
+    let cfg = config(DriverType::Postgres);
+    repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+    let service = MonitoringService::new(
+        Box::new(MockMonitoringPort::new()),
+        Box::new(MockMonitoringPort::new()),
+        Arc::new(ConnectionRegistry::new()),
+        Box::new(repo),
+    );
+    let err = service.cancel_backend(&id, 42, "").await.unwrap_err();
+    assert!(err.to_string().contains("backend_start"), "{err}");
+    let err = service.terminate_backend(&id, 42, "   ").await.unwrap_err();
+    assert!(err.to_string().contains("backend_start"), "{err}");
 }
 
 #[tokio::test]
@@ -245,8 +268,8 @@ async fn cancel_targets_exact_backend_id() {
 
     let mut port = MockMonitoringPort::new();
     port.expect_cancel_backend()
-        .with(eq(handle), eq(99_i64))
-        .returning(|_, _| Ok(true));
+        .with(eq(handle), eq(99_i64), eq("2026-10-17 08:15:00+00"))
+        .returning(|_, _, _| Ok(true));
 
     let registry = Arc::new(ConnectionRegistry::new());
     registry.register(id, handle);
@@ -256,7 +279,7 @@ async fn cancel_targets_exact_backend_id() {
         registry,
         Box::new(repo),
     );
-    assert!(service.cancel_backend(&id, 99).await.unwrap());
+    assert!(service.cancel_backend(&id, 99, "2026-10-17 08:15:00+00").await.unwrap());
 }
 
 #[tokio::test]
