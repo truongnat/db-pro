@@ -44,6 +44,9 @@ pub struct MaskingPreview {
     pub columns: Vec<String>,
     pub original: Vec<Vec<String>>,
     pub masked: Vec<Vec<String>>,
+    /// Profile rules that matched no column header — they mask nothing (#503).
+    #[serde(default)]
+    pub unmatched_rules: Vec<String>,
     pub message: String,
 }
 
@@ -67,21 +70,15 @@ pub fn suggest_sensitive_columns(column_names: &[String]) -> Vec<String> {
 }
 
 // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
-pub fn mask_cell(value: &str, rule: &ColumnMask, keyed: bool, key_material: &str) -> String {
-    if value.eq_ignore_ascii_case("null") {
+pub fn mask_cell(value: Option<&str>, rule: &ColumnMask, keyed: bool, key_material: &str) -> String {
+    // SQL NULL is preserved verbatim: masking must never rewrite a real NULL
+    // into masked-looking content. Only `None` is NULL — the literal text
+    // "null" is ordinary data and gets masked like any other value (#502).
+    let Some(value) = value else {
         return "NULL".into();
-    }
-    if value.is_empty() && matches!(rule.rule, MaskRule::PreserveNull) {
-        return value.to_owned();
-    }
+    };
     match rule.rule {
-        MaskRule::PreserveNull => {
-            if value.eq_ignore_ascii_case("null") {
-                "NULL".into()
-            } else {
-                value.to_owned()
-            }
-        }
+        MaskRule::PreserveNull => value.to_owned(),
         MaskRule::Redact => "***".into(),
         MaskRule::Fixed => {
             if rule.replacement.is_empty() {
@@ -120,16 +117,33 @@ pub fn mask_cell(value: &str, rule: &ColumnMask, keyed: bool, key_material: &str
     }
 }
 
-pub fn mask_row(headers: &[String], cells: &[String], profile: &MaskingProfile, key_material: &str) -> Vec<String> {
+/// Profile rules whose column name matches no header (case-insensitive).
+/// A rule that matches nothing masks nothing — surfacing it keeps a typo'd or
+/// mis-cased column name from silently leaving sensitive data raw (#503).
+pub fn unmatched_mask_rules(headers: &[String], profile: &MaskingProfile) -> Vec<String> {
+    profile
+        .columns
+        .iter()
+        .filter(|rule| !headers.iter().any(|header| header.eq_ignore_ascii_case(&rule.column)))
+        .map(|rule| rule.column.clone())
+        .collect()
+}
+
+pub fn mask_row(
+    headers: &[String],
+    cells: &[Option<&str>],
+    profile: &MaskingProfile,
+    key_material: &str,
+) -> Vec<String> {
     cells
         .iter()
         .enumerate()
         .map(|(i, cell)| {
             let col = headers.get(i).map(String::as_str).unwrap_or("");
-            if let Some(rule) = profile.columns.iter().find(|c| c.column == col) {
-                mask_cell(cell, rule, profile.keyed, key_material)
+            if let Some(rule) = profile.columns.iter().find(|c| c.column.eq_ignore_ascii_case(col)) {
+                mask_cell(*cell, rule, profile.keyed, key_material)
             } else {
-                cell.clone()
+                cell.map(str::to_owned).unwrap_or_else(|| "NULL".into())
             }
         })
         .collect()
@@ -143,18 +157,31 @@ pub fn preview_masking(
 ) -> MaskingPreview {
     let masked = rows
         .iter()
-        .map(|row| mask_row(headers, row, profile, key_material))
+        .map(|row| {
+            let cells = row.iter().map(|cell| Some(cell.as_str())).collect::<Vec<_>>();
+            mask_row(headers, &cells, profile, key_material)
+        })
         .collect::<Vec<_>>();
+    let unmatched_rules = unmatched_mask_rules(headers, profile);
+    let mut message = format!(
+        "preview {} rows · {} mask rule(s) · keyed={}",
+        rows.len(),
+        profile.columns.len(),
+        profile.keyed
+    );
+    if !unmatched_rules.is_empty() {
+        message.push_str(&format!(
+            " · {} rule(s) match no column: {}",
+            unmatched_rules.len(),
+            unmatched_rules.join(", ")
+        ));
+    }
     MaskingPreview {
         columns: headers.to_vec(),
         original: rows.to_vec(),
         masked,
-        message: format!(
-            "preview {} rows · {} mask rule(s) · keyed={}",
-            rows.len(),
-            profile.columns.len(),
-            profile.keyed
-        ),
+        unmatched_rules,
+        message,
     }
 }
 
@@ -165,10 +192,21 @@ pub fn mask_transfer_batch(
     profile: &MaskingProfile,
     key_material: &str,
 ) -> Vec<crate::domain::transfer::TransferRow> {
+    let unmatched = unmatched_mask_rules(headers, profile);
+    if !unmatched.is_empty() {
+        tracing::warn!(
+            table = %profile.table,
+            unmatched_rules = %unmatched.join(", "),
+            "masking: profile rules match no column header; those columns export raw"
+        );
+    }
     batch
         .iter()
-        .map(|row| crate::domain::transfer::TransferRow {
-            cells: mask_row(headers, &row.cells, profile, key_material),
+        .map(|row| {
+            let cells = row.cells.iter().map(|cell| Some(cell.as_str())).collect::<Vec<_>>();
+            crate::domain::transfer::TransferRow {
+                cells: mask_row(headers, &cells, profile, key_material),
+            }
         })
         .collect()
 }
