@@ -10,9 +10,9 @@ pub(super) fn on_query_saved(
     request_id: RequestId,
     query: UiSavedQuerySummary,
 ) -> Option<usize> {
-    let document_id = query_session.save_requests.remove(&request_id);
+    let save_target = query_session.save_requests.remove(&request_id);
     let mut close_index = None;
-    if let Some(document_id) = document_id {
+    if let Some((document_id, saved_version)) = save_target {
         if let Some((index, doc)) = query_session
             .documents
             .iter_mut()
@@ -20,9 +20,14 @@ pub(super) fn on_query_saved(
             .find(|(_, doc)| doc.id == document_id)
         {
             doc.saved_query_id = Some(query.id.clone());
-            doc.mark_saved();
-            if query_session.pending_close_after_save == Some(index) {
-                close_index = Some(index);
+            // Only mark_saved if buffer hasn't been edited since dispatch (#446).
+            if doc.buffer.version() == saved_version {
+                doc.mark_saved();
+                if query_session.pending_close_after_save == Some(index) {
+                    close_index = Some(index);
+                }
+            } else {
+                feedback.set_runtime_message("Saved an earlier version — current edits remain unsaved");
             }
         }
     }

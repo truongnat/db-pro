@@ -68,13 +68,10 @@ impl<'a> QuerySaveContext<'a> {
     }
 
     pub(crate) fn commit_dispatched(&mut self, request_id: RequestId, document_index: usize) {
-        if let Some(document_id) = self
-            .session
-            .documents
-            .get(document_index)
-            .map(|document| document.id.clone())
-        {
-            self.session.save_requests.insert(request_id, document_id);
+        if let Some(doc) = self.session.documents.get(document_index) {
+            let doc_id = doc.id.clone();
+            let version = doc.buffer.version();
+            self.session.save_requests.insert(request_id, (doc_id, version));
         }
         self.feedback.set_runtime_message("Saving query…");
     }

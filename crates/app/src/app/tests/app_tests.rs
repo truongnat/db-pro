@@ -5295,10 +5295,11 @@ fn saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it() {
     app.query.session.documents[0].set_text("SELECT changed;");
     assert!(app.query.session.documents[0].is_dirty());
     let save_request = crate::RequestId(302);
+    let version = app.query.session.documents[0].buffer.version();
     app.query
         .session
         .save_requests
-        .insert(save_request, "query-1".to_owned());
+        .insert(save_request, ("query-1".to_owned(), version));
     event_tx
         .send(UiEvent::QuerySaved {
             request_id: save_request,
@@ -5319,10 +5320,11 @@ fn saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it() {
 
     app.query.session.documents[0].set_text("SELECT failed;");
     let failed_save_request = crate::RequestId(303);
+    let version2 = app.query.session.documents[0].buffer.version();
     app.query
         .session
         .save_requests
-        .insert(failed_save_request, "query-1".to_owned());
+        .insert(failed_save_request, ("query-1".to_owned(), version2));
     event_tx
         .send(UiEvent::QueryFailed {
             request_id: failed_save_request,

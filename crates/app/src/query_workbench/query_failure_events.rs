@@ -26,7 +26,7 @@ pub(super) fn on_query_failed(
         workspace,
         feedback,
     } = context;
-    if let Some(document_id) = query_session.save_requests.remove(&request_id) {
+    if let Some((document_id, _)) = query_session.save_requests.remove(&request_id) {
         if query_session.pending_close_after_save.is_some_and(|index| {
             query_session
                 .documents

@@ -31,7 +31,7 @@
         let mut context = QuerySaveContext::new(&mut session, &library, &mut feedback);
         context.commit_dispatched(RequestId(7), 0);
         assert_eq!(
-            session.save_requests.get(&RequestId(7)).map(String::as_str),
+            session.save_requests.get(&RequestId(7)).map(|(id, _)| id.as_str()),
             Some("doc-1")
         );
         assert!(feedback.runtime_message.contains("Saving"));

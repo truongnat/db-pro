@@ -18,7 +18,7 @@ pub(crate) struct QuerySessionState {
     pub(super) active_document_index: usize,
     pub(super) selected_text: String,
     pub(super) document_requests: HashMap<RequestId, String>,
-    pub(super) save_requests: HashMap<RequestId, String>,
+    pub(super) save_requests: HashMap<RequestId, (String, u64)>,
     pub(super) pending_dirty_close: Option<usize>,
     /// Bulk tab closes ("Close Other/Right/All") staged here while the dirty
     /// confirmation is up — closing must never silently drop unsaved SQL.
