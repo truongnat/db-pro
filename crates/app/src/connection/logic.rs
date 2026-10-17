@@ -14,10 +14,16 @@ pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String
     if draft.name.trim().is_empty() || draft.database.trim().is_empty() {
         return Err("Name and database are required".to_owned());
     }
-    if matches!(draft.driver, UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer)
-        && !is_valid_port(&draft.port)
-    {
-        return Err("Port must be a number between 1 and 65535".to_owned());
+    if matches!(draft.driver, UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer) {
+        if draft.host.trim().is_empty() {
+            return Err("Host is required".to_owned());
+        }
+        if draft.username.trim().is_empty() {
+            return Err("Username is required".to_owned());
+        }
+        if !is_valid_port(&draft.port) {
+            return Err("Port must be a number between 1 and 65535".to_owned());
+        }
     }
     if draft.ssh_tunnel_enabled {
         if draft.ssh_host.trim().is_empty()

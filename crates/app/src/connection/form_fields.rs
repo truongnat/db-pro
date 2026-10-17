@@ -183,6 +183,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                 Box::new(|ui| {
                     Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
                         .label(t!("connection.host"))
+                        .required(true)
                         .bordered(true)
                         .id_salt(focus_id::HOST)
                         .width(widths[0])
@@ -234,6 +235,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                 Box::new(|ui| {
                     Input::new(&mut self.dialog.draft.username, default_user, self.theme)
                         .label(t!("connection.username"))
+                        .required(true)
                         .bordered(true)
                         .id_salt(focus_id::USERNAME)
                         .width(widths[1])
