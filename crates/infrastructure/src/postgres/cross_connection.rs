@@ -7,6 +7,10 @@ pub async fn get_object_dependencies(
     schema: &str,
     object_name: &str,
 ) -> Result<Vec<ObjectDependency>, DbError> {
+    // Catalog identity is the OID, not a name match: `d.objid::regclass::text` omits the
+    // schema whenever the object sits in search_path, and a pattern match would treat
+    // `%`/`_` inside a user name as wildcards (#508). `to_regclass` resolves the bound
+    // text once, server-side.
     let sql = r#"
         SELECT
             d.classid::regclass::text AS object_type,
@@ -18,17 +22,17 @@ pub async fn get_object_dependencies(
                 ELSE (pg_catalog.pg_identify_object(d.refclassid, d.refobjid, d.refobjsubid)).identity
             END AS target_name
         FROM pg_catalog.pg_class c
-        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_catalog.pg_depend d
             ON d.classid = 'pg_catalog.pg_class'::regclass AND d.objid = c.oid
-        WHERE n.nspname = $1 AND c.relname = $2 AND d.deptype IN ('n', 'a')
+        WHERE d.objid = to_regclass($1) AND d.deptype IN ('n', 'a')
         ORDER BY object_type, source_name, depends_on_type, target_name, d.objsubid, d.refobjsubid
     "#;
 
-    // Names select catalog identity; regclass text is display-only and may omit the schema.
+    // regclass input grammar applies to text — quote each part so mixed-case or dotted
+    // names still resolve to exactly this schema.object, never a search_path sibling.
+    let qualified = format!("{}.{}", quote_ident(schema), quote_ident(object_name));
     let rows: Vec<(String, String, String, String)> = sqlx::query_as(sql)
-        .bind(schema)
-        .bind(object_name)
+        .bind(qualified)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::Internal(format!("get dependencies: {e}")))?;
@@ -165,3 +169,12 @@ pub async fn rename_schema_object(
 
     Ok(())
 }
+
+/// Double-quote one identifier for embedding in a qualified `regclass` input string (#508).
+fn quote_ident(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
+#[cfg(test)]
+#[path = "tests/cross_connection_tests.rs"]
+mod tests;
