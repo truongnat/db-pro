@@ -18,6 +18,7 @@ use super::query_mapper::MySqlQueryMapper;
 struct MySqlEntry {
     pool: MySqlPool,
     max_rows: u64,
+    query_timeout: Duration,
     /// `CONNECTION_ID()` of queries running on this handle. Cancel issues `KILL QUERY`.
     active_connections: Mutex<Vec<u64>>,
     /// Connection held from a successful `BEGIN` until `COMMIT` or `ROLLBACK`.
@@ -220,6 +221,7 @@ impl DbConnector for MySqlConnector {
             MySqlEntry {
                 pool,
                 max_rows: config.max_rows,
+                query_timeout: Duration::from_millis(config.query_timeout_ms.max(100)),
                 active_connections: Mutex::new(Vec::new()),
                 open_session: crate::transaction_session::SessionSlot::default(),
             },
@@ -249,6 +251,7 @@ impl DbConnector for MySqlConnector {
         let entry = pools
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+        let timeout = entry.query_timeout;
         let max_rows = entry.max_rows;
         let pool = entry.pool.clone();
         let session = entry.open_session.clone();
@@ -268,13 +271,13 @@ impl DbConnector for MySqlConnector {
             control,
         )
         .await?;
-        let (connection_id, result) = {
+        let query_future = async {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
             let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
                 .fetch_one(&mut *conn)
                 .await
                 .map_err(|error| DbError::QueryFailed(format!("MySQL connection id failed: {error}")))?;
-            self.track_connection(handle.0, connection_id);
+            let _active = self.track_guard(handle.0, connection_id);
 
             use futures_util::StreamExt;
             let mut stream = sqlx::query_with(sql, args).fetch(&mut *conn);
@@ -292,9 +295,13 @@ impl DbConnector for MySqlConnector {
                 }
             };
             drop(stream);
-            (connection_id, result)
+            result
         };
-        self.untrack_connection(handle.0, connection_id);
+        let result = tokio::time::timeout(timeout, query_future)
+            .await
+            .map_err(|_| DbError::QueryTimeout {
+                timeout_ms: timeout.as_millis() as u64,
+            })?;
         if result.is_ok() {
             lease.succeed();
         }
@@ -306,10 +313,10 @@ impl DbConnector for MySqlConnector {
         let entry = pools
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
+        let timeout = entry.query_timeout;
         let pool = entry.pool.clone();
         let session = entry.open_session.clone();
         drop(pools);
-
         let mut args = sqlx::mysql::MySqlArguments::default();
         super::query_mapper::bind_params(params, &mut args)?;
 
@@ -324,7 +331,7 @@ impl DbConnector for MySqlConnector {
             control,
         )
         .await?;
-        let result = {
+        let exec_future = async {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
             let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
                 .fetch_one(&mut *conn)
@@ -337,6 +344,11 @@ impl DbConnector for MySqlConnector {
                 .map(|result| result.rows_affected())
                 .map_err(|e| DbError::QueryFailed(format!("MySQL execute failed: {}", e)))
         };
+        let result = tokio::time::timeout(timeout, exec_future)
+            .await
+            .map_err(|_| DbError::QueryTimeout {
+                timeout_ms: timeout.as_millis() as u64,
+            })?;
         if result.is_ok() {
             lease.succeed();
         }
