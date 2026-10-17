@@ -54,9 +54,15 @@ impl DbProApp {
         })
     }
 
+    /// SQL for the destination-value dropdown of a single-column foreign key, or `None` when
+    /// the column is not an FK or the key is composite — a joined "7, 42" label cannot be
+    /// written back into one cell, so those columns stay plain text edits (#496).
     pub(crate) fn foreign_key_lookup_sql(&self, column: &str) -> Option<String> {
         let info = self.table.state.table_info.as_ref()?;
         let fk = table_fk_lookup::foreign_key_for_column(info, column)?;
+        if !table_fk_lookup::dropdown_applies(fk) {
+            return None;
+        }
         let driver = self
             .connection
             .lifecycle
@@ -71,6 +77,14 @@ impl DbProApp {
     pub(crate) fn apply_foreign_key_lookup(&mut self, column: &str, result: &UiQueryResult) {
         self.table.editing.fk_lookup_column = Some(column.to_owned());
         self.table.editing.fk_lookup_options = table_fk_lookup::options_from_result(result);
+        // The lookup is capped at `FK_LOOKUP_LIMIT`; when it lands exactly on the cap, flag
+        // that the dropdown may be truncated instead of implying the list is complete (#497).
+        if result.rows.len() >= table_fk_lookup::FK_LOOKUP_LIMIT {
+            self.feedback.set_runtime_message(format!(
+                "Foreign key values truncated to the first {} rows",
+                table_fk_lookup::FK_LOOKUP_LIMIT
+            ));
+        }
     }
 
     pub(crate) fn open_referenced_row(

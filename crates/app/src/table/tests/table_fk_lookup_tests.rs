@@ -243,3 +243,54 @@ fn foreign_key_lookup_edits_and_opens_referenced_row() {
     assert_eq!(filters[0].value, "2");
     assert_eq!(filters[0].data_type, "int4");
 }
+
+/// #496: a composite foreign key cannot offer a single-cell dropdown — the joined
+/// "7, 42" label cannot be written back into one column — so it falls back to a
+/// plain text edit. (`open_referenced_row` still navigates it via all key parts.)
+#[test]
+fn composite_foreign_key_gets_no_value_dropdown() {
+    let mut app = orders_app();
+
+    // 1 -> 2 targets: not 1:1, no dropdown.
+    let info = app.table.state.table_info.as_mut().unwrap();
+    info.foreign_keys[0].to_columns.push("tenant".to_owned());
+    assert!(app.foreign_key_lookup_sql("customer_id").is_none());
+
+    // 2 -> 1 sources: still not 1:1, and every member column stays a text edit.
+    let info = app.table.state.table_info.as_mut().unwrap();
+    info.foreign_keys[0].to_columns.pop();
+    info.foreign_keys[0].from_columns.push("note".to_owned());
+    assert!(app.foreign_key_lookup_sql("customer_id").is_none());
+    assert!(app.foreign_key_lookup_sql("note").is_none());
+}
+
+/// #497: the dropdown lookup must never pull the whole referenced table.
+#[test]
+fn foreign_key_lookup_sql_is_bounded_and_ordered() {
+    let app = orders_app();
+    let sql = app.foreign_key_lookup_sql("customer_id").expect("lookup sql");
+    assert!(sql.contains("LIMIT 500"), "{sql}");
+    assert!(sql.contains(r#"ORDER BY "id""#), "{sql}");
+    assert!(sql.starts_with(r#"SELECT "id" FROM "public"."customers""#), "{sql}");
+}
+
+/// #497: a lookup that lands exactly on the cap flags the dropdown as possibly
+/// truncated instead of implying the list is complete.
+#[test]
+fn foreign_key_lookup_reports_truncated_options() {
+    let mut app = orders_app();
+    let mut many = customer_ids();
+    many.rows = (0..table_fk_lookup::FK_LOOKUP_LIMIT)
+        .map(|id| vec![UiCell::Number(id.to_string())])
+        .collect();
+    many.row_count = table_fk_lookup::FK_LOOKUP_LIMIT as u64;
+
+    app.apply_foreign_key_lookup("customer_id", &many);
+
+    assert_eq!(app.table.editing.fk_lookup_options.len(), table_fk_lookup::FK_LOOKUP_LIMIT);
+    assert!(
+        app.feedback.runtime_message.contains("500"),
+        "{}",
+        app.feedback.runtime_message
+    );
+}

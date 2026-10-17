@@ -10,6 +10,19 @@ pub(crate) fn foreign_key_for_column<'a>(info: &'a UiTableInfo, column: &str) ->
         .find(|fk| fk.from_columns.iter().any(|from| from == column))
 }
 
+/// Bound on the destination values fetched for an FK cell dropdown (#497). Without it the
+/// lookup pulled the whole referenced table on every cell edit. `foreign_key_lookup_sql`
+/// reports the cap through this constant so the truncation note stays in sync.
+pub(crate) const FK_LOOKUP_LIMIT: usize = 500;
+
+/// A per-cell value dropdown only makes sense for a 1:1 foreign key (#496): `options_from_result`
+/// joins every selected column into one label, so a composite key would offer strings like
+/// "7, 42" that cannot be written back into a single column. Composite-FK cells stay plain
+/// text edits; `open_referenced_row` still navigates them via `referenced_row_filters`.
+pub(crate) fn dropdown_applies(fk: &UiTableForeignKey) -> bool {
+    fk.from_columns.len() == 1 && fk.to_columns.len() == 1
+}
+
 pub(crate) fn lookup_sql(dialect: &dyn SqlDialect, fk: &UiTableForeignKey) -> String {
     let columns = fk
         .to_columns
@@ -19,7 +32,14 @@ pub(crate) fn lookup_sql(dialect: &dyn SqlDialect, fk: &UiTableForeignKey) -> St
         .join(", ");
     let schema = dialect.quote_identifier(&fk.to_schema);
     let table = dialect.quote_identifier(&fk.to_table);
-    format!("SELECT {columns} FROM {schema}.{table}")
+    // Ordering by the leading referenced column is cheap and gives a deterministic prefix;
+    // the LIMIT is what keeps a large lookup table out of the dropdown fetch (#497).
+    let order_by = fk
+        .to_columns
+        .first()
+        .map(|column| format!(" ORDER BY {}", dialect.quote_identifier(column)))
+        .unwrap_or_default();
+    format!("SELECT {columns} FROM {schema}.{table}{order_by} LIMIT {FK_LOOKUP_LIMIT}")
 }
 
 pub(crate) fn options_from_result(result: &UiQueryResult) -> Vec<String> {
