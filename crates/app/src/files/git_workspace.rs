@@ -147,14 +147,20 @@ pub fn probe_git_status(root: &Path) -> GitWorkspaceStatus {
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty());
 
-    let porcelain = run_git(root, &["status", "--porcelain", "-uall"]).unwrap_or_default();
+    let porcelain = run_git(root, &["-c", "core.quotePath=false", "status", "--porcelain", "-uall"]).unwrap_or_default();
     let mut entries = Vec::new();
     for line in porcelain.lines() {
         if line.len() < 4 {
             continue;
         }
         let code = line[..2].to_owned();
-        let path = line[3..].trim().to_owned();
+        let raw_path = line[3..].trim();
+        // Unquote paths if git still quoted them (#469).
+        let path = if raw_path.starts_with('"') && raw_path.ends_with('"') && raw_path.len() >= 2 {
+            raw_path[1..raw_path.len() - 1].replace("\\\"", "\"").replace("\\\\", "\\")
+        } else {
+            raw_path.to_owned()
+        };
         if path.is_empty() {
             continue;
         }
