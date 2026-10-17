@@ -161,10 +161,15 @@ impl SidebarQueryLibraryContext<'_> {
                     .color(self.theme.text_muted),
             );
         });
-        let (_, header_response, _) = header.body(|ui| {
+        let (toggle_response, header_response, _) = header.body(|ui| {
             for query in queries {
                 actions.extend(self.draw_saved_query_entry(ui, query));
             }
+        });
+        // The collapsing chevron reports an unnamed Click node to AccessKit —
+        // label it after the fact so screen readers announce the folder (#344).
+        toggle_response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), folder.to_owned())
         });
         let theme = self.theme;
         context_action_menu(ui, &header_response.response, theme, |ui, close_menu| {
