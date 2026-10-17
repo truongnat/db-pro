@@ -186,3 +186,37 @@ async fn postgres_cancel_without_active_pool_returns_connection_failed() {
 
     assert!(matches!(error, DbError::ConnectionFailed(_)));
 }
+
+#[test]
+fn cancel_reports_backends_pg_cancel_backend_refused() {
+    // `pg_cancel_backend` returning false (backend gone or role lacks pg_signal_backend)
+    // must not read as a successful cancel (#481).
+    let error = super::cancel_failures(vec![123, 456]).expect_err("refused pids must fail");
+    let message = error.to_string();
+    assert!(message.contains("123"), "names the refused pid: {message}");
+    assert!(message.contains("456"), "names every refused pid: {message}");
+    assert!(message.contains("cancel"), "identifies the failed action: {message}");
+}
+
+#[test]
+fn cancel_with_no_refused_backends_succeeds() {
+    assert!(super::cancel_failures(Vec::new()).is_ok());
+}
+
+#[test]
+fn owned_cancel_reads_pg_cancel_backend_result() {
+    // No live server in unit tests: check the shipped function fetches the boolean and
+    // routes refused pids through the aggregation helper instead of execute().
+    let source = include_str!("../connector.rs");
+    let start = source.find("async fn cancel(").expect("owned cancel");
+    let rest = &source[start..];
+    let end = rest.find("\n    async fn ").expect("next trait fn follows");
+    let body = &rest[..end];
+    let scalar = body
+        .find("query_scalar(\"SELECT pg_cancel_backend($1)\")")
+        .expect("fetches the bool");
+    let fetch = body.find("fetch_one(&pool)").expect("reads the row");
+    let refused = body.find("cancel_failures(refused)").expect("aggregation is wired in");
+    assert!(scalar < fetch && fetch < refused);
+    assert!(!body.contains(".execute(&pool)"), "execute() hides a false result");
+}

@@ -494,14 +494,21 @@ impl DbConnector for PostgresConnector {
         if pids.is_empty() {
             return Ok(());
         }
+        let mut refused: Vec<i32> = Vec::new();
         for pid in pids {
-            sqlx::query("SELECT pg_cancel_backend($1)")
+            // `pg_cancel_backend` returns false when the backend already exited or the role
+            // lacks `pg_signal_backend` — execute() would hide that and report success while
+            // the statement kept running (#481).
+            let cancelled: bool = sqlx::query_scalar("SELECT pg_cancel_backend($1)")
                 .bind(pid)
-                .execute(&pool)
+                .fetch_one(&pool)
                 .await
                 .map_err(crate::error::from_sqlx)?;
+            if !cancelled {
+                refused.push(pid);
+            }
         }
-        Ok(())
+        cancel_failures(refused)
     }
 
     // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
@@ -1081,6 +1088,19 @@ async fn rollback_batch(tx: sqlx::Transaction<'_, sqlx::Postgres>, prefix: &str,
         Ok(()) => error,
         Err(rollback_error) => DbError::Internal(format!("{prefix}{error}; rollback failed: {rollback_error}")),
     }
+}
+
+/// Backend PIDs whose `pg_cancel_backend` call returned false, folded into one error so Stop
+/// names every statement it could not interrupt (#481). An empty list stays `Ok`.
+fn cancel_failures(refused: Vec<i32>) -> Result<(), DbError> {
+    if refused.is_empty() {
+        return Ok(());
+    }
+    let pids: Vec<String> = refused.iter().map(i32::to_string).collect();
+    Err(DbError::Internal(format!(
+        "could not cancel backend(s) {}",
+        pids.join(", ")
+    )))
 }
 
 #[cfg(test)]
