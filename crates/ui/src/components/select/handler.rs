@@ -110,6 +110,10 @@ pub struct NavigationKeys {
 }
 
 pub fn navigate_selection(selected: usize, option_count: usize, keys: NavigationKeys) -> usize {
+    // Clamp first: a stale index (options shrank while the menu stayed open)
+    // must land on the last valid option before arrows apply. Empty lists
+    // clamp to 0; render paths read via `options.get`, so 0 is inert.
+    let selected = selected.min(option_count.saturating_sub(1));
     // Clamp movement at both ends; the optional load-more action is deliberately outside option_count.
     let selected = if keys.arrow_down && selected.saturating_add(1) < option_count {
         selected + 1

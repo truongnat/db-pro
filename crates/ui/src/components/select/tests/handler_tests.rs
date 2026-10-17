@@ -14,6 +14,28 @@ fn selected_label_and_accessibility_label_have_fallbacks() {
 }
 
 #[test]
+fn stale_selection_index_clamps_when_options_shrink() {
+    // Issue #480: options shrinking 5→2 left ArrowDown stuck at index 5.
+    let down = NavigationKeys {
+        arrow_down: true,
+        arrow_up: false,
+    };
+    let up = NavigationKeys {
+        arrow_down: false,
+        arrow_up: true,
+    };
+    let none = NavigationKeys {
+        arrow_down: false,
+        arrow_up: false,
+    };
+    assert_eq!(navigate_selection(5, 2, down), 1);
+    assert_eq!(navigate_selection(5, 2, none), 1);
+    assert_eq!(navigate_selection(5, 3, up), 1);
+    // Empty list: clamps to 0; render paths read via `options.get`, so it is inert.
+    assert_eq!(navigate_selection(5, 0, down), 0);
+}
+
+#[test]
 fn keyboard_input_maps_to_selection_and_popup_actions() {
     assert_eq!(
         navigate_selection(
