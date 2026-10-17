@@ -28,7 +28,10 @@ pub(super) async fn push_session_search_path(conn: &mut PgConnection) -> Result<
         .map_err(crate::error::from_sqlx)?;
     // Keep `public` reachable: extension objects and shared helpers must not
     // vanish when the picker selects a tenant schema.
-    sqlx::query("SELECT set_config('search_path', quote_ident($1) || ', public', false)")
+    // is_local = true scopes this setting to the current transaction (or statement
+    // if not in an explicit transaction), preventing search_path leakage when a future
+    // times out or gets dropped before pop_session_search_path can run (#456).
+    sqlx::query("SELECT set_config('search_path', quote_ident($1) || ', public', true)")
         .bind(&schema)
         .execute(&mut *conn)
         .await
