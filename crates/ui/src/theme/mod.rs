@@ -456,12 +456,14 @@ impl DbProTheme {
         visuals.widgets.hovered.bg_fill = self.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = self.surface_hover;
         visuals.widgets.hovered.bg_stroke = Stroke::new(STROKE_THIN, self.border_strong);
-        visuals.widgets.hovered.fg_stroke = Stroke::new(STROKE_THIN, self.accent);
+        // `accent` (#006fcc on the #f1f1f1 hover wash) misses AA by a hair;
+        // the darker hover accent keeps hovered text at ≥4.5:1 (#344).
+        visuals.widgets.hovered.fg_stroke = Stroke::new(STROKE_THIN, self.accent_hover);
         visuals.widgets.hovered.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.active.bg_fill = self.surface_active;
         visuals.widgets.active.weak_bg_fill = self.surface_active;
         visuals.widgets.active.bg_stroke = Stroke::new(STROKE_THIN, self.accent_hover);
-        visuals.widgets.active.fg_stroke = Stroke::new(STROKE_THIN, self.accent);
+        visuals.widgets.active.fg_stroke = Stroke::new(STROKE_THIN, self.accent_hover);
         visuals.widgets.active.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.open.bg_fill = self.surface_hover;
         visuals.widgets.open.weak_bg_fill = self.surface_hover;
