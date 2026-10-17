@@ -2,6 +2,9 @@
 pub const DIALOG_RADIUS: f32 = crate::tokens::RADIUS_DIALOG;
 // Default dialog width before viewport constraints are applied, in egui points.
 pub const DIALOG_WIDTH: f32 = 420.0;
+// Preset width for preview-style dialogs that render a code/SQL block —
+// wide enough that multi-line DDL stays readable without horizontal scroll (#334/#345).
+pub const DIALOG_WIDTH_PREVIEW: f32 = 640.0;
 // Minimum horizontal breathing room between a dialog and the viewport edge, in egui points.
 pub const DIALOG_HORIZONTAL_MARGIN: f32 = 16.0;
 // Vertical spacing used when centering a dialog within the viewport, in egui points.

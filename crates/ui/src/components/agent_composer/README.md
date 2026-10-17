@@ -15,7 +15,7 @@ usage, and a Send/Stop icon button.
 
 ## Behavior
 
-- Enter submits only when the editor loses focus, Shift is not held, and the prompt is nonblank; Shift+Enter remains available for multiline input.
+- Enter submits while the editor has focus (the key is consumed before the multiline editor turns it into a newline); Ctrl/Cmd+Enter also submits; Shift+Enter inserts a newline; Esc surrenders focus so a second Esc reaches the global handler.
 - Blank or whitespace-only prompts keep Send disabled and never produce `Submit`, including through the keyboard path.
 - A generating composer exposes the destructive Stop action regardless of prompt text.
 - The editor exposes the accessible `Prompt` label; icon buttons retain the accessible `Send` and `Stop` labels.

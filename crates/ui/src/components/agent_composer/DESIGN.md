@@ -8,10 +8,12 @@ only geometry used by that badge.
 
 ## Event flow
 
-The multiline editor edits the caller-owned `String`. On Enter, egui reports
-focus loss and key/modifier state; `keyboard_action` returns `Submit` only when
-Enter caused focus loss, Shift is not held, and trimmed prompt text is nonempty.
-Shift+Enter therefore remains text input. The Send/Stop button uses the same
+The multiline editor edits the caller-owned `String`. Because egui's multiline
+`TextEdit` never reports `lost_focus` on Enter, the composer consumes Enter and
+Ctrl/Cmd+Enter via `input.consume_key` while the editor holds focus, before the
+widget can turn the key into a newline (#358). `keyboard_action` returns
+`Submit` only when that signal fired and the trimmed prompt is nonempty.
+Shift+Enter therefore remains text input, and Esc surrenders editor focus. The Send/Stop button uses the same
 `has_prompt_text` rule: while generating it returns `Stop`, otherwise a click on
 a blank prompt produces no action. `show` returns an action to the caller and
 does not submit a request itself.

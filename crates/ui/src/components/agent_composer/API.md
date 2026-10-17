@@ -27,8 +27,10 @@ AgentComposer::new(&mut prompt, selected_model, selected_mode, theme)
 
 ## Input and state rules
 
-- Enter submits only when the editor loses focus, Shift is not held, and
-  `prompt.trim()` is nonempty. Shift+Enter inserts a newline.
+- Enter submits while the editor has focus when `prompt.trim()` is nonempty —
+  the composer consumes Enter and Ctrl/Cmd+Enter before the multiline editor
+  can turn them into newlines. Shift+Enter inserts a newline; Esc surrenders
+  focus.
 - An idle composer does not submit an empty or whitespace-only prompt, even if
   the button signal reaches the handler. Send is disabled for that state.
 - While generating, the action button returns `Stop` regardless of prompt
