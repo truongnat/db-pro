@@ -113,7 +113,7 @@ fn test_text_buffer_utf8_boundaries() {
 #[test]
 fn grapheme_boundaries_span_zwj_emoji() {
     let emoji = "👩\u{200d}💻";
-    let buf = TextBuffer::from_string(&format!("{emoji}!"));
+    let buf = TextBuffer::from_string(format!("{emoji}!"));
     assert_eq!(buf.next_grapheme_boundary(0), emoji.len());
     assert_eq!(buf.prev_grapheme_boundary(buf.len_bytes()), emoji.len());
     for off in (1..emoji.len()).filter(|&o| buf.text().is_char_boundary(o)) {

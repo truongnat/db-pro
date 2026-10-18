@@ -1,7 +1,13 @@
 # Findings — Restore Workspace Clippy Gate
 
-CI failed because the current Rust Clippy version reports three collapsible-match warnings in `saved_task.rs`, two needless borrows in dialog titles, and one large enum variant in the monitoring surface. Since CI promotes warnings to errors, every PR was blocked before its own code could pass the required Rust check.
+CI failed because `cargo clippy --workspace --all-targets -- -D warnings` reported:
+1. `unused_imports`: `db_pro_core::ports::DbConnector` in `crates/infrastructure/src/sqlserver/introspect.rs`.
+2. `manual_div_ceil`: manual division arithmetic in `crates/ui/src/diagram/spatial.rs`.
+3. `needless_borrows_for_generic_args`: string reference borrow in `crates/ui/src/editor/tests/buffer_tests.rs`.
 
-The fixes are mechanical: express credential checks as guarded match arms, pass owned formatted titles directly, and box the large monitoring action payload at the internal enum boundary.
+Since CI treats Clippy warnings as errors (`-D warnings`), any open PR or CI run failed.
 
-The first required CI run then exposed an additional test-compilation blocker: an unused closure argument under `RUSTFLAGS=-Dwarnings`. Renaming it `_ctx` preserves the test and lets the workspace test target compile.
+The fixes are mechanical:
+- Removed the unused import `DbConnector` in `sqlserver/introspect.rs`.
+- Converted manual division arithmetic to `.div_ceil(...)` in `diagram/spatial.rs`.
+- Removed unnecessary reference borrow `&format!(...)` in `editor/tests/buffer_tests.rs`.
