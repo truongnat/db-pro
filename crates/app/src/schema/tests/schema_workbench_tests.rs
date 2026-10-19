@@ -75,11 +75,13 @@
         use db_pro_core::application::ObjectMutationService;
         use db_pro_core::domain::object_mutation::ObjectAction;
 
-        let mut state = SchemaWorkbenchState::default();
-        state.schema = "public".into();
-        state.name = "audit".into();
-        state.mode = SchemaWorkbenchMode::SchemaDb;
-        state.cascade = true;
+        let mut state = SchemaWorkbenchState {
+            schema: "public".into(),
+            name: "audit".into(),
+            mode: SchemaWorkbenchMode::SchemaDb,
+            cascade: true,
+            ..Default::default()
+        };
 
         // Plan a drop and store the same linkage `run_plan` records.
         let request = state
@@ -110,9 +112,11 @@
     fn database_action_flags_follow_the_action_kind() {
         use db_pro_core::domain::object_mutation::ObjectAction;
 
-        let mut state = SchemaWorkbenchState::default();
-        state.name = "appdb".into();
-        state.cascade = true;
+        let state = SchemaWorkbenchState {
+            name: "appdb".into(),
+            cascade: true,
+            ..Default::default()
+        };
 
         let drop = state.build_database_request(ObjectAction::Drop, "postgresql");
         assert!(drop.options.if_exists);
@@ -129,8 +133,10 @@
     fn auto_increment_requires_primary_key_and_rejects_postgres_alter() {
         use db_pro_core::domain::object_mutation::ObjectAction;
 
-        let mut state = SchemaWorkbenchState::default();
-        state.name = "t".into();
+        let mut state = SchemaWorkbenchState {
+            name: "t".into(),
+            ..Default::default()
+        };
         state.table_columns[0].auto_increment = true;
         state.table_columns[0].is_pk = false;
 

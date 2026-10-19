@@ -356,6 +356,8 @@ pub(crate) fn default_keybinding_catalog() -> &'static [KeybindingCommand] {
     ]
 }
 
+type CanonicalKeyMap = BTreeMap<(egui::Key, bool, bool, bool), (String, Vec<String>)>;
+
 impl KeybindingSettings {
     pub(crate) fn resolved(&self, command_id: &str) -> String {
         if let Some(over) = self.overrides.get(command_id) {
@@ -395,7 +397,7 @@ impl KeybindingSettings {
     pub(crate) fn conflicts(&self) -> Vec<(String, Vec<String>)> {
         // Group by canonical parsed chord (key + modifiers) instead of raw string
         // so aliases like "ctrl+k" vs "mod+k" or "cmd+k" detect conflicts (#453).
-        let mut by_canonical: BTreeMap<(egui::Key, bool, bool, bool), (String, Vec<String>)> = BTreeMap::new();
+        let mut by_canonical: CanonicalKeyMap = BTreeMap::new();
         for cmd in default_keybinding_catalog() {
             let shortcut = self.resolved(cmd.id);
             let Some(parts) = shortcut_parts(&shortcut) else {
@@ -542,4 +544,3 @@ fn parse_key_name(name: &str) -> Option<egui::Key> {
 #[cfg(test)]
 #[path = "tests/settings_model_tests.rs"]
 mod tests;
-

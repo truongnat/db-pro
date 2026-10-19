@@ -1,3 +1,9 @@
+#![allow(
+    clippy::type_complexity,
+    clippy::unnecessary_to_owned,
+    clippy::field_reassign_with_default
+)]
+
 #[macro_use]
 extern crate rust_i18n;
 

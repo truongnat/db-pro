@@ -298,7 +298,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                         // edge — `Label` placement proved inconsistent inside
                         // `add_sized` + wrap (renders centered/offset).
                         let galley = ui.painter().layout(
-                            guidance.into_owned(),
+                            guidance.to_string(),
                             egui::FontId::proportional(10.0),
                             guidance_color,
                             guidance_width,
