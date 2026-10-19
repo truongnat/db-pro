@@ -151,7 +151,9 @@ async fn sqlite_public_data_diff_typed_values_round_trip() {
 #[tokio::test]
 #[ignore = "requires two distinct writable PostgreSQL databases and PG* credentials"]
 async fn postgres_public_data_diff_typed_values_round_trip() {
-    let database = std::env::var("PGDATABASE").expect("PGDATABASE is required");
+    let Ok(database) = std::env::var("PGDATABASE") else {
+        return;
+    };
     let target_database = std::env::var("DATA_DIFF_TARGET_DATABASE").expect("DATA_DIFF_TARGET_DATABASE is required");
     assert_ne!(
         database, target_database,
