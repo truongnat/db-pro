@@ -146,22 +146,17 @@ struct PostgresDiffFixture {
 fn postgres_data_diff_fixture() -> Option<PostgresDiffFixture> {
     let target_database = std::env::var("DATA_DIFF_TARGET_DATABASE").ok()?;
     let password = std::env::var("PGPASSWORD").ok().or_else(|| {
-        std::env::var("DATABASE_URL")
-            .ok()
-            .and_then(|url| {
-                url.strip_prefix("postgres://")
-                    .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
-                    .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
-            })
+        std::env::var("DATABASE_URL").ok().and_then(|url| {
+            url.strip_prefix("postgres://")
+                .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
+                .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
+        })
     })?;
 
     if let Ok(database) = std::env::var("PGDATABASE") {
         let mut source = config(DriverType::Postgres, database);
         source.host = std::env::var("PGHOST").unwrap_or_else(|_| "127.0.0.1".into());
-        source.port = std::env::var("PGPORT")
-            .unwrap_or_else(|_| "5432".into())
-            .parse()
-            .ok()?;
+        source.port = std::env::var("PGPORT").unwrap_or_else(|_| "5432".into()).parse().ok()?;
         source.username = std::env::var("PGUSER").ok()?;
         let mut target = source.clone();
         target.database = target_database;
@@ -182,7 +177,11 @@ fn postgres_data_diff_fixture() -> Option<PostgresDiffFixture> {
         (None, auth_host_db)
     };
     let username = auth
-        .map(|a| a.split_once(':').map(|(u, _)| u.to_string()).unwrap_or_else(|| a.to_string()))
+        .map(|a| {
+            a.split_once(':')
+                .map(|(u, _)| u.to_string())
+                .unwrap_or_else(|| a.to_string())
+        })
         .unwrap_or_else(|| "postgres".to_string());
     let (host_port, database) = host_db.rsplit_once('/').unwrap_or((host_db, "postgres"));
     let (host, port) = if let Some((h, p)) = host_port.rsplit_once(':') {

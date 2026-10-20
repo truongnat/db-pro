@@ -1,10 +1,10 @@
 name: CI
 
+# Main-branch pushes are verified locally (fmt/clippy/test). CI runs on PRs and manual dispatch only.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
