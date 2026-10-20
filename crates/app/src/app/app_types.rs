@@ -232,6 +232,21 @@ impl SearchKind {
             SearchKind::History => 30,
         }
     }
+
+    /// Exact-title-match priority: concrete objects the user literally named
+    /// (tables, views, connections, queries) beat navigation commands that
+    /// merely share the same label ("Files" the command vs the `files` table).
+    pub(crate) fn exact_match_boost(self) -> u32 {
+        match self {
+            SearchKind::Table | SearchKind::View | SearchKind::Function => 100,
+            SearchKind::Column | SearchKind::Connection => 95,
+            SearchKind::SavedQuery => 90,
+            SearchKind::WorkspaceFile => 85,
+            SearchKind::Agent => 80,
+            SearchKind::Command | SearchKind::Navigation => 70,
+            SearchKind::History => 60,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

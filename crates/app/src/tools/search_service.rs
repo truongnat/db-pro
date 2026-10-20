@@ -103,11 +103,20 @@ impl SearchService {
         } else {
             return None;
         };
+        // On an exact title match the object kinds outrank navigation
+        // commands: typing the literal name of a table/connection must open
+        // it, not the generic "Files"/"Settings" command that shares the name.
+        let base = if title_l == q {
+            kind.exact_match_boost()
+        } else {
+            kind.rank_boost()
+        };
         score += base;
         // Prefer shorter titles on equal match class (stable, deterministic).
         let brevity = 1_000u32.saturating_sub(title.len() as u32);
         Some(score + brevity)
     }
+
 
     pub(crate) fn filter_rank(
         entries: &[(SearchKind, PaletteItem)],
