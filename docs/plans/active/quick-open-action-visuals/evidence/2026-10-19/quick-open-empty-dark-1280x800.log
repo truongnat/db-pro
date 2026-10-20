@@ -1,0 +1,6 @@
+[2m2026-10-19T14:10:39.155787Z[0m [33m WARN[0m [2mdb_pro_native[0m[2m:[0m failed to initialize Sample E-Commerce SQLite fixture [3merror[0m[2m=[0munable to open database file: /tmp/db-pro-quick-open-theme-20261019/sample-ecommerce.sqlite
+[2m2026-10-19T14:10:39.156178Z[0m [33m WARN[0m [2mdb_pro_native[0m[2m:[0m failed to seed Enterprise PostgreSQL connection: authentication failed: database password is required for PostgreSQL
+[2m2026-10-19T14:10:39.371656Z[0m [33m WARN[0m [2mepaint::text::fonts[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+[2m2026-10-19T14:10:39.562818Z[0m [33m WARN[0m [2mepaint::text::fonts[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+[2m2026-10-19T14:10:39.810610Z[0m [33m WARN[0m [2mdb_pro_runtime::worker[0m[2m:[0m connection failed [3mrequest_id[0m[2m=[0m2 [3mconnection_id[0m[2m=[0m4b0798da-0bc9-464d-b5a1-8336f70b9844 [3merror[0m[2m=[0mdatabase not found: database "fullstack_starter" does not exist
+[2m2026-10-19T14:10:39.877999Z[0m [33m WARN[0m [2mepaint::text::fonts[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.

@@ -4,7 +4,6 @@ use super::sidebar_chrome_view::{SidebarChromeAction, SidebarChromeContext};
 use super::sidebar_constants::{RESIZE_GRIP_MIN, SIDEBAR_CLIP_BLEED};
 use egui::{vec2, Pos2, Rect, Sense, Stroke};
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum SidebarSurfaceAction {
     Chrome(SidebarChromeAction),
@@ -49,7 +48,12 @@ fn draw_panel(context: &SidebarSurfaceContext<'_>, ui: &mut egui::Ui) -> Sidebar
         .resizable(false)
         .exact_size(context.sidebar_width)
         .show_separator_line(false)
-        .frame(shell_surface_frame(context.theme, ShellSurface::Panel, egui::Margin::ZERO, false))
+        .frame(shell_surface_frame(
+            context.theme,
+            ShellSurface::Panel,
+            egui::Margin::ZERO,
+            false,
+        ))
         .show(ui, |ui| {
             let panel_origin = ui.max_rect().min;
             let full = Rect::from_min_size(panel_origin, vec2(context.sidebar_width, ui.max_rect().height()));
@@ -126,7 +130,11 @@ fn draw_resize_handle(
     egui_context: &egui::Context,
     panel: &SidebarPanel,
 ) -> Option<f32> {
-    let grip = egui_context.global_style().interaction.resize_grab_radius_side.max(RESIZE_GRIP_MIN);
+    let grip = egui_context
+        .global_style()
+        .interaction
+        .resize_grab_radius_side
+        .max(RESIZE_GRIP_MIN);
     let edge_x = panel.left + context.sidebar_width;
     let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), panel.y_range);
     let id = egui::Id::new("dbpro_sidebar_resize");
@@ -166,6 +174,6 @@ fn resize_stroke(theme: DbProTheme, hovering: bool, dragging: bool) -> Stroke {
     } else if hovering {
         Stroke::new(STROKE_THIN, theme.accent)
     } else {
-        Stroke::new(STROKE_THIN, theme.border_subtle)
+        Stroke::NONE
     }
 }

@@ -3,9 +3,8 @@ use super::*;
 use egui::Sense;
 
 pub(super) fn draw_window_resize_handles(ctx: &egui::Context) {
-    let fixed_size = ctx.input(|input| {
-        input.viewport().maximized.unwrap_or(false) || input.viewport().fullscreen.unwrap_or(false)
-    });
+    let fixed_size =
+        ctx.input(|input| input.viewport().maximized.unwrap_or(false) || input.viewport().fullscreen.unwrap_or(false));
     if fixed_size {
         return;
     }
@@ -157,11 +156,12 @@ impl ShellTopbarContext<'_> {
         let modifier = primary_modifier_label();
         egui::Panel::top("topbar")
             .exact_size(38.0)
+            .show_separator_line(false)
             .frame(shell_surface_frame(
                 self.theme,
                 ShellSurface::App,
                 egui::Margin::symmetric(SPACE_MD as i8, SPACE_XS as i8),
-                true,
+                false,
             ))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
@@ -339,7 +339,8 @@ impl ShellTopbarContext<'_> {
         let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 28.0), Sense::click());
         if response.hovered() {
             let fill = if is_close { theme.danger } else { theme.surface_hover };
-            ui.painter().rect_filled(rect, egui::CornerRadius::same(4.0 as u8), fill);
+            ui.painter()
+                .rect_filled(rect, egui::CornerRadius::same(4.0 as u8), fill);
         }
         let icon_color = if is_close && response.hovered() {
             theme.text_on_solid(theme.danger)
@@ -350,7 +351,9 @@ impl ShellTopbarContext<'_> {
             ui.painter().rect_stroke(
                 rect,
                 egui::CornerRadius::same(4.0 as u8),
-                egui::Stroke::new(STROKE_THIN, theme.border_focus), egui::StrokeKind::Inside);
+                egui::Stroke::new(STROKE_THIN, theme.border_focus),
+                egui::StrokeKind::Inside,
+            );
         }
         ui.painter().text(
             rect.center(),
@@ -445,8 +448,10 @@ impl ShellTopbarContext<'_> {
     fn draw_quick_open(&self, ui: &mut egui::Ui, actions: &mut Vec<ShellTopbarAction>, modifier: &str) {
         ui.add_space(SPACE_SM);
         let search_width = (ui.available_width() - 32.0).clamp(180.0, 360.0);
-        let (rect, response) =
-            ui.allocate_exact_size(egui::vec2(search_width, crate::tokens::component::input::INPUT_HEIGHT_SM), Sense::click());
+        let (rect, response) = ui.allocate_exact_size(
+            egui::vec2(search_width, crate::tokens::component::input::INPUT_HEIGHT_SM),
+            Sense::click(),
+        );
         response.widget_info(|| {
             egui::WidgetInfo::labeled(
                 egui::WidgetType::Button,
@@ -468,7 +473,9 @@ impl ShellTopbarContext<'_> {
             rect,
             egui::CornerRadius::same(RADIUS_INPUT as u8),
             background,
-            egui::Stroke::new(1.0, border), egui::StrokeKind::Inside);
+            egui::Stroke::new(1.0, border),
+            egui::StrokeKind::Inside,
+        );
         if response.has_focus() {
             crate::components::interact::paint_focus_ring(ui, rect, RADIUS_INPUT, self.theme);
         }
@@ -512,4 +519,3 @@ fn primary_modifier_label() -> &'static str {
 #[cfg(test)]
 #[path = "tests/shell_topbar_view_window_control_tests.rs"]
 mod window_control_tests;
-

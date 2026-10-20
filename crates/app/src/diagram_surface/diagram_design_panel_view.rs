@@ -11,7 +11,12 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
     let mut action = None;
     ui.add_space(SPACE_SM);
     Card::new(ctx.theme).show(ui, |ui| {
-        ui.label(RichText::new("DESIGN DRAFT").font(font_caption()).strong().color(ctx.theme.text_secondary));
+        ui.label(
+            RichText::new("DESIGN DRAFT")
+                .font(font_caption())
+                .strong()
+                .color(ctx.theme.text_secondary),
+        );
         ui.label(
             RichText::new("Draft only · ObjectMutationService plan · fingerprint-gated apply")
                 .small()
@@ -33,9 +38,14 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
                 "Live schema changed — re-open Design Mode or discard before apply",
             );
         }
-        ui.horizontal(|ui| {
-            Input::new(&mut ctx.diagram.new_schema, "schema", ctx.theme).width(90.0).show(ui);
-            Input::new(&mut ctx.diagram.new_table, "table", ctx.theme).width(110.0).show(ui);
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+            Input::new(&mut ctx.diagram.new_schema, "schema", ctx.theme)
+                .width(90.0)
+                .show(ui);
+            Input::new(&mut ctx.diagram.new_table, "table", ctx.theme)
+                .width(110.0)
+                .show(ui);
             if Button::new(ctx.theme)
                 .text("Add draft table")
                 .variant(ButtonVariant::Secondary)
@@ -101,8 +111,12 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
                 );
             }
             ui.horizontal(|ui| {
-                Input::new(&mut ctx.diagram.column_name, "col", ctx.theme).width(110.0).show(ui);
-                Input::new(&mut ctx.diagram.column_type, "type", ctx.theme).width(90.0).show(ui);
+                Input::new(&mut ctx.diagram.column_name, "col", ctx.theme)
+                    .width(110.0)
+                    .show(ui);
+                Input::new(&mut ctx.diagram.column_type, "type", ctx.theme)
+                    .width(90.0)
+                    .show(ui);
                 if Button::new(ctx.theme)
                     .text("Add col")
                     .variant(ButtonVariant::Ghost)
@@ -125,10 +139,21 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             });
         }
         ui.add_space(SPACE_XS);
-        ui.horizontal(|ui| {
-            Input::new(&mut ctx.diagram.foreign_key_name, "fk name", ctx.theme).width(110.0).show(ui);
-            Input::new(&mut ctx.diagram.foreign_key_from, "from schema.table.col", ctx.theme).width(160.0).show(ui);
-            Input::new(&mut ctx.diagram.foreign_key_to, "to schema.table.col", ctx.theme).width(160.0).show(ui);
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+            for (value, hint, width) in [
+                (&mut ctx.diagram.foreign_key_name, "fk name", 110.0),
+                (&mut ctx.diagram.foreign_key_from, "from schema.table.col", 160.0),
+                (&mut ctx.diagram.foreign_key_to, "to schema.table.col", 160.0),
+            ] {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(width, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        Input::new(value, hint, ctx.theme).width(width).show(ui);
+                    },
+                );
+            }
             if Button::new(ctx.theme)
                 .text("Add FK")
                 .variant(ButtonVariant::Secondary)
@@ -202,11 +227,9 @@ pub(super) fn draw_er_design_panel(ctx: &mut DiagramViewContext<'_>, ui: &mut eg
             .show_framed_ctx(ui.ctx(), |frame| {
                 frame.body(|ui| {
                     ui.label(
-                        RichText::new(
-                            "Applying this design runs the generated DDL on the active database.",
-                        )
-                        .small()
-                        .color(ctx.theme.warning),
+                        RichText::new("Applying this design runs the generated DDL on the active database.")
+                            .small()
+                            .color(ctx.theme.warning),
                     );
                     ui.label(RichText::new(&ctx.diagram.design.preview_sql).monospace());
                 });

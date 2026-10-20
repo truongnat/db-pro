@@ -29,6 +29,7 @@ impl AgentPanelSurfaceContext {
             .resizable(true)
             .default_size(self.default_width)
             .size_range(AGENT_MIN_WIDTH..=AGENT_MAX_WIDTH)
+            .show_separator_line(false)
             .frame(panel_frame(self.theme))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
@@ -40,9 +41,10 @@ impl AgentPanelSurfaceContext {
         // egui's resizable Panel emits an anonymous `Unknown` node for the
         // drag handle (id = panel id + "__resize") — name it so AT can
         // announce "resize agent panel" instead of nothing.
-        ui.ctx().accesskit_node_builder(egui::Id::new("agent_panel").with("__resize"), |b| {
-            b.set_label("Resize agent panel");
-        });
+        ui.ctx()
+            .accesskit_node_builder(egui::Id::new("agent_panel").with("__resize"), |b| {
+                b.set_label("Resize agent panel");
+            });
         response.response.rect.width()
     }
 }
@@ -238,12 +240,8 @@ impl AgentPanelContent<'_> {
         }
         // Publish the real painted height so the thread reserves exactly this
         // space next pass (bottom-up `min_rect` measures the drawn block).
-        ui.ctx().data_mut(|d| {
-            d.insert_temp(
-                egui::Id::new("agent_composer_height"),
-                ui.min_rect().height().max(1.0),
-            )
-        });
+        ui.ctx()
+            .data_mut(|d| d.insert_temp(egui::Id::new("agent_composer_height"), ui.min_rect().height().max(1.0)));
     }
 }
 
@@ -258,44 +256,48 @@ pub(super) struct AgentContextSurfaceContext<'a> {
 impl AgentContextSurfaceContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) {
         toolbar_frame(self.theme).show(ui, |ui| {
-            let chips_scroll = ScrollArea::new(self.theme)
-                .horizontal(true)
-                .vertical(false)
-                .id_salt("agent-context-chips")
-                .auto_shrink([false, true])
-                .show_with_output(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if self.provider_label == "Offline draft" {
-                            badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
-                        }
-                        badge(ui, self.provider_label, self.theme.accent_soft, self.theme.accent);
-                        if self.auto_run_read_only {
-                            badge(ui, "Auto-run Read-only", self.theme.accent_soft, self.theme.accent);
-                        }
-                        ContextChip::new(
-                            ContextChipKind::Connection,
-                            self.context.connection_name.as_deref().unwrap_or("No connection"),
-                            self.theme,
-                        )
-                        .show(ui);
-                        ContextChip::new(ContextChipKind::Database, &self.context.driver, self.theme).show(ui);
-                        if let Some(schema) = self.context.schema.as_deref() {
-                            ContextChip::new(ContextChipKind::Schema, schema, self.theme).show(ui);
-                        }
-                        if let Some(table) = self.context.selected_table.as_deref() {
-                            ContextChip::new(ContextChipKind::Table, table, self.theme).show(ui);
-                        }
-                        if self.context.explain_plan.is_some() {
-                            ContextChip::new(ContextChipKind::Editor, "EXPLAIN PLAN", self.theme).show(ui);
-                        }
-                    });
-                });
-            crate::components::name_scroll_bars(ui.ctx(), chips_scroll.id, "Agent context chips");
+            ui.horizontal_wrapped(|ui| {
+                if self.provider_label == "Offline draft" {
+                    badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
+                }
+                badge(ui, self.provider_label, self.theme.accent_soft, self.theme.accent);
+                if self.auto_run_read_only {
+                    badge(ui, "Auto-run Read-only", self.theme.accent_soft, self.theme.accent);
+                }
+            });
             ui.label(
                 RichText::new(self.provider_detail)
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
+            let chip_width = ui.available_width();
+            ui.horizontal_wrapped(|ui| {
+                ContextChip::new(
+                    ContextChipKind::Connection,
+                    self.context.connection_name.as_deref().unwrap_or("No connection"),
+                    self.theme,
+                )
+                .max_width(chip_width)
+                .show(ui);
+                ContextChip::new(ContextChipKind::Database, &self.context.driver, self.theme)
+                    .max_width(chip_width)
+                    .show(ui);
+                if let Some(schema) = self.context.schema.as_deref() {
+                    ContextChip::new(ContextChipKind::Schema, schema, self.theme)
+                        .max_width(chip_width)
+                        .show(ui);
+                }
+                if let Some(table) = self.context.selected_table.as_deref() {
+                    ContextChip::new(ContextChipKind::Table, table, self.theme)
+                        .max_width(chip_width)
+                        .show(ui);
+                }
+                if self.context.explain_plan.is_some() {
+                    ContextChip::new(ContextChipKind::Editor, "EXPLAIN PLAN", self.theme)
+                        .max_width(chip_width)
+                        .show(ui);
+                }
+            });
         });
     }
 }

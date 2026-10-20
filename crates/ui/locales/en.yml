@@ -35,6 +35,7 @@ connection:
   access_token: "Access Token"
   password_blank_keep: "•••••••• (Leave blank to keep saved password)"
   password_blank_optional: "Optional (Leave blank if no password)"
+  field_example: "e.g. %{value}"
   password_token_placeholder: "Paste short-lived IAM/access token (not stored)"
   ssl_mode: "SSL / TLS Mode"
   credentials_encrypted_hint: "Credentials encrypted with AES-256-GCM in local vault."

@@ -40,8 +40,7 @@ impl SettingsSurfaceContext<'_> {
         let available = ui.available_size();
         ui.set_min_size(available);
 
-        app_frame(*self.theme)
-        .show(ui, |ui| {
+        app_frame(*self.theme).show(ui, |ui| {
             ui.set_min_size(ui.available_size());
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
                 let nav_width = (ui.available_width() * 0.22).clamp(196.0, 244.0);
@@ -64,8 +63,7 @@ impl SettingsSurfaceContext<'_> {
             egui::vec2(nav_width, available_height),
             egui::Layout::top_down(egui::Align::Min),
             |ui| {
-                sidebar_frame(*self.theme)
-                .show(ui, |ui| {
+                sidebar_frame(*self.theme).show(ui, |ui| {
                     ui.set_min_size(ui.available_size());
                     actions.extend(self.draw_navigation(ui));
                 });
@@ -73,7 +71,8 @@ impl SettingsSurfaceContext<'_> {
         );
 
         let (divider, _) = ui.allocate_exact_size(egui::vec2(STROKE_THIN, available_height), egui::Sense::hover());
-        ui.painter().rect_filled(divider, egui::CornerRadius::ZERO, self.theme.border_subtle);
+        ui.painter()
+            .rect_filled(divider, egui::CornerRadius::ZERO, self.theme.border_subtle);
     }
 
     fn draw_content_panel(
@@ -99,21 +98,6 @@ impl SettingsSurfaceContext<'_> {
         ui.set_width((ui.available_width() - SPACE_4XL * 2.0).max(0.0));
         ui.add_space(SPACE_3XL);
         ui.label(
-            egui::RichText::new("Settings")
-                .font(font_page_title())
-                .strong()
-                .color(self.theme.text_primary),
-        );
-        ui.add_space(SPACE_XS);
-        ui.label(
-            egui::RichText::new("Shape the database workspace around the way you work.")
-                .font(font_body_sm())
-                .color(self.theme.text_muted),
-        );
-        ui.add_space(SPACE_LG);
-        Separator::horizontal(*self.theme).show(ui);
-        ui.add_space(SPACE_LG);
-        ui.label(
             egui::RichText::new(self.selected.label())
                 .font(font_section_title())
                 .strong()
@@ -121,16 +105,18 @@ impl SettingsSurfaceContext<'_> {
         );
         ui.add_space(SPACE_MD);
         self.draw_selected_section(ui, actions);
-        ui.add_space(SPACE_2XL);
-        actions.extend(
-            SettingsDiagnosticsContext {
-                theme: *self.theme,
-                summary: self.diagnostics,
-            }
-            .draw(ui)
-            .into_iter()
-            .map(SettingsSurfaceAction::Diagnostics),
-        );
+        if self.selected == SettingsSection::Advanced {
+            ui.add_space(SPACE_2XL);
+            actions.extend(
+                SettingsDiagnosticsContext {
+                    theme: *self.theme,
+                    summary: self.diagnostics,
+                }
+                .draw(ui)
+                .into_iter()
+                .map(SettingsSurfaceAction::Diagnostics),
+            );
+        }
         ui.add_space(SPACE_3XL);
     }
 

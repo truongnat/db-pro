@@ -53,7 +53,7 @@ pub fn panel_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
         inner_margin: Margin::symmetric(12.0 as i8, 7.0 as i8),
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -86,7 +86,7 @@ pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
         fill: theme.surface_panel,
         inner_margin: Margin::symmetric(5.0 as i8, 8.0 as i8),
         outer_margin: Margin::ZERO,
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -102,7 +102,7 @@ pub fn toolbar_frame(theme: DbProTheme) -> Frame {
             top: (SPACE_XS) as i8,
             bottom: (SPACE_XS) as i8,
         },
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        stroke: Stroke::NONE,
         corner_radius: CornerRadius::ZERO,
         ..Default::default()
     }

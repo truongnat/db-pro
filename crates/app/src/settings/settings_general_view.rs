@@ -29,8 +29,6 @@ impl SettingsGeneralContext<'_> {
     }
 
     fn draw_general_preferences(&mut self, ui: &mut egui::Ui) {
-        section_label(ui, "GENERAL", self.theme);
-        ui.add_space(10.0);
         ui.horizontal(|ui| {
             ui.label(RichText::new("Language").color(self.theme.text_secondary));
             for language in crate::UiLanguage::ALL {
@@ -68,7 +66,12 @@ impl SettingsGeneralContext<'_> {
     fn draw_workspace_sessions(&mut self, ui: &mut egui::Ui) -> Vec<SettingsGeneralAction> {
         let mut actions = Vec::new();
         ui.add_space(12.0);
-        ui.label(RichText::new("WORKSPACE SESSIONS").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("WORKSPACE SESSIONS")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(6.0);
         ui.label(
             RichText::new("Named sessions store layout and tab references — not SQL text, secrets, or result grids.")
@@ -107,7 +110,11 @@ impl SettingsGeneralContext<'_> {
             let selected = self.sessions.selected_id.as_deref() == Some(session.id.as_str());
             if Button::new(self.theme)
                 .text(&session.name)
-                .variant(if selected { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
+                .variant(if selected {
+                    ButtonVariant::Secondary
+                } else {
+                    ButtonVariant::Ghost
+                })
                 .size(ButtonSize::Sm)
                 .show(ui)
                 .clicked()

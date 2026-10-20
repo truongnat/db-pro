@@ -1,5 +1,5 @@
 use super::mapper::draft_to_domain_config;
-use crate::{RequestId, UiCommand, UiConnectionDraft, UiDriver, UiSslMode};
+use crate::{RequestId, UiCommand, UiConnectionDraft, UiDriver};
 use db_pro_core::domain::connection::SshProfile;
 use db_pro_core::domain::connection_diagnostics::{
     probe_network_stages, with_auth_result, ConnectionDiagnosticsReport,
@@ -39,32 +39,10 @@ pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String
     Ok(())
 }
 
-/// Apply a driver selection onto a draft, setting conventional default ports and TLS defaults.
-// cc-scan:allow COMPLEXITY — classifier/dispatch ladder — one case per branch
+/// Apply a driver selection onto a draft. The form injects no defaults: a
+/// switch only changes the driver and leaves every typed value — port, host,
+/// credentials, TLS mode — exactly as the user set it.
 pub fn select_driver(draft: &mut UiConnectionDraft, driver: UiDriver) {
-    if driver != draft.driver {
-        match driver {
-            UiDriver::Postgres => {
-                draft.ssl_mode = UiSslMode::Disable;
-                if draft.port == "3306" || draft.port == "1433" || draft.port.is_empty() {
-                    draft.port = "5432".to_owned();
-                }
-            }
-            UiDriver::Mysql => {
-                draft.ssl_mode = UiSslMode::Disable;
-                if draft.port == "5432" || draft.port == "1433" || draft.port.is_empty() {
-                    draft.port = "3306".to_owned();
-                }
-            }
-            UiDriver::SqlServer => {
-                draft.ssl_mode = UiSslMode::Disable;
-                if draft.port == "5432" || draft.port == "3306" || draft.port.is_empty() {
-                    draft.port = "1433".to_owned();
-                }
-            }
-            UiDriver::Sqlite => {}
-        }
-    }
     draft.driver = driver;
 }
 
@@ -146,4 +124,3 @@ pub fn probe_draft_diagnostics(
 #[cfg(test)]
 #[path = "tests/logic_tests.rs"]
 mod tests;
-

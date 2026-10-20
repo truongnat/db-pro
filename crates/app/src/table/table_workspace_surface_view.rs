@@ -30,7 +30,7 @@ impl TableWorkspaceSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui) -> Vec<TableWorkspaceSurfaceAction> {
         let mut actions = Vec::new();
-        table_band_frame(self.theme).show(ui, |ui| {
+        toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 self.draw_breadcrumb(ui);
                 if let Some(rows) = self.row_count {
@@ -122,7 +122,7 @@ impl TableWorkspaceSurfaceContext<'_> {
 
     fn draw_view_tabs(&self, ui: &mut egui::Ui) -> Vec<TableWorkspaceSurfaceAction> {
         let mut actions = Vec::new();
-        table_band_frame(self.theme).show(ui, |ui| {
+        toolbar_frame(self.theme).show(ui, |ui| {
             ScrollArea::new(self.theme)
                 .horizontal(true)
                 .vertical(false)
@@ -142,12 +142,6 @@ impl TableWorkspaceSurfaceContext<'_> {
         });
         actions
     }
-}
-
-pub(super) fn table_band_frame(theme: DbProTheme) -> egui::Frame {
-    let mut frame = toolbar_frame(theme);
-    frame.stroke = egui::Stroke::NONE;
-    frame
 }
 
 fn table_view_tabs() -> [(TableView, Icon, &'static str); 8] {
@@ -209,13 +203,16 @@ pub(super) fn draw_metadata_filter_header_with_trailing(
         crate::components::input::SearchInput::new(search, hint, theme)
             .width(220.0)
             .show(ui);
-        ui.allocate_ui_with_layout(ui.available_size(), egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            trailing(ui, true);
-        });
+        ui.allocate_ui_with_layout(
+            ui.available_size(),
+            egui::Layout::right_to_left(egui::Align::Center),
+            |ui| {
+                trailing(ui, true);
+            },
+        );
     });
 }
 
 #[cfg(test)]
 #[path = "tests/table_workspace_surface_view_metadata_filter_header_tests.rs"]
 mod metadata_filter_header_tests;
-

@@ -343,13 +343,23 @@ impl CaptureApp {
         // Evidence hook: when asked, open the requested fixture surface. Gated
         // by env vars so a normal launch is unaffected; any opener that ran
         // stamps provenance — a code path, not an env string.
-        self.opened_dialog = self.open_dialog_capture()
+        self.opened_dialog = self.open_feature_cleanup_capture()
+            || self.open_dialog_capture()
             || self.open_query_capture(ctx)
             || self.open_table_capture()
             || self.open_workspace_capture();
         if self.opened_dialog {
             self.inner.mark_capture_provenance();
         }
+    }
+
+    fn open_feature_cleanup_capture(&mut self) -> bool {
+        let Ok(surface) = std::env::var("DB_PRO_CAPTURE_FEATURE") else {
+            return false;
+        };
+        let light = std::env::var_os("DB_PRO_CAPTURE_FEATURE_LIGHT").is_some();
+        self.inner.open_workstation_cleanup_for_capture(&surface, light)
+            || self.inner.open_data_cleanup_for_capture(&surface, light)
     }
 
     /// Connection-dialog captures: open the dialog surface, nothing else.

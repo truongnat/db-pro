@@ -44,7 +44,8 @@ impl SecurityRoleDetailsContext<'_> {
                 .color(self.theme.text_secondary),
         );
         ui.add_space(SPACE_SM);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
             for (icon, label, attr) in [
                 (
                     Icon::Check,
@@ -185,12 +186,7 @@ impl SecurityRoleDetailsContext<'_> {
                 });
             }
         }
-        Input::new(
-            &mut self.state.security_membership_role,
-            "grant role name",
-            self.theme,
-        )
-        .show(ui);
+        Input::new(&mut self.state.security_membership_role, "grant role name", self.theme).show(ui);
         if Button::new(self.theme)
             .icon(Icon::Plus)
             .text("Grant membership")
@@ -321,3 +317,7 @@ impl SecurityRoleDetailsContext<'_> {
         actions
     }
 }
+
+#[cfg(test)]
+#[path = "tests/security_role_details_view_tests.rs"]
+mod layout_tests;

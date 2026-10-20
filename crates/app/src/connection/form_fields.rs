@@ -44,8 +44,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
 
         // Row 1: Connection Name (65%), Folder/Group + Favorite toggle (35%)
         let widths = row_widths(avail, gap, &[65.0, 35.0]);
-        let show_name_error =
-            !self.dialog.error.is_empty() && self.dialog.draft.name.trim().is_empty();
+        let show_name_error = !self.dialog.error.is_empty() && self.dialog.draft.name.trim().is_empty();
         let mut name_input = Input::new(
             &mut self.dialog.draft.name,
             t!("connection.connection_name_placeholder"),
@@ -173,25 +172,31 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
 
         // Row 1: Host (68%) + Port (32%)
         let widths = row_widths(avail, gap, &[68.0, 32.0]);
-        let default_port = default_port_for_driver(self.dialog.draft.driver);
-        let show_port_error =
-            !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
+        let port_hint = t!(
+            "connection.field_example",
+            value = default_port_for_driver(self.dialog.draft.driver)
+        );
+        let show_port_error = !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
         form_row(
             ui,
             &widths,
             vec![
                 Box::new(|ui| {
-                    Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
-                        .label(t!("connection.host"))
-                        .required(true)
-                        .bordered(true)
-                        .id_salt(focus_id::HOST)
-                        .width(widths[0])
-                        .leading_icon(Icon::Server)
-                        .show(ui);
+                    Input::new(
+                        &mut self.dialog.draft.host,
+                        t!("connection.field_example", value = "localhost"),
+                        self.theme,
+                    )
+                    .label(t!("connection.host"))
+                    .required(true)
+                    .bordered(true)
+                    .id_salt(focus_id::HOST)
+                    .width(widths[0])
+                    .leading_icon(Icon::Server)
+                    .show(ui);
                 }),
                 Box::new(|ui| {
-                    let mut port_input = Input::new(&mut self.dialog.draft.port, default_port, self.theme)
+                    let mut port_input = Input::new(&mut self.dialog.draft.port, port_hint, self.theme)
                         .label(t!("connection.port"))
                         .required(true)
                         .bordered(true)
@@ -210,16 +215,21 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
 
         // Row 2: Database Name (50%) + Username (50%)
         let widths = row_widths(avail, gap, &[1.0, 1.0]);
-        let default_db = default_database_for_driver(self.dialog.draft.driver);
-        let default_user = default_username_for_driver(self.dialog.draft.driver);
-        let show_database_error =
-            !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
+        let db_hint = t!(
+            "connection.field_example",
+            value = default_database_for_driver(self.dialog.draft.driver)
+        );
+        let user_hint = t!(
+            "connection.field_example",
+            value = default_username_for_driver(self.dialog.draft.driver)
+        );
+        let show_database_error = !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
         form_row(
             ui,
             &widths,
             vec![
                 Box::new(|ui| {
-                    let mut db_input = Input::new(&mut self.dialog.draft.database, default_db, self.theme)
+                    let mut db_input = Input::new(&mut self.dialog.draft.database, db_hint, self.theme)
                         .label(t!("connection.database"))
                         .required(true)
                         .bordered(true)
@@ -233,7 +243,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     db_input.show(ui);
                 }),
                 Box::new(|ui| {
-                    Input::new(&mut self.dialog.draft.username, default_user, self.theme)
+                    Input::new(&mut self.dialog.draft.username, user_hint, self.theme)
                         .label(t!("connection.username"))
                         .required(true)
                         .bordered(true)

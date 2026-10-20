@@ -35,6 +35,7 @@ connection:
   access_token: "Access Token"
   password_blank_keep: "•••••••• (Để trống nếu giữ mật khẩu cũ)"
   password_blank_optional: "Tùy chọn (Để trống nếu không có mật khẩu)"
+  field_example: "VD: %{value}"
   password_token_placeholder: "Dán token truy cập / IAM tạm thời (không lưu trữ)"
   ssl_mode: "Chế độ SSL / TLS"
   credentials_encrypted_hint: "Thông tin xác thực được mã hóa AES-256-GCM trong két an toàn cục bộ."

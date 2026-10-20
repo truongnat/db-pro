@@ -266,7 +266,7 @@ impl Toolbar {
     pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
         Frame {
             fill: self.theme.surface_panel,
-            stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            stroke: Stroke::NONE,
             inner_margin: Margin::symmetric(TOOLBAR_MARGIN_X as i8, TOOLBAR_MARGIN_Y as i8),
             corner_radius: CornerRadius::same(RADIUS_SM as u8),
             ..Default::default()

@@ -35,11 +35,12 @@ impl ShellStatusbarContext<'_> {
         let mut action = None;
         egui::Panel::bottom("statusbar")
             .exact_size(STATUSBAR_HEIGHT)
+            .show_separator_line(false)
             .frame(shell_surface_frame(
                 self.theme,
                 ShellSurface::Panel,
                 egui::Margin::symmetric(SPACE_MD as i8, SPACE_XXS as i8),
-                true,
+                false,
             ))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());

@@ -35,6 +35,7 @@ connection:
   access_token: "액세스 토큰 (Token)"
   password_blank_keep: "•••••••• (저장된 비밀번호를 유지하려면 비워두세요)"
   password_blank_optional: "선택 사항 (비밀번호가 없으면 비워두세요)"
+  field_example: "예: %{value}"
   password_token_placeholder: "임시 IAM/액세스 토큰 붙여넣기 (영구 저장되지 않음)"
   ssl_mode: "SSL / TLS 모드"
   credentials_encrypted_hint: "자격 증명은 로컬 볼트에 AES-256-GCM으로 안전하게 암호화됩니다."

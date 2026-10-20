@@ -17,6 +17,8 @@ pub(super) struct MonitoringState {
     pub(super) monitoring_reset_stats_confirm: bool,
     pub(super) monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
     pub(super) monitoring_workload_filter: String,
+    /// One-shot presentation focus used only by deterministic capture fixtures.
+    pub(super) capture_workload_focus_once: bool,
 }
 
 impl MonitoringState {
@@ -47,6 +49,7 @@ impl Default for MonitoringState {
             monitoring_reset_stats_confirm: false,
             monitoring_workload_prev: None,
             monitoring_workload_filter: String::new(),
+            capture_workload_focus_once: false,
         }
     }
 }
@@ -54,4 +57,3 @@ impl Default for MonitoringState {
 #[cfg(test)]
 #[path = "tests/monitoring_state_tests.rs"]
 mod tests;
-

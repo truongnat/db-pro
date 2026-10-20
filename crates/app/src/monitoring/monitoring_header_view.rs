@@ -18,18 +18,25 @@ pub(super) struct MonitoringHeaderContext<'a> {
 impl MonitoringHeaderContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<MonitoringHeaderAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme)
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
+        card_frame(self.theme).show(ui, |ui| {
+            ui.set_max_width(ui.available_width());
+            // A right-to-left group in this narrow card paints over the status
+            // label. Wrap instead so Connected and Auto-refresh stay readable.
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
                 self.draw_status(ui);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if self.connected
-                        && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked()
-                    {
-                        actions.push(MonitoringHeaderAction::Refresh);
-                    }
-                    Checkbox::new(self.poll, "Auto-refresh", self.theme).show(ui);
-                });
+                // Reserve the control's real width so the label is not squeezed
+                // into "Auto-" / "refresh" on the status row.
+                ui.allocate_ui_with_layout(
+                    egui::vec2(132.0, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        Checkbox::new(self.poll, "Auto-refresh", self.theme).show(ui);
+                    },
+                );
+                if self.connected && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked() {
+                    actions.push(MonitoringHeaderAction::Refresh);
+                }
             });
             ui.add_space(SPACE_SM);
             if self.connected {
@@ -59,3 +66,7 @@ impl MonitoringHeaderContext<'_> {
         ui.label(RichText::new(label).strong().color(self.theme.text_primary));
     }
 }
+
+#[cfg(test)]
+#[path = "tests/monitoring_header_view_tests.rs"]
+mod tests;

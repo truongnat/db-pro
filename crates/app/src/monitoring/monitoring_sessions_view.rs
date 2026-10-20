@@ -28,7 +28,7 @@ impl MonitoringSessionsContext<'_> {
         } else {
             for session in sessions {
                 actions.extend(self.draw_session(ui, session));
-                ui.add_space(SPACE_SM);
+                ui.add_space(SPACE_XS);
             }
         }
         actions
@@ -90,27 +90,30 @@ impl MonitoringSessionsContext<'_> {
         session: &db_pro_core::domain::monitoring::MonitorSession,
     ) -> Vec<MonitoringSessionsAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
-            self.draw_session_header(ui, session);
-            ui.label(
-                RichText::new(format!(
-                    "{} · {} · {}",
-                    session.username.as_deref().unwrap_or("?"),
-                    session.database.as_deref().unwrap_or("?"),
-                    session.application_name.as_deref().unwrap_or("-")
-                ))
-                .small()
-                .color(self.theme.text_secondary),
-            );
-            if let Some(query) = &session.query_text {
-                self.draw_query(ui, session, query, &mut actions);
-            }
-        });
+        panel_frame(self.theme)
+            .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
+            .show(ui, |ui| {
+                self.draw_session_header(ui, session);
+                ui.label(
+                    RichText::new(format!(
+                        "{} · {} · {}",
+                        session.username.as_deref().unwrap_or("?"),
+                        session.database.as_deref().unwrap_or("?"),
+                        session.application_name.as_deref().unwrap_or("-")
+                    ))
+                    .small()
+                    .color(self.theme.text_secondary),
+                );
+                if let Some(query) = &session.query_text {
+                    self.draw_query(ui, session, query, &mut actions);
+                }
+            });
         actions
     }
 
     fn draw_session_header(&self, ui: &mut egui::Ui, session: &db_pro_core::domain::monitoring::MonitorSession) {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, SPACE_XXS);
             ui.label(
                 RichText::new(format!("pid {}", session.backend_id))
                     .strong()
@@ -158,7 +161,8 @@ impl MonitoringSessionsContext<'_> {
             query.to_owned()
         };
         ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, SPACE_XXS);
             if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
                 actions.push(MonitoringSessionsAction::OpenSql(query.to_owned()));
             }
@@ -171,3 +175,7 @@ impl MonitoringSessionsContext<'_> {
         });
     }
 }
+
+#[cfg(test)]
+#[path = "tests/monitoring_sessions_view_tests.rs"]
+mod tests;

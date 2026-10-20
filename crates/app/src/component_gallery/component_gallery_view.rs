@@ -252,16 +252,13 @@ impl DbProApp {
                     }
                 }
                 scroll.show(ui, |ui| {
-                        ui.set_min_width(ui.available_width());
-                        ui.add_space(SPACE_MD);
-                        Container::new()
-                            .gutter(SPACE_LG)
-                            .max_width(1120.0)
-                            .show(ui, |ui| {
-                                self.draw_selected_gallery_category(ui);
-                                ui.add_space(SPACE_2XL);
-                            });
+                    ui.set_min_width(ui.available_width());
+                    ui.add_space(SPACE_MD);
+                    Container::new().gutter(SPACE_LG).max_width(1120.0).show(ui, |ui| {
+                        self.draw_selected_gallery_category(ui);
+                        ui.add_space(SPACE_2XL);
                     });
+                });
             });
         });
 
@@ -315,6 +312,8 @@ impl DbProApp {
                         .clicked()
                     {
                         self.preferences.dark_mode = !self.preferences.dark_mode;
+                        self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
+                        ui.ctx().request_repaint();
                     }
 
                     ui.add_space(SPACE_XS);
@@ -341,11 +340,7 @@ impl DbProApp {
                 ui.set_min_size(egui::vec2(196.0, available_height));
                 ui.set_max_width(196.0);
 
-                ui.label(
-                    RichText::new("LIBRARY")
-                        .font(font_caption())
-                        .color(theme.text_tertiary),
-                );
+                ui.label(RichText::new("LIBRARY").font(font_caption()).color(theme.text_tertiary));
                 ui.add_space(SPACE_SM);
 
                 self.draw_gallery_category_group(
@@ -361,11 +356,7 @@ impl DbProApp {
                 );
 
                 ui.add_space(SPACE_MD);
-                ui.label(
-                    RichText::new("SYSTEM")
-                        .font(font_caption())
-                        .color(theme.text_tertiary),
-                );
+                ui.label(RichText::new("SYSTEM").font(font_caption()).color(theme.text_tertiary));
                 ui.add_space(SPACE_XS);
                 self.draw_gallery_category_group(
                     ui,
@@ -398,11 +389,7 @@ impl DbProApp {
         });
     }
 
-    fn draw_gallery_category_group(
-        &mut self,
-        ui: &mut Ui,
-        categories: &[(GalleryCategory, Icon, &'static str)],
-    ) {
+    fn draw_gallery_category_group(&mut self, ui: &mut Ui, categories: &[(GalleryCategory, Icon, &'static str)]) {
         for (category, icon, label) in categories {
             let selected = self.gallery_state.category == *category;
             if Button::new(self.theme)

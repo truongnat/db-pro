@@ -27,4 +27,24 @@ Make selected Quick Open scope text use the selected foreground, and remove deco
 - Native Quick Open and Button Gallery captures confirm the result at supported viewport sizes.
 - Full requested 1440×900 and 1920×1080 logical heights remain pending because this display clamps height to 838 points.
 
+## Owner-reported regression pass — 2026-10-19
+
+Baseline: `95de1c9d172e565e5378b9f1cc72fdcadd69b2f8`; changes remain uncommitted on `main`.
+Keep this existing plan as the single owner of the follow-up fixes:
+
+- Suppress duplicate egui shell separator strokes; retain semantic subtle dividers and resize affordances.
+- Restore visible Light/Dark switching, consistent settings/persistence, and theme propagation into the root UI.
+- Keep shared single-line SearchInput compact inside tall containers, so Quick Open results remain visible.
+- Verify with interaction/geometry regressions, native light/dark captures at the three requested sizes, and Rust gates.
+- Preserve existing layout, typography, database behavior, and keyboard focus rings.
+
+## Border follow-up after owner rejection
+
+The owner reported the borders reappearing. The earlier separator-only change retained
+explicit frame strokes; that was insufficient. Remove decorative outer strokes at the
+topbar, statusbar, output panel, Agent panel, and activity rail callers. Preserve
+input/focus borders and interactive resize feedback.
+
+
+
 Provider impact: PostgreSQL and SQLite n/a; presentation-only change.

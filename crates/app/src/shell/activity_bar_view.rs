@@ -33,7 +33,9 @@ pub(super) fn draw_activity_bar(ui: &mut egui::Ui, context: &ActivityBarContext)
 
             ui.vertical_centered(|ui| {
                 action = draw_activity_buttons(ui, context);
-                ui.add_space((ui.available_height() - crate::tokens::component::shell::ACTIVITY_RAIL_SETTINGS_RESERVE).max(0.0));
+                ui.add_space(
+                    (ui.available_height() - crate::tokens::component::shell::ACTIVITY_RAIL_SETTINGS_RESERVE).max(0.0),
+                );
                 if draw_settings_button(ui, context) {
                     action = Some(ActivityBarAction::OpenSettings);
                 }
@@ -60,7 +62,13 @@ fn draw_activity_buttons(ui: &mut egui::Ui, context: &ActivityBarContext) -> Opt
     let queries_active = context.activity == Activity::Queries
         || context.activity == Activity::Files
         || context.active_tab == WorkspaceTab::Query;
-    if draw_rail_icon_button(ui, Icon::FileCode2, queries_active, "SQL Scripts & Projects", context.theme) {
+    if draw_rail_icon_button(
+        ui,
+        Icon::FileCode2,
+        queries_active,
+        "SQL Scripts & Projects",
+        context.theme,
+    ) {
         action = activity_action(Some(Activity::Queries), "SQL Scripts & Projects");
     }
     ui.add_space(2.0);
@@ -106,13 +114,7 @@ fn draw_rail_separator(ui: &mut egui::Ui, theme: DbProTheme) {
     );
 }
 
-fn draw_rail_icon_button(
-    ui: &mut egui::Ui,
-    icon: Icon,
-    active: bool,
-    hint: &str,
-    theme: DbProTheme,
-) -> bool {
+fn draw_rail_icon_button(ui: &mut egui::Ui, icon: Icon, active: bool, hint: &str, theme: DbProTheme) -> bool {
     // `Secondary` is the shared selected treatment (same as the diagram mode
     // toggles); `Ghost` is the quiet rest state.
     let variant = if active {
@@ -154,4 +156,3 @@ fn activity_action(activity: Option<Activity>, hint: &str) -> Option<ActivityBar
 #[cfg(test)]
 #[path = "tests/activity_bar_view_tests.rs"]
 mod tests;
-

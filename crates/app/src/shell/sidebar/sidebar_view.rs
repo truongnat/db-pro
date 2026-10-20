@@ -53,12 +53,16 @@ impl DbProApp {
             self.draw_explorer_sub_panes(ui);
             return;
         }
+        // The scroll body must use the visible sidebar width. A wider max rect
+        // lets rows lay out past the clip, which is what cut Target/Format.
+        let content_width = ui.available_width().min(ui.clip_rect().width()).max(1.0);
         let scroll_h = ui.available_height();
         ScrollArea::new(self.theme)
             .id_salt("sidebar_scroll")
             .auto_shrink([false, false])
             .max_height(scroll_h)
             .show(ui, |ui| {
+                ui.set_max_width(content_width);
                 ui.add_space(SPACE_XS);
                 self.draw_sidebar_activity_body(ui);
             });

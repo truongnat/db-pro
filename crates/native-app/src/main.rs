@@ -326,21 +326,34 @@ fn sample_sqlite_connection_config(path: &std::path::Path) -> db_pro_core::domai
 
 const SAMPLE_SQLITE_APPLICATION_ID: i32 = 0x4442_5052;
 
+fn sample_database_open_path(path: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    // SQLITE_OPEN_NOFOLLOW fails when any parent is a symlink. macOS `/tmp` and
+    // `/var` are symlinks, so a freshly created regular file still will not open.
+    // Resolve the parent only; a symlink at the file itself stays rejected.
+    let Some(parent) = path.parent() else {
+        return Ok(path.to_path_buf());
+    };
+    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let parent = std::fs::canonicalize(parent).map_err(|error| error.to_string())?;
+    let Some(name) = path.file_name() else {
+        return Err("sample database path has no file name".to_owned());
+    };
+    Ok(parent.join(name))
+}
+
 fn initialize_sample_sqlite(path: &std::path::Path) -> Result<(), String> {
     use rusqlite::OpenFlags;
     use std::fs::OpenOptions;
     use std::io::ErrorKind;
 
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
+    let path = sample_database_open_path(path)?;
 
-    match OpenOptions::new().write(true).create_new(true).open(path) {
+    match OpenOptions::new().write(true).create_new(true).open(&path) {
         Ok(file) => {
             drop(file);
             let result = (|| {
                 let connection = rusqlite::Connection::open_with_flags(
-                    path,
+                    &path,
                     OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NOFOLLOW,
                 )
                 .map_err(|error| error.to_string())?;
@@ -358,16 +371,16 @@ fn initialize_sample_sqlite(path: &std::path::Path) -> Result<(), String> {
                 Ok(())
             })();
             if result.is_err() {
-                let _ = std::fs::remove_file(path);
+                let _ = std::fs::remove_file(&path);
             }
             result
         }
         Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            let metadata = std::fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+            let metadata = std::fs::symlink_metadata(&path).map_err(|error| error.to_string())?;
             if metadata.file_type().is_symlink() || !metadata.is_file() {
                 return Err("sample database path is not a regular file".to_owned());
             }
-            let connection = rusqlite::Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            let connection = rusqlite::Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .map_err(|error| format!("existing sample database is not a valid fixture: {error}"))?;
             let application_id: i32 = connection
                 .pragma_query_value(None, "application_id", |row| row.get(0))

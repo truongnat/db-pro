@@ -73,77 +73,80 @@ impl<'a> SearchInput<'a> {
         .show(ui, |ui| {
             ui.set_min_width(inner_w);
             ui.set_max_width(inner_w);
-            // Pin the field's own reading order. `ui.horizontal` *inherits* the parent's
-            // layout direction, so inside a right-to-left row (the explorer toolbar) the
-            // icon, the text and the clear button would all mirror.
-            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                let icon = ui.label(
-                    RichText::new(char::from(Icon::Search).to_string())
-                        .font(egui::FontId::new(
-                            INPUT_ICON_SIZE,
-                            egui::FontFamily::Name("lucide".into()),
-                        ))
-                        .color(self.theme.text_muted),
-                );
-                ui.add_space(SPACE_XS);
+            // Bound the row height instead of inheriting the dialog's full remaining
+            // height. Keep reading order left-to-right even in a right-aligned toolbar.
+            ui.allocate_ui_with_layout(
+                egui::vec2(inner_w, ui.spacing().interact_size.y),
+                Layout::left_to_right(Align::Center),
+                |ui| {
+                    let icon = ui.label(
+                        RichText::new(char::from(Icon::Search).to_string())
+                            .font(egui::FontId::new(
+                                INPUT_ICON_SIZE,
+                                egui::FontFamily::Name("lucide".into()),
+                            ))
+                            .color(self.theme.text_muted),
+                    );
+                    ui.add_space(SPACE_XS);
 
-                let extra_width = if self.shortcut.is_some() {
-                    SEARCH_SHORTCUT_RESERVATION
-                } else {
-                    0.0
-                } + if !self.value.is_empty() {
-                    SEARCH_CLEAR_RESERVATION
-                } else {
-                    0.0
-                };
+                    let extra_width = if self.shortcut.is_some() {
+                        SEARCH_SHORTCUT_RESERVATION
+                    } else {
+                        0.0
+                    } + if !self.value.is_empty() {
+                        SEARCH_CLEAR_RESERVATION
+                    } else {
+                        0.0
+                    };
 
-                // Reserve the icon, its gap and the inter-item spacing so the text
-                // field cannot push the frame past `width`.
-                let reserved = icon.rect.width() + SPACE_XS + ui.spacing().item_spacing.x * 2.0 + extra_width;
+                    // Reserve the icon, its gap and the inter-item spacing so the text
+                    // field cannot push the frame past `width`.
+                    let reserved = icon.rect.width() + SPACE_XS + ui.spacing().item_spacing.x * 2.0 + extra_width;
 
-                let edit = ui.add(
-                    TextEdit::singleline(self.value)
-                        .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
-                        .desired_width((inner_w - reserved).max(0.0))
-                        .margin(Margin::ZERO)
-                        .frame(egui::Frame::NONE)
-                        .text_color(self.theme.text_primary),
-                );
-                edit.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), self.placeholder)
-                });
-
-                if edit.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-                    self.value.clear();
-                }
-
-                if !self.value.is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::X)
-                        .access_label("Clear")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .show(ui)
-                        .clicked()
-                {
-                    self.value.clear();
-                }
-
-                if let Some(sc) = self.shortcut {
-                    Frame {
-                        fill: self.theme.surface_panel,
-                        stroke: Stroke::new(1.0, self.theme.border_subtle),
-                        inner_margin: Margin::symmetric(4.0 as i8, 1.0 as i8),
-                        corner_radius: CornerRadius::same(4.0 as u8),
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        ui.label(RichText::new(sc).size(FONT_SIZE_KBD).color(self.theme.text_secondary));
+                    let edit = ui.add(
+                        TextEdit::singleline(self.value)
+                            .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
+                            .desired_width((inner_w - reserved).max(0.0))
+                            .margin(Margin::ZERO)
+                            .frame(egui::Frame::NONE)
+                            .text_color(self.theme.text_primary),
+                    );
+                    edit.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), self.placeholder)
                     });
-                }
 
-                edit
-            })
+                    if edit.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                        self.value.clear();
+                    }
+
+                    if !self.value.is_empty()
+                        && Button::new(self.theme)
+                            .icon(Icon::X)
+                            .access_label("Clear")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .show(ui)
+                            .clicked()
+                    {
+                        self.value.clear();
+                    }
+
+                    if let Some(sc) = self.shortcut {
+                        Frame {
+                            fill: self.theme.surface_panel,
+                            stroke: Stroke::new(1.0, self.theme.border_subtle),
+                            inner_margin: Margin::symmetric(4.0 as i8, 1.0 as i8),
+                            corner_radius: CornerRadius::same(4.0 as u8),
+                            ..Default::default()
+                        }
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(sc).size(FONT_SIZE_KBD).color(self.theme.text_secondary));
+                        });
+                    }
+
+                    edit
+                },
+            )
             .inner
         });
 
@@ -179,3 +182,7 @@ impl<'a> SearchInput<'a> {
         edit_response
     }
 }
+
+#[cfg(test)]
+#[path = "tests/search_tests.rs"]
+mod tests;

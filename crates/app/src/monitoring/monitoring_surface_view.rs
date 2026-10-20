@@ -70,8 +70,15 @@ impl MonitoringSurfaceContext<'_> {
             filter_active_only: &mut self.state.monitoring_filter_active_only,
         }
         .draw(ui);
-        actions.extend(session_actions.into_iter().map(|action| MonitoringSurfaceAction::Sessions(Box::new(action))));
+        actions.extend(
+            session_actions
+                .into_iter()
+                .map(|action| MonitoringSurfaceAction::Sessions(Box::new(action))),
+        );
         monitoring_snapshot_view::draw_server_stats(ui, self.theme, snapshot);
+        if std::mem::take(&mut self.state.capture_workload_focus_once) {
+            ui.scroll_to_cursor(Some(egui::Align::Min));
+        }
         let workload_actions = monitoring_workload_view::MonitoringWorkloadContext {
             theme: self.theme,
             workload: snapshot.workload.as_ref(),

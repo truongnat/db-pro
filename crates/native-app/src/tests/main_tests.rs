@@ -184,6 +184,106 @@ fn sample_seed_creates_and_verifies_only_marked_fixture() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[test]
+fn sample_seed_opens_when_parent_path_contains_a_symlink() {
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let via_tmp = std::path::PathBuf::from(format!("/tmp/dbpro-sample-probe-{id}"));
+    std::fs::create_dir_all(&via_tmp).expect("mkdir");
+    let canonical = std::fs::canonicalize(&via_tmp).expect("canonicalize");
+    let via_tmp_result = initialize_sample_sqlite(&via_tmp.join("sample.sqlite"));
+    let via_canonical = initialize_sample_sqlite(&canonical.join("sample.sqlite"));
+    let _ = std::fs::remove_dir_all(&canonical);
+    assert!(via_tmp_result.is_ok(), "symlink parent should open: {via_tmp_result:?}");
+    assert!(via_canonical.is_ok(), "canonical parent should open: {via_canonical:?}");
+}
+
+#[test]
+fn saved_sample_connection_returns_product_rows_through_the_runtime() {
+    let dir = temp_dir();
+    let outcome = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime")
+        .block_on(async {
+            let runtime = DbProRuntime::new(&dir).await.expect("app runtime");
+            seed_sqlite_sample_fixture(&runtime).await;
+            let saved = runtime
+                .connections()
+                .list()
+                .await
+                .expect("saved connections")
+                .into_iter()
+                .find(|connection| connection.config.name == "Sample E-Commerce (SQLite)")
+                .expect("sample connection should be saved");
+            let connection_id = saved.id.to_string();
+            let (command_tx, mut event_rx) = spawn_worker(runtime, 8);
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), event_rx.recv())
+                .await
+                .expect("worker ready");
+            command_tx
+                .send(RuntimeCommand::Connect {
+                    request_id: RuntimeRequestId(1),
+                    connection_id: connection_id.clone(),
+                })
+                .await
+                .expect("connect reaches worker");
+            let connected = tokio::time::timeout(std::time::Duration::from_secs(5), event_rx.recv())
+                .await
+                .expect("connect finishes")
+                .expect("worker stays open");
+            assert!(matches!(connected, RuntimeEvent::Connected { .. }), "{connected:?}");
+            command_tx
+                .send(RuntimeCommand::ExecuteQuery {
+                    request_id: RuntimeRequestId(2),
+                    connection_id: connection_id.clone(),
+                    sql: "SELECT COUNT(*) FROM products".to_owned(),
+                    params: Vec::new(),
+                    schema: None,
+                    session_id: None,
+                })
+                .await
+                .expect("query reaches worker");
+            let queried = tokio::time::timeout(std::time::Duration::from_secs(5), event_rx.recv())
+                .await
+                .expect("query finishes")
+                .expect("worker stays open");
+            command_tx
+                .send(RuntimeCommand::Disconnect {
+                    request_id: RuntimeRequestId(3),
+                    connection_id,
+                })
+                .await
+                .expect("disconnect reaches worker");
+            let disconnected = tokio::time::timeout(std::time::Duration::from_secs(5), event_rx.recv())
+                .await
+                .expect("disconnect finishes")
+                .expect("worker stays open");
+            assert!(
+                matches!(
+                    disconnected,
+                    RuntimeEvent::OperationCompleted { operation, .. } if operation == "connection.disconnected"
+                ),
+                "{disconnected:?}"
+            );
+            drop(command_tx);
+            queried
+        });
+    let _ = std::fs::remove_dir_all(&dir);
+    match outcome {
+        RuntimeEvent::QueryCompleted { result, .. } => {
+            assert_eq!(result.row_count, 1, "{result:?}");
+            assert!(
+                matches!(result.rows[0].0.first(), Some(CellValue::Int64(4))),
+                "{result:?}"
+            );
+        }
+        other => panic!("saved sample query did not complete: {other:?}"),
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn sample_seed_rejects_symlink_without_touching_target() {

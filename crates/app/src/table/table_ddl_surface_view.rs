@@ -31,55 +31,77 @@ pub(super) struct DdlToolbarContext {
 pub(super) fn draw_toolbar(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Option<DdlToolbarAction> {
     let mut action = None;
     panel_frame(context.theme).show(ui, |ui| {
-        ui.horizontal(|ui| {
+        let narrow = ui.available_width() < 720.0;
+        ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing.x = SPACE_SM;
             ui.label(
                 RichText::new(char::from(Icon::Code2).to_string())
                     .font(font_icon(ICON_DEFAULT))
                     .color(context.theme.accent),
             );
-            ui.label(RichText::new("DDL SCRIPT").font(font_caption()).strong().color(context.theme.accent));
+            ui.label(
+                RichText::new("DDL SCRIPT")
+                    .font(font_caption())
+                    .strong()
+                    .color(context.theme.accent),
+            );
             Badge::new("CREATE TABLE", context.theme)
                 .variant(BadgeVariant::Default)
                 .compact(true)
                 .show(ui);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if Button::new(context.theme)
-                    .icon(Icon::RotateCcw)
-                    .text(t!("table.refresh_ddl"))
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Re-generate DDL from latest database schema")
-                    .show(ui)
-                    .clicked()
-                {
-                    action = Some(DdlToolbarAction::Refresh);
-                }
-                if Button::new(context.theme)
-                    .icon(Icon::Play)
-                    .text(t!("table.open_in_query"))
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Open DDL in SQL query console")
-                    .show(ui)
-                    .clicked()
-                {
-                    action = Some(DdlToolbarAction::OpenInQuery);
-                }
-                if Button::new(context.theme)
-                    .icon(Icon::Copy)
-                    .text(t!("table.copy_ddl"))
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Copy DDL statement to clipboard")
-                    .show(ui)
-                    .clicked()
-                {
-                    action = Some(DdlToolbarAction::Copy);
-                }
-            });
+            if !narrow {
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    action = draw_toolbar_actions(context, ui);
+                });
+            }
         });
+        if narrow {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+                action = draw_toolbar_actions(context, ui);
+            });
+        }
     });
+    action
+}
+
+fn draw_toolbar_actions(context: &DdlToolbarContext, ui: &mut egui::Ui) -> Option<DdlToolbarAction> {
+    let mut action = None;
+    for (icon, label, variant, tooltip, intent) in [
+        (
+            Icon::RotateCcw,
+            t!("table.refresh_ddl"),
+            ButtonVariant::Ghost,
+            "Re-generate DDL from latest database schema",
+            DdlToolbarAction::Refresh,
+        ),
+        (
+            Icon::Play,
+            t!("table.open_in_query"),
+            ButtonVariant::Secondary,
+            "Open DDL in SQL query console",
+            DdlToolbarAction::OpenInQuery,
+        ),
+        (
+            Icon::Copy,
+            t!("table.copy_ddl"),
+            ButtonVariant::Ghost,
+            "Copy DDL statement to clipboard",
+            DdlToolbarAction::Copy,
+        ),
+    ] {
+        if Button::new(context.theme)
+            .icon(icon)
+            .text(label)
+            .variant(variant)
+            .size(ButtonSize::Sm)
+            .tooltip(tooltip)
+            .show(ui)
+            .clicked()
+        {
+            action = Some(intent);
+        }
+    }
     action
 }
 
@@ -95,8 +117,16 @@ pub(super) fn draw_placeholder(context: &DdlPlaceholderContext<'_>, ui: &mut egu
             ui.add_space(28.0);
             let failed = context.error.is_some();
             let icon = if failed { Icon::TriangleAlert } else { Icon::Code2 };
-            let color = if failed { context.theme.warning } else { context.theme.accent };
-            ui.label(RichText::new(char::from(icon).to_string()).font(font_icon(ICON_XL)).color(color));
+            let color = if failed {
+                context.theme.warning
+            } else {
+                context.theme.accent
+            };
+            ui.label(
+                RichText::new(char::from(icon).to_string())
+                    .font(font_icon(ICON_XL))
+                    .color(color),
+            );
             ui.add_space(8.0);
             ui.label(
                 RichText::new(if failed {
@@ -137,9 +167,14 @@ pub(super) fn draw_script_card(context: &mut DdlScriptContext<'_>, ui: &mut egui
 
 fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Option<DdlScriptAction> {
     let mut action = None;
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = SPACE_SM;
-        ui.label(RichText::new("CREATE SCRIPT").font(font_caption()).strong().color(context.theme.text_secondary));
+        ui.label(
+            RichText::new("CREATE SCRIPT")
+                .font(font_caption())
+                .strong()
+                .color(context.theme.text_secondary),
+        );
         ui.label(
             RichText::new(if context.writable {
                 "Editable preview · Apply asks for confirmation"
@@ -149,22 +184,20 @@ fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Opti
             .small()
             .color(context.theme.text_muted),
         );
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if context.writable
-                && !context.executing
-                && Button::new(context.theme)
-                    .icon(Icon::Play)
-                    .text(t!("table.apply_ddl"))
-                    .variant(ButtonVariant::Default)
-                    .size(ButtonSize::Sm)
-                    .enabled(DDL_APPLY_ENABLED)
-                    .tooltip("Review and confirm before the DDL executes")
-                    .show(ui)
-                    .clicked()
-            {
-                action = Some(DdlScriptAction::Apply);
-            }
-        });
+        if context.writable
+            && !context.executing
+            && Button::new(context.theme)
+                .icon(Icon::Play)
+                .text(t!("table.apply_ddl"))
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .enabled(DDL_APPLY_ENABLED)
+                .tooltip("Review and confirm before the DDL executes")
+                .show(ui)
+                .clicked()
+        {
+            action = Some(DdlScriptAction::Apply);
+        }
     });
     action
 }
@@ -197,3 +230,7 @@ fn draw_script_editor(context: &mut DdlScriptContext<'_>, ui: &mut egui::Ui) -> 
     });
     changed.then_some(DdlScriptAction::Changed)
 }
+
+#[cfg(test)]
+#[path = "tests/table_ddl_surface_view_tests.rs"]
+mod layout_tests;

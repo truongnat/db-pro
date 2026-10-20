@@ -49,6 +49,8 @@ impl DbProApp {
                 }
                 shell_topbar_view::ShellTopbarAction::ToggleTheme => {
                     self.preferences.dark_mode = !self.preferences.dark_mode;
+                    self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
+                    ctx.request_repaint();
                 }
                 shell_topbar_view::ShellTopbarAction::OpenQuickOpen => {
                     self.palette.open(PaletteMode::QuickOpen);
@@ -164,11 +166,12 @@ impl DbProApp {
             .resizable(true)
             .default_size(height)
             .size_range(OUTPUT_MIN_HEIGHT..=OUTPUT_MAX_HEIGHT)
+            .show_separator_line(false)
             .frame(shell_surface_frame(
                 self.theme,
                 ShellSurface::Panel,
                 egui::Margin::symmetric(SPACE_MD as i8, SPACE_XS as i8),
-                true,
+                false,
             ))
             .show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
@@ -191,9 +194,10 @@ impl DbProApp {
         // egui's resizable Panel emits an anonymous `Unknown` node for the
         // drag handle (id = panel id + "__resize") — name it so AT can
         // announce "resize output panel" instead of nothing.
-        ui.ctx().accesskit_node_builder(egui::Id::new("output_panel").with("__resize"), |b| {
-            b.set_label(t!("shell.resize_output"));
-        });
+        ui.ctx()
+            .accesskit_node_builder(egui::Id::new("output_panel").with("__resize"), |b| {
+                b.set_label(t!("shell.resize_output"));
+            });
         self.workspace.set_bottom_panel_height(response.response.rect.height());
     }
 }

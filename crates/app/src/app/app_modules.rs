@@ -56,6 +56,10 @@ mod component_gallery_surfaces;
 mod component_gallery_view;
 #[path = "../connection/mod.rs"]
 pub mod connection;
+#[path = "../workspace/data_cleanup_capture.rs"]
+mod data_cleanup_capture;
+#[path = "../workspace/workstation_cleanup_capture.rs"]
+mod workstation_cleanup_capture;
 
 pub use component_gallery_view::ComponentGalleryState;
 #[path = "../tools/audit_activity_view.rs"]
@@ -236,10 +240,10 @@ mod replication_state;
 mod routine_state;
 #[path = "../schema/routine_workbench_surface_view.rs"]
 mod routine_workbench_surface_view;
-#[path = "../tools/saved_task_state.rs"]
-mod saved_task_state;
 #[path = "../tools/saved_task_sql.rs"]
 mod saved_task_sql;
+#[path = "../tools/saved_task_state.rs"]
+mod saved_task_state;
 #[path = "../security/security_state.rs"]
 mod security_state;
 #[path = "../settings/settings_appearance_view.rs"]
@@ -416,12 +420,12 @@ mod result_grid_toolbar_view;
 pub(crate) mod result_grid_view;
 #[path = "../runtime/runtime_event_handlers.rs"]
 mod runtime_event_handlers;
-#[path = "../shell/sidebar/constants.rs"]
-mod sidebar_constants;
 #[path = "../shell/sidebar/sidebar_activities_view.rs"]
 mod sidebar_activities_view;
 #[path = "../shell/sidebar/sidebar_chrome_view.rs"]
 mod sidebar_chrome_view;
+#[path = "../shell/sidebar/constants.rs"]
+mod sidebar_constants;
 #[path = "../shell/sidebar/sidebar_data_view.rs"]
 mod sidebar_data_view;
 #[path = "../shell/sidebar/sidebar_history_view.rs"]
@@ -438,8 +442,6 @@ mod sidebar_query_library_view;
 mod sidebar_query_shortcuts_view;
 #[path = "../shell/sidebar/sidebar_view.rs"]
 mod sidebar_view;
-#[path = "../tools/tools_hub_surface_view.rs"]
-mod tools_hub_surface_view;
 #[path = "../tools/synthetic_data.rs"]
 mod synthetic_data;
 #[path = "../table/table_conflict_dialog_surface.rs"]
@@ -482,6 +484,8 @@ mod table_mutation_state;
 mod table_state;
 #[path = "../tools/tasks_view.rs"]
 mod tasks_view;
+#[path = "../tools/tools_hub_surface_view.rs"]
+mod tools_hub_surface_view;
 #[path = "../visual_query_builder/visual_query_builder_state.rs"]
 mod visual_query_builder_state;
 #[path = "../visual_query_builder/visual_query_builder_view.rs"]
@@ -519,12 +523,12 @@ pub(crate) use workspace_files_state::WorkspaceFilesState;
 pub(crate) use workspace_session_state::WorkspaceSessionState;
 #[path = "../tools/saved_tasks_surface_view.rs"]
 mod saved_tasks_surface_view;
+#[path = "../schema/schema_actions.rs"]
+mod schema_actions;
 #[path = "../schema/schema_compare.rs"]
 mod schema_compare;
 #[path = "../schema/schema_compare_state.rs"]
 mod schema_compare_state;
-#[path = "../schema/schema_actions.rs"]
-mod schema_actions;
 #[path = "../schema/schema_compare_view.rs"]
 mod schema_compare_view;
 #[path = "../schema/schema_events.rs"]
@@ -571,6 +575,12 @@ mod shell_frame_view;
 mod shell_statusbar_view;
 #[path = "../shell/chrome/shell_topbar_view.rs"]
 mod shell_topbar_view;
+#[cfg(test)]
+#[path = "../settings/tests/shortcut_catalog_tests.rs"]
+mod shortcut_catalog_tests;
+#[cfg(test)]
+#[path = "../table/tests/table_data_export_tests.rs"]
+mod table_data_export_tests;
 #[path = "../table/table_ddl_surface_view.rs"]
 mod table_ddl_surface_view;
 #[path = "../table/table_ddl_view.rs"]
@@ -581,6 +591,9 @@ mod table_editor_context;
 mod table_editor_values;
 #[path = "../table/table_editor_view.rs"]
 mod table_editor_view;
+#[cfg(test)]
+#[path = "../table/tests/table_fk_lookup_tests.rs"]
+mod table_fk_lookup_tests;
 #[path = "../table/table_insert_row_surface_view.rs"]
 mod table_insert_row_surface_view;
 #[path = "../table/table_insert_row_view.rs"]
@@ -593,6 +606,12 @@ mod table_metadata_view;
 mod table_relations_surface_view;
 #[path = "../table/table_relations_view.rs"]
 mod table_relations_view;
+#[cfg(test)]
+#[path = "../table/tests/table_row_edit_tests.rs"]
+mod table_row_edit_tests;
+#[cfg(test)]
+#[path = "../table/tests/table_row_identity_tests.rs"]
+mod table_row_identity_tests;
 #[path = "../table/table_scroll_surface_view.rs"]
 mod table_scroll_surface_view;
 #[path = "../table/table_structure_view.rs"]
@@ -604,21 +623,6 @@ mod table_workspace_surface_view;
 #[cfg(test)]
 #[path = "tests/app_tests.rs"]
 mod tests;
-#[cfg(test)]
-#[path = "../table/tests/table_row_edit_tests.rs"]
-mod table_row_edit_tests;
-#[cfg(test)]
-#[path = "../table/tests/table_row_identity_tests.rs"]
-mod table_row_identity_tests;
-#[cfg(test)]
-#[path = "../table/tests/table_fk_lookup_tests.rs"]
-mod table_fk_lookup_tests;
-#[cfg(test)]
-#[path = "../table/tests/table_data_export_tests.rs"]
-mod table_data_export_tests;
-#[cfg(test)]
-#[path = "../settings/tests/shortcut_catalog_tests.rs"]
-mod shortcut_catalog_tests;
 #[path = "../tools/transfer_activity_view.rs"]
 mod transfer_activity_view;
 #[path = "../workspace/workspace_feature_state.rs"]

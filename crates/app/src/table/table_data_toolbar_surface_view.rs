@@ -61,7 +61,7 @@ pub(super) fn draw_toolbar(
     ui: &mut egui::Ui,
 ) -> Option<TableDataToolbarAction> {
     let mut action = None;
-    table_workspace_surface_view::table_band_frame(context.theme).show(ui, |ui| {
+    toolbar_frame(context.theme).show(ui, |ui| {
         ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
                 action = context.draw_mutation_controls(ui);
@@ -94,7 +94,7 @@ pub(super) fn draw_footer(
     ui: &mut egui::Ui,
 ) -> Option<TableDataToolbarAction> {
     let mut action = None;
-    table_workspace_surface_view::table_band_frame(context.theme).show(ui, |ui| {
+    toolbar_frame(context.theme).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = SPACE_XS;
             action = context.draw_footer_mutation_controls(ui);
@@ -212,8 +212,14 @@ impl TableDataToolbarContext<'_> {
             self.theme.surface_editor,
             egui::Stroke::new(
                 1.0,
-                if focused { self.theme.border_focus } else { self.theme.border_default },
-            ), egui::StrokeKind::Inside);
+                if focused {
+                    self.theme.border_focus
+                } else {
+                    self.theme.border_default
+                },
+            ),
+            egui::StrokeKind::Inside,
+        );
         // `new_child` (not `allocate_new_ui`): `editor_rect` is already
         // reserved by `allocate_exact_size`, and nothing inside the editor
         // may push its min_rect back into the toolbar's placer.
@@ -625,4 +631,3 @@ impl From<table_data_pagination_view::TableDataPaginationAction> for TableDataTo
 #[cfg(test)]
 #[path = "tests/table_data_toolbar_surface_view_tests.rs"]
 mod tests;
-

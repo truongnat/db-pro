@@ -410,6 +410,12 @@ impl DbProTheme {
 
     pub fn apply(self, ctx: &egui::Context) {
         text_selection_style::install(ctx);
+        // In egui 0.36 visuals alone do not select the active light/dark style.
+        ctx.set_theme(if self.dark_mode {
+            egui::Theme::Dark
+        } else {
+            egui::Theme::Light
+        });
         let mut visuals = if self.dark_mode {
             Visuals::dark()
         } else {
@@ -471,39 +477,38 @@ impl DbProTheme {
         visuals.widgets.open.fg_stroke = Stroke::new(STROKE_THIN, self.text_primary);
         visuals.widgets.open.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.window_stroke = Stroke::new(STROKE_THIN, self.border_subtle);
-        ctx.set_visuals(visuals);
-
-        let mut style = (*ctx.global_style()).clone();
-        style.spacing.item_spacing = EGUI_ITEM_SPACING;
-        style.spacing.button_padding = EGUI_BUTTON_PADDING;
-        // macOS-style overlay scrollbars: nothing painted at rest, thin thumb on
-        // hover/scroll, expanding slightly when the bar itself is hovered.
-        style.spacing.scroll = egui::style::ScrollStyle {
-            dormant_background_opacity: 0.0,
-            dormant_handle_opacity: 0.0,
-            active_background_opacity: 0.0,
-            active_handle_opacity: 0.5,
-            interact_background_opacity: 0.0,
-            interact_handle_opacity: 1.0,
-            ..egui::style::ScrollStyle::thin()
-        };
-        style.spacing.interact_size = EGUI_INTERACT_SIZE;
-        style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN as i8);
-        style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN as i8);
-        style.spacing.indent = EGUI_INDENT;
-        style
-            .text_styles
-            .insert(TextStyle::Body, FontId::proportional(FONT_SIZE_UI_LABEL));
-        style
-            .text_styles
-            .insert(TextStyle::Button, FontId::proportional(FONT_SIZE_UI_LABEL));
-        style
-            .text_styles
-            .insert(TextStyle::Small, FontId::proportional(FONT_SIZE_BADGE));
-        style
-            .text_styles
-            .insert(TextStyle::Monospace, FontId::monospace(FONT_SIZE_MONO_UI));
-        ctx.set_global_style(style);
+        ctx.global_style_mut(|style| {
+            style.visuals = visuals;
+            style.spacing.item_spacing = EGUI_ITEM_SPACING;
+            style.spacing.button_padding = EGUI_BUTTON_PADDING;
+            // macOS-style overlay scrollbars: nothing painted at rest, thin thumb on
+            // hover/scroll, expanding slightly when the bar itself is hovered.
+            style.spacing.scroll = egui::style::ScrollStyle {
+                dormant_background_opacity: 0.0,
+                dormant_handle_opacity: 0.0,
+                active_background_opacity: 0.0,
+                active_handle_opacity: 0.5,
+                interact_background_opacity: 0.0,
+                interact_handle_opacity: 1.0,
+                ..egui::style::ScrollStyle::thin()
+            };
+            style.spacing.interact_size = EGUI_INTERACT_SIZE;
+            style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN as i8);
+            style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN as i8);
+            style.spacing.indent = EGUI_INDENT;
+            style
+                .text_styles
+                .insert(TextStyle::Body, FontId::proportional(FONT_SIZE_UI_LABEL));
+            style
+                .text_styles
+                .insert(TextStyle::Button, FontId::proportional(FONT_SIZE_UI_LABEL));
+            style
+                .text_styles
+                .insert(TextStyle::Small, FontId::proportional(FONT_SIZE_BADGE));
+            style
+                .text_styles
+                .insert(TextStyle::Monospace, FontId::monospace(FONT_SIZE_MONO_UI));
+        });
     }
 
     pub fn floating_shadow(self) -> Shadow {

@@ -1,61 +1,93 @@
-# Agent evidence — Quick Open and borderless action states
+# Agent evidence — shell borders, Light/Dark, Quick Open regression pass
 
 ## 1. Claim
 
 | Field | Value |
 |---|---|
-| Agent identity | Codex / implementation |
-| Issue(s) | none |
-| Task state | Done (feature lifecycle remains `RUNTIME_VERIFY`) |
-| Baseline SHA | `57cea2bf746e132564cde952cc06d0d04d796aa0` |
-| Branch / PR | `main` / no PR |
-| Scope interpretation | Correct selected Quick Open text and remove decorative action strokes while preserving focus indication and existing interaction fills. |
-| Out of scope | Database behavior, renderer architecture, font changes, and full-height captures unavailable on this display. |
+| Agent identity | Codex parent; ThemeToggle and ShellBorders implementation slices |
+| Issue(s) | Owner's two screenshots, 2026-10-19 |
+| Task state | Done for reachable implementation/verification; feature lifecycle RUNTIME_VERIFY |
+| Baseline SHA | `95de1c9d172e565e5378b9f1cc72fdcadd69b2f8` |
+| Branch / PR | main / no PR; no commit created |
+| Scope interpretation | Soften shell boundaries, restore consistent rendered Light/Dark selection, keep Quick Open search/results/footer correctly sized |
+| Out of scope | Provider logic, SQL, unrelated sample-seed and Clippy failures, broader Welcome layout |
+
+Historical 2026-10-02 changes at `78d914887642dd400c7e2048db9a24d0403619c8` remain documented in PLAN/FINDINGS/VERIFICATION and the original evidence images.
 
 ## 2. Progress checkpoint
 
-- Current source SHA: `78d914887642dd400c7e2048db9a24d0403619c8`
-- Completed acceptance rows: [x] selected scope foreground in light/dark; [x] borderless action and selected-row visuals; [x] Button hover/loading/disabled stroke regression checks; [x] native captures at available viewport sizes.
-- Remaining acceptance rows: [ ] capture full 1440×900 and 1920×1080 logical heights on a larger display.
-- Findings / risks: P2 baseline selected-label foreground mismatch and decorative action strokes are fixed at the source SHA above; 0 open P0/P1/P2.
-- Tests already run: `cargo test --workspace` → 1606 passed / 0 failed / 41 ignored, exit 0. Exact additional gates are in `VERIFICATION.md`.
-- Dependency / blocker changes: no code dependency; host display height is limited to 838 logical points at 1440/1920 widths.
+- Source base: `95de1c9d172e565e5378b9f1cc72fdcadd69b2f8` + uncommitted patch. Exact candidate file bytes: `evidence/2026-10-19/source-manifest.json`.
+- Completed: [x] subtle shell boundaries; [x] toolbar/Settings/Gallery synchronization; [x] explicit egui theme and fresh root style; [x] compact SearchInput; [x] shrinking empty list and sticky keyboard-help footer; [x] native light/dark screenshots.
+- Final app/UI tests: 1299 passed / 0 failed / 0 ignored, exit 0. Runtime suite separately: 42 passed / 0 failed / 0 ignored.
+- Remaining: [ ] exact 900/1080 logical heights; [ ] independent review; [ ] actual OS-pointer resize/hover checks.
+- Risks: no open defect found in the requested changed paths. Wider application failures and inherited visual limitations are not hidden; see VERIFICATION.
 
 ## 3. Implementation handoff / review request
 
 | Field | Value |
 |---|---|
-| Exact SHA | `78d914887642dd400c7e2048db9a24d0403619c8` |
-| Commit list | `78d91488 fix(ui): correct selected text and remove action borders` |
-| File / surface inventory | `palette_surface_view.rs` selected foreground and border removal + regression; Button palette/tests/API/design docs; capture helper for Quick Open and empty state; five native PNG captures. |
-| Acceptance mapping | Selected text → `selected_scope_label_uses_the_theme_selection_foreground`; borderless states → `action_variants_stay_borderless_through_hover_loading_and_disabled_states`; runtime appearance → `evidence/*.png`. |
-| Commands and counts | `cargo fmt --all -- --check`, workspace check/clippy, workspace tests (1606/0/41), native release build, capture-feature clippy; all PASS. See `VERIFICATION.md` for exact commands. |
+| Exact SHA | Baseline `95de1c9d172e565e5378b9f1cc72fdcadd69b2f8`; no candidate commit SHA exists; SHA-256 source manifest binds uncommitted files |
+| Commit list | none |
+| Acceptance mapping | Borders → panel idle separators disabled, semantic frames retained; theme → pointer-driven lifecycle regression + context-style regression; Quick Open → SearchInput geometry regression + footer clipping regression; runtime → 36 final PNGs |
+| Commands and counts | Final app/UI 1299/0/0 PASS; workspace fmt/check/UI architecture PASS; native dev-capture/release builds PASS; full workspace tests FAIL 1366/1/55 before abort; both strict Clippy runs FAIL in untouched paths; exact commands in VERIFICATION.md |
 | CI run IDs / status | not run |
-| Known limitations | 1440×900 and 1920×1080 logical heights are clamped to 838 by the host display. Capture startup reports replacement-glyph warnings. |
-| Migrations / config implications | none; capture-only environment variables follow the existing evidence harness. |
-| Out-of-scope changes | no renderer, typography, database, or provider changes; dark solid-action contrast policy is unchanged. |
+| Known limitations | Larger images cap at 838 logical px; actual native hover/resize not exercised; restored PostgreSQL connection missing its database; Schema scope therefore empty, not a populated-provider search demonstration |
+| Migrations / config implications | No key/schema migration. Capture-only `DB_PRO_CAPTURE_AGENT_LIGHT=1` now supports light Agent evidence. |
+| Out-of-scope changes | none |
+
+File/surface inventory (full paths in source manifest):
+
+- `crates/ui/src/components/input/search.rs`: allocate a compact left-to-right row; register `tests/search_tests.rs`.
+- `crates/ui/src/components/input/tests/search_tests.rs`: first result remains visible in tall containers, light/dark.
+- `crates/ui/src/components/input/API.md`: document compact row behavior.
+- `crates/ui/src/theme/mod.rs`: explicitly select context theme and update visuals/style consistently.
+- `crates/ui/src/theme/tests/mod_tests.rs`: light→dark→light rendering-context regression.
+- `crates/app/src/shell/chrome/shell_topbar_view.rs`, `shell_statusbar_view.rs`: suppress duplicate idle separators.
+- `crates/app/src/shell/chrome/shell_chrome_view.rs`: synchronize toolbar preference/repaint; suppress output-dock idle separator.
+- `crates/app/src/agent/agent_surface_view.rs`: suppress Agent idle separator.
+- `crates/app/src/settings/settings_appearance_view.rs`: repaint after selecting a theme, retain reduced-motion preference.
+- `crates/app/src/component_gallery/component_gallery_view.rs`: synchronize theme toggle preference/repaint.
+- `crates/app/src/app/app_lifecycle.rs`: refresh root Ui style before shell rendering; register tests.
+- `crates/app/src/app/tests/app_lifecycle_tests.rs`: real control pointer events, rendered fills, repeated frames, save/reload.
+- `crates/app/src/palette/palette_surface_view.rs`: shrinking results and fixed DialogFrame footer.
+- `crates/app/src/palette/tests/palette_surface_view_tests.rs`: keyboard help stays inside the visible dialog.
+- `crates/app/src/workspace/workspace_actions.rs`: light Agent capture mode.
+- Existing plan's PLAN/CHECKLIST/FINDINGS/VERIFICATION/AGENT_EVIDENCE and `docs/plans/STATUS.md`: current evidence and limitations.
+- `evidence/2026-10-19/`: source manifest, initial attempt metadata/logs, and final 36 light/dark native captures.
 
 ## 4. Review outcome
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | n/a — no independent reviewer |
-| Verdict | n/a |
-| P0 / P1 / P2 counts | introduced open: 0 / 0 / 0; fixed baseline P2: 2 |
-| Findings | none open |
-| CI disposition | not run |
-| Next task(s) unblocked | full-height visual capture when a larger display is available |
+| Reviewed SHA | Baseline `95de1c9d172e565e5378b9f1cc72fdcadd69b2f8` plus uncommitted manifest-bound patch |
+| Verdict | n/a — implementation self-verification is not independent approval |
+| P0 / P1 / P2 counts | Requested-path introduced open: 0 / 0 / 0 observed; baseline issues fixed: 4 P2 (separator, theme, search sizing, footer clipping). Wider-repository failures not independently classified. |
+| Findings | Failed workspace test/Clippy and clipped-height gate remain recorded; no suppression or unrelated cleanup |
+| CI disposition | CI not run; see local command evidence |
+| Next tasks unblocked | Independent review and full-height/native-pointer verification |
 
 ## 5. Research / audit handoff
 
-- Source date: 2026-10-02
-- Source references: `crates/ui/src/theme.rs`, `crates/ui/src/palette_surface_view.rs`, `crates/ui/src/components/button/handlers/palette.rs`, `crates/ui/src/text_selection_style.rs`, egui 0.29.1 `widgets/selected_label.rs` and `style.rs`.
-- Factual findings: baseline glyph color was `#1A1C1F` while selected foreground was `#FFFFFF`; the regression test recorded both. Native captures show white selected scope text and borderless action variants.
-- Inference: none.
-- Decision / recommendation: keep black text on bright dark-theme solid fills where `text_on_solid` selects it for contrast; selected scope text follows the selection foreground.
-- Unresolved questions: capture at full requested logical viewport heights on another display.
-- Downstream tasks activated: none.
+- Source date: 2026-10-19.
+- References: manifest-owned files above; installed egui/eframe 0.36.2 `context.rs`, `ui.rs`, `containers/panel.rs`, `native/epi_integration.rs`; RULES.md; feature lifecycle; native migration visual gate.
+- Baseline mechanisms: `set_visuals` does not choose egui context theme; eframe root Ui precedes App logic; centered unconstrained `with_layout` consumes remaining height; panel idle separators paint independently of frames.
+- Measured: search first-result y=796 before fix; footer regression fails before/passes after; final pointer-driven theme and owned suites pass; final native matrix 36/36 exit 0.
+- Inference explicitly rejected: settings did not overwrite the runtime theme each frame; applying saved settings happens during restore.
+- Inference/limitation: exact relative contribution of egui theme/root snapshot/repaint issues to the original user session is not separately isolated; the regression exercises the complete repaired path.
+- PostgreSQL: n/a presentation change. SQLite: n/a presentation change. No provider success inferred from fixtures or the other provider.
+- Unresolved: larger requested heights, independent review, true OS hover/resize; saved-connection and sample-seed failures outside this task.
+- Downstream issues activated: none.
 
 ## 6. Tổng kết (Vietnamese summary)
 
-Đã sửa màu chữ selected của Quick Open, bỏ viền trang trí khỏi action và giữ focus ring bàn phím. Workspace tests/build và native capture đều chạy; còn thiếu chiều cao 1440×900, 1920×1080 do giới hạn màn hình máy hiện tại.
+Đã bỏ separator đen dư, sửa Light/Dark đồng bộ toolbar–Settings và style của egui, thu gọn ô tìm kiếm Quick Open và giữ hướng dẫn phím ở footer. Test app/UI cuối cùng 1299/0/0, build release thành công, đã xem 36 ảnh native Light/Dark. Gate workspace còn lỗi ở sample SQLite/Clippy ngoài phạm vi; ảnh rộng bị giới hạn chiều cao 838, chưa có review độc lập và thao tác resize/hover native nên plan vẫn RUNTIME_VERIFY.
+
+### Border follow-up
+
+Owner rejected the retained explicit frame strokes. At baseline
+`95de1c9d172e565e5378b9f1cc72fdcadd69b2f8` plus manifest-bound uncommitted follow-up,
+outer topbar/statusbar/output/Agent/activity boundaries are now borderless.
+Rendered-shell regression: 1/0/0; capture build passes; 12 native PNGs exit 0 and
+were inspected. Evidence and exact source hashes are under
+`evidence/2026-10-19/border-followup/`. Prior full-height/native-pointer limitations remain.
+Đã bỏ cả viền frame còn sót, không chỉ separator egui; giữ nguyên focus và resize.

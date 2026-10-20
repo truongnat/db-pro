@@ -13,6 +13,27 @@ fn light_and_dark_themes_keep_distinct_surface_tokens() {
 }
 
 #[test]
+fn applying_theme_selects_matching_egui_style_across_frames() {
+    let ctx = egui::Context::default();
+    for theme in [DbProTheme::light(), DbProTheme::dark(), DbProTheme::light()] {
+        theme.apply(&ctx);
+        let expected = if theme.dark_mode {
+            egui::Theme::Dark
+        } else {
+            egui::Theme::Light
+        };
+        assert_eq!(ctx.theme(), expected);
+        for _ in 0..3 {
+            let _ = crate::test_frame::frame(&ctx, Default::default(), |ui| {
+                assert_eq!(ui.visuals().dark_mode, theme.dark_mode);
+                assert_eq!(ui.visuals().panel_fill, theme.surface_panel);
+                assert_eq!(ui.visuals().override_text_color, Some(theme.text_primary));
+            });
+        }
+    }
+}
+
+#[test]
 fn light_tokens_follow_codex_surface_contract() {
     let theme = DbProTheme::light();
 

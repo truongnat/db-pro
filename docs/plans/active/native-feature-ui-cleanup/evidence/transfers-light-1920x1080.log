@@ -1,0 +1,5 @@
+[2m2026-10-19T15:22:47.426993Z[0m [33m WARN[0m [2mdb_pro_native[0m[2m:[0m failed to initialize Sample E-Commerce SQLite fixture [3merror[0m[2m=[0munable to open database file: /tmp/db-pro-quick-open-theme-20261019/sample-ecommerce.sqlite
+[2m2026-10-19T15:22:47.427207Z[0m [33m WARN[0m [2mdb_pro_native[0m[2m:[0m failed to seed Enterprise PostgreSQL connection: authentication failed: database password is required for PostgreSQL
+[2m2026-10-19T15:22:47.631702Z[0m [33m WARN[0m [2mepaint::text::fonts[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+[2m2026-10-19T15:22:47.859500Z[0m [33m WARN[0m [2mepaint::text::fonts[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+[2m2026-10-19T15:22:48.097084Z[0m [33m WARN[0m [2mdb_pro_runtime::worker[0m[2m:[0m connection failed [3mrequest_id[0m[2m=[0m2 [3mconnection_id[0m[2m=[0m4b0798da-0bc9-464d-b5a1-8336f70b9844 [3merror[0m[2m=[0mdatabase not found: database "fullstack_starter" does not exist

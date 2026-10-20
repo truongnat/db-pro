@@ -308,3 +308,111 @@ async fn disconnect_closes_sqlite_memory_and_reconnect_opens_a_new_database() {
     drop(command_tx);
     std::fs::remove_dir_all(&data_dir).expect("temporary runtime data should be removed");
 }
+
+#[tokio::test]
+async fn execute_query_returns_a_row_from_a_sqlite_file() {
+    use std::time::Duration;
+
+    let data_dir = std::env::temp_dir().join(format!("db-pro-file-query-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&data_dir).expect("query fixture dir");
+    let database = data_dir.join("shop.sqlite");
+    let runtime = DbProRuntime::new(&data_dir)
+        .await
+        .expect("test runtime should initialize");
+    let summary = runtime
+        .connection_api()
+        .create(
+            db_pro_core::domain::connection::ConnectionConfig {
+                name: "shop".to_owned(),
+                host: String::new(),
+                port: 0,
+                database: database.display().to_string(),
+                username: String::new(),
+                driver: db_pro_core::domain::connection::DriverType::SQLite,
+                ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                ssh_profile_id: None,
+                ssl_root_cert_path: None,
+                ssl_client_cert_path: None,
+                ssl_client_key_path: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: Vec::new(),
+                group: None,
+                favorite: false,
+                environment: Default::default(),
+                readonly: false,
+            },
+            "",
+        )
+        .await
+        .expect("sqlite file connection should be saved");
+    let (command_tx, mut event_rx) = spawn_worker(runtime, 8);
+    let _ = tokio::time::timeout(Duration::from_secs(5), event_rx.recv())
+        .await
+        .expect("worker should announce readiness");
+    let connection_id = summary.id;
+    command_tx
+        .send(RuntimeCommand::Connect {
+            request_id: RuntimeRequestId(1),
+            connection_id: connection_id.clone(),
+        })
+        .await
+        .expect("connect should reach the worker");
+    let connected = tokio::time::timeout(Duration::from_secs(5), event_rx.recv())
+        .await
+        .expect("connect should finish")
+        .expect("worker should stay open");
+    assert!(matches!(connected, RuntimeEvent::Connected { .. }), "{connected:?}");
+
+    for (request_id, sql) in [
+        (2_u64, "CREATE TABLE products (name TEXT)"),
+        (3, "INSERT INTO products (name) VALUES ('keyboard')"),
+    ] {
+        command_tx
+            .send(RuntimeCommand::ExecuteQuery {
+                request_id: RuntimeRequestId(request_id),
+                connection_id: connection_id.clone(),
+                sql: sql.to_owned(),
+                params: Vec::new(),
+                schema: None,
+                session_id: None,
+            })
+            .await
+            .expect("statement should reach the worker");
+        let event = tokio::time::timeout(Duration::from_secs(5), event_rx.recv())
+            .await
+            .expect("statement should finish")
+            .expect("worker should stay open");
+        assert!(matches!(event, RuntimeEvent::QueryCompleted { .. }), "{sql}: {event:?}");
+    }
+
+    command_tx
+        .send(RuntimeCommand::ExecuteQuery {
+            request_id: RuntimeRequestId(4),
+            connection_id,
+            sql: "SELECT name FROM products".to_owned(),
+            params: Vec::new(),
+            schema: None,
+            session_id: None,
+        })
+        .await
+        .expect("select should reach the worker");
+    let selected = tokio::time::timeout(Duration::from_secs(5), event_rx.recv())
+        .await
+        .expect("select should finish")
+        .expect("worker should stay open");
+    match selected {
+        RuntimeEvent::QueryCompleted { result, .. } => {
+            assert_eq!(result.row_count, 1, "{result:?}");
+            assert!(
+                matches!(result.rows[0].0.first(), Some(db_pro_core::domain::query::CellValue::Text(value)) if value == "keyboard"),
+                "{result:?}"
+            );
+        }
+        other => panic!("read-only query did not complete: {other:?}"),
+    }
+    drop(command_tx);
+    std::fs::remove_dir_all(&data_dir).expect("temporary runtime data should be removed");
+}

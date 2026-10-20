@@ -18,6 +18,7 @@ pub struct ContextChip<'a> {
     label: &'a str,
     removable: bool,
     theme: DbProTheme,
+    max_width: Option<f32>,
 }
 
 impl<'a> ContextChip<'a> {
@@ -27,11 +28,17 @@ impl<'a> ContextChip<'a> {
             label,
             removable: false,
             theme,
+            max_width: None,
         }
     }
 
     pub fn removable(mut self, removable: bool) -> Self {
         self.removable = removable;
+        self
+    }
+
+    pub fn max_width(mut self, max_width: f32) -> Self {
+        self.max_width = Some(max_width);
         self
     }
 
@@ -42,9 +49,15 @@ impl<'a> ContextChip<'a> {
         let icon_galley = ui
             .painter()
             .layout_no_wrap(icon_char, icon_font, self.theme.text_secondary);
-        let text_galley = ui
-            .painter()
-            .layout_no_wrap(self.label.to_owned(), text_font, self.theme.text_primary);
+        let overhead = handler::context_chip_size(icon_galley.size(), Vec2::ZERO, self.removable).x;
+        let mut job =
+            egui::text::LayoutJob::simple_singleline(self.label.to_owned(), text_font, self.theme.text_primary);
+        if let Some(width) = self.max_width {
+            job.wrap.max_width = (width - overhead).max(1.0);
+            job.wrap.max_rows = 1;
+            job.wrap.break_anywhere = true;
+        }
+        let text_galley = ui.fonts_mut(|fonts| fonts.layout_job(job));
         let icon_size = icon_galley.size();
         let text_size = text_galley.size();
         let size = handler::context_chip_size(icon_size, text_size, self.removable);
@@ -84,7 +97,11 @@ impl<'a> ContextChip<'a> {
         if !self.removable {
             let chip_response = ui.interact(rect, response.id, Sense::click());
             chip_response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, self.label));
-            return chip_response;
+            if chip_response.has_focus() {
+                crate::components::interact::paint_focus_ring(ui, rect, config::CHIP_RADIUS, self.theme);
+                chip_response.show_tooltip_text(self.label);
+            }
+            return chip_response.on_hover_text(self.label);
         }
 
         // A removable chip exposes the close glyph as the sole click target so its
@@ -95,6 +112,10 @@ impl<'a> ContextChip<'a> {
             .interact(remove_rect, response.id.with("remove"), Sense::click())
             .on_hover_text(&remove_label);
         remove_response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, &remove_label));
+        if remove_response.has_focus() {
+            crate::components::interact::paint_focus_ring(ui, remove_rect, config::CHIP_RADIUS, self.theme);
+            remove_response.show_tooltip_text(&remove_label);
+        }
         let remove_color = if remove_response.hovered() {
             self.theme.text_primary
         } else {
@@ -380,3 +401,7 @@ impl<'a> ToolCall<'a> {
             .response
     }
 }
+
+#[cfg(test)]
+#[path = "tests/ui_tests.rs"]
+mod context_chip_tests;

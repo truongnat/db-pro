@@ -3,7 +3,7 @@ use super::*;
 use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
-const CONTEXT_CHIP_MAX_CHARS: usize = 28;
+const INLINE_TOOLS_MIN_WIDTH: f32 = 860.0;
 
 pub(super) struct QueryContextViewContext<'a> {
     pub(super) theme: DbProTheme,
@@ -46,13 +46,28 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
 
     let mut anchors = QueryChromeAnchors::default();
     let mut action = None;
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(6.0, 0.0);
-        let chip_response = draw_context_chip(context, ui);
+    let compact = ui.available_width() < INLINE_TOOLS_MIN_WIDTH;
+    let context_width = if compact {
+        ui.available_width()
+    } else {
+        ui.available_width() - 560.0
+    };
+    if compact {
+        let chip_response = draw_context_chip(context, ui, context_width);
         if chip_response.clicked() {
             context.editor.query_context_picker_open = !context.editor.query_context_picker_open;
         }
         anchors.context_anchor = Some(chip_response.rect);
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
+        if !compact {
+            let chip_response = draw_context_chip(context, ui, context_width);
+            if chip_response.clicked() {
+                context.editor.query_context_picker_open = !context.editor.query_context_picker_open;
+            }
+            anchors.context_anchor = Some(chip_response.rect);
+        }
 
         let run_context = query_run_control_view::QueryRunControlContext {
             theme: context.theme,
@@ -66,7 +81,7 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
         if let Some(run) = query_run_control_view::draw_run_control(&run_context, ui) {
             action = Some(QueryChromeAction::RunControl(run));
         }
-        if context.active_request_id.is_none() {
+        if !compact && context.active_request_id.is_none() {
             if let Some(tool) = draw_editor_tools(context, ui) {
                 action = Some(tool);
             }
@@ -88,8 +103,11 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
         });
     });
     let (rule, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
-    ui.painter()
-        .hline(rule.x_range(), rule.center().y, egui::Stroke::new(1.0, context.theme.border_subtle));
+    ui.painter().hline(
+        rule.x_range(),
+        rule.center().y,
+        egui::Stroke::new(1.0, context.theme.border_subtle),
+    );
     QueryChromeOutput { anchors, action }
 }
 
@@ -187,15 +205,13 @@ fn draw_file_path_breadcrumb(theme: DbProTheme, ui: &mut egui::Ui, path: &str) {
     .on_hover_text(path);
 }
 
-fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -> egui::Response {
-    let is_production =
-        matches!(context.environment, db_pro_core::domain::connection::ConnectionEnvironment::Production);
+fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui, max_width: f32) -> egui::Response {
+    let is_production = matches!(
+        context.environment,
+        db_pro_core::domain::connection::ConnectionEnvironment::Production
+    );
     let chip_text = if context.connected {
-        format!(
-            "{} / {}",
-            crate::components::truncate_ellipsis(context.connection_name, CONTEXT_CHIP_MAX_CHARS),
-            crate::components::truncate_ellipsis(context.schema, CONTEXT_CHIP_MAX_CHARS)
-        )
+        format!("{} / {}", context.connection_name, context.schema)
     } else {
         context.connection_name.to_owned()
     };
@@ -215,15 +231,13 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui) -
     let response = card_frame(context.theme)
         .show(ui, |ui| {
             // cc-scan:allow TOO_MANY_PARAMS — context params passed through
-            draw_context_chip_contents(context, ui, is_production, &chip_text, color)
+            draw_context_chip_contents(context, ui, is_production, &chip_text, color, max_width)
         })
         .response
         .on_hover_text(tooltip)
         .interact(egui::Sense::click());
     // The chip is clickable but painted manually — egui can't derive a name.
-    response.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), chip_text.as_str())
-    });
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), chip_text.as_str()));
     response
 }
 
@@ -233,6 +247,7 @@ fn draw_context_chip_contents(
     is_production: bool,
     chip_text: &str,
     color: egui::Color32,
+    max_width: f32,
 ) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
@@ -246,7 +261,17 @@ fn draw_context_chip_contents(
         } else {
             ui.label(icon_text(Icon::AlertTriangle, "", context.theme.warning));
         }
-        ui.label(RichText::new(chip_text).font(font_caption()).color(color));
+        let mut job = egui::text::LayoutJob::simple_singleline(chip_text.to_owned(), font_caption(), color);
+        // Reserve the frame margins, status glyph, disclosure and inter-item gaps.
+        job.wrap.max_width = (max_width - SPACE_MD * 4.0 - ICON_DEFAULT * 2.0).max(1.0);
+        job.wrap.max_rows = 1;
+        job.wrap.break_anywhere = true;
+        let galley = ui.fonts_mut(|fonts| fonts.layout_job(job));
+        ui.label(galley);
         ui.label(icon_text(Icon::ChevronDown, "", context.theme.text_muted));
     });
 }
+
+#[cfg(test)]
+#[path = "tests/query_context_view_tests.rs"]
+mod tests;

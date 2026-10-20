@@ -14,8 +14,13 @@ pub(crate) fn driver_from_ui(ui_driver: UiDriver) -> db_pro_core::domain::connec
 pub(crate) fn draft_to_domain(
     draft: UiConnectionDraft,
 ) -> Option<(db_pro_core::domain::connection::ConnectionConfig, String)> {
-    let port = draft.port.parse::<u16>().ok()?;
     let driver = driver_from_ui(draft.driver);
+    // SQLite is file-backed; its port field is meaningless and may be blank.
+    let port = if driver == db_pro_core::domain::connection::DriverType::SQLite {
+        0
+    } else {
+        draft.port.parse::<u16>().ok()?
+    };
     let ssl_mode = match draft.ssl_mode {
         UiSslMode::Disable => db_pro_core::domain::connection::SslMode::Disable,
         UiSslMode::Require => db_pro_core::domain::connection::SslMode::Require,

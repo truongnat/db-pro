@@ -57,19 +57,15 @@ impl QueryOutputDockContext<'_> {
     }
 
     pub(super) fn draw_horizontal_splitter(&mut self, ui: &mut egui::Ui, height: f32) {
-        let (grip_rect, grip_response) = ui.allocate_exact_size(
-            egui::vec2(RESIZE_GRIP_HIT_HEIGHT, height),
-            egui::Sense::drag(),
-        );
+        let (grip_rect, grip_response) =
+            ui.allocate_exact_size(egui::vec2(RESIZE_GRIP_HIT_HEIGHT, height), egui::Sense::drag());
         let color = if grip_response.hovered() || grip_response.dragged() {
             self.theme.border_strong
         } else {
-            self.theme.border_subtle
+            egui::Color32::TRANSPARENT
         };
-        let line_rect = egui::Rect::from_center_size(
-            grip_rect.center(),
-            egui::vec2(RESIZE_GRIP_LINE_THICKNESS, height),
-        );
+        let line_rect =
+            egui::Rect::from_center_size(grip_rect.center(), egui::vec2(RESIZE_GRIP_LINE_THICKNESS, height));
         ui.painter().rect_filled(line_rect, 0.0, color);
         if grip_response.dragged() {
             let next_width = self.workspace.right_dock_width - grip_response.drag_delta().x;
@@ -91,7 +87,7 @@ impl QueryOutputDockContext<'_> {
         let color = if grip_response.hovered() || grip_response.dragged() {
             self.theme.border_strong
         } else {
-            self.theme.border_subtle
+            egui::Color32::TRANSPARENT
         };
         let line_rect = egui::Rect::from_center_size(
             grip_rect.center(),
@@ -110,4 +106,3 @@ impl QueryOutputDockContext<'_> {
 #[cfg(test)]
 #[path = "tests/query_output_dock_surface_view_tests.rs"]
 mod tests;
-

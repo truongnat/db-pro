@@ -32,6 +32,9 @@ impl PgSettingsSurfaceContext<'_> {
     fn draw_header(&mut self, ui: &mut egui::Ui, actions: &mut Vec<PgSettingsSurfaceAction>) {
         ui.add_space(SPACE_MD);
         section_label(ui, "SERVER SETTINGS (pg_settings)", self.theme);
+        if std::mem::take(&mut self.state.capture_focus_once) {
+            ui.scroll_to_cursor(Some(egui::Align::Min));
+        }
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new("PostgreSQL-only · session SET/RESET for user-context GUCs · ALTER SYSTEM is preview-only")
@@ -94,63 +97,65 @@ impl PgSettingsSurfaceContext<'_> {
     ) {
         let name = setting.name.clone();
         let value = setting.setting.clone();
-        card_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
+        panel_frame(self.theme)
+            .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(&setting.name)
+                            .strong()
+                            .monospace()
+                            .color(self.theme.text_primary),
+                    );
+                    if setting.pending_restart {
+                        badge(ui, "pending restart", self.theme.warning, self.theme.text_primary);
+                    }
+                    if setting.sensitive {
+                        badge(ui, "redacted", self.theme.surface_active, self.theme.text_secondary);
+                    }
+                });
                 ui.label(
-                    RichText::new(&setting.name)
-                        .strong()
-                        .monospace()
-                        .color(self.theme.text_primary),
-                );
-                if setting.pending_restart {
-                    badge(ui, "pending restart", self.theme.warning, self.theme.text_primary);
-                }
-                if setting.sensitive {
-                    badge(ui, "redacted", self.theme.surface_active, self.theme.text_secondary);
-                }
-            });
-            ui.label(
-                RichText::new(format!(
-                    "{} · context={} · source={} · {}",
-                    setting.category,
-                    setting.context,
-                    setting.source,
-                    setting.display_setting()
-                ))
-                .small()
-                .color(self.theme.text_secondary),
-            );
-            if let Some(description) = &setting.short_desc {
-                ui.label(RichText::new(description).small().color(self.theme.text_muted));
-            }
-            ui.label(
-                RichText::new(setting.mutability_reason())
+                    RichText::new(format!(
+                        "{} · context={} · source={} · {}",
+                        setting.category,
+                        setting.context,
+                        setting.source,
+                        setting.display_setting()
+                    ))
                     .small()
-                    .color(self.theme.text_muted),
-            );
-            ui.horizontal(|ui| {
-                if setting.session_mutable() && !setting.sensitive {
-                    if ghost_button_with_icon(ui, Icon::Pencil, "Edit session", self.theme).clicked() {
-                        actions.push(PgSettingsSurfaceAction::BeginEdit {
+                    .color(self.theme.text_secondary),
+                );
+                if let Some(description) = &setting.short_desc {
+                    ui.label(RichText::new(description).small().color(self.theme.text_muted));
+                }
+                ui.label(
+                    RichText::new(setting.mutability_reason())
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                ui.horizontal(|ui| {
+                    if setting.session_mutable() && !setting.sensitive {
+                        if ghost_button_with_icon(ui, Icon::Pencil, "Edit session", self.theme).clicked() {
+                            actions.push(PgSettingsSurfaceAction::BeginEdit {
+                                name: name.clone(),
+                                value: value.clone(),
+                            });
+                        }
+                        if secondary_button(ui, "RESET", self.theme).clicked() {
+                            actions.push(PgSettingsSurfaceAction::Reset(name.clone()));
+                        }
+                    }
+                    if !setting.sensitive
+                        && ghost_button_with_icon(ui, Icon::FileCode2, "Preview ALTER SYSTEM", self.theme).clicked()
+                    {
+                        actions.push(PgSettingsSurfaceAction::PreviewAlterSystem {
                             name: name.clone(),
                             value: value.clone(),
                         });
                     }
-                    if secondary_button(ui, "RESET", self.theme).clicked() {
-                        actions.push(PgSettingsSurfaceAction::Reset(name.clone()));
-                    }
-                }
-                if !setting.sensitive
-                    && ghost_button_with_icon(ui, Icon::FileCode2, "Preview ALTER SYSTEM", self.theme).clicked()
-                {
-                    actions.push(PgSettingsSurfaceAction::PreviewAlterSystem {
-                        name: name.clone(),
-                        value: value.clone(),
-                    });
-                }
+                });
             });
-        });
-        ui.add_space(SPACE_SM);
+        ui.add_space(SPACE_XS);
     }
 
     fn draw_edit_dialog(&mut self, ui: &mut egui::Ui, actions: &mut Vec<PgSettingsSurfaceAction>) {
@@ -178,7 +183,12 @@ impl PgSettingsSurfaceContext<'_> {
                     ) {
                         Ok(preview) => {
                             ui.add_space(SPACE_XS);
-                            ui.label(RichText::new(&preview.sql).monospace().small().color(self.theme.text_secondary));
+                            ui.label(
+                                RichText::new(&preview.sql)
+                                    .monospace()
+                                    .small()
+                                    .color(self.theme.text_secondary),
+                            );
                         }
                         Err(error) => {
                             ui.colored_label(self.theme.danger, error);

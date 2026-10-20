@@ -56,45 +56,17 @@ pub struct UiConnectionDraft {
     pub cloud_guidance: String,
 }
 
-/// Developer-convenience identity for a new connection draft.
-///
-/// Debug builds pre-fill the developer's local PostgreSQL fixture so `cargo run`
-/// starts from a usable form. The preset must never reach a release build: it
-/// names a private developer database, and a shipped app must not pre-fill the
-/// New Connection dialog with it.
-#[cfg(debug_assertions)]
-fn default_draft_identity() -> (String, String, String, String, String) {
-    (
-        "Xe Lạc Hồng (PostgreSQL)".to_owned(),
-        "localhost".to_owned(),
-        "fullstack_starter".to_owned(),
-        "postgres".to_owned(),
-        "postgres".to_owned(),
-    )
-}
-
-/// Release builds start from a blank identity — see `default_draft_identity`.
-#[cfg(not(debug_assertions))]
-fn default_draft_identity() -> (String, String, String, String, String) {
-    (
-        String::new(),
-        String::new(),
-        String::new(),
-        String::new(),
-        String::new(),
-    )
-}
-
 impl Default for UiConnectionDraft {
     fn default() -> Self {
-        let (name, host, database, username, password) = default_draft_identity();
+        // New connections start blank: no pre-filled identity, host, port, or
+        // credentials. Required fields are enforced at validation time.
         Self {
-            name,
-            host,
-            port: "5432".to_owned(),
-            database,
-            username,
-            password,
+            name: String::new(),
+            host: String::new(),
+            port: String::new(),
+            database: String::new(),
+            username: String::new(),
+            password: String::new(),
             driver: UiDriver::Postgres,
             // New connections default to TLS disabled — users opt into
             // Require/Verify explicitly for hosts that need it.
@@ -107,7 +79,7 @@ impl Default for UiConnectionDraft {
             environment: "Development".to_owned(),
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),
-            ssh_port: "22".to_owned(),
+            ssh_port: String::new(),
             ssh_user: String::new(),
             ssh_private_key: String::new(),
             ssh_profile_id: String::new(),

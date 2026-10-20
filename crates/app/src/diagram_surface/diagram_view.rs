@@ -1,6 +1,6 @@
 use super::*;
-use crate::runtime::UiSchemaColumn;
 pub use crate::diagram::*;
+use crate::runtime::UiSchemaColumn;
 
 pub(crate) struct DiagramViewContext<'a> {
     pub(super) theme: DbProTheme,
@@ -108,7 +108,10 @@ fn diagram_grid_spec(frame: &ErDiagramFrame<'_>, zoom: f32) -> ErGridSpec {
     } else {
         ((frame.all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
     };
-    ErGridSpec { grid_columns, node_height: diagram_node_height(zoom) }
+    ErGridSpec {
+        grid_columns,
+        node_height: diagram_node_height(zoom),
+    }
 }
 
 /// Applies the newest finished worker result — stale request ids and schema
@@ -117,9 +120,7 @@ fn accept_layout_result(ctx: &mut DiagramViewContext<'_>) {
     let Some(res) = ctx.diagram.layout_worker.poll_result() else {
         return;
     };
-    if res.graph_version != ctx.diagram.schema_version
-        || res.request_id != ctx.diagram.latest_layout_request
-    {
+    if res.graph_version != ctx.diagram.schema_version || res.request_id != ctx.diagram.latest_layout_request {
         return;
     }
     commit_graph(ctx, res.graph, Some(res.spatial_index));
@@ -191,7 +192,9 @@ fn resolve_active_subset(
         // The catalog is ready. Show a neighborhood instead of a blank page.
         let seeds: Vec<usize> = ctx.diagram.graph.nodes.iter().take(3).map(|node| node.id).collect();
         return ErSubsetResolution::Subset(
-            ctx.diagram.graph.bfs_neighborhood(&seeds, (ctx.diagram.neighborhood_depth, 40)),
+            ctx.diagram
+                .graph
+                .bfs_neighborhood(&seeds, (ctx.diagram.neighborhood_depth, 40)),
         );
     }
     ErSubsetResolution::All
@@ -302,7 +305,10 @@ fn dispatch_layout_request(ctx: &mut DiagramViewContext<'_>, tables: Vec<UiTable
     // all produce the same version but the graph node count check (graph_dirty)
     // prevents re-dispatch unless the actual table list changes.
     ctx.diagram.schema_version = ctx.diagram.schema_version.saturating_add(1);
-    let request_id = ctx.diagram.layout_worker.request_layout(ctx.diagram.schema_version, tables, grid);
+    let request_id = ctx
+        .diagram
+        .layout_worker
+        .request_layout(ctx.diagram.schema_version, tables, grid);
     ctx.diagram.latest_layout_request = request_id;
 
     ctx.diagram.layout_state = if ctx.diagram.layout_worker.dispatch_succeeded() {
@@ -378,7 +384,9 @@ fn draw_diagram_toolbar(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, fra
     };
     let relationship_count: usize = ctx.diagram.graph.edges.len();
 
-    ui.horizontal(|ui| {
+    let narrow = frame.large_schema && ui.available_width() < 900.0;
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
         badge(
             ui,
             &plural_count(visible_tables, "table", "tables"),
@@ -395,18 +403,23 @@ fn draw_diagram_toolbar(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, fra
             badge(ui, "Arranging…", ctx.theme.surface_hover, ctx.theme.text_secondary);
         }
 
-        if frame.large_schema {
+        if frame.large_schema && !narrow {
             draw_diagram_search_controls(ctx, ui, frame.all_table_count);
         }
         draw_diagram_toolbar_actions(ctx, ui);
     });
+    if narrow {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+            draw_diagram_search_controls(ctx, ui, frame.all_table_count);
+        });
+    }
 }
 
 /// Search input + neighborhood-depth toggles shown on large schemas.
 fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, all_table_count: usize) {
-    ui.add_space(8.0);
-    let search_changed =
-        input(ui, &mut ctx.diagram.search, "Find table or column…", 200.0, ctx.theme).changed();
+    ui.add_space(SPACE_SM);
+    let search_changed = input(ui, &mut ctx.diagram.search, "Find table or column…", 200.0, ctx.theme).changed();
     if search_changed {
         ctx.diagram.search_changed_at = Some(std::time::Instant::now());
         ctx.diagram.fitted_search.clear();
@@ -439,14 +452,20 @@ fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
 
 /// The two BFS depth options for the focused neighborhood map.
 fn draw_hop_toggles(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) {
-    let one_hop = ErToggleButton { label: "1 hop", selected: ctx.diagram.neighborhood_depth == 1 };
+    let one_hop = ErToggleButton {
+        label: "1 hop",
+        selected: ctx.diagram.neighborhood_depth == 1,
+    };
     if hop_button(ui, one_hop, ctx.theme)
         .on_hover_text("Show matching tables and their direct relationships")
         .clicked()
     {
         ctx.diagram.neighborhood_depth = 1;
     }
-    let two_hops = ErToggleButton { label: "2 hops", selected: ctx.diagram.neighborhood_depth == 2 };
+    let two_hops = ErToggleButton {
+        label: "2 hops",
+        selected: ctx.diagram.neighborhood_depth == 2,
+    };
     if hop_button(ui, two_hops, ctx.theme)
         .on_hover_text("Also include neighbors of neighbors")
         .clicked()
@@ -529,7 +548,6 @@ fn hop_button(ui: &mut egui::Ui, toggle: ErToggleButton<'_>, theme: DbProTheme) 
         .size(ButtonSize::Sm)
         .show(ui)
 }
-
 
 /// Drops every manual position for this connection and rebuilds the grid, then
 /// lets the canvas refit on the next frame.
@@ -734,19 +752,17 @@ pub(super) fn paint_scene_edges(
             } else {
                 theme.text_muted.linear_multiply(0.7)
             };
-            let label_galley =
-                painter.layout_no_wrap(display_label.clone(), FontId::proportional(10.0), label_color);
+            let label_galley = painter.layout_no_wrap(display_label.clone(), FontId::proportional(10.0), label_color);
             // Right of the vertical segment so the text never sits on the line.
-            let label_position = egui::pos2(
-                bend_x + label_galley.size().x / 2.0 + 7.0,
-                (from.y + to.y) / 2.0,
-            );
+            let label_position = egui::pos2(bend_x + label_galley.size().x / 2.0 + 7.0, (from.y + to.y) / 2.0);
             let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(10.0, 6.0));
             painter.rect_filled(label_rect, egui::CornerRadius::same(4.0 as u8), theme.surface_panel);
             painter.rect_stroke(
                 label_rect,
                 egui::CornerRadius::same(4.0 as u8),
-                egui::Stroke::new(1.0, theme.border_subtle), egui::StrokeKind::Inside);
+                egui::Stroke::new(1.0, theme.border_subtle),
+                egui::StrokeKind::Inside,
+            );
             painter.text(
                 label_position,
                 egui::Align2::CENTER_CENTER,
@@ -857,7 +873,9 @@ pub(super) fn paint_er_node_lod(
             painter.rect_stroke(
                 screen_rect,
                 egui::CornerRadius::same(radius as u8),
-                egui::Stroke::new(if hovered { 1.4 } else { 1.0 }, theme.border_default), egui::StrokeKind::Inside);
+                egui::Stroke::new(if hovered { 1.4 } else { 1.0 }, theme.border_default),
+                egui::StrokeKind::Inside,
+            );
             let title = truncate_to_width(
                 &painter,
                 &node.table.name,
@@ -895,7 +913,11 @@ pub(super) fn paint_er_node_lod(
                 screen_rect.min,
                 egui::pos2(screen_rect.max.x, screen_rect.min.y + header_height),
             );
-            let header_fill = if selected { theme.accent_soft } else { theme.surface_hover };
+            let header_fill = if selected {
+                theme.accent_soft
+            } else {
+                theme.surface_hover
+            };
             painter.rect_filled(
                 header_rect,
                 egui::CornerRadius {
@@ -1060,7 +1082,10 @@ pub(super) fn paint_er_node_lod(
                 let col_name = truncate_to_width(
                     &painter,
                     &column.name,
-                    ErTextFit { font: name_font.clone(), max_width: name_width },
+                    ErTextFit {
+                        font: name_font.clone(),
+                        max_width: name_width,
+                    },
                 );
                 painter.text(
                     egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
@@ -1227,7 +1252,6 @@ pub(super) fn fit_diagram_viewport(bounds: egui::Rect, viewport_rect: egui::Rect
 #[path = "tests/diagram_view_viewport_tests.rs"]
 mod viewport_tests;
 
-
 #[cfg(test)]
 #[path = "tests/diagram_view_design_apply_tests.rs"]
 mod design_apply_tests;
@@ -1235,4 +1259,3 @@ mod design_apply_tests;
 #[cfg(test)]
 #[path = "tests/diagram_view_self_edge_tests.rs"]
 mod self_edge_tests;
-

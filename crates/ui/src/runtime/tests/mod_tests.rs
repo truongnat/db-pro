@@ -3,35 +3,18 @@ use std::sync::mpsc;
 
 use super::*;
 
-/// Regression guard for the S-1 release-hygiene finding: the developer
-/// connection preset is developer-only. `cargo test --release` exercises the
-/// release half of this assertion.
+/// New-connection drafts must not pre-fill identity, credentials, host, or
+/// port — every value comes from the user.
 #[test]
-fn default_draft_identity_follows_build_profile() {
+fn default_draft_starts_blank() {
     let draft = UiConnectionDraft::default();
 
-    if cfg!(debug_assertions) {
-        assert_eq!(draft.name, "Xe Lạc Hồng (PostgreSQL)");
-        assert_eq!(draft.host, "localhost");
-        assert_eq!(draft.database, "fullstack_starter");
-        assert_eq!(draft.username, "postgres");
-        assert_eq!(draft.password, "postgres");
-    } else {
-        assert!(
-            draft.name.is_empty(),
-            "release builds must not pre-fill a connection name"
-        );
-        assert!(
-            draft.host.is_empty(),
-            "release builds must not pre-fill a connection host"
-        );
-        assert!(
-            draft.database.is_empty(),
-            "release builds must not pre-fill a database name"
-        );
-        assert!(draft.username.is_empty(), "release builds must not pre-fill a username");
-        assert!(draft.password.is_empty(), "release builds must not pre-fill a password");
-    }
+    assert!(draft.name.is_empty());
+    assert!(draft.host.is_empty());
+    assert!(draft.port.is_empty());
+    assert!(draft.database.is_empty());
+    assert!(draft.username.is_empty());
+    assert!(draft.password.is_empty());
 }
 
 /// The neutral parts of the draft are the same in every build profile.
@@ -39,12 +22,12 @@ fn default_draft_identity_follows_build_profile() {
 fn default_draft_neutral_fields_are_profile_independent() {
     let draft = UiConnectionDraft::default();
 
-    assert_eq!(draft.port, "5432");
+    assert!(draft.port.is_empty());
     assert_eq!(draft.driver, UiDriver::Postgres);
     assert_eq!(draft.ssl_mode, UiSslMode::Disable);
     assert!(!draft.readonly);
     assert!(!draft.ssh_tunnel_enabled);
-    assert_eq!(draft.ssh_port, "22");
+    assert!(draft.ssh_port.is_empty());
     assert!(draft.ssh_host.is_empty());
     assert!(draft.ssh_user.is_empty());
     assert!(draft.ssh_private_key.is_empty());

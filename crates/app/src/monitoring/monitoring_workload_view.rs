@@ -43,7 +43,7 @@ impl MonitoringWorkloadContext<'_> {
         for statement in rows {
             row_count += 1;
             self.draw_statement(ui, statement, &previous_by_id, &mut actions);
-            ui.add_space(SPACE_SM);
+            ui.add_space(SPACE_XS);
         }
         if row_count == 0 {
             ui.label(
@@ -77,7 +77,11 @@ impl MonitoringWorkloadContext<'_> {
             ] {
                 if Button::new(self.theme)
                     .text(sort.as_label())
-                    .variant(if self.sort == sort { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
+                    .variant(if self.sort == sort {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
                     .size(ButtonSize::Sm)
                     .show(ui)
                     .clicked()
@@ -106,52 +110,54 @@ impl MonitoringWorkloadContext<'_> {
         previous_by_id: &std::collections::HashMap<Option<i64>, f64>,
         actions: &mut Vec<MonitoringWorkloadAction>,
     ) {
-        card_frame(self.theme).show(ui, |ui| {
-            let delta = previous_by_id
-                .get(&statement.queryid)
-                .map(|previous| statement.total_time_ms - previous)
-                .filter(|delta| delta.abs() > 0.01);
-            ui.horizontal(|ui| {
+        panel_frame(self.theme)
+            .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8))
+            .show(ui, |ui| {
+                let delta = previous_by_id
+                    .get(&statement.queryid)
+                    .map(|previous| statement.total_time_ms - previous)
+                    .filter(|delta| delta.abs() > 0.01);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(format!(
+                            "calls {} · total {:.1} ms · mean {:.1} ms · rows {}",
+                            statement.calls, statement.total_time_ms, statement.mean_time_ms, statement.rows
+                        ))
+                        .small()
+                        .strong()
+                        .color(self.theme.text_primary),
+                    );
+                    if let Some(delta) = delta {
+                        ui.label(
+                            RichText::new(format!("Δ total {delta:+.1} ms"))
+                                .small()
+                                .color(self.theme.accent),
+                        );
+                    }
+                });
                 ui.label(
                     RichText::new(format!(
-                        "calls {} · total {:.1} ms · mean {:.1} ms · rows {}",
-                        statement.calls, statement.total_time_ms, statement.mean_time_ms, statement.rows
+                        "{} · {} · shared hit/read {}/{} · temp r/w {}/{}",
+                        statement.username.as_deref().unwrap_or("?"),
+                        statement.database.as_deref().unwrap_or("?"),
+                        statement.shared_blks_hit,
+                        statement.shared_blks_read,
+                        statement.temp_blks_read,
+                        statement.temp_blks_written
                     ))
                     .small()
-                    .strong()
-                    .color(self.theme.text_primary),
+                    .color(self.theme.text_muted),
                 );
-                if let Some(delta) = delta {
-                    ui.label(
-                        RichText::new(format!("Δ total {delta:+.1} ms"))
-                            .small()
-                            .color(self.theme.accent),
-                    );
+                let short = if statement.query.len() > 160 {
+                    format!("{}…", &statement.query.chars().take(159).collect::<String>())
+                } else {
+                    statement.query.clone()
+                };
+                ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
+                if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+                    actions.push(MonitoringWorkloadAction::OpenSql(statement.query.clone()));
                 }
             });
-            ui.label(
-                RichText::new(format!(
-                    "{} · {} · shared hit/read {}/{} · temp r/w {}/{}",
-                    statement.username.as_deref().unwrap_or("?"),
-                    statement.database.as_deref().unwrap_or("?"),
-                    statement.shared_blks_hit,
-                    statement.shared_blks_read,
-                    statement.temp_blks_read,
-                    statement.temp_blks_written
-                ))
-                .small()
-                .color(self.theme.text_muted),
-            );
-            let short = if statement.query.len() > 160 {
-                format!("{}…", &statement.query.chars().take(159).collect::<String>())
-            } else {
-                statement.query.clone()
-            };
-            ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
-            if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
-                actions.push(MonitoringWorkloadAction::OpenSql(statement.query.clone()));
-            }
-        });
     }
 }
 

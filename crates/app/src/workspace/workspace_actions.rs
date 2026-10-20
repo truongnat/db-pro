@@ -88,10 +88,7 @@ impl DbProApp {
             return;
         }
         if !self.table.mutation.staged_changes.is_empty() {
-            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable {
-                schema,
-                table,
-            });
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable { schema, table });
             self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message = t!("workspace.apply_or_discard_staged").into_owned();
             return;
@@ -143,7 +140,8 @@ impl DbProApp {
                 self.feedback.runtime_message = "Scanning workspace…".to_owned();
             }
             Err(error) => {
-                self.feedback.runtime_message = t!("workspace.open_failed", error = error.to_string().as_str()).into_owned();
+                self.feedback.runtime_message =
+                    t!("workspace.open_failed", error = error.to_string().as_str()).into_owned();
             }
         }
     }
@@ -237,9 +235,7 @@ impl DbProApp {
             return;
         }
         // Read on a worker thread; the document opens in poll_workspace_tasks (#377).
-        self.workspace
-            .files
-            .request_file_read(absolute, &mut self.feedback);
+        self.workspace.files.request_file_read(absolute, &mut self.feedback);
     }
 
     pub(crate) fn save_active_workspace_file(&mut self) -> bool {
@@ -262,11 +258,16 @@ impl DbProApp {
                     self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
                 self.workspace.files.dismiss_external_change(&path);
-                self.feedback.runtime_message = t!("workspace.saved_file", path = std::path::Path::new(&path).display().to_string().as_str()).into_owned();
+                self.feedback.runtime_message = t!(
+                    "workspace.saved_file",
+                    path = std::path::Path::new(&path).display().to_string().as_str()
+                )
+                .into_owned();
                 true
             }
             Err(error) => {
-                self.feedback.runtime_message = t!("workspace.save_failed", error = error.to_string().as_str()).into_owned();
+                self.feedback.runtime_message =
+                    t!("workspace.save_failed", error = error.to_string().as_str()).into_owned();
                 false
             }
         }
@@ -725,7 +726,9 @@ impl DbProApp {
         if std::env::var_os("DB_PRO_CAPTURE_PROFILE_NUMERIC").is_some() {
             if let Some(result) = self.table.data_query.result.as_mut() {
                 result.columns[0].data_type = "BIGINT".to_owned();
-                for row in &mut result.rows { row[0] = crate::UiCell::Number("1000000000000000000".to_owned()); }
+                for row in &mut result.rows {
+                    row[0] = crate::UiCell::Number("1000000000000000000".to_owned());
+                }
             }
         }
         self.table.state.table_view = TableView::Profile;
@@ -743,14 +746,23 @@ impl DbProApp {
 
     /// Capture helper: open the deterministic table fixture directly on Foreign Keys.
     pub fn open_table_foreign_keys_for_capture(&mut self, light: bool) {
-        if light { self.open_table_workspace_for_capture_light(); }
-        else { self.open_table_workspace_for_capture(); }
+        if light {
+            self.open_table_workspace_for_capture_light();
+        } else {
+            self.open_table_workspace_for_capture();
+        }
         if let Some(info) = self.table.state.table_info.as_mut() {
             info.foreign_keys = vec![crate::UiTableForeignKey {
-                name: "customers_owner_fk".to_owned(), from_columns: vec!["id".to_owned()],
-                to_schema: "main".to_owned(), to_table: "owners".to_owned(), to_columns: vec!["id".to_owned()],
-                on_update: "NO ACTION".to_owned(), on_delete: "NO ACTION".to_owned(),
-                match_option: "SIMPLE".to_owned(), deferrable: false, initially_deferred: false,
+                name: "customers_owner_fk".to_owned(),
+                from_columns: vec!["id".to_owned()],
+                to_schema: "main".to_owned(),
+                to_table: "owners".to_owned(),
+                to_columns: vec!["id".to_owned()],
+                on_update: "NO ACTION".to_owned(),
+                on_delete: "NO ACTION".to_owned(),
+                match_option: "SIMPLE".to_owned(),
+                deferrable: false,
+                initially_deferred: false,
             }];
         }
         self.table.state.table_view = TableView::Relations;
@@ -818,7 +830,8 @@ impl DbProApp {
     "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY ("id"),
     UNIQUE ("email")
-);"#.to_owned(),
+);"#
+            .to_owned(),
         );
         self.table.state.table_ddl_error = None;
         self.table.state.table_view = TableView::Ddl;
@@ -971,10 +984,7 @@ impl DbProApp {
             schemas: vec!["public".to_owned()],
             tables: vec!["public.orders".to_owned(), "public.users".to_owned()],
             table_details: vec![
-                table(
-                    "orders",
-                    vec![column("id", "integer"), column("total", "numeric")],
-                ),
+                table("orders", vec![column("id", "integer"), column("total", "numeric")]),
                 table("users", vec![column("id", "integer"), column("email", "text")]),
             ],
             ..Default::default()
@@ -997,14 +1007,10 @@ impl DbProApp {
             .compare
             .take_snapshot(&snapshot_summary, "local-pg", &mut self.feedback);
         let live = self.schema.explorer.schema.clone();
+        self.schema.compare.diff_against_snapshot(&live, &mut self.feedback);
         self.schema
             .compare
-            .diff_against_snapshot(&live, &mut self.feedback);
-        self.schema.compare.plan_migration(
-            "PostgreSQL",
-            "prod-pg · public",
-            &mut self.feedback,
-        );
+            .plan_migration("PostgreSQL", "prod-pg · public", &mut self.feedback);
     }
 
     /// Capture helper: open the Diagram / ER canvas on a deterministic schema
@@ -1053,8 +1059,9 @@ impl DbProApp {
 
     /// Capture helper: open the Agent sidebar panel.
     pub fn open_agent_workspace_for_capture(&mut self) {
-        self.preferences.dark_mode = true;
-        self.theme = DbProTheme::dark();
+        let light = std::env::var_os("DB_PRO_CAPTURE_AGENT_LIGHT").is_some();
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.workspace.agent_open = true;
     }
 
@@ -1243,8 +1250,7 @@ impl DbProApp {
         if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
             self.table.editing.discard_changes_confirmation = true;
-            self.feedback.runtime_message =
-                t!("workspace.apply_or_discard_before_close").into_owned();
+            self.feedback.runtime_message = t!("workspace.apply_or_discard_before_close").into_owned();
             return false;
         }
         self.workspace.pending_navigation_action = None;

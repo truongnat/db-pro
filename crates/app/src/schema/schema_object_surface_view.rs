@@ -28,12 +28,12 @@ pub(super) struct SchemaDefinitionContext<'a> {
 
 impl SchemaDefinitionContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            section_label(ui, format!("{} DEFINITION", self.kind), self.theme);
-            ui.add_space(SPACE_SM);
-            CodeBlock::new(self.definition, self.theme).language("sql").sql_dialect(self.dialect).show(ui);
-        });
+        section_label(ui, format!("{} DEFINITION", self.kind), self.theme);
+        ui.add_space(SPACE_SM);
+        CodeBlock::new(self.definition, self.theme)
+            .language("sql")
+            .sql_dialect(self.dialect)
+            .show(ui);
     }
 }
 

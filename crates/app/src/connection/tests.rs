@@ -113,6 +113,8 @@ fn test_validate_connection_draft() {
     assert!(validate_connection_draft(&draft).is_err());
 
     draft.database = "postgres".into();
+    draft.host = "db.test".into();
+    draft.username = "app".into();
     draft.port = "5432".into();
     assert!(validate_connection_draft(&draft).is_ok());
 
@@ -141,19 +143,20 @@ fn test_validate_connection_draft() {
 }
 
 #[test]
-fn test_driver_switching_and_default_ports() {
+fn driver_switch_preserves_typed_values() {
     let mut draft = UiConnectionDraft::default();
-    select_driver(&mut draft, UiDriver::Postgres);
-    assert_eq!(draft.port, "5432");
-    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+    draft.port = "5433".to_owned();
+    draft.ssl_mode = UiSslMode::VerifyFull;
 
     select_driver(&mut draft, UiDriver::Mysql);
-    assert_eq!(draft.port, "3306");
-    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+    assert_eq!(draft.driver, UiDriver::Mysql);
+    assert_eq!(draft.port, "5433");
+    assert_eq!(draft.ssl_mode, UiSslMode::VerifyFull);
 
     select_driver(&mut draft, UiDriver::SqlServer);
-    assert_eq!(draft.port, "1433");
-    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+    assert_eq!(draft.driver, UiDriver::SqlServer);
+    assert_eq!(draft.port, "5433");
+    assert_eq!(draft.ssl_mode, UiSslMode::VerifyFull);
 }
 
 #[test]
@@ -299,7 +302,12 @@ fn engine_select_opens_on_click_and_applies_the_chosen_driver() {
     };
 
     // Click down + up over two frames, then a settled frame for the popup.
-    render(&ctx, &mut draft, &trigger_rect, vec![egui::Event::PointerMoved(click_pos), press]);
+    render(
+        &ctx,
+        &mut draft,
+        &trigger_rect,
+        vec![egui::Event::PointerMoved(click_pos), press],
+    );
     render(&ctx, &mut draft, &trigger_rect, vec![release]);
     let out = render(&ctx, &mut draft, &trigger_rect, vec![]);
 
@@ -342,8 +350,7 @@ fn cloud_preset_applies_driver_port_ssl_and_only_overwrites_placeholder_hosts() 
         cloud_preset: "aws_rds:postgres".into(),
         ..Default::default()
     };
-    let guidance =
-        apply_cloud_preset_to_draft(&mut draft, "aws_rds:postgres").expect("known preset applies");
+    let guidance = apply_cloud_preset_to_draft(&mut draft, "aws_rds:postgres").expect("known preset applies");
     assert_eq!(draft.driver, UiDriver::Postgres);
     assert_eq!(draft.port, "5432");
     // Preset overrides ssl_mode with its own CA policy (RDS Postgres → VerifyFull).
@@ -422,7 +429,10 @@ fn cancelling_connection_test_dispatches_cancel_for_the_active_request() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection.dialog.set_open(true);
     app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().host = "db.test".to_owned();
     app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.connection.dialog.draft_mut().username = "app".to_owned();
+    app.connection.dialog.draft_mut().port = "5432".to_owned();
     app.dispatch_connection_command(false);
     let request_id = match command_rx.try_recv().expect("test command expected") {
         UiCommand::TestConnection { request_id, .. } => request_id,
@@ -464,7 +474,10 @@ fn cancel_test_request_keeps_connection_dialog_open() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection.dialog.set_open(true);
     app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().host = "db.test".to_owned();
     app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.connection.dialog.draft_mut().username = "app".to_owned();
+    app.connection.dialog.draft_mut().port = "5432".to_owned();
     app.dispatch_connection_command(false);
     let request_id = match command_rx.try_recv().expect("test command expected") {
         UiCommand::TestConnection { request_id, .. } => request_id,
@@ -497,7 +510,10 @@ fn failed_connection_test_cancel_dispatch_keeps_the_dialog_open() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection.dialog.set_open(true);
     app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().host = "db.test".to_owned();
     app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.connection.dialog.draft_mut().username = "app".to_owned();
+    app.connection.dialog.draft_mut().port = "5432".to_owned();
     app.dispatch_connection_command(false);
     let request_id = match command_rx.try_recv().expect("test command expected") {
         UiCommand::TestConnection { request_id, .. } => request_id,

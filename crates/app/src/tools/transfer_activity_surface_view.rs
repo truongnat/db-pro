@@ -27,6 +27,8 @@ pub(super) struct TransferActivityContext<'a> {
 impl TransferActivityContext<'_> {
     pub(super) fn draw(mut self, ui: &mut egui::Ui) -> Option<TransferActivityAction> {
         let mut action = None;
+        let visible = ui.available_width().min(ui.clip_rect().width()).max(1.0);
+        ui.set_max_width(visible);
         self.draw_intro(ui);
         self.draw_backup_card(ui, &mut action);
         self.draw_synthetic_card(ui, &mut action);
@@ -103,7 +105,7 @@ impl TransferActivityContext<'_> {
             .iter()
             .map(|table| (table.schema.clone(), table.name.clone()))
             .collect();
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             let mut synth_options = vec!["Select table…".to_owned()];
             let synth_keys: Vec<String> = tables
                 .iter()
@@ -136,16 +138,34 @@ impl TransferActivityContext<'_> {
                 };
             }
             ui.label("rows");
-            input(ui, &mut self.management.synthetic_data.synthetic_row_count, "count", 48.0, self.theme);
+            input(
+                ui,
+                &mut self.management.synthetic_data.synthetic_row_count,
+                "count",
+                48.0,
+                self.theme,
+            );
             ui.label("seed");
-            input(ui, &mut self.management.synthetic_data.synthetic_seed, "seed", 64.0, self.theme);
+            input(
+                ui,
+                &mut self.management.synthetic_data.synthetic_seed,
+                "seed",
+                64.0,
+                self.theme,
+            );
             ui.label("null%");
-            input(ui, &mut self.management.synthetic_data.synthetic_null_pct, "%", 36.0, self.theme);
+            input(
+                ui,
+                &mut self.management.synthetic_data.synthetic_null_pct,
+                "%",
+                36.0,
+                self.theme,
+            );
         });
     }
 
     fn draw_synthetic_actions(&self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if secondary_button(ui, "Preview", self.theme).clicked() {
                 *action = Some(TransferActivityAction::PreviewSyntheticSeed);
             }
@@ -177,6 +197,9 @@ impl TransferActivityContext<'_> {
     fn draw_masking_card(&mut self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "MASKING / SAFE SAMPLE", self.theme);
+            if std::mem::take(&mut self.management.transfer.capture_focus_once) {
+                ui.scroll_to_cursor(Some(egui::Align::Min));
+            }
             ui.label(
                 RichText::new(
                     "Preview-only by default · no in-place destructive masking · keyed hash for join-preserving IDs",
@@ -191,31 +214,58 @@ impl TransferActivityContext<'_> {
     }
 
     fn draw_masking_controls(&mut self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
-        ui.horizontal(|ui| {
-            input(ui, &mut self.management.masking.masking_columns_csv, "cols: email,phone", 140.0, self.theme);
-            const MASK_RULES: [(db_pro_core::domain::masking::MaskRule, &str); 5] = [
-                (db_pro_core::domain::masking::MaskRule::Redact, "Redact"),
-                (db_pro_core::domain::masking::MaskRule::Hash, "Hash"),
-                (db_pro_core::domain::masking::MaskRule::PartialReveal, "Partial"),
-                (db_pro_core::domain::masking::MaskRule::Fixed, "Fixed"),
-                (db_pro_core::domain::masking::MaskRule::Synthetic, "Synthetic"),
-            ];
-            let mask_labels: Vec<String> = MASK_RULES.iter().map(|(_, label)| (*label).to_owned()).collect();
-            let mut mask_selected = MASK_RULES
-                .iter()
-                .position(|(rule, _)| *rule == self.management.masking.masking_rule)
-                .unwrap_or(0);
-            let mask_previous = mask_selected;
-            crate::components::Select::new("mask_rule", &mut mask_selected, &mask_labels)
-                .theme(self.theme)
-                .width(100.0)
-                .size(crate::components::SelectSize::Sm)
-                .variant(crate::components::SelectVariant::Ghost)
-                .show(ui);
-            if mask_selected != mask_previous {
-                self.management.masking.masking_rule = MASK_RULES[mask_selected].0;
-            }
-            Checkbox::new(&mut self.management.masking.masking_keyed, "Keyed hash", self.theme).show(ui);
+        const MASK_RULES: [(db_pro_core::domain::masking::MaskRule, &str); 5] = [
+            (db_pro_core::domain::masking::MaskRule::Redact, "Redact"),
+            (db_pro_core::domain::masking::MaskRule::Hash, "Hash"),
+            (db_pro_core::domain::masking::MaskRule::PartialReveal, "Partial"),
+            (db_pro_core::domain::masking::MaskRule::Fixed, "Fixed"),
+            (db_pro_core::domain::masking::MaskRule::Synthetic, "Synthetic"),
+        ];
+        let mask_labels: Vec<String> = MASK_RULES.iter().map(|(_, label)| (*label).to_owned()).collect();
+        let mut mask_selected = MASK_RULES
+            .iter()
+            .position(|(rule, _)| *rule == self.management.masking.masking_rule)
+            .unwrap_or(0);
+        let mask_previous = mask_selected;
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+            // Bound each group before painting. Select otherwise consumes the
+            // remaining row, so wrapping never gets a chance to start.
+            let columns_width = f32::min(140.0, ui.max_rect().width());
+            ui.allocate_ui_with_layout(
+                egui::vec2(columns_width, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    input(
+                        ui,
+                        &mut self.management.masking.masking_columns_csv,
+                        "cols: email,phone",
+                        columns_width,
+                        self.theme,
+                    );
+                },
+            );
+            let rule_width = f32::min(100.0, ui.max_rect().width());
+            ui.allocate_ui_with_layout(
+                egui::vec2(rule_width, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    crate::components::Select::new("mask_rule", &mut mask_selected, &mask_labels)
+                        .theme(self.theme)
+                        .width(rule_width)
+                        .size(crate::components::SelectSize::Sm)
+                        .variant(crate::components::SelectVariant::Ghost)
+                        .show(ui);
+                },
+            );
+            let keyed_width = f32::min(120.0, ui.max_rect().width());
+            ui.allocate_ui_with_layout(
+                egui::vec2(keyed_width, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    Checkbox::new(&mut self.management.masking.masking_keyed, "Keyed hash", self.theme).show(ui);
+                },
+            );
             if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                 let names: Vec<String> = self
                     .table_details
@@ -232,6 +282,9 @@ impl TransferActivityContext<'_> {
                 *action = Some(TransferActivityAction::RunMaskedCsvExport);
             }
         });
+        if mask_selected != mask_previous {
+            self.management.masking.masking_rule = MASK_RULES[mask_selected].0;
+        }
     }
 
     fn draw_masking_result(&self, ui: &mut egui::Ui) {
@@ -256,29 +309,56 @@ impl TransferActivityContext<'_> {
                 .small()
                 .color(self.theme.text_muted),
         );
-        ui.horizontal(|ui| {
-            ui.label("Source");
-            crate::components::input::Input::new(&mut self.management.transfer.source_connection_id, "conn id", self.theme)
-                .width(160.0)
-                .show(ui);
-            ui.label("Target");
-            crate::components::input::Input::new(&mut self.management.transfer.target_connection_id, "conn id", self.theme)
-                .width(160.0)
-                .show(ui);
-        });
-        ui.horizontal(|ui| {
-            ui.label("Tables");
-            crate::components::input::Input::new(&mut self.management.transfer.copy_tables, "schema.table…", self.theme)
-                .width(160.0)
-                .show(ui);
-            ui.label("Format");
-            crate::components::input::Input::new(&mut self.management.transfer.copy_format, "csv or json", self.theme)
-                .width(120.0)
-                .show(ui);
-            ui.label("Conflict");
-            crate::components::input::Input::new(&mut self.management.transfer.copy_conflict, "abort / skip / replace", self.theme)
-                .width(140.0)
-                .show(ui);
+        let row_width = ui.available_width().min(ui.clip_rect().width()).max(1.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+            for (label, value, hint, field_width) in [
+                (
+                    "Source",
+                    &mut self.management.transfer.source_connection_id,
+                    "conn id",
+                    160.0_f32,
+                ),
+                (
+                    "Target",
+                    &mut self.management.transfer.target_connection_id,
+                    "conn id",
+                    160.0_f32,
+                ),
+                (
+                    "Tables",
+                    &mut self.management.transfer.copy_tables,
+                    "schema.table…",
+                    160.0_f32,
+                ),
+                (
+                    "Format",
+                    &mut self.management.transfer.copy_format,
+                    "csv or json",
+                    120.0_f32,
+                ),
+                (
+                    "Conflict",
+                    &mut self.management.transfer.copy_conflict,
+                    "abort / skip / replace",
+                    140.0_f32,
+                ),
+            ] {
+                // Request the group's real width. Shrinking it to the leftover
+                // gap keeps the next field on this row, then the input paints
+                // past the sidebar clip.
+                let field = field_width.min((row_width - 56.0).max(72.0));
+                let group = (field + 56.0).min(row_width);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(group, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        ui.set_max_width(group);
+                        ui.label(label);
+                        Input::new(value, hint, self.theme).width(field).show(ui);
+                    },
+                );
+            }
         });
         ui.add_space(SPACE_SM);
     }
@@ -379,4 +459,3 @@ fn format_transfer_progress(job: &db_pro_core::domain::transfer::TransferJob) ->
 #[cfg(test)]
 #[path = "tests/transfer_activity_surface_view_tests.rs"]
 mod tests;
-

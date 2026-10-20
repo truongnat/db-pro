@@ -35,6 +35,7 @@ connection:
   access_token: "アクセストークン"
   password_blank_keep: "•••••••• (保存されたパスワードを保持する場合は空白)"
   password_blank_optional: "任意 (パスワードがない場合は空白)"
+  field_example: "例: %{value}"
   password_token_placeholder: "短期IAM/アクセストークンを貼り付け (保存されません)"
   ssl_mode: "SSL / TLS モード"
   credentials_encrypted_hint: "認証情報はローカルコンテナ内でAES-256-GCM暗号化されています。"

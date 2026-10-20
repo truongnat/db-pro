@@ -35,6 +35,8 @@ impl SettingsAppearanceContext<'_> {
                     } else {
                         DbProTheme::light()
                     };
+                    self.theme.reduce_motion = self.preferences.reduce_motion;
+                    ui.ctx().request_repaint();
                 }
             });
             ui.label(

@@ -10,6 +10,9 @@ Types are re-exported from `db_pro_ui::components` and the
   Table, Editor, or File. When removable, the returned response describes the
   close hit target; inspect `clicked()` to remove the associated item in caller
   state. Without removal, it describes the chip.
+  Optional `.max_width(points)` bounds unpredictable labels to a single
+  ellipsized line; the full label remains in accessibility metadata and the
+  chip tooltip. Omit the option to preserve natural-width sizing.
 - `StatusBadge::new(text, variant, theme).show(ui) -> Response` displays text
   using `StatusBadgeVariant::{Active, Running, Success, Warning, Destructive,
   Archived, Draft}`. It has no action result.

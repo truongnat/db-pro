@@ -5,8 +5,8 @@ use super::*;
 
 #[path = "constants.rs"]
 mod constants;
-use constants::*;
 pub(crate) use constants::WelcomeAction;
+use constants::*;
 use egui::{text::LayoutJob, RichText};
 use lucide_icons::Icon;
 
@@ -78,15 +78,16 @@ fn welcome_items(ctx: &egui::Context) -> [WelcomeItem; 4] {
 }
 
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
-    let top_space = (ui.available_height() * HEADER_TOP_RATIO).max(SPACE_MD);
-    ui.add_space(top_space);
-
-    ui.vertical_centered(|ui| {
-        draw_header(theme, ui);
-    });
-    ui.add_space(SPACE_2XL);
-
-    draw_quick_actions(theme, ui)
+    let top_space = (ui.available_height() * HEADER_TOP_RATIO).min(SPACE_4XL).max(SPACE_MD);
+    crate::components::scroll_area::ScrollArea::new(theme)
+        .id_salt("welcome-actions")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            ui.add_space(top_space);
+            ui.vertical_centered(|ui| draw_header(theme, ui));
+            ui.add_space(SPACE_2XL);
+            draw_quick_actions(theme, ui)
+        })
 }
 
 fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
@@ -96,7 +97,11 @@ fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
             .color(theme.accent),
     );
     ui.add_space(SPACE_MD);
-    ui.label(RichText::new(t!("welcome.title")).font(font_display()).color(theme.text_primary));
+    ui.label(
+        RichText::new(t!("welcome.title"))
+            .font(font_display())
+            .color(theme.text_primary),
+    );
     ui.add_space(SPACE_XS);
     ui.label(
         RichText::new(t!("welcome.tagline"))
@@ -115,11 +120,7 @@ fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAct
     let items = welcome_items(ui.ctx());
     let avail_width = ui.available_width();
     let is_wide = avail_width >= WIDE_GRID_MIN_WIDTH;
-    let container_width = if is_wide {
-        WIDE_GRID_WIDTH
-    } else {
-        (avail_width - SPACE_XL).max(MIN_CARD_WIDTH)
-    };
+    let container_width = avail_width.min(WIDE_GRID_WIDTH).max(0.0);
     let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
     let mut triggered = None;
@@ -138,12 +139,7 @@ fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAct
     triggered
 }
 
-fn draw_wide_rows(
-    theme: DbProTheme,
-    ui: &mut egui::Ui,
-    width: f32,
-    items: &[WelcomeItem; 4],
-) -> Option<WelcomeAction> {
+fn draw_wide_rows(theme: DbProTheme, ui: &mut egui::Ui, width: f32, items: &[WelcomeItem; 4]) -> Option<WelcomeAction> {
     let card_w = ((width - SPACE_MD) * 0.5).floor();
     let card_size = egui::vec2(card_w, CARD_HEIGHT);
     let mut action = None;
@@ -166,9 +162,7 @@ fn draw_stacked_rows(
     items: &[WelcomeItem; 4],
 ) -> Option<WelcomeAction> {
     let card_size = egui::vec2(width, CARD_HEIGHT);
-    items
-        .iter()
-        .find_map(|item| draw_card_item(theme, ui, card_size, item))
+    items.iter().find_map(|item| draw_card_item(theme, ui, card_size, item))
 }
 
 fn draw_card_item(
@@ -181,12 +175,11 @@ fn draw_card_item(
     response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
     let title = item.title.as_ref();
     // Screen-reader name: "Title — description"; mirrors the visual card text.
-    response.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("{title} — {}", item.desc))
-    });
+    response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("{title} — {}", item.desc)));
     // Keyboard activation: egui focus + Enter/Space behaves like a click.
-    let keyboard_activated = response.has_focus()
-        && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
+    let keyboard_activated =
+        response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
     let hovered = response.hovered();
 
     let bg = if hovered {
@@ -223,14 +216,14 @@ fn draw_card_item(
     );
 
     let text_x = rect.left() + SPACE_MD + ICON_DEFAULT + SPACE_SM;
-    let max_text_w = (rect.right() - SPACE_MD - text_x).max(MIN_DESC_WRAP_WIDTH);
+    let max_text_w = (rect.right() - SPACE_MD - text_x).max(1.0);
 
     let title_galley = ui.fonts_mut(|f| {
-        f.layout_job(LayoutJob::simple_singleline(
-            title.to_owned(),
-            font_ui_label(),
-            theme.text_primary,
-        ))
+        let mut job = LayoutJob::simple_singleline(title.to_owned(), font_ui_label(), theme.text_primary);
+        job.wrap.max_width = max_text_w;
+        job.wrap.max_rows = 1;
+        job.wrap.break_anywhere = true;
+        f.layout_job(job)
     });
     let desc_galley = ui.fonts_mut(|f| {
         f.layout_job(LayoutJob::simple(
@@ -246,7 +239,8 @@ fn draw_card_item(
     let total_h = title_h + SPACE_XXS + desc_h;
     let text_top = (rect.center().y - total_h * 0.5).round();
 
-    ui.painter().galley(egui::pos2(text_x, text_top), title_galley, theme.text_primary);
+    ui.painter()
+        .galley(egui::pos2(text_x, text_top), title_galley, theme.text_primary);
     ui.painter().galley(
         egui::pos2(text_x, text_top + title_h + SPACE_XXS),
         desc_galley,
@@ -259,3 +253,7 @@ fn draw_card_item(
         None
     }
 }
+
+#[cfg(test)]
+#[path = "tests/welcome_surface_view_tests.rs"]
+mod tests;

@@ -198,6 +198,9 @@ impl DbProApp {
 
     fn draw_shell(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        // eframe creates the root Ui before App::logic updates the global style.
+        // Refresh its snapshot so panels inherit this frame's selected theme.
+        ui.set_style(ctx.global_style());
         let settings_mode = self.workspace.activity == Activity::Settings;
         if !settings_mode || cfg!(target_os = "linux") {
             self.draw_topbar(ui);
@@ -409,3 +412,7 @@ impl DbProApp {
         Some((outcome.to_json(&bundle.to_string_lossy(), &shot_name), bundle, shot))
     }
 }
+
+#[cfg(test)]
+#[path = "tests/app_lifecycle_tests.rs"]
+mod tests;
