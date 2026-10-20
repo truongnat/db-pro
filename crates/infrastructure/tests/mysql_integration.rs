@@ -523,7 +523,10 @@ async fn mysql_cross_database_foreign_key_ddl_round_trips() {
     use db_pro_infrastructure::meta::store::SQLiteMetaStore;
     use std::sync::Arc;
 
-    let (connector, handle, database) = setup().await.expect("requires a live MySQL DATABASE_URL");
+    let Some((connector, handle, database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
     let reference_database = std::env::var("MYSQL_REFERENCE_DATABASE").expect("requires MYSQL_REFERENCE_DATABASE");
     assert_ne!(database, reference_database, "the referenced database must be distinct");
     let connector = Arc::new(connector);
