@@ -32,7 +32,7 @@ fn quick_open_navigation_items() -> Vec<PaletteItem> {
         catalog_item(
             Icon::History,
             "Query history",
-            "Browse saved and recent queries",
+            "Execution History & Audit · Browse saved and recent queries",
             None,
             PaletteAction::History,
         ),
@@ -91,7 +91,7 @@ fn quick_open_activity_items() -> Vec<PaletteItem> {
         catalog_item(
             Icon::Gauge,
             "Monitor",
-            "Connection health and recent statements",
+            "Server Monitor · Connection health and recent statements",
             None,
             PaletteAction::Monitor,
         ),

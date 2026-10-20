@@ -95,6 +95,8 @@ pub(super) fn draw_schema_compare(
                 .color(context.theme.text_primary),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            // First allocation lands flush at the window edge — inset it.
+            ui.add_space(SPACE_MD);
             if Button::new(context.theme)
                 .icon(Icon::GitCompare)
                 .text(t!("compare.diff_now"))
@@ -428,26 +430,48 @@ pub(super) fn draw_schema_compare(
                 .color(context.theme.text_muted),
         );
         ui.add_space(SPACE_XS);
+        ui.label(
+            RichText::new("Target connection id")
+                .small()
+                .color(context.theme.text_secondary),
+        );
         Input::new(
             &mut context.compare.data_diff_target_id,
-            "target connection id",
+            "e.g. the connection to compare against",
             context.theme,
         )
         .show(ui);
         // The shell zeroes workspace item_spacing — form fields must breathe
         // explicitly or consecutive inputs render as one fused field.
         ui.add_space(SPACE_XS);
-        Input::new(&mut context.compare.data_diff_schema, "schema", context.theme).show(ui);
+        ui.label(
+            RichText::new("Schema")
+                .small()
+                .color(context.theme.text_secondary),
+        );
+        Input::new(&mut context.compare.data_diff_schema, "public", context.theme).show(ui);
         ui.add_space(SPACE_XS);
-        Input::new(&mut context.compare.data_diff_table, "table", context.theme).show(ui);
+        ui.label(
+            RichText::new("Table")
+                .small()
+                .color(context.theme.text_secondary),
+        );
+        Input::new(&mut context.compare.data_diff_table, "table name", context.theme).show(ui);
         ui.add_space(SPACE_XS);
+        ui.label(
+            RichText::new("Key columns")
+                .small()
+                .color(context.theme.text_secondary),
+        );
         Input::new(
             &mut context.compare.data_diff_keys,
-            "key columns (comma)",
+            "comma-separated, e.g. id",
             context.theme,
         )
         .show(ui);
         ui.add_space(SPACE_XS);
+        // Bottom margin so the pinned results panel never overlays the button.
+        ui.add_space(SPACE_LG);
         if Button::new(context.theme)
             .icon(Icon::GitCompare)
             .text(t!("compare.compare_rows"))

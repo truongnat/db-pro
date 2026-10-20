@@ -59,7 +59,8 @@ impl SettingsEditorContext<'_> {
 
     fn draw_prediction(&mut self, ui: &mut egui::Ui) {
         ui.add_space(8.0);
-        ui.label(RichText::new("AI prediction").color(self.theme.text_secondary));
+        section_label(ui, "AI PREDICTION", self.theme);
+        ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
             for (mode, label) in [
                 (PredictionMode::Off, "Off"),

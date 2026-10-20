@@ -19,6 +19,9 @@ impl SettingsDiagnosticsContext<'_> {
     pub(crate) fn draw(&self, ui: &mut egui::Ui) -> Vec<SettingsDiagnosticsAction> {
         let mut actions = Vec::new();
         card_frame(self.theme).show(ui, |ui| {
+            // Match the sibling settings cards: fill the pane width instead of
+            // shrinking to content.
+            ui.set_min_width((ui.available_width() - 4.0).max(0.0));
             self.draw_summary(ui);
             actions.extend(self.draw_actions(ui));
             self.draw_redaction_note(ui);
@@ -32,7 +35,15 @@ impl SettingsDiagnosticsContext<'_> {
         ui.label(
             RichText::new(format!(
                 "DB Pro {} · {} / {}",
-                self.summary.app_version, self.summary.os, self.summary.architecture
+                self.summary.app_version,
+                // consts::OS yields "macos"/"windows"/"linux" — title-case for display.
+                match self.summary.os.as_str() {
+                    "macos" => "macOS",
+                    "windows" => "Windows",
+                    "linux" => "Linux",
+                    other => other,
+                },
+                self.summary.architecture
             ))
             .color(self.theme.text_primary),
         );

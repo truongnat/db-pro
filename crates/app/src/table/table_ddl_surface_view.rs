@@ -167,37 +167,43 @@ pub(super) fn draw_script_card(context: &mut DdlScriptContext<'_>, ui: &mut egui
 
 fn draw_script_header(context: &DdlScriptContext<'_>, ui: &mut egui::Ui) -> Option<DdlScriptAction> {
     let mut action = None;
-    ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing.x = SPACE_SM;
-        ui.label(
-            RichText::new("CREATE SCRIPT")
-                .font(font_caption())
-                .strong()
-                .color(context.theme.text_secondary),
-        );
-        ui.label(
-            RichText::new(if context.writable {
-                "Editable preview · Apply asks for confirmation"
-            } else {
-                "Read-only preview"
-            })
-            .small()
-            .color(context.theme.text_muted),
-        );
-        if context.writable
-            && !context.executing
-            && Button::new(context.theme)
-                .icon(Icon::Play)
-                .text(t!("table.apply_ddl"))
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .enabled(DDL_APPLY_ENABLED)
-                .tooltip("Review and confirm before the DDL executes")
-                .show(ui)
-                .clicked()
-        {
-            action = Some(DdlScriptAction::Apply);
-        }
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("CREATE SCRIPT")
+                    .font(font_caption())
+                    .strong()
+                    .color(context.theme.text_secondary),
+            );
+            ui.label(
+                RichText::new(if context.writable {
+                    "Editable preview · Apply asks for confirmation"
+                } else {
+                    "Read-only preview"
+                })
+                .small()
+                .color(context.theme.text_muted),
+            );
+        });
+        // Right-align the apply action — a wrapped horizontal row drew the
+        // button on top of the caption tail.
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.add_space(SPACE_MD);
+            if context.writable
+                && !context.executing
+                && Button::new(context.theme)
+                    .icon(Icon::Play)
+                    .text(t!("table.apply_ddl"))
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .enabled(DDL_APPLY_ENABLED)
+                    .tooltip("Review and confirm before the DDL executes")
+                    .show(ui)
+                    .clicked()
+            {
+                action = Some(DdlScriptAction::Apply);
+            }
+        });
     });
     action
 }

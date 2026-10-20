@@ -26,6 +26,9 @@ impl SettingsSystemContext<'_> {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Page size").color(self.theme.text_secondary));
+                // item_spacing is zeroed in this shell — explicit gap or the
+                // label fuses with the drag value ("Page size100").
+                ui.add_space(8.0);
                 ui.add(egui::DragValue::new(&mut self.preferences.settings.data_grid.page_size).range(25..=1_000));
             });
             Checkbox::new(&mut self.preferences.settings.data_grid.show_row_numbers, "Show row numbers", self.theme)
