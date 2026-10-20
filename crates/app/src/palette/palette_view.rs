@@ -158,7 +158,11 @@ impl DbProApp {
         self.table.state.table_view = TableView::Structure;
         self.table.state.table_info = None;
         self.table.state.table_ddl = None;
-        self.table.data_query.result = None;
+        // Data filters/sorts are table-scoped; reusing them breaks the next
+        // read (same rule as open_table_in_schema, #370 / QA P1). Without the
+        // reset, the previous table's ORDER BY column lands on a table that
+        // lacks it — e.g. `ORDER BY "id"` on role_permissions.
+        self.table.data_query.reset_for_table();
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;
         self.feedback.runtime_message = format!("Opening table {table}");

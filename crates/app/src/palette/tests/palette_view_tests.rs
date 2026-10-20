@@ -101,3 +101,33 @@
             "History entry is no longer available"
         );
     }
+    #[test]
+    fn open_table_from_palette_clears_table_scoped_data_state() {
+        // Regression: the palette path skipped reset_for_table, so the previous
+        // table's sort column rode into the next LoadTableData — e.g. opening
+        // products (ORDER BY "id") then role_permissions produced
+        // `ORDER BY "id"` on a table with no `id` column.
+        let mut app = DbProApp::default();
+        app.schema.explorer.selected_table = Some("products".to_owned());
+        app.table.data_query.sorts.push(UiTableDataSort {
+            column: "id".to_owned(),
+            descending: false,
+        });
+        app.table.data_query.filter_column = "id".to_owned();
+        app.table.data_query.sql_condition_draft = "id = 1".to_owned();
+        app.table.data_query.error = Some("stale error".to_owned());
+        app.table.data_query.request = Some(RequestId(1));
+
+        app.open_table_from_palette("role_permissions".to_owned());
+
+        assert!(app.table.data_query.sorts.is_empty());
+        assert!(app.table.data_query.filter_column.is_empty());
+        assert!(app.table.data_query.sql_condition_draft.is_empty());
+        assert!(app.table.data_query.error.is_none());
+        assert!(app.table.data_query.request.is_none());
+        assert!(app.table.data_query.result.is_none());
+        assert_eq!(
+            app.schema.explorer.selected_table.as_deref(),
+            Some("role_permissions")
+        );
+    }
