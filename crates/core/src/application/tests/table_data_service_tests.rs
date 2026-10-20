@@ -632,16 +632,18 @@ async fn apply_mutations_detailed_retains_commit_statement_index_without_out_of_
         .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
 
     // Input mutations: 2 mutations. Commit failure returns statement_index = 2 (statements.len()).
-    connector.expect_execute_parameterized_transaction().returning(|_, statements| {
-        let count = statements.len();
-        Err(TransactionFailure {
-            phase: TransactionFailurePhase::Commit,
-            statement_index: count,
-            outcome: TransactionFailureOutcome::Unknown,
-            results: Vec::new(),
-            error: DbError::QueryFailed("commit failed".into()),
-        })
-    });
+    connector
+        .expect_execute_parameterized_transaction()
+        .returning(|_, statements| {
+            let count = statements.len();
+            Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
+                statement_index: count,
+                outcome: TransactionFailureOutcome::Unknown,
+                results: Vec::new(),
+                error: DbError::QueryFailed("commit failed".into()),
+            })
+        });
 
     let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
     let failure = service
