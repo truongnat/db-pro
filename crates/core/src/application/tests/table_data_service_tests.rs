@@ -624,6 +624,52 @@ async fn apply_mutations_detailed_retains_zero_statement_index_on_begin_failure(
 }
 
 #[tokio::test]
+async fn apply_mutations_detailed_retains_commit_statement_index_without_out_of_bounds_remapping() {
+    let (conn_id, registry) = setup();
+    let mut connector = MockDbConnector::new();
+    connector
+        .expect_dialect()
+        .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+
+    // Input mutations: 2 mutations. Commit failure returns statement_index = 2 (statements.len()).
+    connector.expect_execute_parameterized_transaction().returning(|_, statements| {
+        let count = statements.len();
+        Err(TransactionFailure {
+            phase: TransactionFailurePhase::Commit,
+            statement_index: count,
+            outcome: TransactionFailureOutcome::Unknown,
+            results: Vec::new(),
+            error: DbError::QueryFailed("commit failed".into()),
+        })
+    });
+
+    let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+    let failure = service
+        .apply_mutations_detailed(
+            &conn_id,
+            "public",
+            "users",
+            &[
+                TableDataMutation::Insert {
+                    columns: vec!["name".into()],
+                    values: vec![CellValue::Text("new".into())],
+                },
+                TableDataMutation::Delete {
+                    pk_columns: vec!["id".into()],
+                    pk_values: vec![CellValue::Int64(1)],
+                },
+            ],
+        )
+        .await
+        .expect_err("commit failure must return transaction failure");
+
+    // Commit phase failure must retain statement_index = 2 (number of statements), not attempt out-of-bounds remapping.
+    assert_eq!(failure.phase, TransactionFailurePhase::Commit);
+    assert_eq!(failure.statement_index, 2);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::Unknown);
+}
+
+#[tokio::test]
 // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
 async fn apply_mutations_detailed_retains_zero_statement_index_on_validation_failure() {
     // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
