@@ -251,7 +251,10 @@ impl DbProApp {
         column_index: usize,
         descending: Option<bool>,
     ) {
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+        let server_side = self.workspace.active_tab == WorkspaceTab::Table
+            && self.table.state.table_view == TableView::Data
+            && !self.table.data_query.inline_query_result;
+        if server_side {
             if !self.table.mutation.staged_changes.is_empty() {
                 self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;

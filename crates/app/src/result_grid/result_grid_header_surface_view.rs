@@ -163,7 +163,8 @@ impl<'a> GridHeaderViewContext<'a> {
 
                 // Column title + data type + sort icon
                 let table_sort = (self.workspace.active_tab == WorkspaceTab::Table
-                    && self.table.state.table_view == TableView::Data)
+                    && self.table.state.table_view == TableView::Data
+                    && !self.table.data_query.inline_query_result)
                     .then(|| {
                         self.table
                             .data_query
@@ -232,6 +233,7 @@ impl<'a> GridHeaderViewContext<'a> {
                 if col_resp.clicked() && !divider.dragged() {
                     if self.workspace.active_tab == WorkspaceTab::Table
                         && self.table.state.table_view == TableView::Data
+                        && !self.table.data_query.inline_query_result
                     {
                         actions.push(GridHeaderAction::CycleTableSort {
                             column_index: col_idx,
