@@ -21,7 +21,7 @@ impl DestructiveDialogContext<'_> {
     pub(super) fn draw_ctx(&self, ctx: &egui::Context) -> Option<DestructiveDialogAction> {
         let mut open = true;
         let mut action = None;
-        Dialog::new(&mut open, "Run Destructive Statement?", self.theme)
+        Dialog::new(&mut open, t!("query.destructive_title").as_ref(), self.theme)
             .id_salt("destructive_run_dialog")
             .width(560.0)
             .show_framed_ctx(ctx, |frame| {
@@ -37,15 +37,12 @@ impl DestructiveDialogContext<'_> {
 
 
     fn draw_destructive_body(&self, ui: &mut egui::Ui, action: &mut Option<DestructiveDialogAction>) {
-        ui.label(
-            RichText::new(if self.pending.all_statements() {
-                // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                "The script you are about to run contains a statement that can drop or truncate data. Nothing has been sent yet."
-            } else {
-                "This statement can drop or truncate data. Nothing has been sent yet."
-            })
-            .color(self.theme.text_primary),
-        );
+        let warning = if self.pending.all_statements() {
+            t!("query.destructive_script_warning").into_owned()
+        } else {
+            t!("query.destructive_statement_warning").into_owned()
+        };
+        ui.label(RichText::new(warning).color(self.theme.text_primary));
         ui.add_space(SPACE_SM);
         let mut preview = self.pending.sql().to_owned();
         if preview.chars().count() > 600 {
@@ -61,7 +58,7 @@ impl DestructiveDialogContext<'_> {
         if !self.pending.target_label().is_empty() {
             ui.add_space(SPACE_SM);
             ui.label(
-                RichText::new(format!("Runs on: {}", self.pending.target_label()))
+                RichText::new(t!("query.destructive_target", target = self.pending.target_label()).into_owned())
                     .strong()
                     .color(self.theme.warning),
             );
@@ -69,12 +66,12 @@ impl DestructiveDialogContext<'_> {
         ui.add_space(SPACE_SM);
         ui.colored_label(
             self.theme.warning,
-            "It is sent to the server exactly as written; the app cannot undo it.",
+            t!("query.destructive_server_warning").into_owned(),
         );
         ui.add_space(SPACE_MD);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
-                .text("Run Destructive Statement")
+                .text(t!("query.destructive_confirm").as_ref())
                 .variant(ButtonVariant::Destructive)
                 .size(ButtonSize::Sm)
                 .show(ui)

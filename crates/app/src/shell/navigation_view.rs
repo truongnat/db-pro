@@ -49,5 +49,5 @@ fn pluralize(n: usize, key: &'static str) -> String {
     } else {
         format!("{key}_other")
     };
-    rust_i18n::t!(&key, n = n).into_owned()
+    rust_i18n::t!(&key, n = n).to_string()
 }

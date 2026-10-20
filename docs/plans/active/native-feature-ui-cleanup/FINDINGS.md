@@ -18,7 +18,7 @@ Retry `... "minimalism enterprise dashboard" --domain style`: Minimalism & Swiss
 
 ## Provider impact
 
-PostgreSQL n/a; SQLite n/a: presentation only. No live-provider success inferred.
+- No production provider code or behavior changed. A loopback-only PostgreSQL fixture is used as review data; no SQLite runtime comparison or mutation was performed.
 
 ## Accepted research handoff
 
@@ -54,3 +54,20 @@ and interactive affordance.
 
 Detected implementation stack is Rust egui/eframe, absent from this skill's 22 stack
 datasets. No web/mobile stack output is misrepresented as egui-specific guidance.
+
+## 2026-10-20 owner-requested layout review and PostgreSQL demo
+
+Source baseline: `cb6e00d633772de538498384a8b14d32d25f7915` (source tree unchanged; current uncommitted changes are documentation/evidence only).
+
+| Surface | Observed evidence | Finding |
+|---|---|---|
+| Welcome / shell, 1280×800 light | `evidence/postgres-demo/welcome-light-1280x800.png`, captured from the native egui app. The center's four action tiles form a balanced 2×2 group; visible shell/sidebar/status contents stay within the frame. The connection list shows the PostgreSQL demo row, but the active connection is the bundled SQLite sample. | No clipping or overlap confirmed on this surface. This is not proof of a PostgreSQL-connected view. |
+| Query + Agent, 1280×800 dark | Existing `evidence/query-agent-dark-1280x800.png` (2560×1600 framebuffer for the requested logical size) shows the open-query sidebar, SQL editor and Agent pane sharing the width. Controls are visible; the center editor is comparatively narrow. | Density trade-off worth reassessing with a real PostgreSQL table/query open; no clipping or unusable control is established by this capture. The old bottom-bar error is historical: the demo database did not exist when the image was taken. |
+| Welcome + Agent / Schema / Settings | Existing 2026-10-19 two-theme observations at lines 41–43 above show all four cards visible, Agent chips wrapping, and the specific schema/settings framing issues absent on those paths. | Keep those fixes; do not repeat or report their superseded defects as current. |
+| PostgreSQL-backed table/editor view | No screenshot or interaction in this pass shows a PostgreSQL-selected table in the app. | NOT VERIFIED; no layout conclusion for the populated grid, query results, or schema browser. |
+
+**Severity:** no new P0/P1/P2 layout defect is confirmed. The narrow Query editor is an observation, not a defect claim; do not change pane sizing until the data-view layout is inspected.
+
+The requested review database now exists in a local-only PostgreSQL container: `db-pro-ui-demo-pg`, bound to `127.0.0.1:5432`, with persistent volume `db-pro-ui-demo-pg-data`. It uses the repo's `fixtures/postgres` schema/seed plus `fixtures/lab` expansion. Verification reports 18 base tables (11 `public`, 7 `lab`), 2 views, and 81,200 rows across `lab.customers`, `products`, `orders`, `order_items`, and `events`. The sample connection is `Xe Lạc Hồng (PostgreSQL)` → `localhost:5432/fullstack_starter`, user `postgres`; this profile already existed in the normal DB Pro data directory. A separate profile was created in `/home/vietis/.local/share/db-pro-ui-demo` so the demo can launch without the other saved profiles.
+
+The isolated startup capture selected the default SQLite sample, not PostgreSQL. The app's native capture path rendered a Welcome screen but cannot interactively select a connection; direct X11 window discovery returned no app window and `gnome-screenshot` failed in this virtual display. Do not imply that populated PostgreSQL views have been visually audited yet.

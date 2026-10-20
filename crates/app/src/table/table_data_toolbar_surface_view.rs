@@ -66,10 +66,10 @@ pub(super) fn draw_toolbar(
             ui.horizontal_wrapped(|ui| {
                 action = context.draw_mutation_controls(ui);
                 let export_clicked = Button::new(context.theme)
-                    .text("Export")
+                    .text(t!("query.export_results"))
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
-                    .tooltip("Export the visible rows")
+                    .tooltip(t!("query.export_results_desc").into_owned())
                     .show(ui)
                     .clicked();
                 if action.is_none() && export_clicked {
@@ -204,7 +204,11 @@ impl TableDataToolbarContext<'_> {
         let (editor_rect, editor_response) =
             ui.allocate_exact_size(egui::vec2(editor_width, control_height), egui::Sense::click());
         editor_response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), "Edit WHERE condition")
+            egui::WidgetInfo::labeled(
+                egui::WidgetType::Button,
+                ui.is_enabled(),
+                t!("table.edit_where_condition").into_owned(),
+            )
         });
         ui.painter().rect(
             editor_rect,
@@ -250,7 +254,7 @@ impl TableDataToolbarContext<'_> {
                         RichText::new(
                             self.column_suggestions
                                 .first()
-                                .map_or("Condition", |column| column.name.as_str()),
+                                .map_or_else(|| t!("table.condition").into_owned(), |column| column.name.clone()),
                         )
                         .color(self.theme.text_muted),
                     )
@@ -262,7 +266,11 @@ impl TableDataToolbarContext<'_> {
                     .desired_width(ui.available_width())
                     .show(ui);
                 cond_edit.response.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), "WHERE condition")
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::TextEdit,
+                        ui.is_enabled(),
+                        t!("table.where_condition").into_owned(),
+                    )
                 });
                 cond_edit
             })
@@ -315,11 +323,11 @@ impl TableDataToolbarContext<'_> {
         }
         ui.add_space(SPACE_SM);
         let run_clicked = Button::new(self.theme)
-            .text("Run")
+            .text(t!("query.run"))
             .icon(Icon::Play)
             .variant(ButtonVariant::Default)
             .size(ButtonSize::Sm)
-            .tooltip("Run SELECT · Empty condition selects all rows · Enter")
+            .tooltip(t!("table.run_select_tooltip", key = "Enter").into_owned())
             .show(ui)
             .clicked();
         let enter_pressed =

@@ -47,7 +47,14 @@ where
                                 Layout::top_down(Align::Center),
                                 |ui| {
                                     ui.set_max_width(PRESENTATION_RAIL_WIDTH);
-                                    if rail_button(ui, context, Icon::Table, "Grid", !context.record_view_open, true) {
+                                    if rail_button(
+                                        ui,
+                                        context,
+                                        Icon::Table,
+                                        t!("table.presentation_grid").as_ref(),
+                                        !context.record_view_open,
+                                        true,
+                                    ) {
                                         presentation = Some(TableDataPresentation::Grid);
                                     }
                                     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
@@ -55,7 +62,7 @@ where
                                             ui,
                                             context,
                                             Icon::PanelRight,
-                                            "Record",
+                                            t!("table.presentation_record").as_ref(),
                                             context.record_view_open,
                                             context.record_available,
                                         ) {
@@ -90,9 +97,9 @@ fn rail_button(
     enabled: bool,
 ) -> bool {
     let tooltip = if enabled {
-        label
+        label.to_owned()
     } else {
-        "Select exactly one row to view a record"
+        t!("table.select_one_row_record").into_owned()
     };
     let response = Button::new(context.theme)
         .icon(icon)

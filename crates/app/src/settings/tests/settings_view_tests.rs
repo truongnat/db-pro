@@ -51,3 +51,36 @@
         assert!(app.overlay.restore_confirmation);
         assert_eq!(app.feedback.runtime_message, "Runtime worker unavailable");
     }
+
+    #[test]
+    fn settings_general_labels_render_from_the_english_catalog() {
+        fn collect_text(shape: &egui::Shape, texts: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => texts.push(text.galley.text().to_owned()),
+                egui::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        collect_text(shape, texts);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut app = DbProApp::default();
+        app.preferences.section = super::settings_model::SettingsSection::General;
+        let ctx = egui::Context::default();
+        crate::DbProTheme::install_fonts(&ctx);
+        let output = crate::test_frame::frame(&ctx, Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| app.draw_settings(ui));
+        });
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect_text(&clipped.shape, &mut texts);
+        }
+        for expected in ["Language", "Workspace", "General", "Confirm destructive queries"] {
+            assert!(
+                texts.iter().any(|text| text == expected),
+                "rendered Settings General view omitted {expected:?}: {texts:?}"
+            );
+        }
+    }

@@ -35,6 +35,7 @@ pub enum TransactionFailurePhase {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransactionFailureOutcome {
     NotStarted,
+    /// The transaction, or the operation's savepoint within a caller-owned transaction, was rolled back.
     RolledBack,
     Unknown,
     /// The statement failed on a transaction the caller already holds.

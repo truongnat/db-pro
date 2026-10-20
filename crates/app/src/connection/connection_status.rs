@@ -152,13 +152,18 @@ pub(super) fn has_runtime_error(feedback: &FeedbackState) -> bool {
 }
 
 /// The status-bar message and the colour it is rendered in.
-pub(super) fn runtime_status(feedback: &FeedbackState, theme: DbProTheme) -> Option<(String, Color32)> {
-    if feedback.runtime_message.trim().is_empty() {
+pub(super) fn runtime_status(
+    feedback: &FeedbackState,
+    theme: DbProTheme,
+    current_activity: super::app_types::Activity,
+) -> Option<(String, Color32)> {
+    let message = feedback.runtime_message_for_display(current_activity);
+    if message.trim().is_empty() {
         None
     } else if has_runtime_error(feedback) {
-        Some((feedback.runtime_message.clone(), theme.danger))
+        Some((message.to_owned(), theme.danger))
     } else {
-        Some((feedback.runtime_message.clone(), theme.text_secondary))
+        Some((message.to_owned(), theme.text_secondary))
     }
 }
 

@@ -40,7 +40,7 @@ pub(super) fn escape_delimited_field(value: &str, delimiter: char) -> String {
     if value.contains(delimiter) || value.contains('"') || value.contains('\n') || value.contains('\r') {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
-        value.into_owned()
+        value.to_string()
     }
 }
 

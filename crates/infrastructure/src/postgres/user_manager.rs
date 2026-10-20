@@ -222,12 +222,14 @@ impl UserManager for PostgresUserManager {
             .into_iter()
             .filter_map(|row| {
                 let cells = &row.0;
+                let name = cells.first().and_then(cell_text)?;
                 Some(DatabaseUser {
-                    name: cells.first().and_then(cell_text)?,
+                    name: name.clone(),
                     is_super: cells.get(1).map(cell_bool).unwrap_or(false),
                     can_create_db: cells.get(2).map(cell_bool).unwrap_or(false),
                     can_create_role: cells.get(3).map(cell_bool).unwrap_or(false),
                     can_login: cells.get(4).map(cell_bool).unwrap_or(false),
+                    is_predefined: db_pro_core::domain::user::is_predefined_role_name(&name),
                 })
             })
             .collect())

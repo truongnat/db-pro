@@ -7,6 +7,13 @@ pub struct DatabaseUser {
     pub can_create_db: bool,
     pub can_create_role: bool,
     pub can_login: bool,
+    /// Provider-defined role (PostgreSQL `pg_*` and similar) — not droppable via the UI.
+    #[serde(default)]
+    pub is_predefined: bool,
+}
+
+pub fn is_predefined_role_name(name: &str) -> bool {
+    name == "postgres" || name.starts_with("pg_")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use db_pro_core::application::TableCopyConnector;
 use db_pro_core::domain::connection::{ConnectionHandle, ConnectionId};
-use db_pro_core::domain::query::{QueryParam, QueryResult};
-use db_pro_core::ports::DbConnector;
+use db_pro_core::domain::query::QueryResult;
+use db_pro_core::ports::{DbConnector, ParameterizedTransactionStatement};
 use db_pro_runtime::DbProRuntime;
 
 pub(crate) fn live(runtime: Arc<DbProRuntime>, tokio: tokio::runtime::Handle) -> Arc<dyn TableCopyConnector> {
@@ -56,16 +56,24 @@ impl TableCopyConnector for LiveCopy {
         })
     }
 
-    fn execute(&self, connection_id: &str, sql: &str, params: &[QueryParam]) -> Result<u64, String> {
+    fn execute_transaction(
+        &self,
+        connection_id: &str,
+        statements: Vec<ParameterizedTransactionStatement>,
+    ) -> Result<(), String> {
         let handle = self.handle(connection_id)?;
         let connector = self.runtime.connector();
-        let sql = sql.to_owned();
-        let params = params.to_vec();
         self.tokio.block_on(async move {
             connector
-                .execute(&handle, &sql, &params)
+                .execute_parameterized_transaction(&handle, &statements)
                 .await
-                .map_err(|error| error.to_string())
+                .map(|_| ())
+                .map_err(|failure| {
+                    format!(
+                        "copy transaction failed during {:?} at statement index {} ({:?}): {}",
+                        failure.phase, failure.statement_index, failure.outcome, failure.error
+                    )
+                })
         })
     }
 }

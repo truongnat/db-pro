@@ -19,7 +19,7 @@ impl SettingsNavigationContext {
         let mut actions = Vec::new();
         ui.set_width(ui.available_width());
         ui.label(
-            RichText::new("SETTINGS")
+            RichText::new(t!("app.settings"))
                 .font(font_caption())
                 .strong()
                 .color(self.theme.text_muted),
@@ -27,7 +27,7 @@ impl SettingsNavigationContext {
         ui.add_space(SPACE_LG);
         self.draw_grouped_section(
             ui,
-            "Workspace",
+            t!("settings.group_workspace").as_ref(),
             &[
                 (SettingsSection::General, Icon::Settings2),
                 (SettingsSection::Appearance, Icon::Palette),
@@ -38,13 +38,13 @@ impl SettingsNavigationContext {
         );
         self.draw_grouped_section(
             ui,
-            "Connections",
+            t!("settings.group_connections").as_ref(),
             &[(SettingsSection::Connections, Icon::Database), (SettingsSection::Ai, Icon::Bot)],
             &mut actions,
         );
         self.draw_grouped_section(
             ui,
-            "System",
+            t!("settings.group_system").as_ref(),
             &[
                 (SettingsSection::Keybindings, Icon::Keyboard),
                 (SettingsSection::Backup, Icon::Archive),
@@ -83,7 +83,7 @@ impl SettingsNavigationContext {
         for (section, icon) in sections {
             let selected = self.selected == *section;
             let response = Button::new(self.theme)
-                .text(section.label())
+                .text(t!(section.label_key()).as_ref())
                 .icon(*icon)
                 .variant(if selected {
                     ButtonVariant::Secondary

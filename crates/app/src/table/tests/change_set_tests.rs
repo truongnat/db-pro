@@ -17,6 +17,48 @@
     }
 
     #[test]
+    fn remove_applied_targets_keeps_unrelated_staged_rows() {
+        let id_a = RowIdentity {
+            original_pk_columns: vec!["id".to_owned()],
+            original_pk_values: vec![UiCell::Number("1".to_owned())],
+        };
+        let id_b = RowIdentity {
+            original_pk_columns: vec!["id".to_owned()],
+            original_pk_values: vec![UiCell::Number("2".to_owned())],
+        };
+        let mut changes = ChangeSet::new();
+        changes.stage_update(StagedChange::Update {
+            identity: id_a.clone(),
+            current_row_index: Some(0),
+            column_index: 1,
+            column: "name".to_owned(),
+            data_type: "TEXT".to_owned(),
+            original: UiCell::Text("a".to_owned()),
+            value: UiCell::Text("a1".to_owned()),
+        });
+        changes.stage_update(StagedChange::Update {
+            identity: id_b.clone(),
+            current_row_index: Some(1),
+            column_index: 1,
+            column: "name".to_owned(),
+            data_type: "TEXT".to_owned(),
+            original: UiCell::Text("b".to_owned()),
+            value: UiCell::Text("b1".to_owned()),
+        });
+        let targets = vec![MutationTarget::Update {
+            identity: id_b,
+            current_row_index: Some(1),
+            columns: vec![1],
+        }];
+        changes.remove_applied_targets(&targets);
+        assert_eq!(changes.counts().updates, 1);
+        assert!(changes.iter().any(|entry| matches!(
+            entry,
+            StagedChange::Update { identity, .. } if *identity == id_a
+        )));
+    }
+
+    #[test]
     fn repeated_cell_updates_keep_only_final_value() {
         let mut changes = ChangeSet::new();
         changes.stage_update(update("one"));

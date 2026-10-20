@@ -97,7 +97,12 @@ pub(super) fn draw_diagram_canvas(
         let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
         let viewport_rect = response.rect;
 
-        apply_initial_viewport(ctx, viewport_rect, active_filter);
+        let search_subset = active_filter.is_some_and(|filter| !filter.is_empty());
+        if search_subset {
+            maybe_fit_search(ctx, ui, viewport_rect, active_filter);
+        } else {
+            apply_initial_viewport(ctx, viewport_rect, active_filter);
+        }
 
         // Gestures must not leak through the overlay widgets stacked on the canvas.
         let overlay_rects = [zoom_controls_rect(viewport_rect), minimap_rect(viewport_rect)];
@@ -266,7 +271,9 @@ pub(super) fn draw_diagram_canvas(
             theme,
         );
         draw_minimap(ctx, ui, viewport_rect, &viewport, minimap_rect(viewport_rect));
-        maybe_fit_search(ctx, ui, viewport_rect, active_filter);
+        if !search_subset {
+            maybe_fit_search(ctx, ui, viewport_rect, active_filter);
+        }
         sync_layout_snapshot(ctx);
     });
 

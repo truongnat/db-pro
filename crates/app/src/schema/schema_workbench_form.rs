@@ -401,7 +401,7 @@ fn draw_type_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egu
 }
 
 fn draw_view_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.label(
             RichText::new("View Query Designer")
                 .strong()

@@ -23,7 +23,7 @@ pub(super) fn draw_filter_chips(
     let mut action = None;
     ui.add_space(SPACE_XS);
     ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new("Filters").small().color(context.theme.text_muted));
+        ui.label(RichText::new(t!("table.filters")).small().color(context.theme.text_muted));
         for (index, filter) in context.data_query.filters.iter().enumerate() {
             let operator = filter_operator_chip_label(&filter.operator);
             let value = if filter.value.is_empty() {
@@ -36,7 +36,7 @@ pub(super) fn draw_filter_chips(
                 .text("×")
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::Sm)
-                .tooltip("Remove filter")
+                .tooltip(t!("table.remove_filter"))
                 .show(ui)
                 .clicked()
             {
@@ -44,7 +44,7 @@ pub(super) fn draw_filter_chips(
             }
         }
         if Button::new(context.theme)
-            .text("Clear all")
+            .text(t!("table.clear_all_filters"))
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::Sm)
             .show(ui)

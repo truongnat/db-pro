@@ -105,6 +105,8 @@ impl DbProApp {
         self.table.data.persist_layout(scope);
         self.schema.explorer.record_recent_table(&table);
         self.schema.explorer.selected_table = Some(table);
+        // Data filters/sorts are table-scoped; reusing them breaks the next read (#370 / QA P1).
+        self.table.data_query.reset_for_table();
         // Filters are scoped to the previous table's metadata — leaving them
         // would silently hide constraints/dependencies of the new table (#370).
         self.table.state.table_metadata_search.clear();

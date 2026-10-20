@@ -423,6 +423,7 @@ fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui:
     if search_changed {
         ctx.diagram.search_changed_at = Some(std::time::Instant::now());
         ctx.diagram.fitted_search.clear();
+        ctx.diagram.auto_fit_done = false;
     }
     ctx.diagram.show_all =
         diagram_show_all_after_search_edit(ctx.diagram.show_all, &ctx.diagram.search, search_changed);

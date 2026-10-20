@@ -198,15 +198,17 @@ audit_native_binary() {
 audit_native_benches() {
   section "Native UI Benchmarks (criterion)"
 
-  local bench_file="$PROJECT_ROOT/crates/ui/benches/result_grid_benchmarks.rs"
+  local bench_file="$PROJECT_ROOT/crates/app/benches/result_grid_benchmarks.rs"
   if [ ! -f "$bench_file" ]; then
-    check "UI benchmarks" "warn" "crates/ui/benches/result_grid_benchmarks.rs not found"
+    check "UI benchmarks" "warn" "crates/app/benches/result_grid_benchmarks.rs not found"
     return
   fi
 
-  echo "  Running criterion benchmarks for db-pro-ui (this may take a few minutes)..."
+  echo "  Running criterion benchmarks for db-pro-app (this may take a few minutes)..."
   local output
-  if output=$(cd "$PROJECT_ROOT" && cargo bench --package db-pro-ui -- --quick 2>&1); then
+  # Criterion benches use harness = false; package-wide `cargo bench` also runs libtest
+  # harnesses and rejects legacy `--quick`. Target the bench crate explicitly.
+  if output=$(cd "$PROJECT_ROOT" && cargo bench --package db-pro-app --bench result_grid_benchmarks 2>&1); then
     check "UI benchmarks" "pass" "All benchmarks completed"
     echo "$output" | grep -E "time:" | head -10 | while read -r line; do
       echo "    $line"
@@ -236,7 +238,7 @@ audit_rust_bench() {
 
   echo "  Running Criterion benchmarks (this may take a few minutes)..."
   local output
-  if output=$(cd "$PROJECT_ROOT" && cargo bench --package db-pro-infrastructure -- --quick 2>&1); then
+  if output=$(cd "$PROJECT_ROOT" && cargo bench --package db-pro-infrastructure --bench sqlite_benchmarks 2>&1); then
     check "Benchmarks" "pass" "All benchmarks completed"
     echo "$output" | grep -E "time:|thrpt:" | head -10 | while read -r line; do
       echo "    $line"

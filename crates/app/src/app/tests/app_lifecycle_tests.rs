@@ -121,8 +121,10 @@ fn toolbar_and_settings_switch_rendered_theme_and_persist_the_same_choice() {
     DbProTheme::install_fonts(&ctx);
     // Start with the opposite context style, as happens under a dark system theme.
     ctx.set_theme(egui::Theme::Dark);
-    let mut app = DbProApp::default();
-    app.initial_frames_count = 3;
+    let mut app = DbProApp {
+        initial_frames_count: 3,
+        ..Default::default()
+    };
     assert_theme_persists(&mut app, &ctx, false);
 
     click(&mut app, &ctx, "Switch to Dark Theme");
@@ -144,11 +146,22 @@ fn shell_panel_boundaries_stay_borderless_in_both_themes() {
         for output_open in [false, true] {
             let ctx = egui::Context::default();
             DbProTheme::install_fonts(&ctx);
-            let mut app = DbProApp::default();
-            app.initial_frames_count = 3;
-            app.preferences.dark_mode = dark_mode;
-            app.workspace.agent_open = true;
-            app.workspace.bottom_panel_open = output_open;
+            let mut app = DbProApp {
+                initial_frames_count: 3,
+                preferences: PreferencesState {
+                    dark_mode,
+                    ..Default::default()
+                },
+                workspace: WorkspaceFeatureState {
+                    shell: WorkspaceShellState {
+                        agent_open: true,
+                        bottom_panel_open: output_open,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
             for _ in 0..3 {
                 let output = render(&mut app, &ctx, Vec::new());
                 for shape in &output.shapes {
@@ -179,9 +192,14 @@ fn borderless_sidebar_still_highlights_and_drags() {
     for dark_mode in [false, true] {
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
-        let mut app = DbProApp::default();
-        app.initial_frames_count = 3;
-        app.preferences.dark_mode = dark_mode;
+        let mut app = DbProApp {
+            initial_frames_count: 3,
+            preferences: PreferencesState {
+                dark_mode,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         for _ in 0..3 {
             let _ = render(&mut app, &ctx, Vec::new());
         }

@@ -8,6 +8,8 @@ pub(super) struct SyntheticDataState {
     pub(super) synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
     pub(super) synthetic_error: Option<String>,
     pub(super) synthetic_production_confirm: bool,
+    /// Required before running INSERT against any live connected profile (not just Production).
+    pub(super) synthetic_live_target_confirm: bool,
 }
 
 impl Default for SyntheticDataState {
@@ -20,6 +22,7 @@ impl Default for SyntheticDataState {
             synthetic_preview: None,
             synthetic_error: None,
             synthetic_production_confirm: false,
+            synthetic_live_target_confirm: false,
         }
     }
 }

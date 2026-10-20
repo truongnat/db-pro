@@ -95,6 +95,78 @@ async fn setup() -> (PostgresConnector, db_pro_core::domain::connection::Connect
     (connector, handle)
 }
 
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_parameterized_transaction_failure_rolls_back_replace_delete() {
+    let (connector, handle) = setup().await;
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    let table = format!("dbpro_copy_rollback_{}_{}", std::process::id(), suffix);
+    let qualified_table = format!("public.{table}");
+
+    connector
+        .execute(
+            &handle,
+            &format!("CREATE TABLE {qualified_table} (id TEXT PRIMARY KEY, name TEXT NOT NULL)"),
+            &[],
+        )
+        .await
+        .expect("create isolated copy target");
+    connector
+        .execute(
+            &handle,
+            &format!("INSERT INTO {qualified_table} (id, name) VALUES ($1, $2)"),
+            &[QueryParam::Text("1".into()), QueryParam::Text("Existing".into())],
+        )
+        .await
+        .expect("seed isolated copy target");
+
+    let error = connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[
+                db_pro_core::ports::ParameterizedTransactionStatement {
+                    sql: format!("DELETE FROM {qualified_table} WHERE id = $1"),
+                    params: vec![QueryParam::Text("1".into())],
+                    expect_affected_rows: true,
+                    max_affected_rows: Some(1),
+                },
+                db_pro_core::ports::ParameterizedTransactionStatement {
+                    sql: "THIS IS NOT VALID SQL".into(),
+                    params: Vec::new(),
+                    expect_affected_rows: false,
+                    max_affected_rows: None,
+                },
+            ],
+        )
+        .await
+        .expect_err("the injected invalid statement must fail");
+
+    assert_eq!(error.statement_index, 1);
+    assert_eq!(error.outcome, TransactionFailureOutcome::RolledBack);
+    let target = connector
+        .query(
+            &handle,
+            &format!("SELECT name FROM {qualified_table} WHERE id = $1"),
+            &[QueryParam::Text("1".into())],
+        )
+        .await
+        .expect("read target after rollback");
+    assert_eq!(target.rows.len(), 1);
+    match &target.rows[0].0[0] {
+        CellValue::Text(value) => assert_eq!(value, "Existing"),
+        other => panic!("unexpected name cell after rollback: {other:?}"),
+    }
+
+    connector
+        .execute(&handle, &format!("DROP TABLE {qualified_table}"), &[])
+        .await
+        .expect("drop isolated copy target");
+    connector.disconnect(&handle).await.expect("disconnect fixture");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Introspection tests
 // ═══════════════════════════════════════════════════════════════════════════

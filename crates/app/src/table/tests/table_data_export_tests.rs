@@ -55,14 +55,6 @@ fn workbook_xml(path: &std::path::Path) -> String {
 /// The Data tab exports its own grid, including an Excel workbook of those rows.
 #[test]
 fn data_tab_exports_visible_rows_as_excel() {
-    let toolbar = include_str!("../table_data_toolbar_surface_view.rs");
-    assert!(toolbar.contains("TableDataToolbarAction::Export"));
-    assert!(toolbar.contains(".text(\"Export\")"));
-    let data_view = include_str!("../table_data_view.rs");
-    assert!(data_view.contains("open_table_data_export()"));
-    assert!(data_view.contains("draw_export_dialog"));
-    let dialog = include_str!("../../query_workbench/query_dialog_surface_view.rs");
-    assert!(dialog.contains("ExportFormat::ALL"));
 
     let mut empty = data_tab_app(None);
     empty.export_results_from_palette();

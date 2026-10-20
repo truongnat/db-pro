@@ -23,18 +23,18 @@ pub(crate) enum SettingsSection {
 }
 
 impl SettingsSection {
-    pub(crate) fn label(self) -> &'static str {
+    pub(crate) fn label_key(self) -> &'static str {
         match self {
-            SettingsSection::General => "General",
-            SettingsSection::Appearance => "Appearance",
-            SettingsSection::Editor => "Editor",
-            SettingsSection::DataGrid => "Data Grid",
-            SettingsSection::Connections => "Connections",
-            SettingsSection::Ai => "AI Providers",
-            SettingsSection::Keybindings => "Keybindings",
-            SettingsSection::Backup => "Backup / Restore",
-            SettingsSection::Security => "Security",
-            SettingsSection::Advanced => "Advanced",
+            SettingsSection::General => "settings.section_general",
+            SettingsSection::Appearance => "settings.section_appearance",
+            SettingsSection::Editor => "settings.section_editor",
+            SettingsSection::DataGrid => "settings.section_data_grid",
+            SettingsSection::Connections => "settings.section_connections",
+            SettingsSection::Ai => "settings.section_ai",
+            SettingsSection::Keybindings => "settings.section_keybindings",
+            SettingsSection::Backup => "settings.section_backup",
+            SettingsSection::Security => "settings.section_security",
+            SettingsSection::Advanced => "settings.section_advanced",
         }
     }
 }
@@ -395,7 +395,9 @@ impl KeybindingSettings {
     pub(crate) fn conflicts(&self) -> Vec<(String, Vec<String>)> {
         // Group by canonical parsed chord (key + modifiers) instead of raw string
         // so aliases like "ctrl+k" vs "mod+k" or "cmd+k" detect conflicts (#453).
-        let mut by_canonical: BTreeMap<(egui::Key, bool, bool, bool), (String, Vec<String>)> = BTreeMap::new();
+        type CanonicalChord = (egui::Key, bool, bool, bool);
+        type ConflictGroup = (String, Vec<String>);
+        let mut by_canonical: BTreeMap<CanonicalChord, ConflictGroup> = BTreeMap::new();
         for cmd in default_keybinding_catalog() {
             let shortcut = self.resolved(cmd.id);
             let Some(parts) = shortcut_parts(&shortcut) else {

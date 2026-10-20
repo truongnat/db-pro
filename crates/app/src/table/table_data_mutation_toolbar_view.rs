@@ -41,15 +41,15 @@ pub(super) fn draw_mutation_controls(
 ) -> Option<TableDataMutationToolbarAction> {
     let mut action = None;
     let add_row = Button::new(context.theme)
-        .text("Add Row")
+        .text(t!("table.add_row"))
         .icon(Icon::Plus)
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
         .enabled(context.can_mutate)
         .tooltip(if context.can_mutate {
-            "Insert new row"
+            t!("table.insert_new_row").into_owned()
         } else {
-            "Row inserts are unavailable for this result or connection"
+            t!("table.insert_unavailable").into_owned()
         })
         .show(ui);
     if add_row.clicked() {
@@ -65,11 +65,11 @@ pub(super) fn draw_mutation_controls(
     if context.can_mutate {
         if context.read_only_notice.is_none() && !context.has_primary_key {
             ui.label(
-                RichText::new("Table has no primary key; safe row editing is unavailable.")
+                RichText::new(t!("table.no_primary_key_edit").into_owned())
                     .font(font_caption())
                     .color(context.theme.warning),
             )
-            .on_hover_text("This table has no primary key; safe row editing is unavailable. Inserts remain available.");
+            .on_hover_text(t!("table.no_primary_key_hover").into_owned());
         }
 
         draw_pending_change_summary(context, ui, &mut action);
@@ -77,9 +77,9 @@ pub(super) fn draw_mutation_controls(
         Separator::vertical(context.theme).show(ui);
         ui.label(
             RichText::new(if context.has_primary_key {
-                "Read-only"
+                t!("table.read_only").into_owned()
             } else {
-                "Table has no primary key; safe row editing is unavailable."
+                t!("table.no_primary_key_edit").into_owned()
             })
             .font(font_caption())
             .color(if context.has_primary_key {
@@ -93,7 +93,10 @@ pub(super) fn draw_mutation_controls(
     draw_failure_controls(context, ui, &mut action);
 
     if context.selected_rows > 1 {
-        crate::components::badge::Badge::new(format!("{} rows selected", context.selected_rows), context.theme)
+        crate::components::badge::Badge::new(
+            t!("table.rows_selected", count = context.selected_rows).into_owned(),
+            context.theme,
+        )
             .variant(crate::components::badge::BadgeVariant::Secondary)
             .compact(true)
             .show(ui);
@@ -110,24 +113,24 @@ pub(super) fn draw_footer_controls(
     let apply_enabled =
         context.can_mutate && has_changes && !context.staged_apply_pending && !context.has_data_edit_error;
     if Button::new(context.theme)
-        .text("Save")
+        .text(t!("common.save"))
         .icon(Icon::Check)
         .variant(ButtonVariant::Default)
         .size(ButtonSize::Sm)
         .enabled(apply_enabled)
-        .tooltip(format!("Save staged changes ({}S)", primary_modifier_label()))
+        .tooltip(t!("table.save_staged_changes", key = format!("{}S", primary_modifier_label())).into_owned())
         .show(ui)
         .clicked()
     {
         action = Some(TableDataMutationToolbarAction::ApplyStagedChanges);
     }
     if Button::new(context.theme)
-        .text("Discard")
+        .text(t!("table.discard_changes"))
         .icon(Icon::Undo2)
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
         .enabled(has_changes && !context.staged_apply_pending)
-        .tooltip(format!("Discard staged changes ({}Z)", primary_modifier_label()))
+        .tooltip(t!("table.discard_staged_changes", key = format!("{}Z", primary_modifier_label())).into_owned())
         .show(ui)
         .clicked()
     {
@@ -138,11 +141,11 @@ pub(super) fn draw_footer_controls(
         });
     }
     if Button::new(context.theme)
-        .text("Refresh")
+        .text(t!("table.refresh_data"))
         .icon(Icon::RotateCcw)
         .variant(ButtonVariant::Ghost)
         .size(ButtonSize::Sm)
-        .tooltip("Reload table data (F5)")
+        .tooltip(t!("table.reload_table_data", key = "F5").into_owned())
         .show(ui)
         .clicked()
     {
@@ -166,16 +169,19 @@ fn draw_pending_change_summary(
     Separator::vertical(context.theme).show(ui);
     let counts = context.staged_changes.counts();
     if Button::new(context.theme)
-        .text(format!(
-            "{} pending · +{} ~{} -{}",
-            counts.total(),
-            counts.inserts,
-            counts.updates,
-            counts.deletes
-        ))
+        .text(
+            t!(
+                "table.pending_changes_summary",
+                total = counts.total(),
+                inserts = counts.inserts,
+                updates = counts.updates,
+                deletes = counts.deletes
+            )
+            .into_owned(),
+        )
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
-        .tooltip("Open pending changes")
+        .tooltip(t!("table.open_pending_changes").into_owned())
         .show(ui)
         .clicked()
     {
@@ -198,8 +204,8 @@ fn draw_failure_controls(
             "{} · {}",
             failure.code,
             failure.target.as_ref().map_or_else(
-                || "Transaction failed".to_owned(),
-                |_| format!("Mutation #{} failed", failure.statement_index.saturating_add(1)),
+                || t!("table.transaction_failed").into_owned(),
+                |_| t!("table.mutation_failed", index = failure.statement_index.saturating_add(1)).into_owned(),
             )
         ))
         .font(font_caption())
@@ -210,22 +216,22 @@ fn draw_failure_controls(
         return;
     }
     if Button::new(context.theme)
-        .text("Reload Row")
+        .text(t!("table.reload_row"))
         .icon(Icon::RotateCcw)
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
-        .tooltip("Reload database values while keeping the local staged mutation")
+        .tooltip(t!("table.reload_row_tooltip").into_owned())
         .show(ui)
         .clicked()
     {
         *action = Some(TableDataMutationToolbarAction::ReloadFailedMutation);
     }
     if Button::new(context.theme)
-        .text("Discard Local Change")
+        .text(t!("table.discard_local_change"))
         .icon(Icon::Undo2)
         .variant(ButtonVariant::Ghost)
         .size(ButtonSize::Sm)
-        .tooltip("Revert only the failed staged mutation")
+        .tooltip(t!("table.discard_local_change_tooltip").into_owned())
         .show(ui)
         .clicked()
     {
@@ -233,22 +239,22 @@ fn draw_failure_controls(
     }
     if is_conflict {
         if Button::new(context.theme)
-            .text("Resolve Conflict")
+            .text(t!("table.resolve_conflict"))
             .icon(Icon::GitCompare)
             .variant(ButtonVariant::Secondary)
             .size(ButtonSize::Sm)
-            .tooltip("Open 3-way conflict resolution panel")
+            .tooltip(t!("table.resolve_conflict_tooltip").into_owned())
             .show(ui)
             .clicked()
         {
             *action = Some(TableDataMutationToolbarAction::ResolveConflict);
         }
         if Button::new(context.theme)
-            .text("Retry")
+            .text(t!("table.retry"))
             .icon(Icon::RotateCcw)
             .variant(ButtonVariant::Default)
             .size(ButtonSize::Sm)
-            .tooltip("Reload the row, then retry the staged mutation")
+            .tooltip(t!("table.retry_tooltip").into_owned())
             .show(ui)
             .clicked()
         {

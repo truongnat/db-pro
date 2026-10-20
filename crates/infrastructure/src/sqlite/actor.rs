@@ -260,7 +260,7 @@ impl SqliteHandle {
                 // until it has handled the interrupt and rolled back, otherwise a
                 // following command can race the still-open transaction.
                 match rx.await {
-                    Ok(Ok(result)) => Ok(result),
+                    Ok(Ok(_)) => Err(DbError::QueryTimeout { timeout_ms }),
                     Ok(Err(error)) => {
                         if matches!(&error, DbError::Internal(message) if message.contains("rollback failed")) {
                             Err(error)
@@ -321,7 +321,13 @@ impl SqliteHandle {
                 // explicit rollback. Returning immediately would violate the
                 // DbConnector transaction contract and could race the next command.
                 match rx.await {
-                    Ok(Ok(results)) => Ok(results),
+                    Ok(Ok(_)) => Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: 0,
+                        outcome: TransactionFailureOutcome::Unknown,
+                        results: Vec::new(),
+                        error: DbError::QueryTimeout { timeout_ms },
+                    }),
                     Ok(Err(mut failure)) => {
                         if !matches!(&failure.error, DbError::Internal(message) if message.contains("rollback failed"))
                         {
@@ -378,7 +384,14 @@ impl SqliteHandle {
             Err(_) => {
                 self.interrupt_handle.interrupt();
                 match rx.await {
-                    Ok(result) => result,
+                    Ok(Ok(_)) => Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: 0,
+                        outcome: TransactionFailureOutcome::Unknown,
+                        results: Vec::new(),
+                        error: DbError::QueryTimeout { timeout_ms },
+                    }),
+                    Ok(Err(failure)) => Err(failure),
                     Err(error) => Err(TransactionFailure {
                         phase: TransactionFailurePhase::Validation,
                         statement_index: 0,
@@ -393,14 +406,17 @@ impl SqliteHandle {
 
     async fn await_result<T>(
         &self,
-        receiver: oneshot::Receiver<Result<T, DbError>>,
+        mut receiver: oneshot::Receiver<Result<T, DbError>>,
         timeout_ms: u64,
     ) -> Result<T, DbError> {
-        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), receiver).await {
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), &mut receiver).await {
             Ok(Ok(result)) => result,
             Ok(Err(error)) => Err(DbError::Internal(format!("oneshot recv error: {error}"))),
             Err(_) => {
                 self.interrupt_handle.interrupt();
+                // Wait for the actor to finish the interrupted command so the
+                // connection is idle before the caller issues another query.
+                let _ = receiver.await;
                 Err(DbError::QueryTimeout { timeout_ms })
             }
         }

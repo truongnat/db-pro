@@ -230,7 +230,7 @@ impl DbProApp {
     }
 
     pub(super) fn runtime_status(&self) -> Option<(String, egui::Color32)> {
-        connection_status::runtime_status(&self.feedback, self.theme)
+        connection_status::runtime_status(&self.feedback, self.theme, self.workspace.activity)
     }
 
     pub(super) fn statusbar_state(&self) -> (Icon, egui::Color32, &'static str) {

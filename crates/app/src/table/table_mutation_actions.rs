@@ -163,12 +163,19 @@ impl DbProApp {
         self.feedback.runtime_message = format!("Row id columns: {}", names.unwrap_or_default());
     }
 
-    /// Toolbar copy for a result that stays read-only for a reason the generic label hides.
-    pub(crate) fn result_read_only_notice<'a>(&self, reason: Option<&'a str>) -> Option<&'a str> {
+    /// Localized explanation when a read-only result has a specific user-facing cause.
+    pub(crate) fn result_read_only_notice(&self, reason: Option<&str>) -> Option<String> {
         let surface = self.edit_surface();
-        reason.filter(|text| {
-            table_editor_context::surface_read_only_notice(surface).is_some()
-                || text.contains("not present in this result")
+        let surface_notice = match surface {
+            table_editor_context::RowEditSurface::View => Some(t!("table.view_rows_read_only").into_owned()),
+            table_editor_context::RowEditSurface::InlineSql => Some(t!("table.inline_sql_read_only").into_owned()),
+            table_editor_context::RowEditSurface::Table | table_editor_context::RowEditSurface::Query => None,
+        };
+        surface_notice.or_else(|| {
+            let column = reason?
+                .strip_prefix("The key column ")?
+                .strip_suffix(" is not present in this result")?;
+            Some(t!("table.key_column_missing", column = column).into_owned())
         })
     }
 
@@ -515,17 +522,38 @@ impl DbProApp {
     }
 
     pub(crate) fn staged_apply_completed(&mut self) {
+        let applied_targets = self.table.mutation.staged_apply_targets.clone();
         self.table.mutation.staged_apply_request = None;
         self.table.mutation.staged_apply_confirm = false;
         self.table.mutation.table_mutation_request = None;
         self.table.mutation.table_mutation_retry_after_reload = false;
         self.table.mutation.table_mutation_retry_target = None;
-        self.table.mutation.staged_changes.clear();
+        if applied_targets.is_empty() {
+            self.table.mutation.staged_changes.clear();
+        } else {
+            self.table
+                .mutation
+                .staged_changes
+                .remove_applied_targets(&applied_targets);
+        }
         self.table.mutation.staged_apply_targets.clear();
         self.table.mutation.table_mutation_error = None;
-        self.feedback.runtime_message = "All staged changes applied".to_owned();
-        self.feedback
-            .show_success_toast("All staged changes applied successfully");
+        let remaining = self.table.mutation.staged_changes.counts();
+        if remaining.total() == 0 {
+            self.feedback.runtime_message = "All staged changes applied".to_owned();
+            self.feedback
+                .show_success_toast("All staged changes applied successfully");
+        } else {
+            self.feedback.runtime_message = format!(
+                "Applied {} change(s); {} staged edit(s) still pending (+{} ~{} -{})",
+                applied_targets.len(),
+                remaining.total(),
+                remaining.inserts,
+                remaining.updates,
+                remaining.deletes
+            );
+            self.feedback.show_info_toast("Partial apply completed — remaining edits are still staged");
+        }
         if let Some(action) = self.workspace.pending_navigation_action.take() {
             self.execute_pending_navigation(action);
             return;

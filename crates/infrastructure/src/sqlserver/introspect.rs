@@ -6,7 +6,6 @@ use db_pro_core::domain::schema::{
     CheckConstraint, Column, ForeignKey, Function, Index, IndexOrigin, IntrospectResult, PrimaryKey, RoutineParameter,
     Schema, Table, Trigger, View,
 };
-use db_pro_core::ports::DbConnector;
 use std::collections::{HashMap, HashSet};
 
 use super::connector::SqlServerConnector;

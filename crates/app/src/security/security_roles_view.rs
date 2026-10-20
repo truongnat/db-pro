@@ -75,7 +75,9 @@ impl SecurityRolesContext<'_> {
             if user.can_create_role {
                 badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
             }
-            if Button::new(self.theme)
+            if user.is_predefined {
+                badge(ui, "system", self.theme.surface_active, self.theme.text_muted);
+            } else if Button::new(self.theme)
                 .text("Drop")
                 .variant(ButtonVariant::Destructive)
                 .size(ButtonSize::Sm)

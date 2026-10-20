@@ -420,9 +420,12 @@ impl<'a> Select<'a> {
         if std::env::var_os("DB_PRO_DEBUG_SELECT").is_some() {
             let probe = egui::pos2(geo.menu_pos.x + 20.0, geo.menu_pos.y + 10.0);
             let top = ui.ctx().layer_id_at(probe);
-            eprintln!(
-                "[menu] area.rect={:?} layer={popup_layer:?} top_at_pos={top:?}",
-                area.response.rect
+            tracing::debug!(
+                target: "db_pro::ui::select",
+                menu_rect = ?area.response.rect,
+                ?popup_layer,
+                ?top,
+                "select menu layer debug"
             );
         }
 

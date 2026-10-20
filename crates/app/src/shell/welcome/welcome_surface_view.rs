@@ -78,7 +78,7 @@ fn welcome_items(ctx: &egui::Context) -> [WelcomeItem; 4] {
 }
 
 pub(super) fn draw(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
-    let top_space = (ui.available_height() * HEADER_TOP_RATIO).min(SPACE_4XL).max(SPACE_MD);
+    let top_space = (ui.available_height() * HEADER_TOP_RATIO).clamp(SPACE_MD, SPACE_4XL);
     crate::components::scroll_area::ScrollArea::new(theme)
         .id_salt("welcome-actions")
         .auto_shrink([false, false])
@@ -120,7 +120,7 @@ fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAct
     let items = welcome_items(ui.ctx());
     let avail_width = ui.available_width();
     let is_wide = avail_width >= WIDE_GRID_MIN_WIDTH;
-    let container_width = avail_width.min(WIDE_GRID_WIDTH).max(0.0);
+    let container_width = avail_width.clamp(0.0, WIDE_GRID_WIDTH);
     let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
     let mut triggered = None;

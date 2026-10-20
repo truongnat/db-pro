@@ -1,3 +1,6 @@
+// rust-i18n codegen triggers `clippy::unnecessary_to_owned` in the `i18n!` expansion.
+#![allow(clippy::unnecessary_to_owned)]
+
 #[macro_use]
 extern crate rust_i18n;
 

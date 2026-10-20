@@ -100,6 +100,7 @@ impl DbProApp {
                     can_create_db: false,
                     can_create_role: false,
                     can_login: true,
+                    is_predefined: false,
                 }];
                 self.management.security.security_selected_role = Some("analytics_reader".into());
                 self.management.security.security_memberships = vec![RoleMembership {

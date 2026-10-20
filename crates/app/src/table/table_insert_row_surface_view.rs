@@ -27,12 +27,13 @@ pub(super) fn draw_dialog(
 ) -> Option<InsertRowDialogAction> {
     let mut open = true;
     let mut action = None;
-    let title = format!("Insert Row · {}", context.info.name);
-    let description = format!(
-        "Schema: {} · {} columns",
-        context.info.schema,
-        context.info.columns.len()
-    );
+    let title = t!("table.insert_row_title", table = context.info.name).into_owned();
+    let description = t!(
+        "table.insert_row_description",
+        schema = context.info.schema,
+        count = context.info.columns.len()
+    )
+    .into_owned();
 
     Dialog::new(&mut open, &title, context.theme)
         .description(&description)
@@ -58,40 +59,40 @@ impl InsertRowDialogContext<'_> {
     fn draw_quick_actions(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(
-                RichText::new("Fill values or generate sample mock data:")
+                RichText::new(t!("table.insert_row_quick_actions"))
                     .font(font_caption())
                     .color(self.theme.text_secondary),
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if Button::new(self.theme)
                     .icon(Icon::RotateCcw)
-                    .text("Clear All")
+                    .text(t!("table.insert_row_clear_all"))
                     .size(ButtonSize::Sm)
                     .variant(ButtonVariant::Ghost)
                     .show(ui)
-                    .on_hover_text("Clear all field inputs")
+                    .on_hover_text(t!("table.insert_row_clear_all_tooltip"))
                     .clicked()
                 {
                     self.values.iter_mut().for_each(String::clear);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::Sparkles)
-                    .text("Fill Required")
+                    .text(t!("table.insert_row_fill_required"))
                     .size(ButtonSize::Sm)
                     .variant(ButtonVariant::Secondary)
                     .show(ui)
-                    .on_hover_text("Auto-generate sample values for empty required fields")
+                    .on_hover_text(t!("table.insert_row_fill_required_tooltip"))
                     .clicked()
                 {
                     self.fill_required_values();
                 }
                 if Button::new(self.theme)
                     .icon(Icon::Wand2)
-                    .text("Generate All")
+                    .text(t!("table.insert_row_generate_all"))
                     .size(ButtonSize::Sm)
                     .variant(ButtonVariant::Secondary)
                     .show(ui)
-                    .on_hover_text("Auto-generate sample mock data for all empty fields")
+                    .on_hover_text(t!("table.insert_row_generate_all_tooltip"))
                     .clicked()
                 {
                     self.fill_all_values();
@@ -172,7 +173,7 @@ impl InsertRowDialogContext<'_> {
             self.draw_column_requirement(ui, column);
             if let Some(default) = &column.default {
                 ui.label(
-                    RichText::new(format!("default: {default}"))
+                    RichText::new(t!("table.insert_row_default", value = default))
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
@@ -183,10 +184,10 @@ impl InsertRowDialogContext<'_> {
 
     fn draw_column_requirement(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
         if !column.nullable && column.default.is_none() {
-            ui.label(RichText::new("*required").font(font_caption()).color(self.theme.danger));
+            ui.label(RichText::new(t!("table.required")).font(font_caption()).color(self.theme.danger));
         } else if column.nullable {
             ui.label(
-                RichText::new("nullable")
+                RichText::new(t!("table.nullable"))
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
@@ -204,9 +205,9 @@ impl InsertRowDialogContext<'_> {
                     .icon(Icon::X)
                     .size(ButtonSize::IconSm)
                     .variant(ButtonVariant::Ghost)
-                    .access_label("Clear this field")
+                    .access_label(t!("table.insert_row_clear_field"))
                     .show(ui)
-                    .on_hover_text("Clear this field")
+                    .on_hover_text(t!("table.insert_row_clear_field"))
                     .clicked()
             {
                 self.values[index].clear();
@@ -218,7 +219,7 @@ impl InsertRowDialogContext<'_> {
                     .size(ButtonSize::Sm)
                     .variant(ButtonVariant::Ghost)
                     .show(ui)
-                    .on_hover_text("Set value to literal NULL")
+                    .on_hover_text(t!("table.insert_row_set_null"))
                     .clicked()
             {
                 self.values[index] = "NULL".to_owned();
@@ -237,7 +238,11 @@ impl InsertRowDialogContext<'_> {
                 .size(ButtonSize::Sm)
                 .variant(ButtonVariant::Secondary)
                 .show(ui)
-                .on_hover_text(format!("Generate sample {} for {}", column.data_type, column.name))
+                .on_hover_text(t!(
+                    "table.insert_row_generate_column",
+                    data_type = column.data_type,
+                    column = column.name
+                ))
                 .clicked()
             {
                 self.values[index] = table_editor_values::generate_sample_value(&column.name, &column.data_type);
@@ -250,23 +255,23 @@ impl InsertRowDialogContext<'_> {
         let is_null = self.values[index].trim().eq_ignore_ascii_case("null");
         if let Some(block) = ColumnWritePolicy::read(column).write_block() {
             ui.label(
-                RichText::new(format!("Read-only — {}", block.reason()))
+                RichText::new(t!("table.read_only_reason", reason = block.reason()))
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
             return;
         }
         let placeholder = if column.default.is_some() {
-            "Leave empty for DEFAULT, or enter value / click Gen..."
+            t!("table.insert_row_default_placeholder")
         } else if column.nullable {
-            "Enter value, click NULL, or click Gen..."
+            t!("table.insert_row_nullable_placeholder")
         } else {
-            "Enter value or click Gen..."
+            t!("table.insert_row_required_placeholder")
         };
         let value = &mut self.values[index];
         let mut edit = crate::components::input::Input::new(value, placeholder, self.theme);
         if is_null {
-            edit = edit.error_text("NULL literal");
+            edit = edit.error_text(t!("table.insert_row_null_literal"))
         }
         edit.show(ui);
     }
@@ -276,7 +281,7 @@ impl InsertRowDialogContext<'_> {
             return;
         }
         ui.add_space(8.0);
-        Alert::new("Cannot Stage Insert", self.error, self.theme)
+        Alert::new(t!("table.insert_row_error_title"), self.error, self.theme)
             .variant(AlertVariant::Destructive)
             .icon(Icon::AlertCircle)
             .show(ui);
@@ -287,14 +292,14 @@ impl InsertRowDialogContext<'_> {
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .icon(Icon::Plus)
-                .text("Stage Insert")
+                .text(t!("table.stage_insert"))
                 .show(ui)
                 .clicked()
             {
                 action = Some(InsertRowDialogAction::Submit);
             }
             if Button::new(self.theme)
-                .text("Cancel")
+                .text(t!("common.cancel"))
                 .variant(ButtonVariant::Ghost)
                 .show(ui)
                 .clicked()

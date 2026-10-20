@@ -8,6 +8,7 @@ use super::replication_state::ReplicationState;
 use super::schema_compare_state::SchemaCompareState;
 use super::security_state::SecurityState;
 use super::FeedbackState;
+use super::app_types::Activity;
 
 pub(super) fn on_operation_progress(feedback: &mut FeedbackState, operation: String, status: String) {
     feedback.set_runtime_message(format!("{operation}: {status}"));
@@ -27,7 +28,7 @@ pub(super) fn on_monitoring_snapshot_loaded(
     }
     monitoring.monitoring_snapshot = Some(snapshot.clone());
     monitoring.monitoring_error = None;
-    feedback.set_runtime_message(format!("Monitor · {}", snapshot.message));
+    feedback.set_activity_runtime_message(Activity::Monitor, format!("Monitor · {}", snapshot.message));
 }
 
 pub(super) fn on_monitoring_workload_loaded(
@@ -40,7 +41,7 @@ pub(super) fn on_monitoring_workload_loaded(
         snapshot.workload = Some(workload.clone());
     }
     monitoring.monitoring_stat_sort = workload.sort;
-    feedback.set_runtime_message(format!("Workload · {}", workload.message));
+    feedback.set_activity_runtime_message(Activity::Monitor, format!("Workload · {}", workload.message));
 }
 
 pub(super) fn on_audit_page_loaded(
@@ -105,7 +106,10 @@ pub(super) fn on_users_loaded(
 ) {
     security.security_users = users;
     security.security_error = None;
-    feedback.set_runtime_message(format!("Security · {} role(s)", security.security_users.len()));
+    feedback.set_activity_runtime_message(
+        Activity::Security,
+        format!("Security · {} role(s)", security.security_users.len()),
+    );
 }
 
 pub(super) fn on_privileges_loaded(
@@ -133,7 +137,7 @@ pub(super) fn on_table_rls_loaded(
 ) {
     security.security_rls_state = Some(state);
     security.security_error = None;
-    feedback.set_runtime_message("Security · RLS state loaded");
+    feedback.set_activity_runtime_message(Activity::Security, "Security · RLS state loaded");
 }
 
 pub(super) fn on_data_diff_loaded(

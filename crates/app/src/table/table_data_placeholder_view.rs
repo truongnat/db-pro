@@ -54,7 +54,7 @@ pub(super) fn draw_placeholder(
                 ui.add_space(12.0);
                 if Button::new(context.theme)
                     .icon(Icon::RotateCcw)
-                    .text("Retry")
+                    .text(t!("common.retry"))
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)

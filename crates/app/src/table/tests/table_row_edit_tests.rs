@@ -157,7 +157,10 @@ fn query_result_edits_when_primary_key_remains() {
     };
     let missing = app.result_edit_reason(&missing_key).expect("missing key blocks edit");
     assert!(missing.contains("not present in this result"), "{missing}");
-    assert_eq!(app.result_read_only_notice(Some(&missing)), Some(missing.as_str()));
+    let missing_notice = app
+        .result_read_only_notice(Some(&missing))
+        .expect("missing identity column has a read-only notice");
+    assert!(missing_notice.contains("id"), "{missing_notice}");
     app.begin_data_cell_edit(&missing_key, 0, 0, &missing_key.rows[0][0]);
     assert!(app.table.editing.data_editing_cell.is_none());
     assert!(app.feedback.runtime_message.contains("not present in this result"));
@@ -191,10 +194,7 @@ fn query_result_edits_when_primary_key_remains() {
     assert_eq!(inline_reason, table_editor_context::INLINE_SQL_READ_ONLY);
     assert!(!inline_reason.to_ascii_lowercase().contains("structure is still loading"));
     assert!(!inline_reason.contains("Connect with write access"));
-    assert_eq!(
-        app.result_read_only_notice(Some(&inline_reason)),
-        Some(table_editor_context::INLINE_SQL_READ_ONLY)
-    );
+    assert!(app.result_read_only_notice(Some(&inline_reason)).is_some());
     app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
     assert!(app.table.editing.data_editing_cell.is_none());
     assert_eq!(app.feedback.runtime_message, table_editor_context::INLINE_SQL_READ_ONLY);

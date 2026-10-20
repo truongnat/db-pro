@@ -36,12 +36,12 @@ pub(super) fn draw_pagination(
             if context.paging.total_known
                 && context.paging.total_rows > 0
                 && Button::new(context.theme)
-                    .text("Last")
+                    .text(t!("table.last"))
                     .icon(Icon::ChevronsRight)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .enabled(context.paging.has_next && !context.has_staged_changes)
-                    .tooltip("Last page")
+                    .tooltip(t!("table.last_page").into_owned())
                     .show(ui)
                     .clicked()
                 && context.paging.has_next
@@ -57,8 +57,8 @@ pub(super) fn draw_pagination(
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
                 .enabled(context.paging.has_next && !context.has_staged_changes)
-                .tooltip("Next page")
-                .access_label("Next page")
+                .tooltip(t!("table.next_page").into_owned())
+                .access_label(t!("table.next_page").into_owned())
                 .show(ui)
                 .clicked()
                 && !context.has_staged_changes
@@ -80,8 +80,8 @@ pub(super) fn draw_pagination(
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
                 .enabled(context.paging.has_previous && !context.has_staged_changes)
-                .tooltip("Previous page")
-                .access_label("Previous page")
+                .tooltip(t!("table.previous_page").into_owned())
+                .access_label(t!("table.previous_page").into_owned())
                 .show(ui)
                 .clicked()
                 && !context.has_staged_changes
@@ -93,12 +93,12 @@ pub(super) fn draw_pagination(
             if context.paging.total_known
                 && context.paging.total_rows > 0
                 && Button::new(context.theme)
-                    .text("First")
+                    .text(t!("table.first"))
                     .icon(Icon::ChevronsLeft)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .enabled(context.query.offset > 0 && !context.has_staged_changes)
-                    .tooltip("First page")
+                    .tooltip(t!("table.first_page").into_owned())
                     .show(ui)
                     .clicked()
                 && context.query.offset > 0
@@ -113,7 +113,10 @@ pub(super) fn draw_pagination(
 
         let previous_limit = context.query.limit;
         const PAGE_LIMITS: [u64; 5] = [50, 100, 250, 500, 1000];
-        let limit_labels: Vec<String> = PAGE_LIMITS.iter().map(|limit| format!("{limit} / page")).collect();
+        let limit_labels: Vec<String> = PAGE_LIMITS
+            .iter()
+            .map(|limit| t!("table.page_limit", limit = limit).into_owned())
+            .collect();
         let mut limit_selected = PAGE_LIMITS.iter().position(|limit| *limit == context.query.limit).unwrap_or(1);
         let limit_previous = limit_selected;
         // per-table salt keeps popup ids unique like the old combo's tuple salt

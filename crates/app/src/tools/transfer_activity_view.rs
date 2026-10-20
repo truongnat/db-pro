@@ -84,6 +84,11 @@ impl DbProApp {
             .active_connection()
             .map(|connection| connection.environment == db_pro_core::domain::connection::ConnectionEnvironment::Production)
             .unwrap_or(false);
+        if !self.management.synthetic_data.synthetic_live_target_confirm {
+            self.management.synthetic_data.synthetic_error =
+                Some("Confirm the connected database target before applying seed INSERT".into());
+            return;
+        }
         if is_production && !self.management.synthetic_data.synthetic_production_confirm {
             self.management.synthetic_data.synthetic_error =
                 Some("Production confirmation required before applying seed INSERT".into());

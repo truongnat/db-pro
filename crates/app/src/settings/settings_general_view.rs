@@ -30,7 +30,7 @@ impl SettingsGeneralContext<'_> {
 
     fn draw_general_preferences(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Language").color(self.theme.text_secondary));
+            ui.label(RichText::new(t!("app.language")).color(self.theme.text_secondary));
             for language in crate::UiLanguage::ALL {
                 if Button::new(self.theme)
                     .text(language.label())
@@ -51,13 +51,13 @@ impl SettingsGeneralContext<'_> {
         ui.add_space(8.0);
         Checkbox::new(
             &mut self.preferences.settings.general.confirm_destructive_queries,
-            "Confirm destructive queries",
+            t!("settings.general_confirm_destructive_queries").as_ref(),
             self.theme,
         )
         .show(ui);
         Checkbox::new(
             &mut self.preferences.settings.general.restore_tabs_on_startup,
-            "Restore query tabs on startup",
+            t!("settings.general_restore_tabs_on_startup").as_ref(),
             self.theme,
         )
         .show(ui);
@@ -67,18 +67,23 @@ impl SettingsGeneralContext<'_> {
         let mut actions = Vec::new();
         ui.add_space(12.0);
         ui.label(
-            RichText::new("WORKSPACE SESSIONS")
+            RichText::new(t!("settings.workspace_sessions_title"))
                 .font(font_caption())
                 .strong()
                 .color(self.theme.text_secondary),
         );
         ui.add_space(6.0);
         ui.label(
-            RichText::new("Named sessions store layout and tab references — not SQL text, secrets, or result grids.")
+            RichText::new(t!("settings.workspace_sessions_desc"))
                 .small()
                 .color(self.theme.text_muted),
         );
-        Input::new(&mut self.sessions.name_draft, "Session name", self.theme).show(ui);
+        Input::new(
+            &mut self.sessions.name_draft,
+            t!("settings.workspace_session_name").as_ref(),
+            self.theme,
+        )
+        .show(ui);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .text(t!("common.save"))
@@ -122,7 +127,7 @@ impl SettingsGeneralContext<'_> {
                 self.sessions.selected_id = Some(session.id.clone());
             }
             if Button::new(self.theme)
-                .text("Restore")
+                .text(t!("settings.workspace_session_restore"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -131,7 +136,7 @@ impl SettingsGeneralContext<'_> {
                 actions.push(SettingsGeneralAction::Restore(session.id.clone()));
             }
             if Button::new(self.theme)
-                .text("Duplicate")
+                .text(t!("settings.workspace_session_duplicate"))
                 .variant(ButtonVariant::Secondary)
                 .size(ButtonSize::Sm)
                 .show(ui)
@@ -140,7 +145,7 @@ impl SettingsGeneralContext<'_> {
                 actions.push(SettingsGeneralAction::Duplicate(session.id.clone()));
             }
             if Button::new(self.theme)
-                .text("Delete")
+                .text(t!("settings.workspace_session_delete"))
                 .variant(ButtonVariant::Destructive)
                 .size(ButtonSize::Sm)
                 .show(ui)

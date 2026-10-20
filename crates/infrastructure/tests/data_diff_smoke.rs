@@ -1,6 +1,6 @@
 //! Public DataDiffService round-trip against independent real providers.
-//! SQLite needs no fixture. PostgreSQL uses PGHOST/PGPORT/PGUSER/PGPASSWORD,
-//! PGDATABASE and DATA_DIFF_TARGET_DATABASE (two distinct writable databases).
+//! SQLite needs no fixture. PostgreSQL needs two distinct writable databases:
+//! `DATABASE_URL` (or `PGDATABASE` + `PG*`) plus `DATA_DIFF_TARGET_DATABASE`.
 
 use std::sync::Arc;
 
@@ -137,6 +137,72 @@ async fn round_trip(
     }
 }
 
+struct PostgresDiffFixture {
+    source: ConnectionConfig,
+    target: ConnectionConfig,
+    password: String,
+}
+
+fn postgres_data_diff_fixture() -> Option<PostgresDiffFixture> {
+    let target_database = std::env::var("DATA_DIFF_TARGET_DATABASE").ok()?;
+    let password = std::env::var("PGPASSWORD").ok().or_else(|| {
+        std::env::var("DATABASE_URL")
+            .ok()
+            .and_then(|url| {
+                url.strip_prefix("postgres://")
+                    .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
+                    .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
+            })
+    })?;
+
+    if let Ok(database) = std::env::var("PGDATABASE") {
+        let mut source = config(DriverType::Postgres, database);
+        source.host = std::env::var("PGHOST").unwrap_or_else(|_| "127.0.0.1".into());
+        source.port = std::env::var("PGPORT")
+            .unwrap_or_else(|_| "5432".into())
+            .parse()
+            .ok()?;
+        source.username = std::env::var("PGUSER").ok()?;
+        let mut target = source.clone();
+        target.database = target_database;
+        return Some(PostgresDiffFixture {
+            source,
+            target,
+            password,
+        });
+    }
+
+    let url = std::env::var("DATABASE_URL").ok()?;
+    let without_scheme = url.strip_prefix("postgres://")?;
+    let (auth_host_db, _) = without_scheme.split_once('?').unwrap_or((without_scheme, ""));
+    let (auth, host_db) = if auth_host_db.contains('@') {
+        let (a, rest) = auth_host_db.rsplit_once('@').unwrap();
+        (Some(a), rest)
+    } else {
+        (None, auth_host_db)
+    };
+    let username = auth
+        .map(|a| a.split_once(':').map(|(u, _)| u.to_string()).unwrap_or_else(|| a.to_string()))
+        .unwrap_or_else(|| "postgres".to_string());
+    let (host_port, database) = host_db.rsplit_once('/').unwrap_or((host_db, "postgres"));
+    let (host, port) = if let Some((h, p)) = host_port.rsplit_once(':') {
+        (h.to_string(), p.parse().ok()?)
+    } else {
+        (host_port.to_string(), 5432u16)
+    };
+    let mut source = config(DriverType::Postgres, database.to_string());
+    source.host = host;
+    source.port = port;
+    source.username = username;
+    let mut target = source.clone();
+    target.database = target_database;
+    Some(PostgresDiffFixture {
+        source,
+        target,
+        password,
+    })
+}
+
 #[tokio::test]
 async fn sqlite_public_data_diff_typed_values_round_trip() {
     round_trip(
@@ -149,28 +215,23 @@ async fn sqlite_public_data_diff_typed_values_round_trip() {
 }
 
 #[tokio::test]
-#[ignore = "requires two distinct writable PostgreSQL databases and PG* credentials"]
+#[ignore = "requires two distinct writable PostgreSQL databases (DATABASE_URL + DATA_DIFF_TARGET_DATABASE)"]
 async fn postgres_public_data_diff_typed_values_round_trip() {
-    let database = std::env::var("PGDATABASE").expect("PGDATABASE is required");
-    let target_database = std::env::var("DATA_DIFF_TARGET_DATABASE").expect("DATA_DIFF_TARGET_DATABASE is required");
-    assert_ne!(
-        database, target_database,
-        "use two distinct disposable fixture databases"
-    );
-    let mut source = config(DriverType::Postgres, database);
-    source.host = std::env::var("PGHOST").unwrap_or_else(|_| "127.0.0.1".into());
-    source.port = std::env::var("PGPORT")
-        .unwrap_or_else(|_| "5432".into())
-        .parse()
-        .expect("PGPORT");
-    source.username = std::env::var("PGUSER").expect("PGUSER is required");
-    let mut target = source.clone();
-    target.database = target_database;
+    let Some(fixture) = postgres_data_diff_fixture() else {
+        eprintln!(
+            "skipping postgres data diff smoke: set DATA_DIFF_TARGET_DATABASE and DATABASE_URL or PG* credentials"
+        );
+        return;
+    };
+    if fixture.source.database == fixture.target.database {
+        eprintln!("skipping postgres data diff smoke: source and target database names must differ");
+        return;
+    }
     round_trip(
         Arc::new(PostgresConnector::new()),
-        source,
-        target,
-        &std::env::var("PGPASSWORD").unwrap_or_default(),
+        fixture.source,
+        fixture.target,
+        &fixture.password,
     )
     .await;
 }

@@ -98,7 +98,7 @@ impl SettingsSurfaceContext<'_> {
         ui.set_width((ui.available_width() - SPACE_4XL * 2.0).max(0.0));
         ui.add_space(SPACE_3XL);
         ui.label(
-            egui::RichText::new(self.selected.label())
+            egui::RichText::new(t!(self.selected.label_key()).to_string())
                 .font(font_section_title())
                 .strong()
                 .color(self.theme.text_primary),

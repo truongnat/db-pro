@@ -26,13 +26,13 @@ impl ConflictDialogContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Option<ConflictDialogAction> {
         let mut open = true;
         let mut action = None;
-        Dialog::new(&mut open, "Row Conflict Resolution", self.theme)
+        Dialog::new(&mut open, t!("table.conflict_title"), self.theme)
             .width(740.0)
             .id_salt("row_conflict_resolution_dialog")
             .show_framed_ctx(ui.ctx(), |frame| {
                 frame.body(|ui| {
                     ui.label(
-                        RichText::new("A concurrent modification or deletion was detected for this row.")
+                        RichText::new(t!("table.conflict_row_modification"))
                             .small()
                             .color(self.theme.text_secondary),
                     );
@@ -66,12 +66,12 @@ impl ConflictDialogContext<'_> {
                 .spacing([12.0, 6.0])
                 .striped(true)
                 .show(ui, |ui| {
-                    for (label, _) in [
-                        ("Column", false),
-                        ("Original Baseline", false),
-                        ("Local Staged (Mine)", false),
-                        ("Database Current", false),
-                        ("Status", false),
+                    for label in [
+                        t!("table.conflict_column"),
+                        t!("table.conflict_original_baseline"),
+                        t!("table.conflict_local_staged"),
+                        t!("table.conflict_database_current"),
+                        t!("table.conflict_status"),
                     ] {
                         ui.label(RichText::new(label).strong().color(self.theme.text_muted));
                     }
@@ -86,34 +86,34 @@ impl ConflictDialogContext<'_> {
         ui.add_space(8.0);
         ui.horizontal_wrapped(|ui| {
             if Button::new(self.theme)
-                .text("Keep Mine (Overwrite DB)")
+                .text(t!("table.conflict_keep_mine"))
                 .variant(ButtonVariant::Default)
                 .show(ui)
-                .on_hover_text("Keep local staged changes, refresh the row baseline, and retry applying")
+                .on_hover_text(t!("table.conflict_keep_mine_tooltip"))
                 .clicked()
             {
                 *action = Some(ConflictDialogAction::KeepMine);
             }
             if Button::new(self.theme)
-                .text("Use Database (Discard Mine)")
+                .text(t!("table.conflict_use_database"))
                 .variant(ButtonVariant::Secondary)
                 .show(ui)
-                .on_hover_text("Discard local staged changes for this row and adopt current database values")
+                .on_hover_text(t!("table.conflict_use_database_tooltip"))
                 .clicked()
             {
                 *action = Some(ConflictDialogAction::UseDatabase);
             }
             if Button::new(self.theme)
-                .text("Reload & Retry")
+                .text(t!("table.conflict_reload_retry"))
                 .variant(ButtonVariant::Secondary)
                 .show(ui)
-                .on_hover_text("Reload the latest row from database, then retry the mutation")
+                .on_hover_text(t!("table.conflict_reload_retry_tooltip"))
                 .clicked()
             {
                 *action = Some(ConflictDialogAction::Retry);
             }
             if Button::new(self.theme)
-                .text("Discard Local Change")
+                .text(t!("table.discard_local_change"))
                 .variant(ButtonVariant::Ghost)
                 .show(ui)
                 .clicked()
@@ -157,9 +157,11 @@ impl ConflictDialogContext<'_> {
                 .strong(),
         );
         ui.label(if is_conflict {
-            RichText::new("Conflict").color(self.theme.warning).strong()
+            RichText::new(t!("table.conflict"))
+                .color(self.theme.warning)
+                .strong()
         } else {
-            RichText::new("Match / Clean").color(self.theme.text_muted)
+            RichText::new(t!("table.match_clean")).color(self.theme.text_muted)
         });
         ui.end_row();
     }
@@ -173,13 +175,12 @@ impl ConflictDialogContext<'_> {
         self.draw_primary_key(ui, identity);
         ui.add_space(8.0);
         ui.label(
-            RichText::new("Could not delete row because it was modified or already removed in the database.")
-                .color(self.theme.warning),
+            RichText::new(t!("table.conflict_delete_message")).color(self.theme.warning),
         );
         ui.add_space(12.0);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
-                .text("Discard Staged Delete")
+                .text(t!("table.conflict_discard_delete"))
                 .variant(ButtonVariant::Default)
                 .show(ui)
                 .clicked()
@@ -187,7 +188,7 @@ impl ConflictDialogContext<'_> {
                 *action = Some(ConflictDialogAction::Discard);
             }
             if Button::new(self.theme)
-                .text("Reload & Retry Delete")
+                .text(t!("table.conflict_retry_delete"))
                 .variant(ButtonVariant::Secondary)
                 .show(ui)
                 .clicked()
@@ -198,10 +199,10 @@ impl ConflictDialogContext<'_> {
     }
 
     fn draw_insert_conflict(&self, ui: &mut egui::Ui, action: &mut Option<ConflictDialogAction>) {
-        ui.label(RichText::new("Insert conflict or constraint failure.").color(self.theme.warning));
+        ui.label(RichText::new(t!("table.conflict_insert_message")).color(self.theme.warning));
         ui.add_space(12.0);
         if Button::new(self.theme)
-            .text("Close")
+            .text(t!("common.close"))
             .variant(ButtonVariant::Default)
             .show(ui)
             .clicked()
@@ -219,7 +220,7 @@ impl ConflictDialogContext<'_> {
             .collect::<Vec<_>>()
             .join(", ");
         ui.label(
-            RichText::new(format!("Primary Key: [{primary_key}]"))
+            RichText::new(t!("table.primary_key_label", key = primary_key))
                 .strong()
                 .color(self.theme.text_primary),
         );

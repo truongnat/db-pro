@@ -99,6 +99,31 @@ impl ChangeSet {
         self.entries.clear();
     }
 
+    /// Remove staged entries that were part of a successful apply/retry batch.
+    pub fn remove_applied_targets(&mut self, targets: &[MutationTarget]) {
+        if targets.is_empty() {
+            return;
+        }
+        let insert_slots = targets
+            .iter()
+            .filter(|target| matches!(target, MutationTarget::Insert))
+            .count();
+        let mut insert_slots_left = insert_slots;
+        self.entries.retain(|change| {
+            if matches!(change, StagedChange::Insert { .. }) {
+                if insert_slots_left > 0 {
+                    insert_slots_left -= 1;
+                    return false;
+                }
+                return true;
+            }
+            !targets.iter().any(|target| Self::change_matches_target(change, target))
+        });
+        if self.entries.is_empty() {
+            self.target_table = None;
+        }
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, StagedChange> {
         self.entries.iter()
     }
@@ -259,6 +284,27 @@ impl ChangeSet {
         self.entries.iter().any(|entry| {
             matches!(entry, StagedChange::Delete { identity: entry_identity, .. } if entry_identity == identity)
         })
+    }
+
+    fn change_matches_target(change: &StagedChange, target: &MutationTarget) -> bool {
+        match (change, target) {
+            (
+                StagedChange::Update { identity, .. },
+                MutationTarget::Update {
+                    identity: target_identity,
+                    ..
+                },
+            )
+            | (
+                StagedChange::Delete { identity, .. },
+                MutationTarget::Delete {
+                    identity: target_identity,
+                    ..
+                },
+            ) => identity == target_identity,
+            (StagedChange::Insert { .. }, MutationTarget::Insert) => true,
+            _ => false,
+        }
     }
 
     pub fn row_has_changes(&self, identity: &RowIdentity) -> bool {

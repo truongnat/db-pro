@@ -21,3 +21,6 @@ rust-i18n.workspace = true
 unicode-segmentation.workspace = true
 rust_xlsxwriter.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+egui_kittest = "0.37.0"

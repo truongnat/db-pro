@@ -88,7 +88,7 @@ impl DbProApp {
 
         if !is_table_data {
             let query_notice = (self.edit_surface() == table_editor_context::RowEditSurface::Query)
-                .then_some(read_only_notice)
+                .then_some(read_only_notice.as_deref())
                 .flatten();
             self.draw_result_grid_toolbar(ui, result, &indexes, editable, query_notice);
         }

@@ -156,6 +156,24 @@ impl SqlServerConnector {
             Err(_) => TransactionFailureOutcome::Unknown,
         }
     }
+    async fn rollback_parameterized_savepoint(
+        &self,
+        handle: &ConnectionHandle,
+        cause: DbError,
+    ) -> (DbError, TransactionFailureOutcome) {
+        match self
+            .execute_control(handle, "ROLLBACK TRANSACTION DBPRO_PARAMETERIZED_TRANSACTION")
+            .await
+        {
+            Ok(()) => (cause, TransactionFailureOutcome::RolledBack),
+            Err(rollback_error) => (
+                DbError::Internal(format!(
+                    "statement failed: {cause}; rollback to savepoint failed: {rollback_error}"
+                )),
+                TransactionFailureOutcome::LeftOpen,
+            ),
+        }
+    }
 }
 
 impl Default for SqlServerConnector {
@@ -359,7 +377,17 @@ impl DbConnector for SqlServerConnector {
                 });
             }
         };
-        if !already_open {
+        if already_open {
+            self.execute_control(handle, "SAVE TRANSACTION DBPRO_PARAMETERIZED_TRANSACTION")
+                .await
+                .map_err(|error| TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::LeftOpen,
+                    results: Vec::new(),
+                    error,
+                })?;
+        } else {
             self.execute_control(handle, "BEGIN TRANSACTION")
                 .await
                 .map_err(|error| TransactionFailure {
@@ -376,10 +404,11 @@ impl DbConnector for SqlServerConnector {
                 Ok(row_count) if statement.expect_affected_rows && row_count == 0 => {
                     let error = DbError::Conflict("SQL Server mutation affected no rows".into());
                     if already_open {
+                        let (error, outcome) = self.rollback_parameterized_savepoint(handle, error).await;
                         return Err(TransactionFailure {
                             phase: TransactionFailurePhase::Statement,
                             statement_index: index,
-                            outcome: TransactionFailureOutcome::LeftOpen,
+                            outcome,
                             results,
                             error,
                         });
@@ -397,10 +426,11 @@ impl DbConnector for SqlServerConnector {
                     if statement.max_affected_rows.is_some_and(|max| row_count > max) {
                         let error = DbError::Conflict("SQL Server mutation affected more rows than allowed".into());
                         if already_open {
+                            let (error, outcome) = self.rollback_parameterized_savepoint(handle, error).await;
                             return Err(TransactionFailure {
                                 phase: TransactionFailurePhase::Statement,
                                 statement_index: index,
-                                outcome: TransactionFailureOutcome::LeftOpen,
+                                outcome,
                                 results,
                                 error,
                             });
@@ -421,10 +451,11 @@ impl DbConnector for SqlServerConnector {
                 }
                 Err(error) => {
                     if already_open {
+                        let (error, outcome) = self.rollback_parameterized_savepoint(handle, error).await;
                         return Err(TransactionFailure {
                             phase: TransactionFailurePhase::Statement,
                             statement_index: index,
-                            outcome: TransactionFailureOutcome::LeftOpen,
+                            outcome,
                             results,
                             error,
                         });

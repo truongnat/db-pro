@@ -103,8 +103,8 @@ impl ErSpatialIndex {
         } else {
             // For very long edges spanning > 32 cells, sample buckets along the span
             // instead of truncating from min_corner (#449). Always index endpoints.
-            let step_x = ((span_x + max_span - 1) / max_span).max(1) as i32;
-            let step_y = ((span_y + max_span - 1) / max_span).max(1) as i32;
+            let step_x = span_x.div_ceil(max_span).max(1) as i32;
+            let step_y = span_y.div_ceil(max_span).max(1) as i32;
             let mut xs: Vec<i32> = (min_x..=max_x).step_by(step_x as usize).collect();
             if xs.last() != Some(&max_x) {
                 if xs.len() > max_span {

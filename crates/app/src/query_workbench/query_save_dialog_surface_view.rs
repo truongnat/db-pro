@@ -83,17 +83,17 @@ impl DirtyCloseDialogContext<'_> {
     pub(super) fn draw(&self, ctx: &egui::Context) -> Option<DirtyCloseDialogAction> {
         let mut action = None;
         let mut open = true;
-        Dialog::new(&mut open, "Unsaved query", self.theme)
+        Dialog::new(&mut open, t!("query.unsaved_query_title").as_ref(), self.theme)
             .width(460.0)
             .id_salt("dirty_query_close_dialog")
             .show_framed_ctx(ctx, |frame| {
                 frame.body(|ui| {
-                    ui.label(format!("Save changes to {} before closing?", self.title));
+                    ui.label(t!("query.unsaved_query_prompt", title = self.title).into_owned());
                 });
                 frame.footer(|ui| {
                     if Button::new(self.theme)
                         .icon(Icon::Save)
-                        .text("Save")
+                        .text(t!("common.save"))
                         .variant(ButtonVariant::Default)
                         .size(ButtonSize::Sm)
                         .show(ui)
@@ -103,7 +103,7 @@ impl DirtyCloseDialogContext<'_> {
                     }
                     if Button::new(self.theme)
                         .icon(Icon::Trash2)
-                        .text("Don't Save")
+                        .text(t!("query.dont_save"))
                         .variant(ButtonVariant::Destructive)
                         .size(ButtonSize::Sm)
                         .show(ui)
@@ -113,7 +113,7 @@ impl DirtyCloseDialogContext<'_> {
                     }
                     if Button::new(self.theme)
                         .icon(Icon::X)
-                        .text("Cancel")
+                        .text(t!("common.cancel"))
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::Sm)
                         .show(ui)

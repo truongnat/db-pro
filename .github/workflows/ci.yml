@@ -32,6 +32,12 @@ jobs:
 
     env:
       DATABASE_URL: postgres://dbpro:dbpro_test@localhost:5432/dbpro_fixture
+      DATA_DIFF_TARGET_DATABASE: dbpro_fixture_diff
+      PGDATABASE: dbpro_fixture
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: dbpro
+      PGPASSWORD: dbpro_test
 
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +73,10 @@ jobs:
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/001_schema.sql
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/002_seed.sql
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/003_verify.sql
+          PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = 'dbpro_fixture_diff'" | grep -q 1 || \
+          PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d postgres \
+            -c "CREATE DATABASE dbpro_fixture_diff"
 
       - name: Configure live SSH backup fixture
         run: |

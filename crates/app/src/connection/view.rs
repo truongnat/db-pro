@@ -254,7 +254,14 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
             let pos = ui.ctx().input(|i| i.pointer.interact_pos());
             let layer = pos.and_then(|p| ui.ctx().layer_id_at(p));
             let open = ui.ctx().data_mut(|d| d.get_temp::<bool>(egui::Id::new("db_engine_select")).unwrap_or(false));
-            eprintln!("[select] pos={pos:?} layer={layer:?} clicked={} open={open}", resp.clicked());
+            tracing::debug!(
+                target: "db_pro::ui::select",
+                ?pos,
+                ?layer,
+                clicked = resp.clicked(),
+                open,
+                "database engine select debug"
+            );
         }
         // Disabled specs carry `driver: None` — ignore them so a coming-soon row
         // can't overwrite the real driver behind the scenes.

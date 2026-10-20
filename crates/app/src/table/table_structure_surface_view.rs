@@ -163,7 +163,7 @@ impl TableStructureContext<'_> {
         let columns = [
             TableColumn::fixed("#", 46.0),
             TableColumn::new("Column Name").width(220.0),
-            TableColumn::new("Data Type").width(200.0),
+            TableColumn::new("Data Type").width(280.0),
             TableColumn::fixed("Nullable", 110.0),
             TableColumn::fixed("Key", 90.0),
             TableColumn::new("Default Expression"),

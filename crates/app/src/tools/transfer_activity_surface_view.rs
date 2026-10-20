@@ -81,11 +81,21 @@ impl TransferActivityContext<'_> {
             );
             ui.add_space(SPACE_XS);
             self.draw_synthetic_inputs(ui);
+            ui.colored_label(
+                self.theme.warning,
+                if self.is_production {
+                    "Production connection — confirm before applying INSERT SQL"
+                } else {
+                    "Live database target — confirm before applying INSERT SQL"
+                },
+            );
+            Checkbox::new(
+                &mut self.management.synthetic_data.synthetic_live_target_confirm,
+                "I confirm running synthetic INSERT on the connected database",
+                self.theme,
+            )
+            .show(ui);
             if self.is_production {
-                ui.colored_label(
-                    self.theme.warning,
-                    "Production connection — confirm before applying INSERT SQL",
-                );
                 Checkbox::new(
                     &mut self.management.synthetic_data.synthetic_production_confirm,
                     "I confirm seeding this Production database",

@@ -82,7 +82,7 @@ impl DbProApp {
 
         let edit_reason = self.result_edit_reason(&result);
         let read_only_notice = self.result_read_only_notice(edit_reason.as_deref());
-        self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging, read_only_notice);
+        self.draw_table_data_unified_toolbar(ui, table_name, &sql_prefix, can_mutate, &paging, read_only_notice.as_deref());
         let context = table_data_surface_view::TableDataSurfaceContext {
             theme: self.theme,
             record_view_open: self.table.editing.record_view_open,

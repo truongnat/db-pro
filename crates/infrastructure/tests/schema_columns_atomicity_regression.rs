@@ -1,7 +1,7 @@
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
-use db_pro_core::ports::DbConnector;
+use db_pro_core::domain::query::{CellValue, QueryParam};
+use db_pro_core::ports::{DbConnector, ParameterizedTransactionStatement, TransactionFailureOutcome};
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
-
 async fn setup_sqlite_connector() -> (SQLiteConnector, db_pro_core::domain::connection::ConnectionHandle) {
     let connector = SQLiteConnector::new();
     let config = ConnectionConfig {
@@ -56,4 +56,62 @@ async fn execute_batch_middle_failure_rolls_back_prior_ddl() {
             .any(|table| table.name == "should_never_exist"),
         "statements after the failure must not execute"
     );
+}
+
+#[tokio::test]
+async fn parameterized_transaction_failure_rolls_back_replace_delete() {
+    let (connector, handle) = setup_sqlite_connector().await;
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE replace_probe (id TEXT PRIMARY KEY, name TEXT NOT NULL)",
+            &[],
+        )
+        .await
+        .expect("create target table");
+    connector
+        .execute(
+            &handle,
+            "INSERT INTO replace_probe (id, name) VALUES (?1, ?2)",
+            &[QueryParam::Text("1".into()), QueryParam::Text("Existing".into())],
+        )
+        .await
+        .expect("insert existing target row");
+
+    let error = connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[
+                ParameterizedTransactionStatement {
+                    sql: "DELETE FROM replace_probe WHERE id = ?1".into(),
+                    params: vec![QueryParam::Text("1".into())],
+                    expect_affected_rows: true,
+                    max_affected_rows: Some(1),
+                },
+                ParameterizedTransactionStatement {
+                    sql: "THIS IS NOT VALID SQL".into(),
+                    params: Vec::new(),
+                    expect_affected_rows: false,
+                    max_affected_rows: None,
+                },
+            ],
+        )
+        .await
+        .expect_err("the injected invalid statement must fail");
+
+    assert_eq!(error.statement_index, 1);
+    assert_eq!(error.outcome, TransactionFailureOutcome::RolledBack);
+    let target = connector
+        .query(
+            &handle,
+            "SELECT name FROM replace_probe WHERE id = ?1",
+            &[QueryParam::Text("1".into())],
+        )
+        .await
+        .expect("read target after rollback");
+    assert_eq!(target.rows.len(), 1);
+    match &target.rows[0].0[0] {
+        CellValue::Text(value) => assert_eq!(value, "Existing"),
+        other => panic!("unexpected name cell after rollback: {other:?}"),
+    }
 }

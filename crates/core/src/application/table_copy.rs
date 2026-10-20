@@ -5,6 +5,7 @@
 
 use crate::domain::query::{CellValue, QueryParam, QueryResult};
 use crate::domain::transfer::TransferConflictPolicy;
+use crate::ports::ParameterizedTransactionStatement;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CopyFormat {
@@ -45,13 +46,19 @@ pub struct TableCopyOutput {
     pub rows_skipped: u64,
 }
 
-/// Reads the chosen tables and writes the rows that survive the conflict policy.
-/// Implementations look up an already-open connection by its id.
+/// Reads the chosen tables through already-open connections and writes the rows
+/// that survive the conflict policy. The full target write set must be atomic.
+/// Implementations must roll back the entire batch when a statement fails or
+/// its affected-row guard is violated.
 pub trait TableCopyConnector: Send + Sync {
     fn quote(&self, connection_id: &str, identifier: &str) -> Result<String, String>;
     fn placeholder(&self, connection_id: &str, index: usize) -> Result<String, String>;
     fn query(&self, connection_id: &str, sql: &str) -> Result<QueryResult, String>;
-    fn execute(&self, connection_id: &str, sql: &str, params: &[QueryParam]) -> Result<u64, String>;
+    fn execute_transaction(
+        &self,
+        connection_id: &str,
+        statements: Vec<ParameterizedTransactionStatement>,
+    ) -> Result<(), String>;
 }
 
 struct TablePlan {
@@ -88,10 +95,23 @@ pub fn copy_tables(connector: &dyn TableCopyConnector, request: &TableCopyReques
             request.conflict,
         )?);
     }
-    for plan in &plans {
-        for (sql, params) in &plan.statements {
-            connector.execute(target_id, sql, params)?;
-        }
+    let mut statements = Vec::new();
+    for plan in &mut plans {
+        statements.append(&mut plan.statements);
+    }
+    if !statements.is_empty() {
+        connector.execute_transaction(
+            target_id,
+            statements
+                .into_iter()
+                .map(|(sql, params)| ParameterizedTransactionStatement {
+                    sql,
+                    params,
+                    expect_affected_rows: true,
+                    max_affected_rows: None,
+                })
+                .collect(),
+        )?;
     }
 
     let body = plans

@@ -92,24 +92,26 @@
             })
         }
 
-        fn execute(
+        fn execute_transaction(
             &self,
             connection_id: &str,
-            sql: &str,
-            params: &[db_pro_core::domain::query::QueryParam],
-        ) -> Result<u64, String> {
-            let values = params
-                .iter()
-                .filter_map(|param| match param {
-                    db_pro_core::domain::query::QueryParam::Text(value) => Some(value.clone()),
-                    _ => None,
-                })
-                .collect();
-            self.executes
-                .lock()
-                .expect("execute log")
-                .push((format!("{connection_id} {sql}"), values));
-            Ok(1)
+            statements: Vec<db_pro_core::ports::ParameterizedTransactionStatement>,
+        ) -> Result<(), String> {
+            for statement in statements {
+                let values = statement
+                    .params
+                    .iter()
+                    .filter_map(|param| match param {
+                        db_pro_core::domain::query::QueryParam::Text(value) => Some(value.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                self.executes
+                    .lock()
+                    .expect("execute log")
+                    .push((format!("{connection_id} {}", statement.sql), values));
+            }
+            Ok(())
         }
     }
 

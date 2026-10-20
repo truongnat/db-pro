@@ -79,25 +79,100 @@ fn ssh_caveat_wording_tracks_the_recorded_limitation() {
 }
 
 #[test]
-fn test_i18n_multilingual_locale_switch() {
-    use crate::UiLanguage;
+fn locale_catalogs_have_matching_keys_and_placeholders() {
+    use std::collections::BTreeMap;
 
-    for lang in UiLanguage::ALL {
-        lang.apply();
-        let code = rust_i18n::locale();
-        assert_eq!(&*code, lang.code());
-
-        // Verify key lookup in each language
-        let test_text = t!("connection.test_connection");
-        assert!(
-            !test_text.is_empty(),
-            "translation for connection.test_connection missing in {}",
-            lang.code()
-        );
+    fn parse_catalog(source: &str) -> BTreeMap<String, (String, Vec<String>)> {
+        let mut catalog = BTreeMap::new();
+        let mut path: Vec<(usize, String)> = Vec::new();
+        for (line_number, line) in source.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let Some((key, value)) = trimmed.split_once(':') else {
+                continue;
+            };
+            let key = key.trim();
+            let indent = line.len() - line.trim_start().len();
+            while path.last().is_some_and(|(level, _)| *level >= indent) {
+                path.pop();
+            }
+            let full_key = path
+                .iter()
+                .map(|(_, parent)| parent.as_str())
+                .chain(std::iter::once(key))
+                .collect::<Vec<_>>()
+                .join(".");
+            if value.trim().is_empty() {
+                path.push((indent, key.to_owned()));
+                continue;
+            }
+            let mut placeholders = Vec::new();
+            let mut remaining = value;
+            while let Some(start) = remaining.find("%{") {
+                let after = &remaining[start + 2..];
+                let Some(end) = after.find('}') else {
+                    break;
+                };
+                placeholders.push(after[..end].to_owned());
+                remaining = &after[end + 1..];
+            }
+            placeholders.sort();
+            let value = value.trim().trim_matches('"').to_owned();
+            assert!(
+                catalog.insert(full_key.clone(), (value, placeholders)).is_none(),
+                "duplicate locale key {full_key} at line {}",
+                line_number + 1
+            );
+        }
+        catalog
     }
 
-    // Reset back to English
-    UiLanguage::English.apply();
+    let english = parse_catalog(include_str!("../../../ui/locales/en.yml"));
+    for (locale, source) in [
+        ("vi", include_str!("../../../ui/locales/vi.yml")),
+        ("zh", include_str!("../../../ui/locales/zh.yml")),
+        ("ja", include_str!("../../../ui/locales/ja.yml")),
+        ("ko", include_str!("../../../ui/locales/ko.yml")),
+    ] {
+        let translated = parse_catalog(source);
+        assert_eq!(
+            translated.keys().collect::<Vec<_>>(),
+            english.keys().collect::<Vec<_>>(),
+            "locale {locale} has missing or extra translation keys"
+        );
+        for (key, (_, placeholders)) in &english {
+            assert_eq!(
+                translated.get(key).map(|(_, actual)| actual),
+                Some(placeholders),
+                "locale {locale} has mismatched placeholders for {key}"
+            );
+        }
+        for key in ["query.explain", "query.explain_analyze"] {
+            assert_ne!(
+                translated[key].0, english[key].0,
+                "locale {locale} leaves {key} untranslated"
+            );
+        }
+        assert_ne!(
+            translated["sidebar.filter_lint"].0, english["sidebar.filter_lint"].0,
+            "locale {locale} leaves sidebar.filter_lint untranslated"
+        );
+        if locale == "vi" {
+            for key in [
+                "connection.access_token",
+                "sidebar.filter_parser",
+                "sidebar.filter_delimiter",
+                "sidebar.filter_database",
+            ] {
+                assert_ne!(
+                    translated[key].0, english[key].0,
+                    "Vietnamese catalog leaves {key} untranslated"
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -144,9 +219,11 @@ fn test_validate_connection_draft() {
 
 #[test]
 fn driver_switch_preserves_typed_values() {
-    let mut draft = UiConnectionDraft::default();
-    draft.port = "5433".to_owned();
-    draft.ssl_mode = UiSslMode::VerifyFull;
+    let mut draft = UiConnectionDraft {
+        port: "5433".to_owned(),
+        ssl_mode: UiSslMode::VerifyFull,
+        ..Default::default()
+    };
 
     select_driver(&mut draft, UiDriver::Mysql);
     assert_eq!(draft.driver, UiDriver::Mysql);
