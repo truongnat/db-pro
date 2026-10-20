@@ -379,7 +379,16 @@ fn assign_positions(
 
     let step_x = ER_NODE_WIDTH + ER_GAP_X;
     let step_y = node_height + ER_GAP_Y;
+    // Wrap components into rows instead of one endless strip. A single-row
+    // layout fits only by zooming out to ~10% on real schemas; a row-banded
+    // layout keeps the whole graph inside a viewport-friendly aspect.
+    let node_area = (ER_NODE_WIDTH * node_height).max(1.0);
+    let target_width = ((count as f32 * node_area * 1.4).sqrt())
+        .max(step_x * grid_columns.max(1) as f32)
+        .max(step_x);
     let mut cursor_x = ER_CANVAS_MARGIN;
+    let mut cursor_y = ER_CANVAS_MARGIN;
+    let mut row_height = 0.0f32;
     let mut isolates = Vec::new();
     for group in components {
         let connected = group.len() >= 2 && group.iter().any(|id| linked[*id]);
@@ -387,24 +396,33 @@ fn assign_positions(
             isolates.extend(group);
             continue;
         }
-        let mut layout = ErLayoutContext {
-            nodes,
-            links: &links,
-            origin: egui::pos2(cursor_x, ER_CANVAS_MARGIN),
-            step: egui::vec2(step_x, step_y),
-            node_height,
-        };
-        let width = layout_component(&mut layout, &group);
+        let rows = component_rows(&links, &group);
+        let width = rows
+            .iter()
+            .map(|row| row.len())
+            .max()
+            .unwrap_or(1) as f32
+            * step_x;
+        let height = rows.len().max(1) as f32 * step_y;
+        if cursor_x > ER_CANVAS_MARGIN && cursor_x - ER_CANVAS_MARGIN + width > target_width {
+            cursor_x = ER_CANVAS_MARGIN;
+            cursor_y += row_height + ER_GAP_Y;
+            row_height = 0.0;
+        }
+        place_component_rows(nodes, &rows, egui::pos2(cursor_x, cursor_y), step_x, step_y, node_height);
         cursor_x += width + ER_GAP_X;
+        row_height = row_height.max(height);
     }
 
+    // Isolates form their own grid below the last component row.
     let columns = grid_columns.max(1);
+    let base_y = cursor_y + row_height + if row_height > 0.0 { ER_GAP_Y } else { 0.0 };
     for (index, id) in isolates.into_iter().enumerate() {
         let column = index % columns;
         let row = index / columns;
         let position = egui::pos2(
-            cursor_x + column as f32 * step_x,
-            ER_CANVAS_MARGIN + row as f32 * step_y,
+            ER_CANVAS_MARGIN + column as f32 * step_x,
+            base_y + row as f32 * step_y,
         );
         nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
     }
@@ -449,19 +467,11 @@ impl ErUnionFind {
     }
 }
 
-/// Shared geometry inputs for [`layout_component`] — keeps the layering and
-/// barycenter passes free of positional bookkeeping arguments.
-struct ErLayoutContext<'a> {
-    nodes: &'a mut [ErNode],
-    links: &'a [(usize, usize)],
-    origin: egui::Pos2,
-    step: egui::Vec2,
-    node_height: f32,
-}
-
-/// Returns the width occupied by the component.
-fn layout_component(ctx: &mut ErLayoutContext<'_>, group: &[usize]) -> f32 {
-    let layer = layer_ranks(ctx.links, group);
+/// Layers the component with Kahn ranking and one barycenter pass, returning
+/// the rows without touching node rects. `assign_positions` needs the shape
+/// before it can decide where the block lands inside a wrapped row.
+fn component_rows(links: &[(usize, usize)], group: &[usize]) -> Vec<Vec<usize>> {
+    let layer = layer_ranks(links, group);
     let max_layer = layer.values().copied().max().unwrap_or(0);
     let mut rows: Vec<Vec<usize>> = vec![Vec::new(); max_layer + 1];
     for &id in group {
@@ -471,20 +481,29 @@ fn layout_component(ctx: &mut ErLayoutContext<'_>, group: &[usize]) -> f32 {
         row.sort_unstable();
     }
     let members: HashSet<usize> = group.iter().copied().collect();
-    barycenter_rows(&mut rows, ctx.links, &members);
+    barycenter_rows(&mut rows, links, &members);
+    rows
+}
 
-    let mut max_columns = 1usize;
+/// Stamps the precomputed rows into world rects at `origin`.
+fn place_component_rows(
+    nodes: &mut [ErNode],
+    rows: &[Vec<usize>],
+    origin: egui::Pos2,
+    step_x: f32,
+    step_y: f32,
+    node_height: f32,
+) {
     for (row_index, row) in rows.iter().enumerate() {
-        max_columns = max_columns.max(row.len());
         for (column, &id) in row.iter().enumerate() {
             let position = egui::pos2(
-                ctx.origin.x + column as f32 * ctx.step.x,
-                ctx.origin.y + row_index as f32 * ctx.step.y,
+                origin.x + column as f32 * step_x,
+                origin.y + row_index as f32 * step_y,
             );
-            ctx.nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, ctx.node_height));
+            nodes[id].world_rect =
+                egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
         }
     }
-    max_columns as f32 * ctx.step.x
 }
 
 /// Kahn layering over the component's links: each member gets the row (depth)
