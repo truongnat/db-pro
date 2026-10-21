@@ -69,7 +69,7 @@ fn developer_connection_preset_is_gated_to_debug_builds() {
     if let Some(config) = preset {
         assert_eq!(config.name, "Xe Lạc Hồng (PostgreSQL)");
         assert_eq!(config.database, "fullstack_starter");
-        assert_eq!(config.port, 5432);
+        assert_eq!(config.port, 5433);
     }
 }
 

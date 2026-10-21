@@ -27,8 +27,12 @@ pub(super) struct TransferActivityContext<'a> {
 impl TransferActivityContext<'_> {
     pub(super) fn draw(mut self, ui: &mut egui::Ui) -> Option<TransferActivityAction> {
         let mut action = None;
-        let visible = ui.available_width().min(ui.clip_rect().width()).max(1.0);
+        // The sidebar chrome can hand children a max_rect slightly wider than
+        // the painted card interior; galleys then wrap at the outer edge and
+        // clip. Bound this surface to what is actually painted.
+        let visible = (ui.available_width().min(ui.clip_rect().width()) - 6.0).max(1.0);
         ui.set_max_width(visible);
+
         self.draw_intro(ui);
         self.draw_backup_card(ui, &mut action);
         self.draw_synthetic_card(ui, &mut action);
@@ -80,29 +84,48 @@ impl TransferActivityContext<'_> {
                 .color(self.theme.text_muted),
             );
             ui.add_space(SPACE_XS);
+            // ui_rules: child clip = parent ∩ max_rect, so a galley that wraps
+            // flush to available_width has its last glyph tips clipped by the
+            // card's own edge. Allocate a sub-ui 6pt narrower for wrap-bound
+            // text. (scope_builder/set_max_width cannot shrink below the
+            // scroll content's minimum rect — only allocate_ui bounds it.)
+            let text_w = (ui.available_width() - 6.0).max(40.0);
+            let is_production = self.is_production;
             self.draw_synthetic_inputs(ui);
-            ui.colored_label(
-                self.theme.warning,
-                if self.is_production {
-                    "Production connection — confirm before applying INSERT SQL"
-                } else {
-                    "Live database target — confirm before applying INSERT SQL"
+            let management = &mut *self.management;
+            let block_h = ui.available_height();
+            ui.allocate_ui_with_layout(
+                egui::vec2(text_w, block_h),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| {
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(if is_production {
+                                "Production target — confirm before applying INSERT"
+                            } else {
+                                "Live target — confirm before applying INSERT"
+                            })
+                            .color(self.theme.warning),
+                        )
+                        .wrap(),
+                    );
+                    Checkbox::new(
+                        &mut management.synthetic_data.synthetic_live_target_confirm,
+                        "I confirm running INSERTs on this database",
+                        self.theme,
+                    )
+                    .show(ui);
+                    if is_production {
+                        Checkbox::new(
+                            &mut management.synthetic_data.synthetic_production_confirm,
+                            "I confirm seeding this Production database",
+                            self.theme,
+                        )
+                        .show(ui);
+                    }
                 },
             );
-            Checkbox::new(
-                &mut self.management.synthetic_data.synthetic_live_target_confirm,
-                "I confirm running synthetic INSERT on the connected database",
-                self.theme,
-            )
-            .show(ui);
-            if self.is_production {
-                Checkbox::new(
-                    &mut self.management.synthetic_data.synthetic_production_confirm,
-                    "I confirm seeding this Production database",
-                    self.theme,
-                )
-                .show(ui);
-            }
+
             self.draw_synthetic_actions(ui, action);
             self.draw_synthetic_result(ui);
         });
@@ -115,7 +138,9 @@ impl TransferActivityContext<'_> {
             .iter()
             .map(|table| (table.schema.clone(), table.name.clone()))
             .collect();
-        ui.horizontal_wrapped(|ui| {
+        // Narrow sidebar: horizontal_wrapped fused the label+input pairs into
+        // an unreadable column ("10 seed 42 null% 0"). Stack each labeled row.
+        ui.vertical(|ui| {
             let mut synth_options = vec!["Select table…".to_owned()];
             let synth_keys: Vec<String> = tables
                 .iter()
@@ -136,7 +161,7 @@ impl TransferActivityContext<'_> {
             let synth_previous = synth_selected;
             crate::components::Select::new("synth_table", &mut synth_selected, &synth_options)
                 .theme(self.theme)
-                .width(150.0)
+                .width((ui.available_width() - 8.0).max(120.0))
                 .size(crate::components::SelectSize::Sm)
                 .variant(crate::components::SelectVariant::Ghost)
                 .show(ui);
@@ -147,34 +172,57 @@ impl TransferActivityContext<'_> {
                     synth_keys[synth_selected - 1].clone()
                 };
             }
-            ui.label("rows");
-            input(
-                ui,
-                &mut self.management.synthetic_data.synthetic_row_count,
-                "count",
-                48.0,
-                self.theme,
-            );
-            ui.label("seed");
-            input(
-                ui,
-                &mut self.management.synthetic_data.synthetic_seed,
-                "seed",
-                64.0,
-                self.theme,
-            );
-            ui.label("null%");
-            input(
-                ui,
-                &mut self.management.synthetic_data.synthetic_null_pct,
-                "%",
-                36.0,
-                self.theme,
-            );
+            ui.add_space(SPACE_XS);
+            // ui.horizontal() lets this fixed-size row overflow the card, which
+            // grows the scroll area's max_rect and makes every following card
+            // lay out wider than the visible clip. horizontal_wrapped wraps
+            // the pair onto a second row instead of expanding.
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
+                ui.label(
+                    RichText::new("rows")
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+                input(
+                    ui,
+                    &mut self.management.synthetic_data.synthetic_row_count,
+                    "count",
+                    48.0,
+                    self.theme,
+                );
+                ui.label(
+                    RichText::new("seed")
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+                input(
+                    ui,
+                    &mut self.management.synthetic_data.synthetic_seed,
+                    "seed",
+                    64.0,
+                    self.theme,
+                );
+                ui.label(
+                    RichText::new("null%")
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+                input(
+                    ui,
+                    &mut self.management.synthetic_data.synthetic_null_pct,
+                    "%",
+                    36.0,
+                    self.theme,
+                );
+            });
         });
     }
 
     fn draw_synthetic_actions(&self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
+        // Let the confirm checkbox own a row before the action cluster — on a
+        // narrow sidebar horizontal_wrapped drew "Preview" over its label.
+        ui.add_space(SPACE_XS);
         ui.horizontal_wrapped(|ui| {
             if secondary_button(ui, "Preview", self.theme).clicked() {
                 *action = Some(TransferActivityAction::PreviewSyntheticSeed);
@@ -210,12 +258,27 @@ impl TransferActivityContext<'_> {
             if std::mem::take(&mut self.management.transfer.capture_focus_once) {
                 ui.scroll_to_cursor(Some(egui::Align::Min));
             }
-            ui.label(
-                RichText::new(
-                    "Preview-only by default · no in-place destructive masking · keyed hash for join-preserving IDs",
-                )
-                .small()
-                .color(self.theme.text_muted),
+            // ui_rules: child clip = parent ∩ max_rect, so a galley that wraps
+            // flush to available_width has its last glyph tips clipped by the
+            // card's own edge. Allocate a sub-ui 6pt narrower for the text.
+            // (scope_builder grows max_rect to parent bounds — it cannot shrink.)
+            let text_w = (ui.available_width() - 6.0).max(40.0);
+            let h = ui.text_style_height(&egui::TextStyle::Body) * 2.0;
+            ui.allocate_ui_with_layout(
+                egui::vec2(text_w, h.max(ui.spacing().interact_size.y)),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| {
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(
+                                "Preview-only by default · no in-place destructive masking · keyed hash for join-preserving IDs",
+                            )
+                            .small()
+                            .color(self.theme.text_muted),
+                        )
+                        .wrap(),
+                    );
+                },
             );
             self.draw_masking_controls(ui, action);
             self.draw_masking_result(ui);

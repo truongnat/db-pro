@@ -111,7 +111,9 @@ pub(super) fn draw_explain_pane(
                 ScrollArea::new(context.theme).both().max_height(ui.available_height()).show(ui, |ui| {
                     ui.label(RichText::new(plan_json).monospace().color(context.theme.text_secondary));
                 });
-            } else if let Some(plan) = db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json) {
+            } else if let Some(plan) = db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json)
+                .or_else(|| db_pro_core::domain::explain_plan::parse_sqlite_explain_str(plan_json))
+            {
                 if !plan.findings.is_empty() {
                     ui.add_space(4.0);
                     // The plan tree repeats this finding on its root row; avoid a duplicate summary label.

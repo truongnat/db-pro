@@ -264,8 +264,8 @@ fn is_cargo_target_binary() -> bool {
 fn developer_preset_connection() -> Option<db_pro_core::domain::connection::ConnectionConfig> {
     Some(db_pro_core::domain::connection::ConnectionConfig {
         name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
-        host: "localhost".to_owned(),
-        port: 5432,
+        host: "127.0.0.1".to_owned(),
+        port: 5433,
         database: "fullstack_starter".to_owned(),
         username: "postgres".to_owned(),
         driver: db_pro_core::domain::connection::DriverType::Postgres,
@@ -647,6 +647,9 @@ impl eframe::App for NativeMenuApp {
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         self.inner.save(storage);
+    }
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        eframe::App::logic(&mut self.inner, ctx, frame);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {

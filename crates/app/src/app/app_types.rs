@@ -264,6 +264,7 @@ pub(crate) enum PaletteAction {
     SchemaWorkbench,
     SchemaCompare,
     Transfers,
+    Tasks,
     Monitor,
     NewQuery,
     NewConnection,

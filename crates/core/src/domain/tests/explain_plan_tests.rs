@@ -197,3 +197,40 @@ fn parses_analyze_plan_and_flags_misestimate() {
     assert!(plan.findings.iter().any(|f| f.code == "plan.runtime"));
     assert!(plan.root.findings.iter().any(|f| f.code == "plan.row-misestimate"));
 }
+
+#[test]
+fn parses_sqlite_explain_query_plan_rows_into_a_tree() {
+    let value = serde_json::json!([
+        { "id": 2, "parent": 0, "detail": "SCAN employees" },
+        { "id": 5, "parent": 2, "detail": "SEARCH orders USING INDEX idx_orders_user (user_id=?)" }
+    ]);
+
+    let plan = parse_sqlite_explain_json(&value).expect("parse");
+
+    assert_eq!(plan.root.node_type, "SCAN");
+    assert_eq!(plan.root.relation.as_deref(), Some("employees"));
+    assert_eq!(plan.root.children.len(), 1);
+    assert_eq!(plan.root.children[0].node_type, "SEARCH");
+    assert_eq!(plan.root.children[0].relation.as_deref(), Some("orders"));
+    assert_eq!(plan.root.children[0].index_name.as_deref(), Some("idx_orders_user"));
+    assert!(!plan.has_runtime_stats);
+}
+
+#[test]
+fn sqlite_explain_groups_multiple_roots_under_a_plan_node() {
+    let value = serde_json::json!([
+        { "id": 1, "parent": 0, "detail": "SCAN a" },
+        { "id": 4, "parent": 0, "detail": "SCAN b" }
+    ]);
+
+    let plan = parse_sqlite_explain_json(&value).expect("parse");
+
+    assert_eq!(plan.root.node_type, "Plan");
+    assert_eq!(plan.root.children.len(), 2);
+}
+
+#[test]
+fn sqlite_explain_rejects_non_row_arrays() {
+    assert!(parse_sqlite_explain_json(&serde_json::json!([])).is_none());
+    assert!(parse_sqlite_explain_json(&serde_json::json!([{ "Plan": {} }])).is_none());
+}

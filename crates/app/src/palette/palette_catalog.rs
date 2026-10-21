@@ -4,6 +4,9 @@ pub(super) fn quick_open_items() -> Vec<PaletteItem> {
     let mut items = quick_open_navigation_items();
     items.extend(quick_open_schema_items());
     items.extend(quick_open_activity_items());
+    // Quick Open's "All" tab is the default search surface; without the command
+    // catalog, "New connection"/"Run query"/"Format SQL" return no matches.
+    items.extend(command_items());
     items
 }
 
@@ -82,6 +85,13 @@ fn quick_open_schema_items() -> Vec<PaletteItem> {
             "Import, export, and background copy jobs",
             None,
             PaletteAction::Transfers,
+        ),
+        catalog_item(
+            Icon::ListChecks,
+            "Saved tasks",
+            "Saved Tasks & Backups · Scheduled jobs and maintenance",
+            None,
+            PaletteAction::Tasks,
         ),
     ]
 }

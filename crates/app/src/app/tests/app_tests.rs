@@ -2009,8 +2009,10 @@ fn quick_open_filters_workspaces_by_title_and_description() {
     };
     let items = app.filtered_palette_items(PaletteMode::QuickOpen);
 
-    assert_eq!(items.len(), 1);
-    assert_eq!(items[0].title, "ER diagram");
+    // Quick Open merges the command catalog, so "Refresh schema"
+    // ("…views and relationships") matches alongside "ER diagram".
+    let titles: Vec<&str> = items.iter().map(|item| item.title.as_str()).collect();
+    assert_eq!(titles, vec!["ER diagram", "Refresh schema"]);
 }
 
 #[test]

@@ -20,6 +20,7 @@ impl DbProApp {
                 self.workspace.sidebar_open = true;
             }
             PaletteAction::Transfers => self.open_palette_activity(Activity::Transfers),
+            PaletteAction::Tasks => self.open_palette_activity(Activity::Tasks),
             PaletteAction::Monitor => self.open_palette_activity(Activity::Monitor),
             PaletteAction::Settings => self.open_palette_activity(Activity::Settings),
             PaletteAction::Agent => self.set_agent_open(true, ctx),

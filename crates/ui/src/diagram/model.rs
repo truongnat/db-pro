@@ -397,19 +397,21 @@ fn assign_positions(
             continue;
         }
         let rows = component_rows(&links, &group);
-        let width = rows
-            .iter()
-            .map(|row| row.len())
-            .max()
-            .unwrap_or(1) as f32
-            * step_x;
+        let width = rows.iter().map(|row| row.len()).max().unwrap_or(1) as f32 * step_x;
         let height = rows.len().max(1) as f32 * step_y;
         if cursor_x > ER_CANVAS_MARGIN && cursor_x - ER_CANVAS_MARGIN + width > target_width {
             cursor_x = ER_CANVAS_MARGIN;
             cursor_y += row_height + ER_GAP_Y;
             row_height = 0.0;
         }
-        place_component_rows(nodes, &rows, egui::pos2(cursor_x, cursor_y), step_x, step_y, node_height);
+        place_component_rows(
+            nodes,
+            &rows,
+            egui::pos2(cursor_x, cursor_y),
+            step_x,
+            step_y,
+            node_height,
+        );
         cursor_x += width + ER_GAP_X;
         row_height = row_height.max(height);
     }
@@ -420,10 +422,7 @@ fn assign_positions(
     for (index, id) in isolates.into_iter().enumerate() {
         let column = index % columns;
         let row = index / columns;
-        let position = egui::pos2(
-            ER_CANVAS_MARGIN + column as f32 * step_x,
-            base_y + row as f32 * step_y,
-        );
+        let position = egui::pos2(ER_CANVAS_MARGIN + column as f32 * step_x, base_y + row as f32 * step_y);
         nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
     }
 }
@@ -496,12 +495,8 @@ fn place_component_rows(
 ) {
     for (row_index, row) in rows.iter().enumerate() {
         for (column, &id) in row.iter().enumerate() {
-            let position = egui::pos2(
-                origin.x + column as f32 * step_x,
-                origin.y + row_index as f32 * step_y,
-            );
-            nodes[id].world_rect =
-                egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
+            let position = egui::pos2(origin.x + column as f32 * step_x, origin.y + row_index as f32 * step_y);
+            nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
         }
     }
 }

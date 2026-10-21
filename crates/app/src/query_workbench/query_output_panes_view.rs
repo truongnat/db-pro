@@ -164,7 +164,7 @@ pub(super) fn draw_chart_pane(
                     .unwrap_or(0)
                     .min(series_options.len().saturating_sub(1));
                 select(ui, "chart_series", &mut series_selected, &series_options, 120.0);
-                config.series_column = (series_selected > 0).then_some(series_selected - 1);
+                config.series_column = series_selected.checked_sub(1);
             });
         }
 

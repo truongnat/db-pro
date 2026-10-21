@@ -69,8 +69,16 @@ pub(super) fn draw_workbench_form(
                     .show(ui);
             });
             ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_SM;
                 Checkbox::new(&mut context.workbench.nullable, "Nullable", context.theme).show(ui);
-                Checkbox::new(&mut context.workbench.is_pk, "PK (create table only)", context.theme).show(ui);
+                // Short label: the long variant crushed into a 3-line stack at
+                // the row's right edge.
+                Checkbox::new(&mut context.workbench.is_pk, "PK", context.theme).show(ui);
+                ui.label(
+                    RichText::new("PK applies on create")
+                        .small()
+                        .color(context.theme.text_muted),
+                );
                 ui.label("Default");
                 crate::components::input::Input::new(&mut context.workbench.default_expr, "expression", context.theme)
                     .width(160.0)

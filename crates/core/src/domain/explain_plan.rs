@@ -116,6 +116,167 @@ pub fn parse_postgres_explain_str(raw: &str) -> Option<QueryPlan> {
     let value: Value = serde_json::from_str(raw).ok()?;
     parse_postgres_explain_json(&value)
 }
+/// Parse SQLite `EXPLAIN QUERY PLAN` output: a flat `[{id, parent, detail}]`
+/// row list where `parent` links each row to its containing plan node.
+///
+/// Multiple top-level rows (UNION branches, subqueries at root depth) are
+/// grouped under a synthetic "Plan" root so the renderer always gets one tree.
+pub fn parse_sqlite_explain_json(value: &Value) -> Option<QueryPlan> {
+    let rows = value.as_array()?;
+    if rows.is_empty() {
+        return None;
+    }
+
+    #[derive(Clone)]
+    struct FlatNode {
+        id: i64,
+        parent: i64,
+        detail: String,
+    }
+
+    let mut flat = Vec::with_capacity(rows.len());
+    for row in rows {
+        let obj = row.as_object()?;
+        flat.push(FlatNode {
+            id: obj.get("id").and_then(Value::as_i64)?,
+            parent: obj.get("parent").and_then(Value::as_i64)?,
+            detail: obj.get("detail").and_then(Value::as_str)?.to_owned(),
+        });
+    }
+
+    let mut truncated = flat.len() > MAX_EXPLAIN_PLAN_NODES;
+    if truncated {
+        flat.truncate(MAX_EXPLAIN_PLAN_NODES);
+    }
+    let known_ids: std::collections::HashSet<i64> = flat.iter().map(|n| n.id).collect();
+
+    fn attach(
+        flat: &[FlatNode],
+        parent_id: i64,
+        depth: usize,
+        known_ids: &std::collections::HashSet<i64>,
+        truncated: &mut bool,
+    ) -> Vec<QueryPlanNode> {
+        if depth >= MAX_EXPLAIN_PLAN_DEPTH {
+            *truncated = true;
+            return Vec::new();
+        }
+        flat.iter()
+            .filter(|node| node.parent == parent_id && node.id != parent_id)
+            .map(|node| {
+                let mut leaf = sqlite_node(&node.detail);
+                // Only visit children whose parent id actually resolves; a
+                // dangling parent id is treated as root above, not recursed.
+                if known_ids.contains(&node.id) {
+                    leaf.children = attach(flat, node.id, depth + 1, known_ids, truncated);
+                }
+                leaf
+            })
+            .collect()
+    }
+
+    let mut roots = attach(&flat, 0, 0, &known_ids, &mut truncated);
+    // Rows whose parent id never resolves (malformed input) become extra roots.
+    for node in &flat {
+        if node.parent != 0 && !known_ids.contains(&node.parent) {
+            roots.push(sqlite_node(&node.detail));
+        }
+    }
+    if roots.is_empty() {
+        return None;
+    }
+    let root = if roots.len() == 1 {
+        roots.pop().expect("non-empty")
+    } else {
+        QueryPlanNode {
+            node_type: "Plan".to_owned(),
+            relation: None,
+            alias: None,
+            index_name: None,
+            startup_cost: None,
+            total_cost: None,
+            plan_rows: None,
+            actual_startup_ms: None,
+            actual_total_ms: None,
+            actual_rows: None,
+            actual_loops: None,
+            shared_hit_blocks: None,
+            shared_read_blocks: None,
+            children: roots,
+            findings: Vec::new(),
+        }
+    };
+
+    let mut plan = QueryPlan {
+        root,
+        // EXPLAIN QUERY PLAN never executes the statement.
+        has_runtime_stats: false,
+        planning_time_ms: None,
+        execution_time_ms: None,
+        findings: Vec::new(),
+    };
+    apply_heuristics(&mut plan);
+    if truncated {
+        let finding = plan_truncation_finding();
+        plan.root.findings.push(finding.clone());
+        plan.findings.push(finding);
+    }
+    Some(plan)
+}
+
+/// Parse a pretty-printed SQLite explain document produced by the runtime bridge.
+pub fn parse_sqlite_explain_str(raw: &str) -> Option<QueryPlan> {
+    let value: Value = serde_json::from_str(raw).ok()?;
+    parse_sqlite_explain_json(&value)
+}
+
+/// Map one `EXPLAIN QUERY PLAN` detail string onto a `QueryPlanNode`.
+///
+/// SQLite details read like `SCAN employees`,
+/// `SEARCH orders USING INDEX idx (user_id=?)`, or
+/// `USE TEMP B-TREE FOR ORDER BY` — the first token is the operation, the
+/// second (when it is a bare identifier) is the relation, and `USING INDEX` /
+/// `USING COVERING INDEX` names the index.
+fn sqlite_node(detail: &str) -> QueryPlanNode {
+    let mut tokens = detail.split_whitespace();
+    let node_type = tokens.next().unwrap_or("Unknown").to_owned();
+    let relation = match tokens.next() {
+        // Keep "USING INDEX …" from being mistaken for a relation named USING.
+        Some(word)
+            if !word.eq_ignore_ascii_case("using")
+                && word.chars().next().is_some_and(|c| c.is_alphanumeric() || c == '_') =>
+        {
+            Some(word.to_owned())
+        }
+        _ => None,
+    };
+    let index_name = if let Some(idx) = detail.find("USING ") {
+        let rest = &detail[idx + "USING ".len()..];
+        rest.strip_prefix("COVERING INDEX ")
+            .or_else(|| rest.strip_prefix("INDEX "))
+            .and_then(|tail| tail.split_whitespace().next())
+            .map(str::to_owned)
+    } else {
+        None
+    };
+    QueryPlanNode {
+        node_type,
+        relation,
+        alias: None,
+        index_name,
+        startup_cost: None,
+        total_cost: None,
+        plan_rows: None,
+        actual_startup_ms: None,
+        actual_total_ms: None,
+        actual_rows: None,
+        actual_loops: None,
+        shared_hit_blocks: None,
+        shared_read_blocks: None,
+        children: Vec::new(),
+        findings: Vec::new(),
+    }
+}
 
 fn extract_postgres_plan_object(value: &Value) -> Option<&Value> {
     match value {
