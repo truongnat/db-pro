@@ -290,3 +290,98 @@ fn tab_focus_traverses_topbar_into_the_workspace() {
     );
     assert!(reached_workspace, "Tab never reached the workspace content: {focused_ids:?}");
 }
+
+/// #545 — an enabled schedule used to pin `prepare_frame` to a flat
+/// `request_repaint_after(50 ms)` (~20 wakeups/s idle) no matter how far the
+/// next run was. These frames read the real `repaint_delay` from the egui
+/// output for the far/near/in-flight cases.
+mod scheduler_repaint_cadence_tests {
+    use super::*;
+    use db_pro_core::domain::saved_task::{SavedTask, SavedTaskPayload, TaskSchedule};
+
+    fn app_with_schedule(next_run_secs: i64) -> DbProApp {
+        let (bridge, _commands, _events) = TaskBridge::with_channels();
+        let mut app = DbProApp::with_task_bridge(bridge);
+        let now = chrono::Utc::now();
+        let mut schedule = TaskSchedule::every_secs(3_600);
+        schedule.next_run_at = Some(now + chrono::Duration::seconds(next_run_secs));
+        app.saved_tasks.store.tasks.push(SavedTask {
+            id: uuid::Uuid::new_v4(),
+            name: "Hourly ping".to_owned(),
+            description: String::new(),
+            connection_id: "conn-1".to_owned(),
+            payload: SavedTaskPayload::Sql { sql: "SELECT 1".to_owned() },
+            created_at: now,
+            updated_at: now,
+            last_run: None,
+            schedule: Some(schedule),
+        });
+        app
+    }
+
+    fn repaint_delay(app: &mut DbProApp) -> std::time::Duration {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        // Warm frames: consume the one-shot connections list request (no
+        // worker answers it in the harness, so settle the flag to model the
+        // issue's scenario — idle app, nothing in flight) and let egui's own
+        // internal layout/font settle repaints drain. egui pins a frame's
+        // stored delay to ZERO whenever the previous frame left an immediate
+        // repaint outstanding (`begin_pass_repaint_logic`), and while it is
+        // ZERO a larger later request cannot raise it — so the meaningful
+        // delay only becomes observable once the shell stops requesting
+        // immediate repaints (verified: from the 4th frame onward the only
+        // cause left is prepare_frame's scheduler request).
+        let mut delay = std::time::Duration::ZERO;
+        for _ in 0..6 {
+            app.connection.lifecycle.set_connections_request_pending(false);
+            let output = render(app, &ctx, Vec::new());
+            delay = output
+                .viewport_output
+                .get(&egui::ViewportId::ROOT)
+                .expect("root viewport output")
+                .repaint_delay;
+        }
+        delay
+    }
+
+    #[test]
+    fn idle_far_schedule_sleeps_to_the_cap_not_50ms() {
+        let delay = repaint_delay(&mut app_with_schedule(3_600));
+        assert!(
+            delay >= std::time::Duration::from_secs(295),
+            "hourly task while idle must not repaint at 50 ms cadence, got {delay:?}"
+        );
+    }
+
+    #[test]
+    fn near_schedule_deadline_sleeps_exactly_to_the_deadline() {
+        // 20 s away stays under the 5-minute cap → the delay tracks the slot.
+        let delay = repaint_delay(&mut app_with_schedule(20));
+        assert!(
+            (std::time::Duration::from_secs(15)..std::time::Duration::from_secs(21)).contains(&delay),
+            "near deadline should repaint at the real remaining time, got {delay:?}"
+        );
+    }
+
+    #[test]
+    fn in_flight_scheduled_run_keeps_fast_polling() {
+        let mut app = app_with_schedule(3_600);
+        let request_id = 7u64;
+        app.saved_tasks.pending_runs.insert(
+            request_id,
+            crate::app::saved_task_state::PendingTaskRun {
+                task_id: uuid::Uuid::new_v4(),
+                trigger: db_pro_core::domain::saved_task::SavedTaskRunTrigger::Scheduled,
+                started_at: chrono::Utc::now(),
+                export_path: None,
+                export_format: None,
+            },
+        );
+        let delay = repaint_delay(&mut app);
+        assert!(
+            delay > std::time::Duration::ZERO && delay <= std::time::Duration::from_millis(60),
+            "a dispatched task awaiting its runtime result must keep the 50 ms cadence, got {delay:?}"
+        );
+    }
+}

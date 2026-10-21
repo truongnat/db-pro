@@ -167,18 +167,22 @@ impl DbProApp {
         // transfer harness) land here so no draw path blocks on I/O (#391,
         // #393, #377, #421).
         self.poll_background_tasks();
-        if runtime_events_pending
+        // #545: the 50 ms cadence is for in-flight work only. Previously any
+        // enabled schedule pinned the shell to ~20 wakeups/s even when the next
+        // run was an hour away; now an idle scheduler sleeps to its real next
+        // deadline (capped so a wall-clock jump cannot strand a slot for long).
+        let work_in_flight = runtime_events_pending
             || self.runtime_work_pending()
             || self.workspace.files.background_tasks_in_flight()
             || !self.management.transfer.pending_transfers.is_empty()
-            || self
-                .saved_tasks
-                .store
-                .tasks
-                .iter()
-                .any(|t| t.schedule.as_ref().is_some_and(|s| s.enabled))
-        {
+            || self.saved_tasks.has_inflight_runs();
+        if work_in_flight {
             ctx.request_repaint_after(Duration::from_millis(50));
+        } else if let Some(delay) = saved_task_state::scheduler_repaint_delay(
+            &self.saved_tasks.enabled_schedule_deadlines(),
+            chrono::Utc::now(),
+        ) {
+            ctx.request_repaint_after(delay);
         }
         // Monitoring auto-refresh is draw-driven; egui never wakes on its own,
         // so schedule the repaint that lets request_monitoring_poll_if_due

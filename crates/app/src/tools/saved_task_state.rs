@@ -1,10 +1,45 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use db_pro_core::domain::saved_task::{
     SavedTask, SavedTaskPayload, SavedTaskRun, SavedTaskRunStatus, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule,
 };
 use uuid::Uuid;
+
+/// Floor for scheduler-driven repaints (#545): a due/imminent slot still gets
+/// the old 50 ms cadence so the tick fires promptly.
+pub(crate) const SCHEDULER_REPAINT_FLOOR: Duration = Duration::from_millis(50);
+/// Ceiling for a single scheduler sleep (#545). `next_run_at` is wall clock
+/// while egui repaint delays are monotonic, so an unbounded sleep could strand
+/// a slot past a forward clock jump; waking at most every 5 minutes re-reads
+/// the deadline. An idle app with one hourly task drops from ~72 000 wakeups
+/// per hour (flat 50 ms) to ~12.
+pub(crate) const SCHEDULER_REPAINT_CAP: Duration = Duration::from_secs(300);
+
+/// Repaint delay the saved-task scheduler asks for (#545), as a pure decision
+/// over the enabled schedules' deadlines so the cadence matrix is testable
+/// without wall-clock timing.
+///
+/// * No enabled schedule → `None`: the scheduler must not force repaints.
+/// * Deadline missing/unassigned or within the floor → [`SCHEDULER_REPAINT_FLOOR`]
+///   — the next tick assigns the slot and fires due runs immediately.
+/// * Otherwise → the real remaining time, capped at [`SCHEDULER_REPAINT_CAP`].
+pub(crate) fn scheduler_repaint_delay(deadlines: &[Option<DateTime<Utc>>], now: DateTime<Utc>) -> Option<Duration> {
+    let remaining_ms = deadlines
+        .iter()
+        .map(|deadline| match deadline {
+            // Tick fills an unassigned slot on the next frame: treat as due.
+            None => 0,
+            Some(next) => (*next - now).num_milliseconds(),
+        })
+        .min()?;
+    let clamped = remaining_ms.clamp(
+        SCHEDULER_REPAINT_FLOOR.as_millis() as i64,
+        SCHEDULER_REPAINT_CAP.as_millis() as i64,
+    );
+    Some(Duration::from_millis(clamped.max(0) as u64))
+}
 
 #[derive(Debug)]
 pub(super) struct PendingTaskRun {
@@ -138,6 +173,24 @@ impl SavedTaskState {
                 };
                 (task_id, trigger)
             })
+            .collect()
+    }
+
+    /// Whether a dispatched saved task is still awaiting its runtime result —
+    /// real in-flight work, so the frame cadence stays fast until it lands (#545).
+    pub(crate) fn has_inflight_runs(&self) -> bool {
+        !self.pending_runs.is_empty()
+    }
+
+    /// `next_run_at` of every enabled schedule (#545). `Some(None)` entries are
+    /// enabled tasks whose slot the store has not assigned yet; the caller
+    /// treats them as due.
+    pub(crate) fn enabled_schedule_deadlines(&self) -> Vec<Option<DateTime<Utc>>> {
+        self.store
+            .tasks
+            .iter()
+            .filter(|task| task.schedule.as_ref().is_some_and(|schedule| schedule.enabled))
+            .map(|task| task.schedule.as_ref().and_then(|schedule| schedule.next_run_at))
             .collect()
     }
 
