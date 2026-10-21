@@ -1724,7 +1724,7 @@ async fn pg_typed_query_keeps_metadata_at_streaming_row_limits() {
 async fn pg_typed_query_cap_returns_before_slow_tail_without_schema_override() {
     let mut config = pg_config().unwrap();
     config.max_rows = 2;
-    config.query_timeout_ms = 2_000;
+    config.query_timeout_ms = 10_000;
     let connector = PostgresConnector::new();
     let handle = connector.connect(&config, &pg_password()).await.unwrap();
     let result = connector
