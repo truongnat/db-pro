@@ -465,9 +465,6 @@ sidebar:
   rename_query: "重命名查询"
   delete_query: "删除查询"
   delete_folder: "删除文件夹"
-  toggle_output_panel: "切换输出面板"
-  ping_ms: "Ping: %{n} ms"
-  ln_col: "第 %{line} 行, 第 %{col} 列"
   collapse_sidebar: "折叠侧边栏 (%{m}B)"
   expand_sidebar: "展开侧边栏 (%{m}B)"
   back: "后退"
@@ -484,7 +481,6 @@ sidebar:
   switch_dark: "切换到深色主题"
   search_commands: "搜索命令、表、模式..."
   search_commands_shortcut: "搜索命令、表、模式 (%{m}P)"
-  resize_output: "调整输出面板大小"
   resize_window: "调整窗口大小 (%{dir})"
 workspace:
   tab_welcome: "欢迎"
@@ -549,3 +545,8 @@ workspace:
   session_saved: "已保存命名工作区会话"
   session_not_found: "未找到命名会话"
   session_duplicated: "已复制工作区会话"
+shell:
+  toggle_output_panel: "切换输出面板"
+  ping_ms: "Ping: %{n} ms"
+  ln_col: "第 %{line} 行, 第 %{col} 列"
+  resize_output: "调整输出面板大小"

@@ -465,9 +465,6 @@ sidebar:
   rename_query: "Đổi tên query"
   delete_query: "Xoá query"
   delete_folder: "Xoá thư mục"
-  toggle_output_panel: "Bật/tắt panel kết quả"
-  ping_ms: "Ping: %{n} ms"
-  ln_col: "Dòng %{line}, Cột %{col}"
   collapse_sidebar: "Thu sidebar (%{m}B)"
   expand_sidebar: "Mở sidebar (%{m}B)"
   back: "Quay lại"
@@ -484,7 +481,6 @@ sidebar:
   switch_dark: "Chuyển sang giao diện tối"
   search_commands: "Tìm lệnh, bảng, schema..."
   search_commands_shortcut: "Tìm lệnh, bảng, schema (%{m}P)"
-  resize_output: "Đổi kích thước panel kết quả"
   resize_window: "Đổi kích thước cửa sổ (%{dir})"
 workspace:
   tab_welcome: "Chào mừng"
@@ -549,3 +545,8 @@ workspace:
   session_saved: "Đã lưu phiên workspace có tên"
   session_not_found: "Không tìm thấy phiên đã lưu"
   session_duplicated: "Đã nhân bản phiên workspace"
+shell:
+  toggle_output_panel: "Bật/tắt panel kết quả"
+  ping_ms: "Ping: %{n} ms"
+  ln_col: "Dòng %{line}, Cột %{col}"
+  resize_output: "Đổi kích thước panel kết quả"

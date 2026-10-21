@@ -76,7 +76,27 @@ pub(super) fn draw_chart_pane(
         let numeric_indexes: Vec<usize> = column_types
             .iter()
             .enumerate()
-            .filter(|(_, data_type)| ChartEngine::is_numeric_column(data_type))
+            .filter(|(index, data_type)| {
+                if ChartEngine::is_numeric_column(data_type) {
+                    return true;
+                }
+                // Expression columns (COUNT(*), ROUND(...), …) can report a
+                // blanket TEXT/NULL decl type; fall back to sampling values.
+                let mut sampled = 0usize;
+                let mut parsed = 0usize;
+                for row in result.rows.iter().take(20) {
+                    if let Some(cell) = row.get(*index) {
+                        if matches!(cell, crate::UiCell::Null) {
+                            continue;
+                        }
+                        sampled += 1;
+                        if ChartEngine::cell_to_numeric(cell).is_some() {
+                            parsed += 1;
+                        }
+                    }
+                }
+                sampled > 0 && parsed * 2 >= sampled
+            })
             .map(|(index, _)| index)
             .collect();
 

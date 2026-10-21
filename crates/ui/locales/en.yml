@@ -465,9 +465,6 @@ sidebar:
   rename_query: "Rename query"
   delete_query: "Delete query"
   delete_folder: "Delete folder"
-  toggle_output_panel: "Toggle output panel"
-  ping_ms: "Ping: %{n} ms"
-  ln_col: "Ln %{line}, Col %{col}"
   collapse_sidebar: "Collapse Sidebar (%{m}B)"
   expand_sidebar: "Expand Sidebar (%{m}B)"
   back: "Back"
@@ -484,7 +481,6 @@ sidebar:
   switch_dark: "Switch to Dark Theme"
   search_commands: "Search commands, tables, schemas..."
   search_commands_shortcut: "Search commands, tables, schemas (%{m}P)"
-  resize_output: "Resize output panel"
   resize_window: "Resize window (%{dir})"
 workspace:
   tab_welcome: "Welcome"
@@ -549,3 +545,8 @@ workspace:
   session_saved: "Named workspace session saved"
   session_not_found: "Named session not found"
   session_duplicated: "Duplicated workspace session"
+shell:
+  toggle_output_panel: "Toggle output panel"
+  ping_ms: "Ping: %{n} ms"
+  ln_col: "Ln %{line}, Col %{col}"
+  resize_output: "Resize output panel"

@@ -465,9 +465,6 @@ sidebar:
   rename_query: "クエリ名を変更"
   delete_query: "クエリを削除"
   delete_folder: "フォルダを削除"
-  toggle_output_panel: "出力パネルの切替"
-  ping_ms: "Ping: %{n} ms"
-  ln_col: "%{line} 行, %{col} 列"
   collapse_sidebar: "サイドバーを折りたたむ (%{m}B)"
   expand_sidebar: "サイドバーを展開 (%{m}B)"
   back: "戻る"
@@ -484,7 +481,6 @@ sidebar:
   switch_dark: "ダークテーマに切替"
   search_commands: "コマンド、テーブル、スキーマを検索..."
   search_commands_shortcut: "コマンド、テーブル、スキーマを検索 (%{m}P)"
-  resize_output: "出力パネルをリサイズ"
   resize_window: "ウィンドウをリサイズ (%{dir})"
 workspace:
   tab_welcome: "ようこそ"
@@ -549,3 +545,8 @@ workspace:
   session_saved: "名前付きワークスペースセッションを保存しました"
   session_not_found: "名前付きセッションが見つかりません"
   session_duplicated: "ワークスペースセッションを複製しました"
+shell:
+  toggle_output_panel: "出力パネルの切替"
+  ping_ms: "Ping: %{n} ms"
+  ln_col: "%{line} 行, %{col} 列"
+  resize_output: "出力パネルをリサイズ"
