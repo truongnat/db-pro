@@ -21,11 +21,13 @@ fn error_codes_are_unique_and_stable() {
         DbError::Unsupported("test".into()),
         DbError::DataFailed("test".into()),
         DbError::ConstraintViolation {
-            constraint_type: ConstraintType::Unique,
-            constraint: "test".into(),
-            table: "test".into(),
-            column: None,
-            message: "test".into(),
+            details: Box::new(ConstraintViolationDetails {
+                constraint_type: ConstraintType::Unique,
+                constraint: "test".into(),
+                table: "test".into(),
+                column: None,
+                message: "test".into(),
+            }),
         },
         DbError::NotFound("test".into()),
         DbError::Conflict("test".into()),
@@ -84,11 +86,13 @@ fn error_category_grouping() {
     assert_eq!(DbError::DataFailed("x".into()).category(), ErrorCategory::Data);
     assert_eq!(
         DbError::ConstraintViolation {
-            constraint_type: ConstraintType::Unique,
-            constraint: "x".into(),
-            table: "x".into(),
-            column: None,
-            message: "x".into(),
+            details: Box::new(ConstraintViolationDetails {
+                constraint_type: ConstraintType::Unique,
+                constraint: "x".into(),
+                table: "x".into(),
+                column: None,
+                message: "x".into(),
+            }),
         }
         .category(),
         ErrorCategory::Data

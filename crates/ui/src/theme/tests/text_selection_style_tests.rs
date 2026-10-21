@@ -113,7 +113,9 @@ fn native_text_edit_selection_recolors_only_selected_glyphs_in_both_themes() {
         let row = &text.galley.rows[0];
         assert!(selection_bounds(row, ctx.global_style().visuals.selection.bg_fill).is_some());
         for (index, quad) in row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()]
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .enumerate()
         {
             let expected = if (1..4).contains(&index) {

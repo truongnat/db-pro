@@ -54,6 +54,19 @@ pub enum ConstraintType {
     Other(i32),
 }
 
+/// Owned payload of [`DbError::ConstraintViolation`].
+///
+/// Boxed at the variant so the multi-string error stays within clippy's
+/// `result_large_err` size budget for `DbError`.
+#[derive(Debug, Clone)]
+pub struct ConstraintViolationDetails {
+    pub constraint_type: ConstraintType,
+    pub constraint: String,
+    pub table: String,
+    pub column: Option<String>,
+    pub message: String,
+}
+
 /// Unified error taxonomy for the entire application.
 ///
 /// Every error that crosses a service or transport boundary must be converted
@@ -119,14 +132,13 @@ pub enum DbError {
     #[error("data operation failed: {0}")]
     DataFailed(String),
 
-    #[error("constraint violation ({constraint_type:?}) on {table}: {message}")]
-    ConstraintViolation {
-        constraint_type: ConstraintType,
-        constraint: String,
-        table: String,
-        column: Option<String>,
-        message: String,
-    },
+    #[error(
+        "constraint violation ({constraint_type:?}) on {table}: {message}",
+        constraint_type = .details.constraint_type,
+        table = .details.table,
+        message = .details.message
+    )]
+    ConstraintViolation { details: Box<ConstraintViolationDetails> },
 
     #[error("not found: {0}")]
     NotFound(String),

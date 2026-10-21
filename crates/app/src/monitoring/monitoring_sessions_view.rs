@@ -156,7 +156,7 @@ impl MonitoringSessionsContext<'_> {
         actions: &mut Vec<MonitoringSessionsAction>,
     ) {
         let short = if query.len() > 120 {
-            format!("{}…", &query.chars().take(119).collect::<String>())
+            format!("{}…", query.chars().take(119).collect::<String>())
         } else {
             query.to_owned()
         };

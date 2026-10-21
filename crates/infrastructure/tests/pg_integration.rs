@@ -932,7 +932,7 @@ async fn pg_timestamp_without_time_zone_keeps_wall_clock_value() {
         .unwrap();
 
     assert_eq!(
-        format!("{:?}", &result.rows[0].0[0]),
+        format!("{:?}", result.rows[0].0[0]),
         "Timestamp(\"2024-03-15T10:20:30.123456\")",
         "a naive timestamp must keep its wall-clock reading and its own variant"
     );

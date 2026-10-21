@@ -102,7 +102,10 @@ fn style_text(text: &mut TextShape, background: Color32, foreground: Color32) {
             continue;
         };
         let row = Arc::make_mut(&mut row.row);
-        let mut vertices = row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()].chunks_exact_mut(4);
+        let mut vertices = row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()]
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut();
         for glyph in &row.glyphs {
             if glyph.uv_rect.is_nothing() {
                 continue;

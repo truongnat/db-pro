@@ -213,7 +213,7 @@ impl<'a> AgentPlan<'a> {
                     );
                     ui.add_space(config::PLAN_TASK_ICON_TEXT_GAP);
                     ui.label(
-                        RichText::new(format!("{}. {}", index + 1, &task.title))
+                        RichText::new(format!("{}. {}", index + 1, task.title))
                             .size(config::PLAN_TASK_TITLE_SIZE)
                             .color(visual.title_color),
                     );

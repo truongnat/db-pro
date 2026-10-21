@@ -274,10 +274,9 @@ fn fixture_target() -> Option<FixtureTarget> {
     let url = std::env::var("DATABASE_URL").ok()?;
     let (driver, rest, fallback_port) = if let Some(rest) = url.strip_prefix("postgres://") {
         (DriverType::Postgres, rest, 5432u16)
-    } else if let Some(rest) = url.strip_prefix("mysql://") {
-        (DriverType::Mysql, rest, 3306u16)
     } else {
-        return None;
+        let rest = url.strip_prefix("mysql://")?;
+        (DriverType::Mysql, rest, 3306u16)
     };
     let (binary_column, binary_hex) = match driver {
         DriverType::Postgres => ("blob", "deadbeef"),

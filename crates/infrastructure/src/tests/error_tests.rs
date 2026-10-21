@@ -9,10 +9,8 @@ fn sqlite_primary_key_error_keeps_its_constraint_identity() {
     let error = connection.execute("INSERT INTO t VALUES (1)", []).unwrap_err();
     assert!(matches!(
         from_rusqlite(error),
-        DbError::ConstraintViolation {
-            constraint_type: ConstraintType::PrimaryKey,
-            ..
-        }
+        DbError::ConstraintViolation { details }
+            if details.constraint_type == ConstraintType::PrimaryKey
     ));
 }
 
@@ -25,8 +23,8 @@ fn sqlite_trigger_constraint_is_not_mislabeled_as_check() {
     let error = connection.execute("INSERT INTO t VALUES (1)", []).unwrap_err();
     assert!(matches!(
         from_rusqlite(error),
-        DbError::ConstraintViolation { constraint_type: ConstraintType::Other(code), .. }
-            if code == rusqlite::ffi::SQLITE_CONSTRAINT_TRIGGER
+        DbError::ConstraintViolation { details }
+            if details.constraint_type == ConstraintType::Other(rusqlite::ffi::SQLITE_CONSTRAINT_TRIGGER)
     ));
 }
 
@@ -46,6 +44,6 @@ fn sqlite_known_constraint_categories_remain_distinct() {
         ("INSERT INTO child VALUES (2, NULL, 'valid', 0)", ConstraintType::Check),
     ] {
         let error = from_rusqlite(connection.execute(sql, []).unwrap_err());
-        assert!(matches!(error, DbError::ConstraintViolation { constraint_type, .. } if constraint_type == expected));
+        assert!(matches!(error, DbError::ConstraintViolation { details } if details.constraint_type == expected));
     }
 }

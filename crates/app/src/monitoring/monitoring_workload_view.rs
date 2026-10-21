@@ -149,7 +149,7 @@ impl MonitoringWorkloadContext<'_> {
                     .color(self.theme.text_muted),
                 );
                 let short = if statement.query.len() > 160 {
-                    format!("{}…", &statement.query.chars().take(159).collect::<String>())
+                    format!("{}…", statement.query.chars().take(159).collect::<String>())
                 } else {
                     statement.query.clone()
                 };

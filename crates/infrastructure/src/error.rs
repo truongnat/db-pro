@@ -1,4 +1,4 @@
-use db_pro_core::domain::error::{ConstraintType, DbError};
+use db_pro_core::domain::error::{ConstraintType, ConstraintViolationDetails, DbError};
 
 // cc-scan:allow DEEP_NESTING — nesting mirrors structure depth
 pub fn from_sqlx(err: sqlx::Error) -> DbError {
@@ -28,11 +28,13 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                 // Constraint violations (SQLSTATE 23xxx)
                 if let Some(ct) = constraint_type_from_sqlstate(code_str) {
                     return DbError::ConstraintViolation {
-                        constraint_type: ct,
-                        constraint: db_err.constraint().unwrap_or_default().to_string(),
-                        table: db_err.table().unwrap_or_default().to_string(),
-                        column: None,
-                        message,
+                        details: Box::new(ConstraintViolationDetails {
+                            constraint_type: ct,
+                            constraint: db_err.constraint().unwrap_or_default().to_string(),
+                            table: db_err.table().unwrap_or_default().to_string(),
+                            column: None,
+                            message,
+                        }),
                     };
                 }
                 // Database not found (SQLSTATE 3D000)
@@ -102,11 +104,13 @@ pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
                         code => ConstraintType::Other(code),
                     };
                     DbError::ConstraintViolation {
-                        constraint_type,
-                        constraint: String::new(),
-                        table: String::new(),
-                        column: None,
-                        message,
+                        details: Box::new(ConstraintViolationDetails {
+                            constraint_type,
+                            constraint: String::new(),
+                            table: String::new(),
+                            column: None,
+                            message,
+                        }),
                     }
                 }
                 _ => DbError::QueryFailed(message),

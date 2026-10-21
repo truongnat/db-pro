@@ -165,10 +165,8 @@ async fn fresh_sqlite_connector_enforces_foreign_keys_and_cascades() {
             .execute(&handle, "INSERT INTO child VALUES (1, 99)", &[])
             .await
             .unwrap_err(),
-        DbError::ConstraintViolation {
-            constraint_type: db_pro_core::domain::error::ConstraintType::ForeignKey,
-            ..
-        }
+        DbError::ConstraintViolation { details }
+            if details.constraint_type == db_pro_core::domain::error::ConstraintType::ForeignKey
     ));
     connector
         .execute(&handle, "INSERT INTO parent VALUES (99)", &[])
