@@ -71,6 +71,7 @@
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn replan_fingerprint_detects_form_mutation_after_plan() {
         use db_pro_core::application::ObjectMutationService;
         use db_pro_core::domain::object_mutation::ObjectAction;
@@ -109,6 +110,7 @@
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn database_action_flags_follow_the_action_kind() {
         use db_pro_core::domain::object_mutation::ObjectAction;
 
@@ -130,6 +132,7 @@
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn auto_increment_requires_primary_key_and_rejects_postgres_alter() {
         use db_pro_core::domain::object_mutation::ObjectAction;
 

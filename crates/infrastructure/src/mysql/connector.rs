@@ -570,6 +570,13 @@ impl DbConnector for MySqlConnector {
             results: Vec::new(),
             error: DbError::QueryFailed(format!("MySQL transaction begin failed: {e}")),
         })?;
+        let _active = match sqlx::query_scalar::<_, u64>("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *tx)
+            .await
+        {
+            Ok(connection_id) => Some(self.track_guard(handle.0, connection_id)),
+            Err(_) => None,
+        };
 
         let mut results = Vec::with_capacity(statements.len());
         for (index, statement) in statements.iter().enumerate() {
