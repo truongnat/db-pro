@@ -54,6 +54,34 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 > pre-existing legacy debt under an empty baseline; no new class introduced). Runtime captures
 > at 1280×800 dark+light of the reworked surfaces: results grid, query dock, ER diagram.
 
+> **Issue close-out wave — 2026-10-22 (HEAD `24bae059`).** Closure of the last three open
+> issues. **#260 SQL Server provider** (`75dd8854`, `abd1d324`, `e946773e`, `24bae059`):
+> cancellation/timeout implemented honestly (`KILL <spid>` + connection rotation — tiberius
+> has no TDS attention signal); three fake capabilities (`partitions`, `object_dependencies`,
+> `sequences`) flipped to `false` with exact reasons; explorer/table snippets emit
+> `SELECT TOP (100)` instead of leaking `LIMIT`; the shared conformance suite now runs live
+> against SQL Server (**13/13 for each of PG · MySQL · SQL Server**). The live SHOWPLAN test
+> exposed **another real P1**: TDS `explain` had never worked (error 1067; the RPC path
+> silently executed the query) — rewritten as three separate `SET SHOWPLAN_TEXT` batches,
+> parameterized EXPLAIN now explicit `Unsupported`. Live SQL Server suite **9/9**. Remaining
+> introspection-completeness items filed as a follow-up; plan stays `RUNTIME_VERIFY` for the
+> SQL Server native-UI capture gate.
+> **#252 PL/pgSQL debugger**: interactive stepping is **BLOCKED with evidence** — no
+> `plugin_debugger`/`pldbgapi` exists for PostgreSQL 18 (measured: 0 debug rows in
+> `pg_available_extensions`; requires `shared_preload_libraries` + restart). The honest
+> subset shipped: debug-capability probe + unsupported-state banner (`36d236d4`), and safe
+> typed execute (`7ed2543c`) — placeholder-only `SELECT`/`CALL` with typed `QueryParam`
+> bindings through the whole UI→runtime→backend chain, `::type` resolution casts where the
+> sqlx bind OID differs from the declaration (int4 arrives as bigint otherwise — live
+> "function does not exist" failure), bound arguments preserved through destructive
+> confirmation, and `DETAIL:`/`CONTEXT:` PL/pgSQL frame trace surfaced in the Messages pane.
+> Live PG **37/37** incl. the `dbpro252` e2e (typed NULL, quote payload, trace). Stepping
+> remaining scope filed as a BLOCKED follow-up.
+> Measured at combined HEAD: workspace **2,244 / 0 / 62 ignored**, clippy **0**, fmt and
+> ui-architecture PASS, locked native release build PASS, clean-code diff-ratchet PASS,
+> live **PG 37/37 · MySQL 12/12 · SQL Server 9/9 · conformance 13/13×3**, routine-workbench
+> captures 1280×800 dark+light (`/tmp/pr252_invoke_*.png`).
+
 > **Status correction — 2026-09-14 (V01-06 evidence audit).** The V01-01…V01-05 closure
 > claims recorded on 2026-09-14 by `53e89f5` are **not** backed by retrievable evidence and
 > are downgraded here to what the evidence supports:

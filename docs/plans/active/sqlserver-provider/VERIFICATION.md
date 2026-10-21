@@ -33,3 +33,40 @@ No native UI screenshot/recording or live SQL Server evidence has been collected
 Docker was checked on 2026-09-17: no SQL Server container/image was available in
 the environment. The fixture command is documented in
 `crates/infrastructure/tests/sqlserver_integration.rs`.
+
+## Issue-wave evidence — 2026-10-22 (HEAD `24bae059`)
+
+The 2026-09-17 BLOCKED rows above are superseded: a live SQL Server 2022 CU27
+fixture now runs on this host (`dbpro-mssql-fixture`, provisioned idempotently by
+`scripts/provision-test-fixtures.sh`; decoder fixture under `fixtures/mssql/`).
+
+- **P1 fixed — cancellation/timeout (`75dd8854`)**: tiberius has no TDS attention
+  signal, so cancel is `KILL <spid>` (session tracked via `fetch_spid` +
+  `ActiveSqlServer` Drop-guard, mirroring the PG backend-pid pattern) plus
+  connection rotation; `run_with_deadline` yields the canonical `DbError::QueryTimeout`.
+  Live SQL Server suite 8/8 at that SHA.
+- **P1 found and fixed — `explain` never worked (`24bae059`)**: the first live
+  SHOWPLAN test proved the one-batch wrapper hit server error 1067 and the RPC
+  path silently executed the query instead of explaining it. Rewritten as three
+  separate `SET SHOWPLAN_TEXT` simple-query batches with session restore;
+  parameterized EXPLAIN is now explicit `Unsupported` (no literal inlining).
+- **Honest capabilities (`abd1d324`)**: `partitions`, `object_dependencies`,
+  `sequences` flipped `true→false` with exact reason strings — the APIs behind
+  them are PostgreSQL-only in this build.
+- **Dialect-correct snippets (`e946773e`)**: explorer/table-data sample SQL emits
+  `SELECT TOP (100)` on SQL Server instead of leaking `LIMIT 100`.
+- **Conformance live (`24bae059`)**: the shared provider-contract decoder suite
+  now parses `sqlserver://` targets and runs against the live fixture.
+
+Measured at combined HEAD `24bae059` (2026-10-22):
+`sqlserver_integration --include-ignored` **9/0**, `mysql_integration` **12/0**,
+`pg_integration` **37/0**, `provider_contract_conformance` **13/0 for each of
+PostgreSQL, MySQL, SQL Server targets**, workspace **2,244 / 0 / 62 ignored**,
+clippy `--workspace --all-targets -- -D warnings` **0**, fmt PASS, ui-architecture
+PASS, locked native release build PASS, clean-code diff-ratchet PASS.
+
+Still open (keeps this plan `RUNTIME_VERIFY`, tracked out-of-plan):
+native UI runtime captures of SQL Server surfaces at 1280×800/1440×900/1920×1080,
+introspection completeness follow-ups (`sys.databases`/`sys.sequences`, trigger
+timing/event/function body, routine parameter types, `SslMode::VerifyFull`,
+`datetime2` sub-second precision, DB→DB transfer) — filed against #260 closure.
