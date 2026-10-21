@@ -23,6 +23,21 @@ pub(crate) fn qualified_sql_name(schema: &str, name: &str) -> String {
     }
 }
 
+/// Row-limited `SELECT *` snippet in the syntax the driver actually accepts (#260).
+/// SQL Server has no `LIMIT` clause and fails on it; T-SQL needs `SELECT TOP (n)`.
+/// PostgreSQL, SQLite and MySQL all accept ANSI `LIMIT`.
+///
+/// Same per-driver dispatch shape as `tools::saved_task_sql::build_export_query`, which
+/// already emits `TOP` for SQL Server.
+pub(crate) fn select_top_snippet(driver: &str, from: &str, limit: u32) -> String {
+    match driver_type_from_name(driver) {
+        DriverType::SqlServer => format!("SELECT TOP ({limit}) *\nFROM {from};"),
+        DriverType::Postgres | DriverType::SQLite | DriverType::Mysql => {
+            format!("SELECT *\nFROM {from}\nLIMIT {limit};")
+        }
+    }
+}
+
 pub(super) fn cell_sql_literal(cell: &UiCell) -> String {
     match cell {
         UiCell::Null => "NULL".to_owned(),

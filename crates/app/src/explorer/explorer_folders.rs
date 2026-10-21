@@ -14,6 +14,11 @@ impl DbProApp {
             SchemaObjectFolderAction::OpenQuery(query) => {
                 self.open_query_document_with(query, None);
             }
+            SchemaObjectFolderAction::OpenSelectTop(from) => {
+                // Dialect-correct row limit: SQL Server rejects `LIMIT` (#260).
+                let query = result_grid_export::select_top_snippet(self.active_driver(), &from, 100);
+                self.open_query_document_with(query, None);
+            }
             SchemaObjectFolderAction::ModifyView(view) => {
                 self.schema.workbench.mode = SchemaWorkbenchMode::View;
                 self.schema.workbench.schema = view.schema.clone();

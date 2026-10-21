@@ -124,7 +124,9 @@ impl DbProApp {
             TableRowAction::OpenDdl => self.open_table_view(TableView::Ddl),
             TableRowAction::OpenQuery => {
                 let from = result_grid_export::qualified_sql_name(schema, table);
-                self.open_query_document(format!("SELECT *\nFROM {from}\nLIMIT 100;"))
+                // Dialect-correct row limit: SQL Server rejects `LIMIT` (#260).
+                let query = result_grid_export::select_top_snippet(self.active_driver(), &from, 100);
+                self.open_query_document(query)
             }
             TableRowAction::GenerateInsert => {
                 let query = build_insert_query(schema, table, self.table.state.table_info.as_ref());

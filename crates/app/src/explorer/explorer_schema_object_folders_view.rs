@@ -17,6 +17,9 @@ use lucide_icons::Icon;
 pub(super) enum SchemaObjectFolderAction {
     Open(SchemaObjectActivation),
     OpenQuery(String),
+    /// Open a dialect-correct row-limited `SELECT *` over the qualified FROM target;
+    /// the snippet itself is built where the active driver is known (#260).
+    OpenSelectTop(String),
     ModifyView(UiViewSummary),
     DropObject { schema: String, name: String, kind: String },
     ToggleTrigger { schema: String, table: String, name: String, enable: bool },
@@ -243,7 +246,7 @@ impl<'a> SchemaObjectFoldersView<'a> {
                     kind: "view".to_owned(),
                 })),
                 SchemaObjectRowAction::OpenQuery => {
-                    Some(SchemaObjectFolderAction::OpenQuery(format!("SELECT *\nFROM {from}\nLIMIT 100;")))
+                    Some(SchemaObjectFolderAction::OpenSelectTop(from.clone()))
                 }
                 SchemaObjectRowAction::Modify => Some(SchemaObjectFolderAction::ModifyView(view_clone.clone())),
                 SchemaObjectRowAction::Drop => Some(SchemaObjectFolderAction::DropObject {

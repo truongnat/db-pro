@@ -32,6 +32,24 @@
         );
     }
 
+    // #260: generated row-limited snippets must not leak T-SQL-incompatible `LIMIT`.
+    #[test]
+    fn select_top_snippet_emits_limit_for_postgres_sqlite_and_mysql() {
+        for driver in ["postgres", "postgresql", "sqlite", "mysql"] {
+            let snippet = select_top_snippet(driver, "\"public\".\"customers\"", 100);
+            assert_eq!(snippet, "SELECT *\nFROM \"public\".\"customers\"\nLIMIT 100;", "{driver}: {snippet}");
+        }
+    }
+
+    #[test]
+    fn select_top_snippet_emits_top_for_sql_server() {
+        for driver in ["sqlserver", "sql server", "mssql"] {
+            let snippet = select_top_snippet(driver, "\"dbo\".\"customers\"", 100);
+            assert_eq!(snippet, "SELECT TOP (100) *\nFROM \"dbo\".\"customers\";", "{driver}: {snippet}");
+            assert!(!snippet.contains("LIMIT"), "{driver}: {snippet}");
+        }
+    }
+
     #[test]
     fn unique_json_keys_suffixes_duplicate_column_names() {
         let columns = vec![

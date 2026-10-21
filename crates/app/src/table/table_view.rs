@@ -108,7 +108,9 @@ impl DbProApp {
             ),
             Action::NewQuery => {
                 let from = result_grid_export::qualified_sql_name(schema, table_name);
-                self.open_query_document_with(format!("SELECT *\nFROM {from}\nLIMIT 100;"), None);
+                // Dialect-correct row limit: SQL Server rejects `LIMIT` (#260).
+                let query = result_grid_export::select_top_snippet(self.active_driver(), &from, 100);
+                self.open_query_document_with(query, None);
             }
             Action::Refresh => {
                 self.request_table_info();
