@@ -31,6 +31,29 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 > `MYSQL_REFERENCE_DATABASE` fixture), fmt/ui-architecture/cc-scan/clean-code-diff PASS,
 > locked native release build PASS, Clippy unchanged at 73 inherited diagnostics.
 
+> **Gap close-out wave — 2026-10-22.** Agent-parallel closure of the remaining gaps:
+> **Clippy 73 → 0** (`def74404`): 64 `double_must_use` died via `async-trait` 0.1.92 bump
+> (Cargo.lock only), `ConstraintViolation` boxed (`DbError` 112→40 B), 6 mechanical fixes,
+> **zero new `#[allow]`**. **Provider fixtures now live on this host**
+> (`scripts/provision-test-fixtures.sh`, `869fe2ca`): SQL Server 2022 container on :1433,
+> repo-owned compose MySQL 8.4 :33306 + `dbpro_reference`, sshd+socat tunnel for the SSH suite.
+> The SQL Server run exposed a **new P1, fixed**: every explicit transaction/DDL batch failed
+> with error 266 because tiberius always RPC-wraps via `sp_executesql`; control/batch statements
+> now route through `Client::simple_query` (`sql_execution_path`, `43f0d944`) — suite went
+> 2/5 → **5/5** (incl. `@p0`→`@P1` test-defect fix). **Perf issues closed**: #541 query dock
+> per-frame clone → `Rc` handle, 67.4 ms → 87 µs/frame at 100k×8 (`46a1e07a`); #542 cell
+> ellipsize O(visible-width), 55.7 ms → 38 µs per 10×65 KiB batch (`159d247f`); #543 filter
+> allocation-free SIMD/ASCII fast path, 100.5 ms → 6.6 ms/keystroke on Vietnamese 100k×8,
+> row-sets proven identical to legacy semantics (`e3635f4c`); #544 ER search caches per
+> `(schema_version, query)`, 2.66 ms → ~0 µs warm frame (`367a70ae`); #545 scheduler repaint
+> clamped to the real deadline [50 ms, 300 s] instead of flat 50 ms idle wakeups (`38f090f5`).
+> Measured gates at final HEAD: workspace **2,201 passed / 0 failed / 56 ignored**,
+> `clippy --workspace --all-targets -- -D warnings` **0**, fmt/ui-architecture PASS,
+> live **PG 35/35 · MySQL 12/12 (cross-DB executes) · SQL Server 5/5 · SSH tunnel 1/1**,
+> locked native release build PASS, clean-code diff-ratchet 0 fail (raw `cc-scan` 20 errors are
+> pre-existing legacy debt under an empty baseline; no new class introduced). Runtime captures
+> at 1280×800 dark+light of the reworked surfaces: results grid, query dock, ER diagram.
+
 > **Status correction — 2026-09-14 (V01-06 evidence audit).** The V01-01…V01-05 closure
 > claims recorded on 2026-09-14 by `53e89f5` are **not** backed by retrievable evidence and
 > are downgraded here to what the evidence supports:
@@ -77,7 +100,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 | Typed Data Diff Values (#457/#485) | main | — | REVIEW | Typed tuple keys/null identity; 11 core tests and independent real SQLite/PostgreSQL seven-row SQL round trips pass. Focused review ACCEPT, including nullable UPDATE correction; provider literal limitations unchanged. Plan: docs/plans/active/data-diff-typed-values/. |
 | Saved Task Schedule Correctness (#504/#462) | main | — | REVIEW | Zero-interval enable is atomic; SkipMissed drops full-interval backlog. Public-store smoke fails four checks before and passes all 21 after; independent review ACCEPT; integrated workspace tests pass. Plan: docs/plans/active/saved-task-schedule-correctness/. |
 | Agent Replay Step Budget (#448) | main | — | REVIEW | Published 76b120724a7542de8b587a002811ddacad28156a; issue closed with regression/runtime evidence. Workspace fmt/check/tests and runtime Clippy pass; inherited app Clippy failure remains recorded. Plan: docs/plans/active/agent-replay-step-budget/. |
-| Workspace Clippy Gate | fix/clippy-collapse-saved-task | #532 | REVIEW | Fixed six inherited Clippy diagnostics blocking Rust CI; focused suites passed. **[CORRECTED 2026-10-21, measured at `9b370139`]** "full workspace Clippy pass" is stale: `cargo clippy --workspace --all-targets -- -D warnings` still FAILS with 73 diagnostics (65 in `db-pro-core` — `double_must_use` from `async_trait` + 1 `result_large_err`; 2 each in app/infrastructure/runtime/ui). Plan: docs/plans/active/clippy-workspace-gates/. |
+| Workspace Clippy Gate | main | #532 | COMPLETED | Fixed six inherited Clippy diagnostics blocking Rust CI; focused suites passed. **[CORRECTED 2026-10-21, measured at `9b370139`]** "full workspace Clippy pass" was stale at the time: 73 inherited diagnostics remained (65 in `db-pro-core` — `double_must_use` from `async_trait` + 1 `result_large_err`; 2 each in app/infrastructure/runtime/ui). **[CLOSED 2026-10-22, `def74404`]** `cargo clippy --workspace --all-targets -- -D warnings` now exits **0**: 64 `double_must_use` removed by the `async-trait` 0.1.92 bump, `DbError::ConstraintViolation` boxed (112→40 B), 6 mechanical fixes, zero new `#[allow]`; workspace tests 2,201/0/56 at final HEAD. Plan: docs/plans/completed/clippy-workspace-gates/. |
 | Workspace Path Confinement (#465) | fix/workspace-path-confinement | #528 | REVIEW | Rejects traversal/absolute paths and root aliases for delete/rename, validates canonical ancestors, and unlinks external-target symlinks safely; focused tests and app/native checks pass. Plan: docs/plans/active/workspace-path-confinement/. |
 | Safe SQLite Sample Seeding (#492) | fix/safe-sample-sqlite-seed | #529 | REVIEW | Per-user fixture path, marker validation, read-only seed, and legacy connection migration. Plan: docs/plans/active/safe-sample-sqlite-seed/. |
 | Export Transfer Preservation (#436/#437) | fix/export-transfer-preserves-destination | #530 | REVIEW | Cleanup touches only current-run partials; empty CSV/TSV retains headers. JSONL is record-only, so zero rows remain zero lines. Plan: docs/plans/active/export-transfer-preservation/. |
