@@ -19,7 +19,8 @@ mod string_i64 {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Bound statement parameter. `PartialEq` (not `Eq`): `Float64` carries `f64`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
 pub enum QueryParam {
     #[serde(rename = "null")]

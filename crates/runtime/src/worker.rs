@@ -185,8 +185,9 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
-        /// Bound parameter values in placeholder order (#225).
-        params: Vec<String>,
+        /// Bound parameter values in placeholder order (#225, #252) — already
+        /// typed `QueryParam`s; the worker binds them without re-coercion.
+        params: Vec<db_pro_core::domain::query::QueryParam>,
         /// Editor schema. Postgres applies it as `search_path` for this query only.
         schema: Option<String>,
         /// Query tab whose open transaction this statement joins.
@@ -204,7 +205,7 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
-        params: Vec<String>,
+        params: Vec<db_pro_core::domain::query::QueryParam>,
         analyze: bool,
         schema: Option<String>,
         /// Query tab whose open transaction this explain joins.
@@ -1664,17 +1665,13 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     let query_cancellations = Arc::clone(&query_cancellations);
                     tokio::spawn(async move {
-                        let bound: Vec<db_pro_core::domain::query::QueryParam> = params
-                            .into_iter()
-                            .map(db_pro_core::domain::query::QueryParam::Text)
-                            .collect();
                         let result = tokio::select! {
                             result = db_pro_core::application::with_query_session(
                                 session_id.as_deref(),
                                 query_api.execute_with_params(
                                     &connection_id,
                                     &sql,
-                                    &bound,
+                                    &params,
                                     None,
                                     schema.as_deref(),
                                 ),
@@ -1776,14 +1773,10 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     let query_cancellations = Arc::clone(&query_cancellations);
                     tokio::spawn(async move {
-                        let bound: Vec<db_pro_core::domain::query::QueryParam> = params
-                            .into_iter()
-                            .map(db_pro_core::domain::query::QueryParam::Text)
-                            .collect();
                         let result = tokio::select! {
                             result = db_pro_core::application::with_query_session(
                                 session_id.as_deref(),
-                                query_api.explain(&connection_id, &sql, &bound, analyze, schema.as_deref()),
+                                query_api.explain(&connection_id, &sql, &params, analyze, schema.as_deref()),
                             ) => result,
                             _ = cancel_rx => Err(crate::DbErrorDto {
                                 code: "QUERY_CANCELLED".to_owned(),

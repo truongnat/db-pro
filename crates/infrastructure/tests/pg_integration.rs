@@ -1810,3 +1810,109 @@ async fn pg_routine_debug_probe_reports_extension_absent_cleanly() {
     );
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// #252 LIVE: the typed routine-invocation path binds every argument as a parameter
+/// (`SELECT * FROM routine($1::integer, $2)`) instead of interpolating literals. On a real server this
+/// proves that a typed NULL reaches the routine as SQL NULL (not the string "NULL", not magic),
+/// that a value full of quotes survives verbatim (no escaping bug, no injection), and that a
+/// PL/pgSQL failure surfaces its DETAIL/CONTEXT frame trace in the single error message the
+/// Messages pane renders.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn dbpro252_typed_routine_execution_binds_parameters_and_surfaces_plpgsql_trace() {
+    let (connector, handle) = setup().await;
+
+    connector
+        .execute(
+            &handle,
+            "CREATE OR REPLACE FUNCTION dbpro252_probe(a int, b text) \
+             RETURNS text LANGUAGE sql AS $$ SELECT a::text || ' | ' || b $$",
+            &[],
+        )
+        .await
+        .expect("create dbpro252_probe");
+    connector
+        .execute(
+            &handle,
+            "CREATE OR REPLACE FUNCTION dbpro252_raise(a int) RETURNS int \
+             LANGUAGE plpgsql AS $fn$ \
+             BEGIN \
+                 IF a IS NULL THEN \
+                     RAISE EXCEPTION 'dbpro252 typed null reached the routine' \
+                         USING DETAIL = 'probe call from dbpro252'; \
+                 END IF; \
+                 RETURN a; \
+             END \
+             $fn$",
+            &[],
+        )
+        .await
+        .expect("create dbpro252_raise");
+
+    // Exactly the SQL shape build_routine_invoke_sql generates for a Postgres
+    // function: `int` binds as bigint, so its placeholder carries the declared
+    // `::integer` resolution cast; `text` binds exactly and stays bare.
+    let typed_null = connector
+        .query(
+            &handle,
+            "SELECT * FROM dbpro252_probe($1::integer, $2)",
+            &[QueryParam::Null, QueryParam::Text("kept".into())],
+        )
+        .await
+        .expect("typed NULL must bind as SQL NULL");
+    assert_eq!(typed_null.row_count, 1);
+    assert!(
+        matches!(typed_null.rows[0].0[0], CellValue::Null),
+        "int(NULL) || ... must evaluate to SQL NULL, got {:?}",
+        typed_null.rows[0].0[0]
+    );
+
+    let quote_payload = "O'Brien \"'; DROP TABLE users; --\"".to_owned();
+    let quoted = connector
+        .query(
+            &handle,
+            "SELECT * FROM dbpro252_probe($1::integer, $2)",
+            &[QueryParam::Int64(7), QueryParam::Text(quote_payload.clone())],
+        )
+        .await
+        .expect("quote-heavy text must bind as an ordinary value");
+    assert_eq!(quoted.row_count, 1);
+    assert!(
+        matches!(&quoted.rows[0].0[0], CellValue::Text(value)
+            if value == &format!("7 | {quote_payload}")),
+        "argument must reach the routine verbatim, with no escaping or injection effect, got {:?}",
+        quoted.rows[0].0[0]
+    );
+
+    let error = connector
+        .query(
+            &handle,
+            "SELECT * FROM dbpro252_raise($1::integer)",
+            &[QueryParam::Null],
+        )
+        .await
+        .expect_err("RAISE EXCEPTION must fail the query");
+    let message = error.to_string();
+    assert!(
+        message.contains("dbpro252 typed null reached the routine"),
+        "top-line message missing: {message}"
+    );
+    assert!(
+        message.contains("DETAIL:") && message.contains("probe call from dbpro252"),
+        "DETAIL must be surfaced in the failure payload: {message}"
+    );
+    assert!(
+        message.contains("CONTEXT:") && message.contains("dbpro252_raise"),
+        "PL/pgSQL frame trace (CONTEXT ... line N) must be surfaced: {message}"
+    );
+
+    connector
+        .execute(&handle, "DROP FUNCTION IF EXISTS dbpro252_probe(int, text)", &[])
+        .await
+        .expect("drop dbpro252_probe");
+    connector
+        .execute(&handle, "DROP FUNCTION IF EXISTS dbpro252_raise(int)", &[])
+        .await
+        .expect("drop dbpro252_raise");
+    connector.disconnect(&handle).await.unwrap();
+}

@@ -13,5 +13,5 @@ pub use query_document::{QueryDocument, QueryExecutionState};
 pub use schema_completion::{CompletionContext, SchemaCompletionProvider};
 pub use sql_parameters::{
     discover_sql_parameters, discover_sql_parameters_for_driver, placeholder_style_for_driver, prepare_bound_sql,
-    DiscoveredParameter, ParameterKind, PlaceholderStyle, PreparedSql,
+    render_placeholder, DiscoveredParameter, ParameterKind, PlaceholderStyle, PreparedSql,
 };

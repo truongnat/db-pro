@@ -304,7 +304,7 @@ impl DbProApp {
         let path = task_export_path(task.id, fmt);
         let version = self.query.session.active_buffer_version();
         let execution_range = (0, sql.len());
-        self.send_query_run(task.connection_id.clone(), sql, execution_range, version, false)
+        self.send_query_run(task.connection_id.clone(), sql, execution_range, version, false, None)
             .map(|request_id| TaskQueued {
                 request_id,
                 export_path: Some(path),

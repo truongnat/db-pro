@@ -104,7 +104,7 @@ impl DbProApp {
         };
         // Reuse the normal run path so execution state / cancel / history stay consistent.
         let version = self.query.session.active_buffer_version();
-        self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
+        self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false, None);
     }
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {

@@ -4,14 +4,15 @@ use super::query_execution_state::{PendingDestructiveRun, PendingDestructiveRunM
 use super::{
     FeedbackState, QueryEditorState, QueryExecutionPolicyState, QueryExecutionState, QuerySessionState, RequestId,
 };
+use db_pro_core::domain::query::QueryParam;
 use std::time::Instant;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PreparedQueryRun {
     pub(crate) request_id: RequestId,
     pub(crate) connection_id: String,
     pub(crate) sql: String,
-    pub(crate) params: Vec<String>,
+    pub(crate) params: Vec<QueryParam>,
     pub(crate) all_statements: bool,
     pub(crate) schema: Option<String>,
     /// Query tab that owns this run. Table-grid reads leave it empty so they
@@ -54,9 +55,8 @@ impl<'a> QueryExecutionContext<'a> {
         sql: &str,
         origin: PendingDestructiveRunOrigin,
         target_label: String,
-        execution_range: (usize, usize),
-        version: u64,
-        all_statements: bool,
+        metadata: PendingDestructiveRunMetadata,
+        bound_params: Option<Vec<QueryParam>>,
     ) -> bool {
         // An open confirmation owns the slot: never overwrite the statement the user is
         // looking at — the new statement is held (not sent) with a clear reason.
@@ -75,7 +75,8 @@ impl<'a> QueryExecutionContext<'a> {
             sql.to_owned(),
             origin,
             target_label,
-            PendingDestructiveRunMetadata::new(execution_range, version, all_statements),
+            metadata,
+            bound_params,
         ));
         self.feedback
             .set_runtime_message("Destructive statement held for confirmation — nothing was sent to the database");
@@ -118,7 +119,9 @@ impl<'a> QueryExecutionContext<'a> {
             (sql, Vec::new())
         } else {
             match crate::query::prepare_bound_sql(&sql, &values, style) {
-                Ok(prepared) => (prepared.sql, prepared.values),
+                // The editor's parameter panel collects text; bind it as a text
+                // parameter value, never splice it back into the SQL (#225).
+                Ok(prepared) => (prepared.sql, prepared.values.into_iter().map(QueryParam::Text).collect()),
                 Err(missing) => {
                     self.feedback
                         .set_runtime_message(format!("Fill parameter {missing} before running"));
@@ -137,6 +140,30 @@ impl<'a> QueryExecutionContext<'a> {
             all_statements,
             session_id: None,
         })
+    }
+
+    /// Prepare a run whose SQL already carries provider placeholders and whose
+    /// arguments are already typed `QueryParam`s (routine workbench, #252).
+    /// Skips editor parameter discovery — the bound vector *is* the binding, so
+    /// no literal argument value can reach the server as SQL text.
+    pub(crate) fn prepare_bound_run(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        sql: String,
+        params: Vec<QueryParam>,
+        all_statements: bool,
+    ) -> PreparedQueryRun {
+        let schema = self.session.active_schema().map(str::to_owned);
+        PreparedQueryRun {
+            request_id,
+            schema,
+            connection_id,
+            sql,
+            params,
+            all_statements,
+            session_id: None,
+        }
     }
 
     pub(crate) fn commit_dispatched(

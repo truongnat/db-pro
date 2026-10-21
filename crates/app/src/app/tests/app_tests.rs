@@ -4152,7 +4152,7 @@ fn failed_table_data_dispatch_does_not_leave_a_fake_pending_request() {
 fn failed_query_dispatch_does_not_mark_document_running() {
     let mut app = DbProApp::default();
 
-    app.send_query_run("conn-1".to_owned(), "SELECT 1".to_owned(), (0, 8), 0, false);
+    app.send_query_run("conn-1".to_owned(), "SELECT 1".to_owned(), (0, 8), 0, false, None);
 
     assert_eq!(app.query.session.active_running_request(), None);
     assert!(app.query.editor.query_history.is_empty());
@@ -6892,7 +6892,13 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         panic!("expected RunQuery");
     };
     assert_eq!(sql, "SELECT $1, $2");
-    assert_eq!(params, vec!["7".to_owned(), "Ada".to_owned()]);
+    assert_eq!(
+        params,
+        vec![
+            db_pro_core::domain::query::QueryParam::Text("7".to_owned()),
+            db_pro_core::domain::query::QueryParam::Text("Ada".to_owned()),
+        ]
+    );
 }
 
 #[test]

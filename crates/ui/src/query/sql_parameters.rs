@@ -125,7 +125,7 @@ pub fn prepare_bound_sql(
     for hit in &hits {
         out.push_str(&sql[cursor..hit.start]);
         bound.push(values.get(&hit.name).cloned().unwrap_or_default());
-        push_placeholder(&mut out, style, bound.len());
+        out.push_str(&render_placeholder(style, bound.len()));
         cursor = hit.end;
     }
     out.push_str(&sql[cursor..]);
@@ -303,17 +303,16 @@ fn is_sql_server_driver(driver: &str) -> bool {
         || driver.eq_ignore_ascii_case("mssql")
 }
 
-fn push_placeholder(out: &mut String, style: PlaceholderStyle, index: usize) {
+/// Spelling of bind placeholder `index` (1-based) for the given provider style.
+///
+/// Shared by the query editor's `prepare_bound_sql` rewrite and the routine
+/// workbench's generated `CALL`/`SELECT` statements so both emit the exact
+/// placeholder syntax the driver binds against.
+pub fn render_placeholder(style: PlaceholderStyle, index: usize) -> String {
     match style {
-        PlaceholderStyle::NumberedDollar => {
-            out.push('$');
-            out.push_str(&index.to_string());
-        }
-        PlaceholderStyle::QuestionMark => out.push('?'),
-        PlaceholderStyle::AtPn => {
-            out.push_str("@p");
-            out.push_str(&index.to_string());
-        }
+        PlaceholderStyle::NumberedDollar => format!("${index}"),
+        PlaceholderStyle::QuestionMark => "?".to_owned(),
+        PlaceholderStyle::AtPn => format!("@p{index}"),
     }
 }
 

@@ -251,6 +251,18 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query(&mut self) -> bool {
+        self.dispatch_query_inner(None)
+    }
+
+    /// Dispatch the active document with pre-bound typed arguments (#252).
+    /// The routine workbench generates placeholder-only SQL; its typed
+    /// `QueryParam` vector rides the same `RunQuery` command the editor uses,
+    /// bypassing editor parameter discovery.
+    pub(super) fn dispatch_bound_query(&mut self, params: Vec<db_pro_core::domain::query::QueryParam>) -> bool {
+        self.dispatch_query_inner(Some(params))
+    }
+
+    fn dispatch_query_inner(&mut self, bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>) -> bool {
         if self.query.session.active_running_request().is_some() {
             return false;
         }
@@ -282,13 +294,20 @@ impl DbProApp {
         // tasks and other send_query_run callers keep their exact text.
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let version = self.query.session.active_buffer_version();
-        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, execution_range, version, false) {
+        if self.hold_destructive_run_bound(
+            &sql,
+            PendingDestructiveRunOrigin::QueryEditor,
+            execution_range,
+            version,
+            false,
+            bound_params.clone(),
+        ) {
             return false;
         }
         if self.cross_tab_transaction_blocked(&connection_id) {
             return false;
         }
-        self.send_query_run(connection_id, sql, execution_range, version, false)
+        self.send_query_run(connection_id, sql, execution_range, version, false, bound_params)
             .is_some()
     }
 
@@ -363,7 +382,7 @@ impl DbProApp {
         if self.cross_tab_transaction_blocked(&connection_id) {
             return;
         }
-        self.send_query_run(connection_id, sql, execution_range, version, true);
+        self.send_query_run(connection_id, sql, execution_range, version, true, None);
     }
 
     /// Hold a statement or script the classifier rates `Destructive` until the user
@@ -381,6 +400,20 @@ impl DbProApp {
         version: u64,
         all_statements: bool,
     ) -> bool {
+        self.hold_destructive_run_bound(sql, origin, execution_range, version, all_statements, None)
+    }
+
+    /// `hold_destructive_run` with pre-bound typed arguments (#252): a confirmed
+    /// routine call must execute exactly the typed arguments the preview showed.
+    pub(super) fn hold_destructive_run_bound(
+        &mut self,
+        sql: &str,
+        origin: PendingDestructiveRunOrigin,
+        execution_range: (usize, usize),
+        version: u64,
+        all_statements: bool,
+        bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
+    ) -> bool {
         // Resolve the connection the prompt names at hold time: confirming later may look
         // at a different active connection, and the dialog must show what will execute.
         let target_label = match origin {
@@ -394,8 +427,13 @@ impl DbProApp {
                 }
             }
         };
-        self.query_execution_context()
-            .hold_destructive_run(sql, origin, target_label, execution_range, version, all_statements)
+        self.query_execution_context().hold_destructive_run(
+            sql,
+            origin,
+            target_label,
+            super::query_execution_state::PendingDestructiveRunMetadata::new(execution_range, version, all_statements),
+            bound_params,
+        )
     }
 
     /// Send the statement the user confirmed. The text and the buffer version are the ones
@@ -412,6 +450,7 @@ impl DbProApp {
         let execution_range = pending.execution_range();
         let version = pending.version();
         let all_statements = pending.all_statements();
+        let bound_params = pending.bound_params().map(<[db_pro_core::domain::query::QueryParam]>::to_vec);
         let connection_id = match origin {
             PendingDestructiveRunOrigin::InlineQuery => self
                 .active_connection()
@@ -439,7 +478,7 @@ impl DbProApp {
                 self.send_explain_run(connection_id, sql, true);
             }
             PendingDestructiveRunOrigin::QueryEditor => {
-                self.send_query_run(connection_id, sql, execution_range, version, all_statements);
+                self.send_query_run(connection_id, sql, execution_range, version, all_statements, bound_params);
             }
         }
     }
@@ -457,11 +496,19 @@ impl DbProApp {
         execution_range: (usize, usize),
         version: u64,
         all_statements: bool,
+        bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
     ) -> Option<crate::RequestId> {
         let request_id = self.next_request_id();
-        let mut command = self
-            .query_execution_context()
-            .prepare_query_run(request_id, connection_id, sql, all_statements)?;
+        let mut command = match bound_params {
+            // Pre-bound typed arguments (routine workbench): the SQL already holds
+            // provider placeholders, so editor discovery must not re-scan it (#252).
+            Some(params) => self
+                .query_execution_context()
+                .prepare_bound_run(request_id, connection_id, sql, params, all_statements),
+            None => self
+                .query_execution_context()
+                .prepare_query_run(request_id, connection_id, sql, all_statements)?,
+        };
         command.session_id = self.query.session.active_document().map(|document| document.id.clone());
         let runtime_command = query_run_command(&command);
         if self.dispatch_command(runtime_command) {

@@ -1163,6 +1163,7 @@ impl DbProApp {
                 query_execution_state::PendingDestructiveRunOrigin::QueryEditor,
                 "capture-connection · public".to_owned(),
                 query_execution_state::PendingDestructiveRunMetadata::new((0, sql.len()), version, true),
+                None,
             ));
     }
 

@@ -2,7 +2,9 @@
 
 use super::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Typed UI command protocol. `PartialEq` only: bound query parameters carry
+/// `f64` (`QueryParam::Float64`), so the enum cannot be `Eq`.
+#[derive(Debug, Clone, PartialEq)]
 pub enum UiCommand {
     OpenQuery,
     ListConnections {
@@ -188,8 +190,10 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         sql: String,
-        /// Bound parameter values in placeholder order (#225). Mapped to `QueryParam::Text`.
-        params: Vec<String>,
+        /// Bound parameter values in placeholder order (#225, #252). The query
+        /// editor binds discovered values as `QueryParam::Text`; typed producers
+        /// (routine workbench) supply the provider-correct variant directly.
+        params: Vec<db_pro_core::domain::query::QueryParam>,
         /// Schema chosen for this editor. Unqualified names resolve there.
         schema: Option<String>,
         /// Query tab. Empty means this run does not join a tab transaction.
@@ -207,8 +211,8 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         sql: String,
-        /// Bound parameter values in placeholder order. Mapped to `QueryParam::Text`.
-        params: Vec<String>,
+        /// Bound parameter values in placeholder order (see `RunQuery`).
+        params: Vec<db_pro_core::domain::query::QueryParam>,
         analyze: bool,
         schema: Option<String>,
         /// Query tab. Explain reuses that tab's open transaction.

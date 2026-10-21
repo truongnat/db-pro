@@ -51,15 +51,36 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
 }
 
 fn database_message(error: &dyn sqlx::error::DatabaseError) -> (String, Option<usize>) {
-    let message = error.message();
-    let position = error
-        .as_error()
-        .downcast_ref::<sqlx::postgres::PgDatabaseError>()
-        .and_then(|error| match error.position() {
-            Some(sqlx::postgres::PgErrorPosition::Original(position)) => Some(position),
-            Some(sqlx::postgres::PgErrorPosition::Internal { .. }) | None => None,
-        });
-    (message.to_owned(), position)
+    let pg = error.as_error().downcast_ref::<sqlx::postgres::PgDatabaseError>();
+    let position = pg.and_then(|error| match error.position() {
+        Some(sqlx::postgres::PgErrorPosition::Original(position)) => Some(position),
+        Some(sqlx::postgres::PgErrorPosition::Internal { .. }) | None => None,
+    });
+    // PL/pgSQL failures put the frame trace in the `Where` field and extra
+    // context in `Detail`; dropping them left the Messages pane with only the
+    // top-line message (#252). They are appended to the single failure payload
+    // string the UI already renders — the structured severity/code fields stay
+    // owned by the variant mapping above.
+    // Driver limitation (verified against sqlx 0.8.6): server `NOTICE`/`WARNING`/
+    // `INFO` messages arrive only as `NoticeResponse` frames that sqlx routes to
+    // the `sqlx::postgres::notice` log target — no query-level API surfaces them,
+    // so NOTICEs are not yet part of this payload.
+    let mut message = error.message().to_owned();
+    if let Some(pg) = pg {
+        if let Some(detail) = pg.detail() {
+            if !detail.trim().is_empty() {
+                message.push_str("\nDETAIL: ");
+                message.push_str(detail);
+            }
+        }
+        if let Some(frame) = pg.r#where() {
+            if !frame.trim().is_empty() {
+                message.push_str("\nCONTEXT: ");
+                message.push_str(frame);
+            }
+        }
+    }
+    (message, position)
 }
 
 fn query_syntax_error(message: String, position: Option<usize>) -> DbError {

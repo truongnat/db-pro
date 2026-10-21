@@ -22,6 +22,11 @@ pub(crate) enum PendingDestructiveRunOrigin {
 pub(crate) struct PendingDestructiveRun {
     sql: String,
     origin: PendingDestructiveRunOrigin,
+    /// Pre-bound typed arguments from the routine workbench (#252). `None` means
+    /// the editor's own parameter discovery re-binds at confirm time; `Some`
+    /// keeps the exact typed values the preview showed so a confirmed `CALL`
+    /// executes the arguments the user saw, not whatever the form holds later.
+    bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
     /// Connection/schema the dialog must show — resolved when the run is held, not
     /// when it is confirmed.
     target_label: String,
@@ -46,12 +51,29 @@ impl PendingDestructiveRunMetadata {
 }
 
 impl PendingDestructiveRun {
-    pub(crate) fn new(sql: String, origin: PendingDestructiveRunOrigin, target_label: String, metadata: PendingDestructiveRunMetadata) -> Self {
-        Self { sql, origin, target_label, metadata }
+    pub(crate) fn new(
+        sql: String,
+        origin: PendingDestructiveRunOrigin,
+        target_label: String,
+        metadata: PendingDestructiveRunMetadata,
+        bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
+    ) -> Self {
+        Self {
+            sql,
+            origin,
+            bound_params,
+            target_label,
+            metadata,
+        }
     }
 
     pub(crate) fn sql(&self) -> &str {
         &self.sql
+    }
+
+    /// Pre-bound typed arguments to carry through confirmation (#252).
+    pub(crate) fn bound_params(&self) -> Option<&[db_pro_core::domain::query::QueryParam]> {
+        self.bound_params.as_deref()
     }
 
     pub(crate) fn origin(&self) -> PendingDestructiveRunOrigin {

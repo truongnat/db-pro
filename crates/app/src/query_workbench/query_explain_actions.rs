@@ -4,11 +4,12 @@ use super::{
     CapabilityLookup, FeedbackState, OutputTab, QueryExecutionPolicyState, QueryOutputState, QuerySessionState,
     RequestId,
 };
+use db_pro_core::domain::query::QueryParam;
 
 pub(crate) struct PreparedExplainRequest {
     pub(crate) connection_id: String,
     pub(crate) sql: String,
-    pub(crate) params: Vec<String>,
+    pub(crate) params: Vec<QueryParam>,
     pub(crate) analyze: bool,
     /// True when this driver's EXPLAIN ANALYZE actually runs the statement.
     pub(crate) analyze_executes: bool,
@@ -103,7 +104,8 @@ impl<'a> QueryExplainContext<'a> {
         Some(PreparedExplainRequest {
             connection_id,
             sql: prepared.sql,
-            params: prepared.values,
+            // Editor parameter-panel values bind as text parameters (#225).
+            params: prepared.values.into_iter().map(QueryParam::Text).collect(),
             analyze,
             analyze_executes,
             document_index: self.session.active_document_index,

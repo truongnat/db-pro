@@ -2,6 +2,7 @@
     use super::QueryExecutionPolicyState;
     use super::*;
     use crate::query::QueryDocument;
+    use db_pro_core::domain::query::QueryParam;
 
     fn context<'a>(
         session: &'a mut QuerySessionState,
@@ -26,9 +27,8 @@
             "DROP TABLE users",
             PendingDestructiveRunOrigin::QueryEditor,
             "conn · public".to_owned(),
-            (0, 16),
-            0,
-            false
+            PendingDestructiveRunMetadata::new((0, 16), 0, false),
+            None
         ));
         let pending = context.take_pending_destructive_run().expect("held run");
         assert_eq!(pending.origin(), PendingDestructiveRunOrigin::QueryEditor);
@@ -49,18 +49,16 @@
             "DROP TABLE first",
             PendingDestructiveRunOrigin::QueryEditor,
             "conn".to_owned(),
-            (0, 16),
-            0,
-            false
+            PendingDestructiveRunMetadata::new((0, 16), 0, false),
+            None
         ));
         // A second destructive dispatch while the prompt is open must not replace it.
         assert!(context.hold_destructive_run(
             "DROP TABLE second",
             PendingDestructiveRunOrigin::InlineQuery,
             "conn".to_owned(),
-            (0, 17),
-            0,
-            false
+            PendingDestructiveRunMetadata::new((0, 17), 0, false),
+            None
         ));
         let pending = context.take_pending_destructive_run().expect("held run");
         assert_eq!(pending.sql(), "DROP TABLE first");
@@ -94,7 +92,7 @@
                 request_id: RequestId(9),
                 connection_id: "conn-1".to_owned(),
                 sql: "SELECT * FROM users WHERE id = $1".to_owned(),
-                params: vec!["7".to_owned()],
+                params: vec![QueryParam::Text("7".to_owned())],
                 all_statements: false,
                 schema: None,
                 session_id: None,
@@ -163,7 +161,10 @@
             .prepare_query_run(RequestId(4), "conn-1".to_owned(), "SELECT :id, $1".to_owned(), false)
             .expect("sql server query should be prepared");
         assert_eq!(prepared.sql, "SELECT @p1, @p2");
-        assert_eq!(prepared.params, vec!["7".to_owned(), "8".to_owned()]);
+        assert_eq!(
+            prepared.params,
+            vec![QueryParam::Text("7".to_owned()), QueryParam::Text("8".to_owned())]
+        );
     }
 
     #[test]
@@ -181,7 +182,7 @@
             .prepare_query_run(RequestId(5), "conn-1".to_owned(), "SELECT ?".to_owned(), false)
             .expect("mysql query should be prepared");
         assert_eq!(prepared.sql, "SELECT ?");
-        assert_eq!(prepared.params, vec!["9".to_owned()]);
+        assert_eq!(prepared.params, vec![QueryParam::Text("9".to_owned())]);
     }
 
     #[test]
@@ -199,7 +200,7 @@
             .prepare_query_run(RequestId(6), "conn-1".to_owned(), "SELECT ?".to_owned(), false)
             .expect("sqlite query should be prepared");
         assert_eq!(prepared.sql, "SELECT ?");
-        assert_eq!(prepared.params, vec!["9".to_owned()]);
+        assert_eq!(prepared.params, vec![QueryParam::Text("9".to_owned())]);
     }
 
     #[test]

@@ -100,6 +100,7 @@ impl DbProApp {
             self.management.routine.sync_from(&function);
         }
         let dialect = self.editor_dialect();
+        let driver = self.active_driver().to_owned();
         // The debug-capability block goes FIRST: it is the status banner for this workbench,
         // and below the two editor cards it would never be seen at laptop window heights (#252).
         self.draw_routine_debug_status(ui);
@@ -114,6 +115,7 @@ impl DbProApp {
                 parameter_values: &mut self.management.routine.routine_param_values,
                 parameter_nulls: &mut self.management.routine.routine_param_nulls,
                 dialect,
+                driver: &driver,
             };
             routine_workbench_surface_view::draw_workbench(&mut context, ui)
         };
@@ -187,19 +189,26 @@ impl DbProApp {
             Action::ApplyDdl => {
                 self.preview_routine_mutation(function, ObjectAction::Alter);
                 if let Some(sql) = self.management.routine.routine_ddl_preview.clone() {
-                    self.execute_routine_query(sql);
+                    self.execute_routine_query(sql, Vec::new());
                 }
             }
             Action::RequestDrop => self.management.routine.routine_drop_confirm = true,
             Action::ConfirmDrop => {
                 self.preview_routine_mutation(function, ObjectAction::Drop);
                 if let Some(sql) = self.management.routine.routine_ddl_preview.clone() {
-                    self.execute_routine_query(sql);
+                    self.execute_routine_query(sql, Vec::new());
                 }
                 self.management.routine.routine_drop_confirm = false;
             }
             Action::CancelDrop => self.management.routine.routine_drop_confirm = false,
-            Action::Execute(sql) => self.execute_routine_query(sql),
+            Action::Execute { sql, arguments } => match arguments {
+                // Typed arguments ride the existing `RunQuery` command chain;
+                // the SQL text carries only placeholders (#252).
+                Ok(params) => self.execute_routine_query(sql, params),
+                Err(reason) => {
+                    self.feedback.runtime_message = format!("Routine arguments invalid — nothing was sent: {reason}")
+                }
+            },
             Action::OpenInQuery(sql) => self.open_routine_query(sql),
         }
     }
@@ -208,9 +217,17 @@ impl DbProApp {
         self.open_query_document_with(sql, None);
     }
 
-    fn execute_routine_query(&mut self, sql: String) {
+    /// Dispatch the workbench's generated invocation. With bound arguments the
+    /// run skips editor parameter discovery entirely — the typed `QueryParam`
+    /// vector is the binding (#252). Without them (DDL previews, zero-arg
+    /// routines) the plain editor path is preserved.
+    fn execute_routine_query(&mut self, sql: String, params: Vec<db_pro_core::domain::query::QueryParam>) {
         self.open_routine_query(sql);
-        self.dispatch_query();
+        if params.is_empty() {
+            self.dispatch_query();
+        } else {
+            self.dispatch_bound_query(params);
+        }
     }
 
     fn preview_routine_mutation(&mut self, function: &UiFunctionSummary, action: ObjectAction) {
