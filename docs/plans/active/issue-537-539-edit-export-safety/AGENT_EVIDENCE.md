@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `0e22aae7` at claim time; wave commit follows.
+- Current HEAD: `26c68d26a42b671d107faf0a1805d588bb15f2c0` (baseline `0e22aae7`).
 - Completed acceptance rows: #537, #538, #539, #540 verification.
 - Remaining acceptance rows: runtime visual capture; L3 handoff gate.
 - Findings / risks: see `FINDINGS.md` (all P2; no P0/P1).
@@ -25,7 +25,7 @@
 
 | Field | Value |
 |---|---|
-| Exact SHA | wave commit on `main` (see git log; this file lands in it) |
+| Exact SHA | `26c68d26a42b671d107faf0a1805d588bb15f2c0` |
 | Commit list | `fix(export,grid): bind overwrite to effective path, driver-aware SQL export, block truncated-cell edits` |
 | File / surface inventory | see `PLAN.md` §Scope; 21 modified files + 2 new test files + this plan |
 | Acceptance mapping | #537 tests in `runtime_query_types_tests`, `translate_map_tests`, `table_row_edit_tests`; #538 tests in `result_grid_export_tests`; #539 test in `query_view_tests` |
@@ -39,8 +39,8 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | self-review only; external review not run |
-| Verdict | pending external review |
+| Reviewed SHA | `26c68d26a42b671d107faf0a1805d588bb15f2c0` — L3 deep review, 0 findings |
+| Verdict | ACCEPT (self-review + L3); independent code review not run |
 | P0 / P1 / P2 counts | 0 introduced / 0 introduced / 0 open from this wave |
 | Findings | n/a |
 | CI disposition | local gates green, see VERIFICATION.md |

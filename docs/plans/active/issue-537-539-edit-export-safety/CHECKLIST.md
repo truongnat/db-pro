@@ -42,6 +42,6 @@
 
 - [x] Plan directory with PLAN/CHECKLIST/FINDINGS/VERIFICATION/EVIDENCE
 - [x] `docs/plans/STATUS.md` row
-- [ ] Commit on `main`
-- [ ] L3 handoff gate answered
-- [ ] Push `main` and close #537/#538/#539
+- [x] Commit on `main` — `26c68d26a42b671d107faf0a1805d588bb15f2c0`
+- [x] L3 handoff gate answered — review run, 0 findings
+- [x] Push `main` and close #537/#538/#539
