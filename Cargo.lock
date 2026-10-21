@@ -1216,6 +1216,7 @@ dependencies = [
  "egui 0.36.2",
  "image",
  "lucide-icons",
+ "memchr",
  "rand 0.8.7",
  "rust-i18n",
  "rust_xlsxwriter",

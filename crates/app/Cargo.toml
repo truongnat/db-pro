@@ -22,6 +22,9 @@ rust-i18n.workspace = true
 rust_xlsxwriter.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
 rustix = { version = "1.1", features = ["fs"] }
+# Already in the binary's graph via rust-i18n → ignore → aho-corasick; used directly
+# by the result-grid filter matcher (#543) for its SIMD byte search. No new code links in.
+memchr = "2.8"
 
 [dev-dependencies]
 criterion.workspace = true

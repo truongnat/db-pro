@@ -167,18 +167,201 @@ pub fn compare_ui_cells(left: Option<&UiCell>, right: Option<&UiCell>) -> Orderi
     }
 }
 
-fn cell_contains_filter(cell: &UiCell, filter_lower: &str) -> bool {
-    let s = cell_text_as_str(cell);
-    if filter_lower.is_ascii() && s.is_ascii() {
-        let needle = filter_lower.as_bytes();
-        if needle.is_empty() {
+/// Lead bytes of the only two Unicode code points whose lowercase expansion contains
+/// an ASCII character (verified by exhaustive scan over `0x80..0x10FFFF` in the #543
+/// tests): `İ` U+0130 → `i` + U+0307 and KELVIN SIGN U+212A → `k`.
+const BRIDGE_I: [u8; 2] = [0xC4, 0xB0];
+const BRIDGE_K: [u8; 3] = [0xE2, 0x84, 0xAA];
+
+fn is_bridge_at(bytes: &[u8], i: usize) -> bool {
+    bytes[i..].starts_with(&BRIDGE_I) || bytes[i..].starts_with(&BRIDGE_K)
+}
+
+/// The grid filter query, normalized once per projection rebuild (#543).
+///
+/// Match semantics are exactly the pre-fix behaviour — a cell matches iff
+/// `cell.to_lowercase().contains(&filter.to_lowercase())` — but no path allocates per
+/// cell anymore (the old code paid a `String::to_lowercase` for every non-ASCII cell,
+/// every keystroke: 123.7 ms at 100k×8 Vietnamese data):
+/// - ASCII filter: a `memchr2`-driven case-insensitive byte scan of the raw cell.
+///   UTF-8 continuation bytes are ≥ 0x80, so a raw ASCII window match always survives
+///   lowercasing (no false positives), and every lowercase match must start at a byte
+///   equal to the needle's first letter ignoring case (no false negatives) — *except*
+///   when an `İ`/`K` bridge character supplies the ASCII letter from non-ASCII bytes.
+///   Only cells that actually contain one of those two sequences (rare) fall through to
+///   the allocation-free [`Self::match_stream_from`] scan, which is rare enough that the
+///   common non-matching keystroke stays a single SIMD pass over each cell.
+/// - Non-ASCII filter (Vietnamese diacritics, Turkish, Greek…): the cell's lowercase
+///   char stream is walked in place; `char::to_lowercase` is exactly the per-char
+///   expansion `String::to_lowercase` performs, including the multi-char `İ → i +
+///   U+0307`, so matched row sets are identical. When the needle's first char is ASCII
+///   the candidate starts are found with `memchr2` (plus bridge positions), avoiding a
+///   per-char decode of cells that cannot match.
+/// - Cells containing Greek capital sigma `Σ` keep the old allocating comparison:
+///   `str::to_lowercase` applies the context-sensitive final-sigma rule (Σ → ς at word
+///   end) that `char::to_lowercase` does not; re-producing that context inside the scan
+///   is not worth the complexity, and σ-cells are vanishingly rare in the measured
+///   workload. (For an ASCII needle the rule is irrelevant: Σ lowercases to a non-ASCII
+///   char either way, which can never equal an ASCII needle char.)
+struct FilterNeedle {
+    /// Lowercased query — the needle both fast paths and the scan compare against.
+    lower: String,
+    /// Same needle as chars, for the indexed streaming scan (`Chars` is not
+    /// `ExactSizeIterator`, and an index keeps the inner loop branch-cheap).
+    lower_chars: Vec<char>,
+    /// The query is pure ASCII.
+    ascii: bool,
+}
+
+impl FilterNeedle {
+    fn new(filter: &str) -> Self {
+        let lower = filter.to_lowercase();
+        let lower_chars = lower.chars().collect();
+        Self {
+            lower,
+            lower_chars,
+            ascii: filter.is_ascii(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.lower.is_empty()
+    }
+
+    fn matches(&self, cell: &UiCell) -> bool {
+        if self.is_empty() {
             return true;
         }
-        s.as_bytes()
-            .windows(needle.len())
-            .any(|window| window.eq_ignore_ascii_case(needle))
-    } else {
-        s.to_lowercase().contains(filter_lower)
+        let haystack = cell_text_as_str(cell);
+        if self.ascii {
+            self.scan_ascii(haystack)
+        } else {
+            self.scan_unicode(haystack)
+        }
+    }
+
+    /// Byte-level scan for an all-ASCII needle; see [`FilterNeedle`] for why this is
+    /// exact for every cell except the two bridge characters.
+    fn scan_ascii(&self, haystack: &str) -> bool {
+        let needle = self.lower.as_bytes();
+        let bytes = haystack.as_bytes();
+        let first = needle[0];
+        let upper = Self::ascii_counterpart(first);
+        let mut pos = 0usize;
+        while let Some(rel) = memchr::memchr2(first, upper, &bytes[pos..]) {
+            let start = pos + rel;
+            if start + needle.len() <= bytes.len() && bytes[start..start + needle.len()].eq_ignore_ascii_case(needle) {
+                return true;
+            }
+            pos = start + 1;
+        }
+        // A raw-byte miss can still hide a match when a bridge character supplies an
+        // ASCII needle char from non-ASCII bytes (as the start *or* inside the needle);
+        // only cells that actually contain İ/K fall through to the general all-start
+        // stream scan.
+        if Self::bridge_present(bytes) {
+            return self.scan_all_starts(haystack);
+        }
+        false
+    }
+
+    fn scan_unicode(&self, haystack: &str) -> bool {
+        if haystack.is_ascii() {
+            // Lowercasing an ASCII cell keeps it ASCII: it can never contain a
+            // non-ASCII needle.
+            return false;
+        }
+        if haystack.contains('\u{3A3}') {
+            return haystack.to_lowercase().contains(&self.lower);
+        }
+        let first = self.lower_chars[0];
+        if first.is_ascii() {
+            // Lossless: `first` is proven ASCII by the branch guard above.
+            let needle_first = first as u8;
+            let upper = Self::ascii_counterpart(needle_first);
+            let bytes = haystack.as_bytes();
+            let mut pos = 0usize;
+            while let Some(rel) = memchr::memchr2(needle_first, upper, &bytes[pos..]) {
+                let start = pos + rel;
+                if self.match_stream_from(haystack, start) {
+                    return true;
+                }
+                pos = start + 1;
+            }
+            if needle_first == b'i' || needle_first == b'k' {
+                // İ / Kelvin are the only non-ASCII chars whose lowercase starts
+                // with an ASCII letter; they can begin a match at their own position.
+                pos = 0;
+                while let Some(rel) = memchr::memchr2(BRIDGE_I[0], BRIDGE_K[0], &bytes[pos..]) {
+                    let start = pos + rel;
+                    if is_bridge_at(bytes, start) && self.match_stream_from(haystack, start) {
+                        return true;
+                    }
+                    pos = start + 1;
+                }
+            }
+            return false;
+        }
+        self.scan_all_starts(haystack)
+    }
+
+    /// Every start position whose lowercase expansion begins with the needle's first
+    /// char, each compared against the full stream. Complete by construction — this is
+    /// the fallback the `İ`/`K` enumeration above scopes the cheaper candidate sets to.
+    fn scan_all_starts(&self, haystack: &str) -> bool {
+        let first = self.lower_chars[0];
+        for (start, ch) in haystack.char_indices() {
+            let begins = if ch.is_ascii() {
+                // Lossless both ways: `ch` is ASCII here and `to_ascii_lowercase`
+                // returns an ASCII byte.
+                (ch as u8).to_ascii_lowercase() as char == first
+            } else {
+                ch.to_lowercase().next() == Some(first)
+            };
+            if begins && self.match_stream_from(haystack, start) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn bridge_present(bytes: &[u8]) -> bool {
+        let mut pos = 0usize;
+        while let Some(rel) = memchr::memchr2(BRIDGE_I[0], BRIDGE_K[0], &bytes[pos..]) {
+            let start = pos + rel;
+            if is_bridge_at(bytes, start) {
+                return true;
+            }
+            pos = start + 1;
+        }
+        false
+    }
+
+    /// Compare the needle against the cell's lowercase char stream starting at byte
+    /// `from` (a char boundary): allocation-free `haystack[from..].to_lowercase()
+    /// .starts_with(&self.lower)` with the full per-char Unicode expansion.
+    fn match_stream_from(&self, haystack: &str, from: usize) -> bool {
+        let mut expected = 0usize;
+        for lowered in haystack[from..].chars().flat_map(char::to_lowercase) {
+            if self.lower_chars.get(expected).copied() != Some(lowered) {
+                return false;
+            }
+            expected += 1;
+            if expected == self.lower_chars.len() {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// The opposite-case ASCII byte of a lowercase needle head (identity for digits,
+    /// punctuation and everything that is already caseless).
+    fn ascii_counterpart(lower: u8) -> u8 {
+        if lower.is_ascii_lowercase() {
+            lower - 32
+        } else {
+            lower
+        }
     }
 }
 
@@ -192,12 +375,12 @@ pub fn filtered_sorted_indexes(
     sort_column: Option<usize>,
     sort_desc: bool,
 ) -> Vec<usize> {
-    let filter_lower = filter.to_lowercase();
+    let needle = FilterNeedle::new(filter);
     let mut indexes: Vec<usize> = result
         .rows
         .iter()
         .enumerate()
-        .filter(|(_, row)| filter_lower.is_empty() || row.iter().any(|cell| cell_contains_filter(cell, &filter_lower)))
+        .filter(|(_, row)| needle.is_empty() || row.iter().any(|cell| needle.matches(cell)))
         .map(|(index, _)| index)
         .collect();
 
