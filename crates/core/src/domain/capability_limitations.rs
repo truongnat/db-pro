@@ -75,6 +75,11 @@ fn mysql_reason(feature: CapabilityFeature) -> &'static str {
 
 fn sql_server_reason(feature: CapabilityFeature) -> &'static str {
     match feature {
+        // SQL Server has `sys.sequences`, but the TDS introspection never reads it.
+        CapabilityFeature::Sequences => "sequence introspection is not implemented by the SQL Server provider yet",
+        // Both paths resolve a PostgreSQL handle in `runtime/src/api.rs` (`postgres_handle()`).
+        CapabilityFeature::Partitions => "partition administration is PostgreSQL-only in this build",
+        CapabilityFeature::ObjectDependencies => "cross-schema dependency catalog is PostgreSQL-only in this build",
         CapabilityFeature::NumberedParameters => {
             "SQL Server parameters use named @pN placeholders, not PostgreSQL-style $n"
         }

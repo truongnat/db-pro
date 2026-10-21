@@ -301,7 +301,10 @@ impl DatabaseCapabilities {
             trigger_enable_disable: false,
             views: true,
             functions: true,
-            sequences: true,
+            // SQL Server has `sys.sequences`, but the TDS introspection never
+            // queries them (`crates/infrastructure/src/sqlserver/` has no
+            // sequence path), so the provider cannot serve the feature yet.
+            sequences: false,
             enum_types: false,
             rename_objects: true,
             routine_debug: false,
@@ -326,9 +329,14 @@ impl DatabaseCapabilities {
     fn sql_server_features() -> FeatureCapabilities {
         FeatureCapabilities {
             server_sessions: false,
-            partitions: true,
+            // `PostgresApi::partitions` resolves a PostgreSQL handle and rejects
+            // anything else (`runtime/src/api.rs`); no SQL Server partition path exists.
+            partitions: false,
             tablespaces: false,
-            object_dependencies: true,
+            // `PostgresApi::object_dependencies` resolves a PostgreSQL handle
+            // (`runtime/src/api.rs`, `postgres_handle()`); SQL Server has no
+            // dependency-catalog adapter.
+            object_dependencies: false,
             ssh_tunnel: false,
             backup: false,
             schema_diff: true,

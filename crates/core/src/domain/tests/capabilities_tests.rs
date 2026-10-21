@@ -69,6 +69,12 @@ fn sql_server_capabilities_match_tds_provider_boundary() {
     assert!(!caps.features.server_sessions);
     assert!(!caps.features.ssh_tunnel);
     assert!(!caps.features.backup);
+    // Partitions and the dependency catalog resolve a PostgreSQL handle in
+    // `runtime/src/api.rs` (`postgres_handle()`), and the TDS introspection never
+    // queries `sys.sequences`; the flags must stay false (#260 honesty flip).
+    assert!(!caps.features.partitions);
+    assert!(!caps.features.object_dependencies);
+    assert!(!caps.schema.sequences);
 }
 
 #[test]
@@ -112,6 +118,20 @@ fn limitation_explains_why_a_false_flag_is_unavailable() {
     assert_eq!(
         sql_server.limitation(CapabilityFeature::Backup),
         Some("SQL Server backup/restore is not implemented by the shared backup service yet")
+    );
+    // Mirror the MySQL PostgreSQL-only wording; the runtime path is the same
+    // `PostgresApi::partitions`/`object_dependencies` handle gate (#260).
+    assert_eq!(
+        sql_server.limitation(CapabilityFeature::Partitions),
+        Some("partition administration is PostgreSQL-only in this build")
+    );
+    assert_eq!(
+        sql_server.limitation(CapabilityFeature::ObjectDependencies),
+        Some("cross-schema dependency catalog is PostgreSQL-only in this build")
+    );
+    assert_eq!(
+        sql_server.limitation(CapabilityFeature::Sequences),
+        Some("sequence introspection is not implemented by the SQL Server provider yet")
     );
 }
 
