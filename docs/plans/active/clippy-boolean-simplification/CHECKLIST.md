@@ -1,0 +1,3 @@
+- [x] Fix nonminimal boolean in `operation_events.rs`
+- [x] Verify `cargo clippy --workspace --all-targets -- -D warnings` passes
+- [x] Run `cargo test -p db-pro-app`

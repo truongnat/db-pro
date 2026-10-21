@@ -9,7 +9,7 @@ fn take_current_connection_request(
     response_connection_id: &str,
     active_connection_id: Option<&str>,
 ) -> bool {
-    if !pending.as_ref().is_some_and(|(pending_id, _)| *pending_id == request_id.0) {
+    if pending.as_ref().is_none_or(|(pending_id, _)| *pending_id != request_id.0) {
         return false;
     }
     let Some((_, pending_connection_id)) = pending.take() else {
