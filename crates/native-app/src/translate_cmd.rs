@@ -157,6 +157,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::PickBackupFile { .. }
         | UiCommand::PickRestoreFile { .. }
         | UiCommand::PickAuditExportFile { .. }
+        | UiCommand::PickExportFile { .. }
         | UiCommand::PickWorkspaceFolder { .. } => None,
         UiCommand::SaveAgentApiKey { .. } | UiCommand::ForgetAgentApiKey { .. } => translate_agent_key_command(command),
         UiCommand::ListQueryFolders { .. }

@@ -171,6 +171,9 @@ pub enum UiCommand {
     PickAuditExportFile {
         request_id: RequestId,
     },
+    PickExportFile {
+        request_id: RequestId,
+    },
     DeleteConnection {
         request_id: RequestId,
         connection_id: String,

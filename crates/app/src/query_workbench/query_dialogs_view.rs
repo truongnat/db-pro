@@ -132,6 +132,10 @@ impl DbProApp {
                 self.overlay.export_overwrite_pending = false;
             }
             None => {}
+            Some(query_dialog_surface_view::ExportDialogAction::Browse) => {
+                let request_id = self.next_request_id();
+                self.dispatch_command(UiCommand::PickExportFile { request_id });
+            }
         }
     }
 

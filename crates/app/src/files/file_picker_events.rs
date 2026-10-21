@@ -18,6 +18,8 @@ pub(super) fn on_file_picked(
             overlay.backup_output_path = path;
         } else if kind == "restore" {
             overlay.restore_input_path = path;
+        } else if kind == "export-results" {
+            overlay.export_path = path;
         } else if kind == "workspace-folder" {
             let folder = std::path::PathBuf::from(path);
             dialog.clear_error();

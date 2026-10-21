@@ -125,6 +125,14 @@ fn spawn_command_picker(
                     send_picked(request_id, "audit-export", path);
                     continue;
                 }
+                UiCommand::PickExportFile { request_id } => {
+                    let path = rfd::FileDialog::new()
+                        .set_title("Export results")
+                        .save_file()
+                        .map(|path| path.to_string_lossy().into_owned());
+                    send_picked(request_id, "export-results", path);
+                    continue;
+                }
                 UiCommand::PickSshPrivateKey { request_id } => {
                     let path = rfd::FileDialog::new()
                         .pick_file()

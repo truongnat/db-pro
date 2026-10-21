@@ -98,6 +98,7 @@ pub(super) enum ExportDialogAction {
     Cancel,
     Overwrite,
     KeepExisting,
+    Browse,
 }
 
 pub(super) struct ExportDialogContext<'a> {
@@ -136,7 +137,22 @@ impl ExportDialogContext<'_> {
         );
         ui.add_space(SPACE_XS);
         let placeholder = format!("/path/to/results.{}", self.overlay.export_format.extension());
-        Input::new(&mut self.overlay.export_path, placeholder, self.theme).show(ui);
+        ui.horizontal(|ui| {
+            let input_width = ui.available_width() - 108.0;
+            Input::new(&mut self.overlay.export_path, placeholder, self.theme)
+                .width(input_width.max(0.0))
+                .show(ui);
+            ui.add_space(SPACE_XS);
+            if Button::new(self.theme)
+                .text(t!("connection.browse").as_ref())
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                *action = Some(ExportDialogAction::Browse);
+            }
+        });
         // #396: surface the effective file name live so a missing/wrong extension is never a
         // silent surprise — the write itself normalizes the same way.
         let trimmed = self.overlay.export_path.trim().to_owned();
