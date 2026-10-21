@@ -37,7 +37,7 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
         } => Some(UiEvent::MonitoringSnapshotLoaded {
             request_id: ui_request_id(request_id),
             connection_id,
-            snapshot,
+            snapshot: *snapshot,
         }),
         RuntimeEvent::MonitoringWorkloadLoaded {
             request_id,

@@ -498,7 +498,7 @@ pub enum RuntimeEvent {
     MonitoringSnapshotLoaded {
         request_id: RuntimeRequestId,
         connection_id: String,
-        snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
+        snapshot: Box<db_pro_core::domain::monitoring::MonitoringSnapshot>,
     },
     MonitoringWorkloadLoaded {
         request_id: RuntimeRequestId,
@@ -1899,7 +1899,7 @@ pub fn spawn_worker(
                             Ok(snapshot) => RuntimeEvent::MonitoringSnapshotLoaded {
                                 request_id,
                                 connection_id,
-                                snapshot,
+                                snapshot: Box::new(snapshot),
                             },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
