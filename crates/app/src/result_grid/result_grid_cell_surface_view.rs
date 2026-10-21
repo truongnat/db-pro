@@ -151,13 +151,37 @@ pub(super) fn draw_value(
     }
 }
 
-/// Layout once, then cut at the glyph whose advance exceeds the width minus the
-/// ellipsis. Cheap: one galley + a scan, no per-char re-layout.
+/// Fit a cell to `max_width` by laying out a bounded *preview window*, never the whole
+/// cell (#542). The old version ran `layout_no_wrap` over the entire string first, so a
+/// 65 KiB cell cost O(cell size) per repaint (~1.5 ms/cell measured, ~60 ms/frame).
+///
+/// A cell wider than the column only ever shows its first ~`max_width / glyph advance`
+/// characters, so the first window is `PREVIEW_CHARS` characters (generously more than
+/// any realistic cell shows). If the preview still fits — only possible for runs of
+/// zero-width/narrow glyphs — the window doubles until the whole cell has been laid out,
+/// preserving the old "fits ⇒ return whole text" behaviour exactly. On overflow the cut
+/// is taken at the same glyph boundary as a full layout would produce, because the
+/// offending glyph is inside the laid-out window by construction.
 fn ellipsize_to_width(painter: &egui::Painter, text: &str, font: FontId, max_width: f32) -> String {
-    let galley = painter.layout_no_wrap(text.to_owned(), font.clone(), egui::Color32::TRANSPARENT);
-    if galley.size().x <= max_width {
-        return text.to_owned();
-    }
+    // 256 chars at monospace 12 px ≈ 1.8k px — ≥10× any grid column, while 256 glyph
+    // layouts are <0.03 ms. Doubling only happens when the cell is (rarely) narrow enough.
+    const PREVIEW_CHARS: usize = 256;
+
+    let total = text.chars().count();
+    let mut window = total.min(PREVIEW_CHARS);
+    let (prefix, galley) = loop {
+        let prefix: String = text.chars().take(window).collect();
+        let galley = painter.layout_no_wrap(prefix.clone(), font.clone(), egui::Color32::TRANSPARENT);
+        if galley.size().x > max_width {
+            break (prefix, galley);
+        }
+        if window >= total {
+            // The entire cell fits: identical to the old full-layout fast path.
+            return text.to_owned();
+        }
+        window = (window * 2).min(total);
+    };
+
     let ellipsis_galley = painter.layout_no_wrap("…".to_owned(), font, egui::Color32::TRANSPARENT);
     let budget = max_width - ellipsis_galley.size().x;
     let row = &galley.rows[0].row;
@@ -169,7 +193,7 @@ fn ellipsize_to_width(painter: &egui::Painter, text: &str, font: FontId, max_wid
         .count()
         .max(1);
     // glyphs are one-per-char; safe to slice at a char boundary by index.
-    let mut out: String = text.chars().take(cut).collect();
+    let mut out: String = prefix.chars().take(cut).collect();
     out.push('…');
     out
 }
@@ -210,3 +234,7 @@ fn draw_badge(
     painter.rect_stroke(badge_rect, CornerRadius::same(4.0 as u8), Stroke::new(1.0, style.border), egui::StrokeKind::Inside);
     painter.galley(origin + pad, galley, style.foreground);
 }
+
+#[cfg(test)]
+#[path = "tests/result_grid_cell_surface_view_tests.rs"]
+mod tests;
