@@ -80,7 +80,7 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
 
 /// One frame's counts and search state, shared by the toolbar, subset
 /// resolution, and layout dispatch.
-fn measure_diagram_frame<'a>(ctx: &DiagramViewContext<'_>, search_query: &'a str) -> ErDiagramFrame<'a> {
+fn measure_diagram_frame<'a>(ctx: &mut DiagramViewContext<'_>, search_query: &'a str) -> ErDiagramFrame<'a> {
     let all_table_count = design_canvas_len(&ctx.explorer.schema.table_details, &ctx.diagram.design);
     let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
     let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
@@ -91,6 +91,8 @@ fn measure_diagram_frame<'a>(ctx: &DiagramViewContext<'_>, search_query: &'a str
     };
     // Counts only. Cloning every table summary each frame froze show-all on a large schema.
     let listed = diagram_listed_count(
+        &mut ctx.diagram.match_count_cache,
+        ctx.diagram.schema_version,
         &ctx.explorer.schema.table_details,
         search_mode.then_some(search_query),
         render_limit,
@@ -180,37 +182,22 @@ fn resolve_active_subset(
     ui: &mut egui::Ui,
     frame: &ErDiagramFrame<'_>,
 ) -> ErSubsetResolution {
-    if frame.search_mode && !frame.search_query.is_empty() {
-        let seed_indices: Vec<usize> = ctx
-            .diagram
-            .graph
-            .nodes
-            .iter()
-            .filter(|node| matches_diagram_search(&node.table, frame.search_query))
-            .map(|node| node.id)
-            .collect();
-        if seed_indices.is_empty() {
-            return focus_empty_state(ctx, ui, frame);
-        }
-        return ErSubsetResolution::Subset(
-            ctx.diagram
-                .graph
-                .bfs_neighborhood(&seed_indices, (ctx.diagram.neighborhood_depth, 100)),
-        );
+    if !frame.search_mode {
+        return ErSubsetResolution::All;
     }
-    if frame.search_mode && frame.search_query.is_empty() {
-        if ctx.diagram.graph.nodes.is_empty() {
-            return focus_empty_state(ctx, ui, frame);
-        }
-        // The catalog is ready. Show a neighborhood instead of a blank page.
-        let seeds: Vec<usize> = ctx.diagram.graph.nodes.iter().take(3).map(|node| node.id).collect();
-        return ErSubsetResolution::Subset(
-            ctx.diagram
-                .graph
-                .bfs_neighborhood(&seeds, (ctx.diagram.neighborhood_depth, 40)),
-        );
+    // #544: the seed scan and the BFS neighborhood re-run only when the graph,
+    // query, or hop depth changes — a pan/zoom repaint reuses the cached subset.
+    let matched = ctx
+        .diagram
+        .subset_cache
+        .resolve(&ctx.diagram.graph, frame.search_query, ctx.diagram.neighborhood_depth);
+    // An empty seed set is exactly the no-match condition the uncached pass used
+    // in both branches: nothing matched the query, or (empty query) the graph is
+    // still building so `take(3)` had no nodes to seed from.
+    if matched.seeds.is_empty() {
+        return focus_empty_state(ctx, ui, frame);
     }
-    ErSubsetResolution::All
+    ErSubsetResolution::Subset(matched.subset.to_vec())
 }
 
 fn design_canvas_len(live: &[UiTableSummary], design: &crate::diagram::design_mode::DesignModeState) -> usize {
@@ -378,13 +365,23 @@ pub(super) fn diagram_show_all_after_search_edit(show_all: bool, search_query: &
     }
 }
 
-fn diagram_listed_count(all_tables: &[UiTableSummary], search_query: Option<&str>, render_limit: usize) -> usize {
+/// Listed-table count for the badge and grid spec (#544). The match pass over
+/// the live catalog is cached by `(generation, table count, query)` — repaints
+/// with an unchanged catalog and query do no name scanning at all. The result
+/// keeps the old cap semantics: `min(matched, render_limit + 1)`, and search
+/// mode with an empty query lists nothing until a query is typed.
+fn diagram_listed_count(
+    cache: &mut ErMatchCountCache,
+    generation: u64,
+    all_tables: &[UiTableSummary],
+    search_query: Option<&str>,
+    render_limit: usize,
+) -> usize {
     match search_query {
-        Some(query) => all_tables
-            .iter()
-            .filter(|table| !query.is_empty() && matches_diagram_search(table, query))
-            .take(render_limit + 1)
-            .count(),
+        Some("") => 0,
+        Some(query) => cache
+            .matched_tables(all_tables, generation, query)
+            .min(render_limit.saturating_add(1)),
         None => all_tables.len().min(render_limit.saturating_add(1)),
     }
 }
@@ -1273,3 +1270,7 @@ mod design_apply_tests;
 #[cfg(test)]
 #[path = "tests/diagram_view_self_edge_tests.rs"]
 mod self_edge_tests;
+
+#[cfg(test)]
+#[path = "tests/diagram_view_search_cache_tests.rs"]
+mod search_cache_tests;

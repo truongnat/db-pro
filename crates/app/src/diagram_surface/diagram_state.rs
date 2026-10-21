@@ -1,5 +1,125 @@
 use super::*;
 
+/// Keyed cache of the live-catalog search pass (#544). The answer depends on
+/// exactly three inputs — the catalog generation (`schema_version`), the table
+/// count, and the normalized query — so validity is decided by comparing those
+/// on use, never by manual invalidation: any mismatch is a miss and recomputes.
+/// Within one `(generation, count)` pair the table list is stable — the same
+/// invariant `ensure_diagram_graph` already uses to decide the graph needs no
+/// rebuild.
+#[derive(Debug, Default)]
+pub(crate) struct ErMatchCountCache {
+    generation: u64,
+    table_count: usize,
+    query: String,
+    matched_tables: usize,
+    /// Recompute count — evidence for the "no per-frame rescanning" acceptance (#544).
+    recomputes: u64,
+}
+
+impl ErMatchCountCache {
+    /// Number of live tables matching `query` (ASCII-lowercased), rescanned
+    /// only when the key changed.
+    pub(crate) fn matched_tables(
+        &mut self,
+        tables: &[UiTableSummary],
+        generation: u64,
+        query: &str,
+    ) -> usize {
+        if self.generation != generation || self.table_count != tables.len() || self.query != query {
+            self.matched_tables = tables
+                .iter()
+                .filter(|table| matches_diagram_search(table, query))
+                .count();
+            self.generation = generation;
+            self.table_count = tables.len();
+            self.query = query.to_owned();
+            self.recomputes += 1;
+        }
+        self.matched_tables
+    }
+
+    #[cfg(test)]
+    pub(crate) fn recomputes(&self) -> u64 {
+        self.recomputes
+    }
+}
+
+/// Keyed cache of the graph seed scan + BFS neighborhood pass (#544). Keyed by
+/// the graph's identity (`schema_version` + node count — every committed graph
+/// gets a fresh generation, and manual-layout resets install an empty graph),
+/// plus the query and hop depth the BFS was run at. The BFS result is a set of
+/// node ids, so persisted position overrides do not affect validity.
+#[derive(Debug, Default)]
+pub(crate) struct ErSubsetCache {
+    graph_version: u64,
+    node_count: usize,
+    query: String,
+    neighborhood_depth: usize,
+    seeds: Vec<usize>,
+    subset: Vec<usize>,
+    /// Recompute count — evidence for the "no per-frame rescanning" acceptance (#544).
+    recomputes: u64,
+}
+
+/// Borrowed view of one cached subset resolution.
+pub(crate) struct ErSubsetMatch<'a> {
+    pub seeds: &'a [usize],
+    pub subset: &'a [usize],
+}
+
+impl ErSubsetCache {
+    /// Seeds + BFS neighborhood for `(graph, query, depth)`, recomputed only on
+    /// key change. `empty_seed_cap`/`match_seed_cap` mirror the two caps the
+    /// uncached pass used (40 for the no-query neighborhood, 100 for matches).
+    pub(crate) fn resolve(
+        &mut self,
+        graph: &ErGraph,
+        query: &str,
+        neighborhood_depth: usize,
+    ) -> ErSubsetMatch<'_> {
+        if self.graph_version != graph.schema_version
+            || self.node_count != graph.nodes.len()
+            || self.query != query
+            || self.neighborhood_depth != neighborhood_depth
+        {
+            let (seeds, cap): (Vec<usize>, usize) = if query.is_empty() {
+                (
+                    graph.nodes.iter().take(3).map(|node| node.id).collect(),
+                    40,
+                )
+            } else {
+                (
+                    graph
+                        .nodes
+                        .iter()
+                        .filter(|node| matches_diagram_search(&node.table, query))
+                        .map(|node| node.id)
+                        .collect(),
+                    100,
+                )
+            };
+            let subset = graph.bfs_neighborhood(&seeds, (neighborhood_depth, cap));
+            self.graph_version = graph.schema_version;
+            self.node_count = graph.nodes.len();
+            self.query = query.to_owned();
+            self.neighborhood_depth = neighborhood_depth;
+            self.seeds = seeds;
+            self.subset = subset;
+            self.recomputes += 1;
+        }
+        ErSubsetMatch {
+            seeds: &self.seeds,
+            subset: &self.subset,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn recomputes(&self) -> u64 {
+        self.recomputes
+    }
+}
+
 /// Presentation and worker state for the ER diagram surface.
 pub(crate) struct DiagramState {
     pub(super) zoom: f32,
@@ -47,6 +167,10 @@ pub(crate) struct DiagramState {
     pub(super) graph: ErGraph,
     pub(super) spatial_index: ErSpatialIndex,
     pub(super) schema_version: u64,
+    /// #544: per-key caches for the search passes — live-catalog match count
+    /// and graph seed/BFS subset — so redraws stop rescanning 39k names.
+    pub(super) match_count_cache: ErMatchCountCache,
+    pub(super) subset_cache: ErSubsetCache,
     pub(super) layout_worker: crate::diagram::ErLayoutWorker,
     pub(super) layout_state: crate::diagram::ErLayoutState,
     pub(super) latest_layout_request: u64,
@@ -81,6 +205,8 @@ impl Default for DiagramState {
             spatial_index: ErSpatialIndex::default(),
             // Start at one so a stale worker result cannot match the initial state.
             schema_version: 1,
+            match_count_cache: ErMatchCountCache::default(),
+            subset_cache: ErSubsetCache::default(),
             layout_worker: crate::diagram::ErLayoutWorker::default(),
             layout_state: crate::diagram::ErLayoutState::Idle,
             latest_layout_request: 0,

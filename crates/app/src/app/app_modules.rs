@@ -279,7 +279,7 @@ mod transfer_state;
 use audit_state::AuditState;
 pub(crate) use capability_lookup::CapabilityLookup;
 use database_management_state::DatabaseManagementState;
-pub(crate) use diagram_state::DiagramState;
+pub(crate) use diagram_state::{DiagramState, ErMatchCountCache};
 use event_trigger_state::EventTriggerState;
 use fdw_state::FdwState;
 pub(crate) use feedback_state::FeedbackState;

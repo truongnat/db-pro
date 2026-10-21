@@ -369,13 +369,21 @@ pub(crate) struct ExplorerNavCache {
     pub visible: Vec<String>,
 }
 
+/// ER search predicate for one table (#544). `query` must already be
+/// trimmed + ASCII-lowercased (the draw path normalizes once per frame).
+/// Matching is byte-wise ASCII case folding with zero allocations:
+/// `to_ascii_lowercase().contains(query)` allocated a fresh `String` for the
+/// table name, the schema, and every column on each call — 39k allocations per
+/// redraw on a 1 300 × 30 catalog, re-running every repaint while search was
+/// open. Semantics are unchanged, including for non-ASCII bytes
+/// (`to_ascii_lowercase` folds only ASCII, exactly like the windowed compare).
 pub(crate) fn matches_diagram_search(table: &UiTableSummary, query: &str) -> bool {
-    table.name.to_ascii_lowercase().contains(query)
-        || table.schema.to_ascii_lowercase().contains(query)
+    ascii_contains_ignore_case(&table.name, query)
+        || ascii_contains_ignore_case(&table.schema, query)
         || table
             .columns
             .iter()
-            .any(|column| column.name.to_ascii_lowercase().contains(query))
+            .any(|column| ascii_contains_ignore_case(&column.name, query))
 }
 
 pub(crate) fn ddl_impact_summary(sql: &str, target: &str) -> String {

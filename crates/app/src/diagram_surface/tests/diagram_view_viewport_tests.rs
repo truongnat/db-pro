@@ -32,7 +32,7 @@ fn large_schema_search_and_design_inputs_fit_narrow_workspace() {
             connected: true,
             connection_id: None,
         };
-        let frame = measure_diagram_frame(&view, "customers");
+        let frame = measure_diagram_frame(&mut view, "customers");
         let _ = crate::test_frame::frame(
             &context,
             egui::RawInput {
