@@ -14,6 +14,23 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 > connection-form test failures now **PASS at HEAD**; the FEATURE_AUDIT §5 blank results
 > grid is **fixed** in `294ab089` (PR #308) and re-captured in `captures/results_*.png`.
 
+> **PR integration wave — 2026-10-21 (HEAD `6e1a24eb`).** All 16 open PRs (#515–#527, #534–#536)
+> were checked against main and closed. Content merges: **#536** (mutation failure-index bounds,
+> merge `326af665`), **#521** (request/connection-bound rejection of stale monitoring and
+> data-diff responses, merge `946a5db5`; main's newer `reset_connection_scope`/poll helpers kept),
+> **#534** (MySQL `execute_parameterized_transaction` CONNECTION_ID/track_guard, merge `9e6849bf`;
+> main's graceful test guards kept). The remaining **13 PRs were superseded** — main's remediation
+> waves re-implemented each fix, usually stronger (e.g. #515 vs masking `#502/#503` work,
+> #518/#519 vs dialect-aware splitter/RLS validator, #520 vs `expected_backend_start` contract,
+> #527 vs `catch_unwind`+busy_timeout actor); they were recorded with `ours` merges so no weaker
+> implementation could land. Supporting fixes in the same wave: provider tests now skip gracefully
+> instead of failing CI (`6624122e`), statusbar text collision at 1280×800 fixed (`365efbec`),
+> `MonitoringSnapshotLoaded` payload boxed to hold the Clippy baseline (`6e1a24eb`).
+> Measured gates at final HEAD: workspace **2,176 passed / 0 failed / 56 ignored**,
+> `pg_integration` **35/35** live, MySQL suite 12/12 with cross-DB probe skipping (needs
+> `MYSQL_REFERENCE_DATABASE` fixture), fmt/ui-architecture/cc-scan/clean-code-diff PASS,
+> locked native release build PASS, Clippy unchanged at 73 inherited diagnostics.
+
 > **Status correction — 2026-09-14 (V01-06 evidence audit).** The V01-01…V01-05 closure
 > claims recorded on 2026-09-14 by `53e89f5` are **not** backed by retrievable evidence and
 > are downgraded here to what the evidence supports:
