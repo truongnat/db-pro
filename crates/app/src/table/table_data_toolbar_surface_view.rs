@@ -565,14 +565,19 @@ fn draw_column_suggestion_popup(
                                 });
                             });
                         });
-                        if ui
-                            .interact(
-                                row.response.rect,
-                                egui::Id::new(("table_data_column_suggestion", index)),
-                                egui::Sense::click(),
+                        let row_response = ui.interact(
+                            row.response.rect,
+                            egui::Id::new(("table_data_column_suggestion", index)),
+                            egui::Sense::click(),
+                        );
+                        row_response.widget_info(|| {
+                            egui::WidgetInfo::labeled(
+                                egui::WidgetType::Button,
+                                ui.is_enabled(),
+                                column.name.as_str(),
                             )
-                            .clicked()
-                        {
+                        });
+                        if row_response.clicked() {
                             clicked = Some(index);
                         }
                     }

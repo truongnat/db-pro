@@ -309,6 +309,15 @@ impl FilesSurfaceContext<'_> {
                     .interact(egui::Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .on_hover_text(label);
+                // Custom frame: declare the tab role + name for accessibility.
+                response.widget_info(|| {
+                    egui::WidgetInfo::selected(
+                        egui::WidgetType::SelectableLabel,
+                        ui.is_enabled(),
+                        is_active,
+                        label,
+                    )
+                });
                 if response.clicked() && !is_active {
                     actions.push(FilesSurfaceAction::SelectTab(tab));
                 }

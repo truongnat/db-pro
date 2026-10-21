@@ -39,20 +39,19 @@ impl<'a> PaletteSearchContext<'a> {
         if mode == PaletteMode::QuickOpen {
             items.extend(self.recent_table_items());
             items.extend(self.workspace_file_items());
-            items.extend(self.schema_table_items());
-            items.extend(self.schema_view_items());
-            items.extend(self.schema_function_items());
-            items.extend(self.pinned_table_items());
-            items.extend(self.saved_query_items());
-            items.extend(self.query_history_items());
-            items.extend(self.schema_column_items());
-            items.extend(self.snippet_items());
-            items.extend(palette_catalog::agent_action_items());
         }
-        if mode == PaletteMode::Commands {
-            items.extend(self.connection_items());
-            items.extend(palette_catalog::agent_action_items());
-        }
+        // Object entries power the scope chips (Schema / Queries / …); both
+        // palette modes render the chips, so both must index them.
+        items.extend(self.schema_table_items());
+        items.extend(self.schema_view_items());
+        items.extend(self.schema_function_items());
+        items.extend(self.pinned_table_items());
+        items.extend(self.saved_query_items());
+        items.extend(self.query_history_items());
+        items.extend(self.schema_column_items());
+        items.extend(self.snippet_items());
+        items.extend(palette_catalog::agent_action_items());
+        items.extend(self.connection_items());
         items
     }
 

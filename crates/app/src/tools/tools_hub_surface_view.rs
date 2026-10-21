@@ -247,6 +247,11 @@ impl ToolsHubContext<'_> {
         }).response;
 
         let response = ui.interact(response.rect, response.id, egui::Sense::click());
+        // The card is painted by a custom frame — egui can't infer the role, so
+        // declare it as a named button for accessibility tools.
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), title)
+        });
         if response.clicked() {
             actions.push(action);
         }
