@@ -1,6 +1,63 @@
 //! Tests for `../connector.rs` (moved out of the source file).
 use super::*;
 
+#[test]
+fn transaction_control_statements_route_to_simple_batch() {
+    for sql in [
+        "BEGIN TRANSACTION",
+        "begin tran",
+        "  COMMIT TRANSACTION",
+        "COMMIT",
+        "ROLLBACK TRANSACTION",
+        "rollback",
+        "SAVE TRANSACTION DBPRO_PARAMETERIZED_TRANSACTION",
+        "ROLLBACK TRANSACTION DBPRO_PARAMETERIZED_TRANSACTION",
+        "BEGIN DISTRIBUTED TRANSACTION",
+    ] {
+        assert_eq!(
+            sql_execution_path(sql, 0),
+            SqlExecutionPath::SimpleBatch,
+            "transaction control must not go through sp_executesql (error 266): {sql}"
+        );
+    }
+}
+
+#[test]
+fn multi_statement_scripts_route_to_simple_batch() {
+    assert_eq!(
+        sql_execution_path("SET SHOWPLAN_TEXT ON; SELECT 1; SET SHOWPLAN_TEXT OFF", 0),
+        SqlExecutionPath::SimpleBatch
+    );
+    assert_eq!(
+        sql_execution_path("CREATE TABLE a (id int); CREATE TABLE b (id int);", 0),
+        SqlExecutionPath::SimpleBatch,
+        "trailing semicolon must not turn a script into two statements"
+    );
+}
+
+#[test]
+fn single_statement_and_parameterized_sql_stay_on_rpc_path() {
+    assert_eq!(
+        sql_execution_path("SELECT CAST(@@TRANCOUNT AS bigint)", 0),
+        SqlExecutionPath::ParameterizedRpc
+    );
+    assert_eq!(
+        sql_execution_path("INSERT INTO t VALUES (@p1);", 0),
+        SqlExecutionPath::ParameterizedRpc,
+        "single statement with trailing semicolon stays RPC so DONE row counts survive"
+    );
+    assert_eq!(
+        sql_execution_path("UPDATE t SET v = @p1 WHERE id = @p2", 2),
+        SqlExecutionPath::ParameterizedRpc,
+        "bound parameters can only travel through sp_executesql"
+    );
+    assert_eq!(
+        sql_execution_path("BEGIN TRANSACTION", 1),
+        SqlExecutionPath::ParameterizedRpc,
+        "params must never be silently dropped from the wire"
+    );
+}
+
 #[tokio::test]
 async fn execute_transaction_reports_zero_statement_index_on_validation_failure() {
     let connector = SqlServerConnector::new();

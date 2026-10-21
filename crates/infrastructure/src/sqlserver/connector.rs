@@ -24,6 +24,51 @@ use super::query_mapper::{bind_query, decode_cell};
 type SqlServerClient = Client<Compat<TcpStream>>;
 type ClientHandle = Arc<Mutex<SqlServerClient>>;
 
+/// TDS transport chosen for a statement before it reaches the server.
+///
+/// tiberius' `Query` always wraps SQL in the `sp_executesql` RPC
+/// (`src/query.rs:72-82`), which runs the text in a nested batch whose
+/// transaction count must return to the caller's. `BEGIN TRANSACTION` through
+/// that wrapper fails with SQL Server error 266 ("Transaction count after
+/// EXECUTE …") and never scopes the session, so every explicit transaction,
+/// `execute_batch`, and DDL batch breaks. Transaction control and
+/// multi-statement scripts therefore take the raw batch (language event) path,
+/// which executes the text directly in the connection session.
+///
+/// Bound parameters can only travel through `sp_executesql`, so any statement
+/// with params stays on the RPC path. This adds no injection surface: both
+/// paths execute the SQL *text* verbatim; only bind values are parameterized,
+/// and those keep going through the RPC.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlExecutionPath {
+    SimpleBatch,
+    ParameterizedRpc,
+}
+
+/// Pure routing decision: which statements need the raw batch path.
+fn sql_execution_path(sql: &str, params_len: usize) -> SqlExecutionPath {
+    if params_len == 0 && (is_transaction_control(sql) || is_multi_statement(sql)) {
+        SqlExecutionPath::SimpleBatch
+    } else {
+        SqlExecutionPath::ParameterizedRpc
+    }
+}
+
+fn is_transaction_control(sql: &str) -> bool {
+    let head = sql.trim_start().to_ascii_lowercase();
+    ["begin tran", "begin distributed", "commit", "rollback", "save tran"]
+        .iter()
+        .any(|prefix| head.starts_with(prefix))
+}
+
+/// A statement string carrying more than one `;`-delimited statement (trailing
+/// semicolons do not count). Such scripts must stay a single server-side batch
+/// (e.g. `SET SHOWPLAN_TEXT ON; <sql>; SET SHOWPLAN_TEXT OFF`), which the raw
+/// batch path delivers verbatim.
+fn is_multi_statement(sql: &str) -> bool {
+    sql.trim_end().trim_end_matches(';').trim_end().contains(';')
+}
+
 pub struct SqlServerConnector {
     clients: RwLock<HashMap<u64, ClientHandle>>,
     max_rows: RwLock<HashMap<u64, u64>>,
@@ -76,12 +121,17 @@ impl SqlServerConnector {
     ) -> Result<QueryResult, DbError> {
         let client = self.client(handle).await?;
         let mut client = client.lock().await;
-        let query = bind_query(sql, params)?;
         let started = Instant::now();
-        let mut stream = query
-            .query(&mut *client)
-            .await
-            .map_err(|error| DbError::QueryFailed(format!("SQL Server query failed: {error}")))?;
+        let mut stream = match sql_execution_path(sql, params.len()) {
+            SqlExecutionPath::ParameterizedRpc => bind_query(sql, params)?
+                .query(&mut *client)
+                .await
+                .map_err(|error| DbError::QueryFailed(format!("SQL Server query failed: {error}")))?,
+            SqlExecutionPath::SimpleBatch => client
+                .simple_query(sql)
+                .await
+                .map_err(|error| DbError::QueryFailed(format!("SQL Server query failed: {error}")))?,
+        };
         let mut columns = Vec::new();
         let mut rows = Vec::new();
         while let Some(item) = stream
@@ -127,12 +177,32 @@ impl SqlServerConnector {
     async fn execute_one(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
         let client = self.client(handle).await?;
         let mut client = client.lock().await;
-        let query = bind_query(sql, params)?;
-        let result = query
-            .execute(&mut *client)
-            .await
-            .map_err(|error| DbError::QueryFailed(format!("SQL Server execute failed: {error}")))?;
-        Ok(result.total())
+        match sql_execution_path(sql, params.len()) {
+            SqlExecutionPath::ParameterizedRpc => {
+                let query = bind_query(sql, params)?;
+                let result = query
+                    .execute(&mut *client)
+                    .await
+                    .map_err(|error| DbError::QueryFailed(format!("SQL Server execute failed: {error}")))?;
+                Ok(result.total())
+            }
+            // The raw batch stream in tiberius 0.12 does not surface DONE row
+            // counts, and only control/DDL/script text is routed here, where an
+            // affected-row total of 0 is the honest answer.
+            SqlExecutionPath::SimpleBatch => {
+                let mut stream = client
+                    .simple_query(sql)
+                    .await
+                    .map_err(|error| DbError::QueryFailed(format!("SQL Server execute failed: {error}")))?;
+                while stream
+                    .try_next()
+                    .await
+                    .map_err(|error| DbError::QueryFailed(format!("SQL Server result stream failed: {error}")))?
+                    .is_some()
+                {}
+                Ok(0)
+            }
+        }
     }
 
     async fn execute_control(&self, handle: &ConnectionHandle, sql: &str) -> Result<(), DbError> {

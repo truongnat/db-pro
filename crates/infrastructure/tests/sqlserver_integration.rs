@@ -78,10 +78,12 @@ async fn sqlserver_preserves_parameterized_decimal_and_bigint() {
         return;
     };
 
+    // tiberius declares positional RPC parameters as `@P1..@PN` (1-based),
+    // matching the product convention in core `sql_builder::PlaceholderWriter`.
     let result = connector
         .query(
             &handle,
-            "SELECT CAST(@p0 AS decimal(38, 10)) AS exact_decimal, CAST(@p1 AS bigint) AS exact_bigint",
+            "SELECT CAST(@P1 AS decimal(38, 10)) AS exact_decimal, CAST(@P2 AS bigint) AS exact_bigint",
             &[
                 QueryParam::Decimal("123456789012345678.1234567890".into()),
                 QueryParam::Int64(9_223_372_036_854_775_000),
