@@ -64,8 +64,8 @@ pub(crate) struct ErSubsetCache {
 
 /// Borrowed view of one cached subset resolution.
 pub(crate) struct ErSubsetMatch<'a> {
-    pub seeds: &'a [usize],
-    pub subset: &'a [usize],
+    pub(super) seeds: &'a [usize],
+    pub(super) subset: &'a [usize],
 }
 
 impl ErSubsetCache {
