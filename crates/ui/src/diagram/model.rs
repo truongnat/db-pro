@@ -397,8 +397,15 @@ fn assign_positions(
             continue;
         }
         let rows = component_rows(&links, &group);
-        let width = rows.iter().map(|row| row.len()).max().unwrap_or(1) as f32 * step_x;
-        let height = rows.len().max(1) as f32 * step_y;
+        let max_row_len = grid_columns.max(1);
+        // Long same-layer runs (star schemas: N children of one parent) wrap
+        // into sub-rows so no single band forces an unreadable fit zoom.
+        let width = rows.iter().map(|row| row.len().min(max_row_len)).max().unwrap_or(1) as f32 * step_x;
+        let height = rows
+            .iter()
+            .map(|row| row.len().div_ceil(max_row_len) as f32)
+            .sum::<f32>()
+            * step_y;
         if cursor_x > ER_CANVAS_MARGIN && cursor_x - ER_CANVAS_MARGIN + width > target_width {
             cursor_x = ER_CANVAS_MARGIN;
             cursor_y += row_height + ER_GAP_Y;
@@ -411,6 +418,7 @@ fn assign_positions(
             step_x,
             step_y,
             node_height,
+            max_row_len,
         );
         cursor_x += width + ER_GAP_X;
         row_height = row_height.max(height);
@@ -484,7 +492,9 @@ fn component_rows(links: &[(usize, usize)], group: &[usize]) -> Vec<Vec<usize>> 
     rows
 }
 
-/// Stamps the precomputed rows into world rects at `origin`.
+/// Stamps the precomputed rows into world rects at `origin`. A row longer than
+/// `max_row_len` wraps into sub-rows: same-layer siblings (star schemas) used
+/// to form one wide band that crushed the initial fit zoom.
 fn place_component_rows(
     nodes: &mut [ErNode],
     rows: &[Vec<usize>],
@@ -492,12 +502,18 @@ fn place_component_rows(
     step_x: f32,
     step_y: f32,
     node_height: f32,
+    max_row_len: usize,
 ) {
-    for (row_index, row) in rows.iter().enumerate() {
-        for (column, &id) in row.iter().enumerate() {
-            let position = egui::pos2(origin.x + column as f32 * step_x, origin.y + row_index as f32 * step_y);
+    let max_row_len = max_row_len.max(1);
+    let mut y = origin.y;
+    for row in rows {
+        for (index, &id) in row.iter().enumerate() {
+            let column = index % max_row_len;
+            let sub_row = index / max_row_len;
+            let position = egui::pos2(origin.x + column as f32 * step_x, y + sub_row as f32 * step_y);
             nodes[id].world_rect = egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH, node_height));
         }
+        y += row.len().div_ceil(max_row_len) as f32 * step_y;
     }
 }
 

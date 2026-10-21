@@ -14,6 +14,9 @@ pub(super) struct SchemaCompareViewContext<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SchemaCompareAction {
     OpenWorkspace,
+    /// Diff was requested; the handler force-refreshes the schema first so the
+    /// diff runs against live introspection, not the cached summary.
+    RefreshThenDiff,
     RequestDataDiff,
     ApplyMigration,
 }
@@ -56,8 +59,13 @@ pub(super) fn draw_schema_compare_sidebar(
         .show(ui)
         .clicked()
     {
-        context.compare.diff_against_snapshot(context.schema, context.feedback);
-        action = Some(SchemaCompareAction::OpenWorkspace);
+        if context.compare.schema_snapshot.is_some() {
+            context.compare.pending_diff_after_refresh = true;
+            action = Some(SchemaCompareAction::RefreshThenDiff);
+        } else {
+            context.compare.diff_against_snapshot(context.schema, context.feedback);
+            action = Some(SchemaCompareAction::OpenWorkspace);
+        }
     }
     ui.add_space(8.0);
     if let Some(snap) = &context.compare.schema_snapshot {
@@ -87,6 +95,7 @@ pub(super) fn draw_schema_compare(
 ) -> Option<SchemaCompareAction> {
     ui.set_min_width(ui.available_width());
     ui.add_space(SPACE_SM);
+    let mut action = None;
     ui.horizontal(|ui| {
         ui.label(
             RichText::new(t!("compare.title"))
@@ -105,7 +114,12 @@ pub(super) fn draw_schema_compare(
                 .show(ui)
                 .clicked()
             {
-                context.compare.diff_against_snapshot(context.schema, context.feedback);
+                if context.compare.schema_snapshot.is_some() {
+                    context.compare.pending_diff_after_refresh = true;
+                    action = Some(SchemaCompareAction::RefreshThenDiff);
+                } else {
+                    context.compare.diff_against_snapshot(context.schema, context.feedback);
+                }
             }
             if Button::new(context.theme)
                 .icon(Icon::Camera)
@@ -133,10 +147,8 @@ pub(super) fn draw_schema_compare(
             )
             .show(ui);
         });
-        return None;
+        return action;
     };
-
-    let mut action = None;
     ScrollArea::new(context.theme).show(ui, |ui| {
         // Summary header chips
         let total_diffs = diff.tables_only_in_source.len()

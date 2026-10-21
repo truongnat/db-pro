@@ -12,6 +12,17 @@ impl DbProApp {
                 self.workspace.active_tab = WorkspaceTab::SchemaCompare;
                 self.workspace.sidebar_open = true;
             }
+            schema_compare_view::SchemaCompareAction::RefreshThenDiff => {
+                self.workspace.activity = Activity::Compare;
+                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                self.workspace.sidebar_open = true;
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    self.request_schema_introspection(connection_id, true);
+                } else {
+                    self.schema.compare.cancel_diff_after_refresh();
+                    self.feedback.runtime_message = t!("workspace.connect_source_first").into_owned();
+                }
+            }
             schema_compare_view::SchemaCompareAction::RequestDataDiff => self.request_data_diff_keyed(),
             schema_compare_view::SchemaCompareAction::ApplyMigration => self.apply_migration_preview(),
         }

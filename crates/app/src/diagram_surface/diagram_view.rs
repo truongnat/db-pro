@@ -57,6 +57,12 @@ pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) 
     // Layout runs in the background, including while the focus prompt is up,
     // so a search or Show all does not start from an empty graph.
     ensure_diagram_graph(ctx, diagram_grid_spec(&frame, ctx.diagram.zoom));
+    // egui is request-repaint driven: a Computing layout resolves off-screen,
+    // so without this the badge (and the fitted viewport) wait for the next
+    // mouse move instead of the worker result.
+    if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(60));
+    }
 
     let active_node_indices = match resolve_active_subset(ctx, ui, &frame) {
         ErSubsetResolution::Handled => return None,
@@ -121,6 +127,13 @@ fn accept_layout_result(ctx: &mut DiagramViewContext<'_>) {
         return;
     };
     if res.graph_version != ctx.diagram.schema_version || res.request_id != ctx.diagram.latest_layout_request {
+        // A dropped response can otherwise leave `layout_state` stuck on
+        // Computing forever (the "Arranging…" badge never clears). Only
+        // recover when the result we just consumed was the newest outstanding
+        // request — an older reply means a newer request is still in flight.
+        if res.request_id >= ctx.diagram.latest_layout_request {
+            ctx.diagram.layout_state = ErLayoutState::Ready;
+        }
         return;
     }
     commit_graph(ctx, res.graph, Some(res.spatial_index));
@@ -399,7 +412,7 @@ fn draw_diagram_toolbar(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, fra
             ctx.theme.surface_hover,
             ctx.theme.text_secondary,
         );
-        if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
+            if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
             badge(ui, "Arranging…", ctx.theme.surface_hover, ctx.theme.text_secondary);
         }
 

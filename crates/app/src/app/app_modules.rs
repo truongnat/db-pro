@@ -526,7 +526,7 @@ mod saved_tasks_surface_view;
 #[path = "../schema/schema_actions.rs"]
 mod schema_actions;
 #[path = "../schema/schema_compare.rs"]
-mod schema_compare;
+pub(crate) mod schema_compare;
 #[path = "../schema/schema_compare_state.rs"]
 mod schema_compare_state;
 #[path = "../schema/schema_compare_view.rs"]

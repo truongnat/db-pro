@@ -318,25 +318,35 @@ fn apply_initial_viewport(
         return;
     }
     ctx.diagram.auto_fit_done = true;
+    let target_bounds = match active_filter {
+        Some(filter) => ctx.diagram.graph.active_subset_bounds(filter),
+        None => ctx.diagram.graph.world_bounds,
+    };
     if let Some(snapshot) = ctx
         .connection_id
         .as_deref()
         .and_then(|id| ctx.diagram.saved_layouts.get(id))
     {
+        let mut applied = false;
         if let Some(zoom) = snapshot.zoom {
             ctx.diagram.zoom = zoom.clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
+            applied = true;
         }
         if let Some([x, y]) = snapshot.pan {
             ctx.diagram.pan = egui::vec2(x, y);
+            applied = true;
         }
-        if snapshot.zoom.is_some() || snapshot.pan.is_some() {
-            return;
+        if applied {
+            // A stale snapshot can shove the whole graph outside the viewport
+            // (window resized, schema rebuilt with different bounds). Only keep
+            // it when the world still intersects the screen; otherwise refit.
+            let viewport = ErViewport::new(ctx.diagram.pan, ctx.diagram.zoom, viewport_rect.min);
+            let visible = viewport.world_to_screen_rect(target_bounds);
+            if visible.intersects(viewport_rect) {
+                return;
+            }
         }
     }
-    let target_bounds = match active_filter {
-        Some(filter) => ctx.diagram.graph.active_subset_bounds(filter),
-        None => ctx.diagram.graph.world_bounds,
-    };
     if let Some((zoom, pan)) = super::diagram_view::fit_diagram_viewport(target_bounds, viewport_rect) {
         ctx.diagram.zoom = zoom;
         ctx.diagram.pan = pan;

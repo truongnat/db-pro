@@ -17,6 +17,9 @@ pub(super) struct SchemaCompareState {
     /// Live schema captured with the diff. Planning reads its columns instead of a name-only diff.
     pub(super) schema_diff_current: Option<UiSchemaSnapshot>,
     pub(super) schema_diff: Option<UiSchemaDiffResult>,
+    /// "Diff" re-introspects first: set before dispatching a forced schema
+    /// refresh so `on_schema_loaded` can diff the fresh summary, not the cache.
+    pub(super) pending_diff_after_refresh: bool,
     pub(super) migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
     pub(super) migration_preview_sql: String,
     pub(super) migration_confirm_destructive: bool,
@@ -38,6 +41,7 @@ impl Default for SchemaCompareState {
             schema_snapshot: None,
             schema_diff_current: None,
             schema_diff: None,
+            pending_diff_after_refresh: false,
             migration_plan: None,
             migration_preview_sql: String::new(),
             migration_confirm_destructive: false,
@@ -65,12 +69,43 @@ impl SchemaCompareState {
         feedback.set_runtime_message("Schema snapshot captured");
     }
 
-    pub(super) fn diff_against_snapshot(&mut self, schema: &UiSchemaSummary, feedback: &mut FeedbackState) {
+    /// Completes a diff that was waiting on a forced schema refresh. Called
+    /// from `on_schema_loaded` with a snapshot of the fresh summary; the
+    /// pending flag is consumed so a second unrelated load never re-runs it.
+    pub(crate) fn complete_diff_after_refresh_with(
+        &mut self,
+        current: UiSchemaSnapshot,
+        feedback: &mut FeedbackState,
+    ) {
+        self.pending_diff_after_refresh = false;
         let Some(snapshot) = self.schema_snapshot.clone() else {
             feedback.set_runtime_message("Take a schema snapshot before comparing");
             return;
         };
+        self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.schema_diff_current = Some(current);
+        self.migration_plan = None;
+        self.migration_preview_sql.clear();
+        self.migration_confirm_destructive = false;
+        self.migration_fingerprint_at_preview.clear();
+        self.migration_plan_target = None;
+        feedback.set_runtime_message("Schema diff ready");
+    }
+
+    /// Drops the pending diff when the refresh it was waiting on failed —
+    /// otherwise a later unrelated schema load would diff a stale baseline.
+    pub(crate) fn cancel_diff_after_refresh(&mut self) {
+        self.pending_diff_after_refresh = false;
+    }
+
+    /// Diffs the stored snapshot against `schema` as-is (used when the caller
+    /// already has a fresh summary or no snapshot exists yet).
+    pub(super) fn diff_against_snapshot(&mut self, schema: &UiSchemaSummary, feedback: &mut FeedbackState) {
         let current = UiSchemaSnapshot::from_summary("current", schema);
+        let Some(snapshot) = self.schema_snapshot.clone() else {
+            feedback.set_runtime_message("Take a schema snapshot before comparing");
+            return;
+        };
         self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
         self.schema_diff_current = Some(current);
         self.migration_plan = None;

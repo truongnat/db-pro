@@ -168,6 +168,9 @@ impl DbProApp {
 
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
         let driver = self.active_driver().to_owned();
+        let pending_diff = self.schema.compare.pending_diff_after_refresh;
+        let diff_snapshot = pending_diff
+            .then(|| crate::app::schema_compare::UiSchemaSnapshot::from_summary("current", &schema));
         let mut context = schema_events::SchemaLoadedContext {
             schema_explorer: &mut self.schema.explorer,
             table_state: &mut self.table.state,
@@ -180,6 +183,9 @@ impl DbProApp {
         let transition = schema_events::on_schema_loaded(&mut context, request_id, schema);
         if transition.refresh_selected_table {
             self.request_table_info();
+        }
+        if let Some(current) = diff_snapshot {
+            self.schema.compare.complete_diff_after_refresh_with(current, &mut self.feedback);
         }
     }
 
