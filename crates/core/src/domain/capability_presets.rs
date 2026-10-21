@@ -269,7 +269,10 @@ impl DatabaseCapabilities {
         QueryCapabilities {
             multi_statement: true,
             explain: true,
-            cancel: false,
+            // `SqlServerConnector::query` publishes the session's `@@SPID` under an
+            // active-statement guard, and `cancel` runs out-of-band `KILL <spid>`
+            // while that guard lives (live evidence: `sqlserver_integration.rs`).
+            cancel: true,
             parameters: true,
             numbered_parameters: false,
             positional_parameters: false,

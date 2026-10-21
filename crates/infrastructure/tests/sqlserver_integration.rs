@@ -8,9 +8,12 @@
 
 use db_pro_core::domain::cloud_presets::parse_connection_snippet;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType, SslMode};
+use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::sqlserver::connector::SqlServerConnector;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 fn sqlserver_config() -> Option<(ConnectionConfig, String)> {
     let raw = std::env::var("SQLSERVER_URL").ok()?;
@@ -238,4 +241,114 @@ async fn sqlserver_foreign_key_actions_round_trip_through_schema_service() {
         .await
         .unwrap();
     connector.disconnect(&handle).await.unwrap();
+}
+
+/// Issue #260: `cancel()` opens a second tiberius connection, issues `KILL <spid>`
+/// against the session running `WAITFOR DELAY`, and adopts that connection as the
+/// handle's new primary. The killed statement must error promptly (not after the
+/// 10-second delay elapses) and the handle must remain usable afterwards.
+#[tokio::test]
+#[ignore = "requires SQLSERVER_URL and a live SQL Server fixture"]
+async fn sqlserver_cancel_kills_running_query_via_out_of_band_spid() {
+    let Some((connector, handle)) = setup().await else {
+        eprintln!("skipping SQL Server integration test: SQLSERVER_URL is unavailable");
+        return;
+    };
+    let connector = Arc::new(connector);
+    let runner = Arc::clone(&connector);
+    let running = tokio::spawn(async move { runner.query(&handle, "WAITFOR DELAY '00:00:10'", &[]).await });
+
+    // Single-session runtime: give the spawned task a moment to acquire the
+    // connection lock and put WAITFOR on the wire before Stop is pressed.
+    tokio::time::sleep(Duration::from_millis(1_000)).await;
+
+    let started = Instant::now();
+    connector.cancel(&handle).await.expect("KILL <spid> should succeed");
+    let result = running.await.expect("query task should return, not hang");
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < Duration::from_secs(3),
+        "WAITFOR ran for {elapsed:?}; the session was never killed (a 10s delay would keep the query alive)"
+    );
+    let error = result.expect_err("killed session must surface a query error");
+    assert!(
+        matches!(error, DbError::QueryFailed(_)),
+        "expected a cancellation-flavoured query error, got {error:?}"
+    );
+
+    // The killed connection is replaced transparently: the next query succeeds.
+    let probe = connector
+        .query(&handle, "SELECT CAST(1 AS bigint) AS one", &[])
+        .await
+        .expect("handle should work on the rotated session after cancel");
+    assert!(matches!(probe.rows[0].0[0], CellValue::Int64(1)));
+    connector.disconnect(&handle).await.expect("disconnect");
+}
+
+/// Issue #260: `config.query_timeout_ms` is now enforced on SQL Server query paths
+/// (it was previously ignored). The timeout returns the canonical `QueryTimeout`
+/// variant AND stops the runaway query, because tiberius would otherwise block the
+/// next statement behind the unconsumed response.
+#[tokio::test]
+#[ignore = "requires SQLSERVER_URL and a live SQL Server fixture"]
+async fn sqlserver_query_timeout_is_enforced_and_recovers_the_session() {
+    let Some((mut config, password)) = sqlserver_config() else {
+        eprintln!("skipping SQL Server integration test: SQLSERVER_URL is unavailable");
+        return;
+    };
+    config.query_timeout_ms = 1_500;
+    let connector = SqlServerConnector::new();
+    let handle = connector.connect(&config, &password).await.expect("connect");
+
+    let started = Instant::now();
+    let error = connector
+        .query(&handle, "WAITFOR DELAY '00:00:10'", &[])
+        .await
+        .expect_err("a 1.5s deadline must cut a 10s WAITFOR");
+    let elapsed = started.elapsed();
+    assert!(
+        matches!(error, DbError::QueryTimeout { timeout_ms: 1_500 }),
+        "expected the canonical QueryTimeout {{ timeout_ms: 1500 }}, got {error:?}"
+    );
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "timeout fired after {elapsed:?}; the runaway query was not killed server-side"
+    );
+
+    // Same recovery guarantee as cancel: the rotated session serves new queries.
+    let probe = connector
+        .query(&handle, "SELECT CAST(1 AS bigint) AS one", &[])
+        .await
+        .expect("handle should work on the rotated session after timeout");
+    assert!(matches!(probe.rows[0].0[0], CellValue::Int64(1)));
+    connector.disconnect(&handle).await.expect("disconnect");
+}
+
+/// Stop on an idle session must not kill it (PostgreSQL connector parity): the
+/// active-statement guard is empty, so `cancel()` succeeds without a round-trip and
+/// the very next query still runs on the same SPID.
+#[tokio::test]
+#[ignore = "requires SQLSERVER_URL and a live SQL Server fixture"]
+async fn sqlserver_cancel_on_idle_session_keeps_the_connection() {
+    let Some((connector, handle)) = setup().await else {
+        eprintln!("skipping SQL Server integration test: SQLSERVER_URL is unavailable");
+        return;
+    };
+    let before = connector
+        .query(&handle, "SELECT CAST(@@SPID AS int) AS spid", &[])
+        .await
+        .expect("spid probe");
+    connector.cancel(&handle).await.expect("idle cancel should succeed");
+    let after = connector
+        .query(&handle, "SELECT CAST(@@SPID AS int) AS spid", &[])
+        .await
+        .expect("spid probe after idle cancel");
+    assert!(
+        matches!(
+            (&before.rows[0].0[0], &after.rows[0].0[0]),
+            (CellValue::Int64(a), CellValue::Int64(b)) if a == b
+        ),
+        "idle Stop must not rotate the session"
+    );
+    connector.disconnect(&handle).await.expect("disconnect");
 }

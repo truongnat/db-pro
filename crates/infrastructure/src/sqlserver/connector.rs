@@ -9,7 +9,8 @@ use db_pro_core::ports::{
 };
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::future::Future;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel, QueryItem};
@@ -69,8 +70,67 @@ fn is_multi_statement(sql: &str) -> bool {
     sql.trim_end().trim_end_matches(';').trim_end().contains(';')
 }
 
+/// `KILL` takes only an integer session id and rejects query parameters, so the
+/// statement is formatted from the server-generated `u32` read via `@@SPID` —
+/// never from user text.
+fn kill_statement(spid: u32) -> String {
+    format!("KILL {spid}")
+}
+
+/// SQL Server answers `KILL` for an already-exited session with
+/// “Cannot find process ID with SPID N”. The cancellation goal is already met in
+/// that case, so the adapter treats it as success instead of reporting a failed Stop.
+fn kill_reported_missing_session(message: &str) -> bool {
+    message.contains("Cannot find process ID")
+}
+
+/// One live SQL Server session: the single tiberius connection (TDS has no pool),
+/// the `@@SPID` the server assigned to that connection, and the credentials needed
+/// to open a second, out-of-band connection for `KILL`.
+///
+/// PostgreSQL tracks a backend pid per running query and MySQL per pool checkout;
+/// a tiberius handle is exactly one session, so the SPID is captured once per
+/// connection and reused. `active` mirrors PG's `active_backends` emptiness check
+/// so Stop on an idle session succeeds without killing it.
+///
+/// Because SQL Server exposes no TDS attention channel through tiberius, `KILL`
+/// terminates the whole session (PG's `pg_cancel_backend` only cancels the
+/// statement). After a kill the connector therefore adopts a fresh connection
+/// under the same handle so subsequent queries keep working.
+struct SqlServerSession {
+    client: ClientHandle,
+    /// `@@SPID` of `client`, read from the server at connect/rotation time.
+    spid: u32,
+    /// Statements currently executing on `client`. Guarded by `ActiveSqlServer`.
+    active: AtomicUsize,
+    timeout: Duration,
+    config: Config,
+    password: String,
+}
+
+type SessionRef = Arc<SqlServerSession>;
+
+/// Decrements the session's running-statement count when the statement future
+/// ends, including when a deadline or a kill drops it.
+struct ActiveSqlServer<'a> {
+    active: &'a AtomicUsize,
+}
+
+impl<'a> ActiveSqlServer<'a> {
+    fn new(active: &'a AtomicUsize) -> Self {
+        active.fetch_add(1, Ordering::SeqCst);
+        Self { active }
+    }
+}
+
+impl Drop for ActiveSqlServer<'_> {
+    fn drop(&mut self) {
+        self.active.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 pub struct SqlServerConnector {
-    clients: RwLock<HashMap<u64, ClientHandle>>,
+    sessions: RwLock<HashMap<u64, SessionRef>>,
     max_rows: RwLock<HashMap<u64, u64>>,
     next_id: AtomicU64,
 }
@@ -78,19 +138,84 @@ pub struct SqlServerConnector {
 impl SqlServerConnector {
     pub fn new() -> Self {
         Self {
-            clients: RwLock::new(HashMap::new()),
+            sessions: RwLock::new(HashMap::new()),
             max_rows: RwLock::new(HashMap::new()),
             next_id: AtomicU64::new(1),
         }
     }
 
-    async fn client(&self, handle: &ConnectionHandle) -> Result<ClientHandle, DbError> {
-        self.clients
+    async fn session(&self, handle: &ConnectionHandle) -> Result<SessionRef, DbError> {
+        self.sessions
             .read()
             .await
             .get(&handle.0)
             .cloned()
             .ok_or_else(|| DbError::ConnectionFailed(format!("no SQL Server client for handle {}", handle.0)))
+    }
+
+    /// Runs one statement under `config.query_timeout_ms`, the same deadline role
+    /// MySQL/PG apply on their query paths. A timeout additionally kills and
+    /// rotates the session: tiberius never abandons a half-read response — the
+    /// next request's pre-flight `flush_stream` (`client/connection.rs:230`)
+    /// drains to the *last* packet and would block behind the runaway query.
+    /// On recovery failure the abort error replaces the bare timeout so nothing
+    /// is swallowed.
+    async fn run_with_deadline<F, T>(
+        &self,
+        handle: &ConnectionHandle,
+        session: &SessionRef,
+        future: F,
+    ) -> Result<T, DbError>
+    where
+        F: Future<Output = Result<T, DbError>>,
+    {
+        let timeout_ms = session.timeout.as_millis() as u64;
+        match timeout(session.timeout, future).await {
+            Ok(result) => result,
+            Err(_) => match self.kill_and_reconnect(handle.0, session).await {
+                Ok(()) => Err(DbError::QueryTimeout { timeout_ms }),
+                Err(abort_error) => Err(DbError::Internal(format!(
+                    "SQL Server query timed out after {timeout_ms} ms and the runaway session could not be killed: {abort_error}"
+                ))),
+            },
+        }
+    }
+
+    /// Out-of-band cancellation: a second short-lived tiberius connection issues
+    /// `KILL <spid>`, then is adopted as the handle's new primary connection with
+    /// its own freshly-read `@@SPID`. The killed (now dead) connection stays only
+    /// in the `Arc`s captured by already-running statement futures, which error
+    /// promptly once the server closes their socket.
+    async fn kill_and_reconnect(&self, id: u64, session: &SessionRef) -> Result<(), DbError> {
+        let mut probe = connect_client_with(&session.config).await?;
+        let statement = kill_statement(session.spid);
+        let killed: Result<(), tiberius::error::Error> = async {
+            let mut stream = probe.simple_query(&statement).await?;
+            while stream.try_next().await?.is_some() {}
+            Ok(())
+        }
+        .await;
+        if let Err(error) = killed {
+            if !kill_reported_missing_session(&error.to_string()) {
+                return Err(DbError::QueryFailed(format!("SQL Server cancel failed: {error}")));
+            }
+        }
+        let spid = fetch_spid(&mut probe).await?;
+        let replacement = Arc::new(SqlServerSession {
+            client: Arc::new(Mutex::new(probe)),
+            spid,
+            active: AtomicUsize::new(0),
+            timeout: session.timeout,
+            config: session.config.clone(),
+            password: session.password.clone(),
+        });
+        // Only adopt the replacement while the original session is still registered:
+        // a concurrent `disconnect` must not resurrect a handle the user closed.
+        let mut sessions = self.sessions.write().await;
+        if sessions.contains_key(&id) {
+            sessions.insert(id, replacement);
+        }
+        Ok(())
     }
 
     async fn query_with_params(
@@ -100,27 +225,38 @@ impl SqlServerConnector {
         params: &[QueryParam],
     ) -> Result<QueryResult, DbError> {
         let max_rows = self.max_rows.read().await.get(&handle.0).copied().unwrap_or(500);
-        self.query_internal(handle, sql, params, Some(max_rows)).await
+        let session = self.session(handle).await?;
+        self.run_with_deadline(
+            handle,
+            &session,
+            self.query_stream(&session, sql, params, Some(max_rows)),
+        )
+        .await
     }
 
+    /// Catalog reads (introspection) keep the same single-session guarantees but skip
+    /// the per-user-query deadline, mirroring the MySQL connector where introspection
+    /// bypasses the wrapped query/execute paths.
     pub(crate) async fn query_uncapped(
         &self,
         handle: &ConnectionHandle,
         sql: &str,
         params: &[QueryParam],
     ) -> Result<QueryResult, DbError> {
-        self.query_internal(handle, sql, params, None).await
+        let session = self.session(handle).await?;
+        self.query_stream(&session, sql, params, None).await
     }
 
-    async fn query_internal(
+    async fn query_stream(
         &self,
-        handle: &ConnectionHandle,
+        session: &SessionRef,
         sql: &str,
         params: &[QueryParam],
         max_rows: Option<u64>,
     ) -> Result<QueryResult, DbError> {
-        let client = self.client(handle).await?;
+        let client = Arc::clone(&session.client);
         let mut client = client.lock().await;
+        let _active = ActiveSqlServer::new(&session.active);
         let started = Instant::now();
         let mut stream = match sql_execution_path(sql, params.len()) {
             SqlExecutionPath::ParameterizedRpc => bind_query(sql, params)?
@@ -175,8 +311,15 @@ impl SqlServerConnector {
     }
 
     async fn execute_one(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
-        let client = self.client(handle).await?;
+        let session = self.session(handle).await?;
+        self.run_with_deadline(handle, &session, self.execute_statement(&session, sql, params))
+            .await
+    }
+
+    async fn execute_statement(&self, session: &SessionRef, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
+        let client = Arc::clone(&session.client);
         let mut client = client.lock().await;
+        let _active = ActiveSqlServer::new(&session.active);
         match sql_execution_path(sql, params.len()) {
             SqlExecutionPath::ParameterizedRpc => {
                 let query = bind_query(sql, params)?;
@@ -206,7 +349,12 @@ impl SqlServerConnector {
     }
 
     async fn execute_control(&self, handle: &ConnectionHandle, sql: &str) -> Result<(), DbError> {
-        self.execute_one(handle, sql, &[]).await.map(|_| ())
+        // Transaction control (BEGIN/COMMIT/ROLLBACK/SAVE) stays on the raw path,
+        // exempt from the query deadline: killing a COMMIT whose ack is in flight
+        // would turn an unknown commit outcome into a false failure — the same
+        // choice the PostgreSQL connector makes for COMMIT.
+        let session = self.session(handle).await?;
+        self.execute_statement(&session, sql, &[]).await.map(|_| ())
     }
 
     async fn open_transaction_count(&self, handle: &ConnectionHandle) -> Result<i64, DbError> {
@@ -276,31 +424,74 @@ fn sql_server_config(config: &ConnectionConfig, password: &str) -> Result<Config
 }
 
 async fn connect_client(config: &ConnectionConfig, password: &str) -> Result<Client<Compat<TcpStream>>, DbError> {
-    let server = sql_server_config(config, password)?;
+    connect_client_with(&sql_server_config(config, password)?).await
+}
+
+async fn connect_client_with(server: &Config) -> Result<Client<Compat<TcpStream>>, DbError> {
     let tcp = timeout(Duration::from_secs(10), TcpStream::connect(server.get_addr()))
         .await
         .map_err(|_| DbError::ConnectionTimeout("SQL Server TCP connect timed out".into()))?
         .map_err(|error| DbError::ConnectionRefused(format!("SQL Server TCP connect failed: {error}")))?;
     tcp.set_nodelay(true)
         .map_err(|error| DbError::Io(format!("SQL Server TCP setup failed: {error}")))?;
-    timeout(Duration::from_secs(10), Client::connect(server, tcp.compat_write()))
+    timeout(
+        Duration::from_secs(10),
+        Client::connect(server.clone(), tcp.compat_write()),
+    )
+    .await
+    .map_err(|_| DbError::ConnectionTimeout("SQL Server login timed out".into()))?
+    .map_err(|error| DbError::ConnectionFailed(format!("SQL Server login failed: {error}")))
+}
+
+/// Reads the server-assigned session id (`@@SPID`) for a freshly opened client.
+/// The value only ever flows into `KILL <spid>` as a `u32`, so no untrusted text
+/// reaches the emitted SQL.
+async fn fetch_spid(client: &mut SqlServerClient) -> Result<u32, DbError> {
+    let mut stream = bind_query("SELECT CAST(@@SPID AS int)", &[])?
+        .query(&mut *client)
         .await
-        .map_err(|_| DbError::ConnectionTimeout("SQL Server login timed out".into()))?
-        .map_err(|error| DbError::ConnectionFailed(format!("SQL Server login failed: {error}")))
+        .map_err(|error| DbError::QueryFailed(format!("SQL Server @@SPID fetch failed: {error}")))?;
+    while let Some(item) = stream
+        .try_next()
+        .await
+        .map_err(|error| DbError::QueryFailed(format!("SQL Server @@SPID stream failed: {error}")))?
+    {
+        if let QueryItem::Row(row) = item {
+            let spid = row
+                .try_get::<i32, _>(0)
+                .map_err(|error| DbError::Internal(format!("SQL Server @@SPID decode failed: {error}")))?
+                .ok_or_else(|| DbError::Internal("SQL Server returned a NULL @@SPID".into()))?;
+            return u32::try_from(spid)
+                .map_err(|_| DbError::Internal(format!("SQL Server @@SPID out of range: {spid}")));
+        }
+    }
+    Err(DbError::Internal("SQL Server returned no @@SPID row".into()))
 }
 
 #[async_trait]
 impl DbConnector for SqlServerConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
-        let client = connect_client(config, password).await?;
+        let server = sql_server_config(config, password)?;
+        let mut client = connect_client_with(&server).await?;
+        let spid = fetch_spid(&mut client).await?;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        self.clients.write().await.insert(id, Arc::new(Mutex::new(client)));
+        self.sessions.write().await.insert(
+            id,
+            Arc::new(SqlServerSession {
+                client: Arc::new(Mutex::new(client)),
+                spid,
+                active: AtomicUsize::new(0),
+                timeout: Duration::from_millis(config.query_timeout_ms.max(100)),
+                config: server,
+                password: password.to_owned(),
+            }),
+        );
         self.max_rows.write().await.insert(id, config.max_rows);
         Ok(ConnectionHandle::new(id))
     }
 
     async fn disconnect(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
-        self.clients.write().await.remove(&handle.0);
+        self.sessions.write().await.remove(&handle.0);
         self.max_rows.write().await.remove(&handle.0);
         Ok(())
     }
@@ -318,10 +509,15 @@ impl DbConnector for SqlServerConnector {
         self.execute_one(handle, sql, params).await
     }
 
-    async fn cancel(&self, _handle: &ConnectionHandle) -> Result<(), DbError> {
-        Err(DbError::Unsupported(
-            "SQL Server query cancellation is not exposed by the TDS adapter yet".into(),
-        ))
+    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
+        let session = self.session(handle).await?;
+        // Nothing is running on this session: the UI Stop button still has to
+        // succeed, and killing an idle session would drop the user's connection
+        // for no reason — the same emptiness check the PostgreSQL connector makes.
+        if session.active.load(Ordering::SeqCst) == 0 {
+            return Ok(());
+        }
+        self.kill_and_reconnect(handle.0, &session).await
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {

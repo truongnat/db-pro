@@ -145,3 +145,67 @@ async fn execute_parameterized_transaction_reports_zero_statement_index_on_begin
     );
     assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
 }
+
+#[test]
+fn kill_statement_formats_only_the_server_generated_spid() {
+    // `KILL` rejects query parameters; the safety invariant is that the number can
+    // only ever come from the `u32` decoded from `@@SPID`, never from user text.
+    assert_eq!(kill_statement(52), "KILL 52");
+    assert_eq!(kill_statement(u32::MAX), "KILL 4294967295");
+}
+
+#[test]
+fn kill_missing_session_detection_matches_the_real_server_text_only() {
+    assert!(kill_reported_missing_session(
+        "Cannot find process ID with SPID 52. Msg 226, Level 16, State 1, Server x, Line 1"
+    ));
+    assert!(!kill_reported_missing_session(
+        "Cannot KILL a system session. Msg 221, Level 16, State 1"
+    ));
+    assert!(!kill_reported_missing_session("permission denied"));
+}
+
+#[test]
+fn active_statement_guard_counts_statements_including_on_drop() {
+    let active = AtomicUsize::new(0);
+    let _first = ActiveSqlServer::new(&active);
+    assert_eq!(
+        active.load(Ordering::SeqCst),
+        1,
+        "a running statement is visible to Stop"
+    );
+    {
+        let _second = ActiveSqlServer::new(&active);
+        assert_eq!(active.load(Ordering::SeqCst), 2);
+    }
+    assert_eq!(
+        active.load(Ordering::SeqCst),
+        1,
+        "the guard decrements when a statement future is dropped, including on timeout"
+    );
+}
+
+#[tokio::test]
+async fn cancel_on_unknown_handle_reports_connection_failed_instead_of_unsupported() {
+    let connector = SqlServerConnector::new();
+    let error = connector
+        .cancel(&ConnectionHandle::new(999))
+        .await
+        .expect_err("cancelling a handle that was never connected must fail");
+    assert!(
+        matches!(error, DbError::ConnectionFailed(_)),
+        "cancel must be a supported port method now, not a capability lie: {error:?}"
+    );
+}
+
+#[tokio::test]
+async fn query_on_unknown_handle_fails_fast_instead_of_hanging() {
+    // The deadline wraps a session lookup; an unknown handle must fail with the
+    // stable ConnectionFailed message (guards the client() -> session() refactor).
+    let connector = SqlServerConnector::new();
+    let error = connector
+        .query(&ConnectionHandle::new(999), "SELECT 1", &[])
+        .await
+        .expect_err("unknown handle must fail fast");
+    assert!(matches!(error, DbError::ConnectionFailed(_)), "got {error:?}");
+}

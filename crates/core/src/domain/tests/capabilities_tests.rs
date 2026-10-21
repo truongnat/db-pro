@@ -105,11 +105,10 @@ fn limitation_explains_why_a_false_flag_is_unavailable() {
     assert!(mysql.limitation(CapabilityFeature::Parameters).is_none());
 
     let sql_server = DatabaseCapabilities::sql_server();
-    assert_eq!(
-        sql_server.limitation(CapabilityFeature::Cancel),
-        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-        Some("SQL Server cancellation requires a separate attention channel that the TDS adapter does not expose yet")
-    );
+    // SQL Server cancellation shipped with the SPID guard + out-of-band KILL path
+    // in `SqlServerConnector` (#260): a supported feature must expose no limitation.
+    assert!(sql_server.supports(CapabilityFeature::Cancel));
+    assert!(sql_server.limitation(CapabilityFeature::Cancel).is_none());
     assert_eq!(
         sql_server.limitation(CapabilityFeature::Backup),
         Some("SQL Server backup/restore is not implemented by the shared backup service yet")

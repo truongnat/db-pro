@@ -63,9 +63,6 @@ fn mysql_reason(feature: CapabilityFeature) -> &'static str {
 
 fn sql_server_reason(feature: CapabilityFeature) -> &'static str {
     match feature {
-        CapabilityFeature::Cancel => {
-            "SQL Server cancellation requires a separate attention channel that the TDS adapter does not expose yet"
-        }
         CapabilityFeature::NumberedParameters => {
             "SQL Server parameters use named @pN placeholders, not PostgreSQL-style $n"
         }
