@@ -7,6 +7,9 @@ const STATUSBAR_HEIGHT: f32 = 28.0;
 /// elided by the fixed-size label.
 const STATUS_MESSAGE_W: f32 = 260.0;
 const STATUS_MESSAGE_H: f32 = 18.0;
+/// Width reserved for the right-aligned group (toggle button + encoding +
+/// context label) so a long identity/message run can never overlap it.
+const STATUS_RIGHT_RESERVE: f32 = 210.0;
 
 pub(super) enum ShellStatusbarAction {
     ToggleOutput,
@@ -81,7 +84,7 @@ impl ShellStatusbarContext<'_> {
         ui.add_space(SPACE_SM);
         if self.connected {
             ui.label(
-                RichText::new(self.connection_name)
+                RichText::new(crate::components::truncate_ellipsis(self.connection_name, 28))
                     .font(font_caption())
                     .color(self.theme.text_secondary),
             );
@@ -93,7 +96,7 @@ impl ShellStatusbarContext<'_> {
         );
         if let Some(database) = self.database {
             ui.label(
-                RichText::new(database)
+                RichText::new(crate::components::truncate_ellipsis(database, 40))
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
@@ -112,11 +115,14 @@ impl ShellStatusbarContext<'_> {
 
     fn draw_runtime_status(&self, ui: &mut egui::Ui) {
         if let Some((message, message_color)) = &self.runtime_status {
-            ui.add_space(SPACE_SM);
-            ui.add_sized(
-                [STATUS_MESSAGE_W, STATUS_MESSAGE_H],
-                egui::Label::new(RichText::new(message).font(font_caption()).color(*message_color)),
-            );
+            let width = (ui.available_width() - STATUS_RIGHT_RESERVE).min(STATUS_MESSAGE_W);
+            if width >= 90.0 {
+                ui.add_space(SPACE_SM);
+                ui.add_sized(
+                    [width, STATUS_MESSAGE_H],
+                    egui::Label::new(RichText::new(message).font(font_caption()).color(*message_color)).truncate(),
+                );
+            }
         }
     }
 
