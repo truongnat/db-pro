@@ -239,6 +239,8 @@ table:
   no_indexes: "未找到索引"
   no_constraints: "未找到约束"
   no_foreign_keys: "未找到外键"
+  no_dependencies: "未找到依赖项"
+  no_dependencies_hint: "没有符合筛选条件的依赖关系。"
   no_rows: "未加载任何行"
   refresh_ddl: "刷新 DDL"
   open_in_query: "在查询中打开"

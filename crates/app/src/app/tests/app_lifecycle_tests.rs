@@ -242,3 +242,51 @@ fn borderless_sidebar_still_highlights_and_drags() {
         assert!((app.workspace.sidebar_width - original_width - 40.0).abs() < 1.0);
     }
 }
+
+/// Tab must walk the whole shell, not stall on a topbar label. The connection
+/// name is re-registered as a window-drag target; making that drag focusable
+/// turned the label into a focus sink that swallowed every later Tab press.
+#[test]
+fn tab_focus_traverses_topbar_into_the_workspace() {
+    let (bridge, _rx, _tx) = crate::TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let _ = render(&mut app, &ctx, Vec::new());
+
+    let mut focused_ids = Vec::new();
+    let mut reached_workspace = false;
+    for _ in 0..30 {
+        if let Some(id) = ctx.memory(|m| m.focused()) {
+            focused_ids.push(id.short_debug_format());
+            if let Some(response) = ctx.read_response(id) {
+                reached_workspace |= response.rect.left() > 320.0 && response.rect.top() > 100.0;
+            }
+        }
+        let _ = render(
+            &mut app,
+            &ctx,
+            vec![egui::Event::Key {
+                key: egui::Key::Tab,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        );
+    }
+
+    let mut distinct = focused_ids.clone();
+    distinct.sort();
+    distinct.dedup();
+    assert!(
+        distinct.len() >= 10,
+        "Tab should traverse the shell controls, saw {} stops: {focused_ids:?}",
+        distinct.len()
+    );
+    assert!(
+        focused_ids.windows(2).all(|pair| pair[0] != pair[1]),
+        "Tab focus stalled on one widget: {focused_ids:?}"
+    );
+    assert!(reached_workspace, "Tab never reached the workspace content: {focused_ids:?}");
+}

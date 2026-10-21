@@ -88,7 +88,7 @@ impl TableMetadataContext<'_> {
                 EmptyState::new(
                     Icon::GitBranch,
                     &t!("table.no_dependencies"),
-                    "No incoming or outgoing dependency relations match the filter.",
+                    &t!("table.no_dependencies_hint"),
                     self.theme,
                 )
                 .show(ui);

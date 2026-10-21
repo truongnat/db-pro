@@ -7,6 +7,16 @@ pub(super) fn quick_open_items() -> Vec<PaletteItem> {
     // Quick Open's "All" tab is the default search surface; without the command
     // catalog, "New connection"/"Run query"/"Format SQL" return no matches.
     items.extend(command_items());
+    // The merged groups overlap (Agent, ER diagram), which used to render two
+    // indistinguishable rows for one action. Keep the first, group-ordered entry.
+    let mut seen: Vec<PaletteAction> = Vec::new();
+    items.retain(|item| {
+        let duplicate = seen.contains(&item.action);
+        if !duplicate {
+            seen.push(item.action.clone());
+        }
+        !duplicate
+    });
     items
 }
 
@@ -296,3 +306,7 @@ pub(super) fn agent_action_items() -> Vec<(SearchKind, PaletteItem)> {
     ]
 }
 
+
+#[cfg(test)]
+#[path = "tests/palette_catalog_tests.rs"]
+mod tests;

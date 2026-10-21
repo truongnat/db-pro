@@ -163,10 +163,23 @@ impl DbProApp {
     }
 
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
-        schema_events::handle_schema_request_failure(&mut self.schema.explorer, &mut self.feedback, request_id, message)
+        let applied =
+            schema_events::handle_schema_request_failure(&mut self.schema.explorer, &mut self.feedback, request_id, message);
+        if applied {
+            // The refresh a pending diff was waiting on failed; without this a
+            // later unrelated load would diff the stale baseline.
+            self.schema.compare.cancel_diff_after_refresh();
+        }
+        applied
     }
 
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
+        // Gate before touching compare state: a stale introspection reply (for
+        // example a refresh that raced a disconnect) must not snapshot or
+        // complete the pending diff (#440).
+        if self.schema.explorer.schema_request != Some(request_id) {
+            return;
+        }
         let driver = self.active_driver().to_owned();
         let pending_diff = self.schema.compare.pending_diff_after_refresh;
         let diff_snapshot = pending_diff
@@ -312,3 +325,7 @@ impl DbProApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/runtime_event_handlers_tests.rs"]
+mod tests;

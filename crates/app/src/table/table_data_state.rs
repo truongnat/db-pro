@@ -352,6 +352,16 @@ impl TableDataState {
         Some(format!("{}|{}|{}", connection_id?, schema, table?))
     }
 
+    /// Client-side sort/filter state indexes into the result on screen. Opening
+    /// another table replaces those rows, so the previous table's view state and
+    /// its row-identity override must not carry over.
+    pub(crate) fn reset_for_table_switch(&mut self) {
+        self.grid_filter.clear();
+        self.grid_sort_column = None;
+        self.grid_sort_desc = false;
+        self.manual_row_identity = None;
+    }
+
     pub(crate) fn persist_layout(&mut self, scope: Option<String>) {
         let Some(scope) = scope else {
             return;

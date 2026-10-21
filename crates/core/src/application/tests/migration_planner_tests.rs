@@ -192,3 +192,86 @@ fn missing_introspection_is_not_applicable_sql() {
     assert!(!crate::application::placeholder_remains(&sql));
     assert!(!sql.contains("CREATE TABLE"));
 }
+
+fn source_with_column(data_type: &str, default: Option<&str>) -> IntrospectResult {
+    use crate::domain::schema::{Column, IntrospectResult, Table};
+
+    let mut source = IntrospectResult::empty();
+    source.tables.push(Table {
+        name: "widgets".into(),
+        schema: "public".into(),
+        row_count: None,
+    });
+    source.columns.push(Column {
+        name: "payload".into(),
+        data_type: data_type.into(),
+        nullable: true,
+        default: default.map(str::to_owned),
+        table_name: "widgets".into(),
+        schema: "public".into(),
+        ..Default::default()
+    });
+    source
+}
+
+#[test]
+fn sqlite_declared_type_cannot_smuggle_a_second_statement() {
+    // SQLite stores the declared type verbatim, so a crafted table can put
+    // arbitrary text into `PRAGMA table_info.data_type`.
+    let source = source_with_column("INTEGER); DROP TABLE users; --", None);
+    let plan = MigrationPlanner::plan_from_introspection(&source, &IntrospectResult::empty(), "sqlite");
+    let create = plan
+        .operations
+        .iter()
+        .find(|op| op.kind == MigrationOpKind::CreateTable)
+        .expect("create");
+    assert!(!create.provider_supported);
+    let reason = create.unsupported_reason.as_deref().unwrap_or_default();
+    assert!(reason.contains("cannot be emitted safely"), "{reason}");
+    let sql = MigrationPlanner::preview_sql(&plan, true);
+    assert!(!sql.to_ascii_uppercase().contains("DROP TABLE USERS"), "{sql}");
+}
+
+#[test]
+fn sqlite_default_cannot_smuggle_a_second_statement() {
+    let source = source_with_column("integer", Some("0; DROP TABLE users; --"));
+    let plan = MigrationPlanner::plan_from_introspection(&source, &IntrospectResult::empty(), "sqlite");
+    let create = plan
+        .operations
+        .iter()
+        .find(|op| op.kind == MigrationOpKind::CreateTable)
+        .expect("create");
+    assert!(!create.provider_supported);
+    let reason = create.unsupported_reason.as_deref().unwrap_or_default();
+    assert!(reason.contains("default expression"), "{reason}");
+    let sql = MigrationPlanner::preview_sql(&plan, true);
+    assert!(!sql.to_ascii_uppercase().contains("DROP TABLE USERS"), "{sql}");
+}
+
+#[test]
+fn type_parameterized_names_and_quoted_defaults_remain_supported() {
+    let source = source_with_column("numeric(12, 2)", Some("'it''s fine'"));
+    let plan = MigrationPlanner::plan_from_introspection(&source, &IntrospectResult::empty(), "postgresql");
+    let create = plan
+        .operations
+        .iter()
+        .find(|op| op.kind == MigrationOpKind::CreateTable)
+        .expect("create");
+    assert!(create.provider_supported, "{:?}", create.unsupported_reason);
+    assert!(create.sql.contains("\"payload\" numeric(12, 2) DEFAULT 'it''s fine'"));
+}
+
+#[test]
+fn unsafe_source_type_is_not_emitted_for_alter_column() {
+    let mut diff = sample_diff();
+    diff.column_diffs[0].type_mismatches[0].source_type = "numeric; DROP TABLE users; --".into();
+    let plan = MigrationPlanner::plan_from_schema_diff(&diff, "postgresql");
+    let alter = plan
+        .operations
+        .iter()
+        .find(|op| op.kind == MigrationOpKind::AlterColumnType)
+        .expect("alter");
+    assert!(!alter.provider_supported);
+    let sql = MigrationPlanner::preview_sql(&plan, true);
+    assert!(!sql.to_ascii_uppercase().contains("DROP TABLE USERS"), "{sql}");
+}

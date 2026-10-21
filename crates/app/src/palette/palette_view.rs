@@ -163,6 +163,7 @@ impl DbProApp {
         // reset, the previous table's ORDER BY column lands on a table that
         // lacks it — e.g. `ORDER BY "id"` on role_permissions.
         self.table.data_query.reset_for_table();
+        self.table.data.reset_for_table_switch();
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;
         self.feedback.runtime_message = format!("Opening table {table}");

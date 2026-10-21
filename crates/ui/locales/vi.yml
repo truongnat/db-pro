@@ -239,6 +239,8 @@ table:
   no_indexes: "Không có chỉ mục nào"
   no_constraints: "Không có ràng buộc nào"
   no_foreign_keys: "Không có khóa ngoại nào"
+  no_dependencies: "Không có phụ thuộc nào"
+  no_dependencies_hint: "Không có quan hệ phụ thuộc vào hoặc từ bảng này khớp với bộ lọc."
   no_rows: "Chưa nạp dòng dữ liệu nào"
   refresh_ddl: "Làm mới DDL"
   open_in_query: "Mở trong truy vấn"

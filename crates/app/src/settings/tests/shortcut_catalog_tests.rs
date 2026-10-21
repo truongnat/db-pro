@@ -673,3 +673,91 @@ fn palette_opens_when_a_non_text_widget_holds_focus() {
         "mod+p must open quick open while a non-text widget is focused"
     );
 }
+
+/// The SQL editor is an app-owned widget, not an egui TextEdit: while it holds
+/// keyboard focus the palette/sidebar/new-connection chords must still fire.
+/// Regression: `query_editor_focused` was folded into `text_input_has_focus`,
+/// so every global chord died as soon as the user clicked into the editor.
+#[test]
+fn global_chords_fire_while_the_sql_editor_is_focused() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect(&mut app);
+    let ctx = egui::Context::default();
+
+    let focused = press(
+        &mut app,
+        &ctx,
+        egui::Key::P,
+        egui::Modifiers {
+            ctrl: true,
+            ..Default::default()
+        },
+    );
+    assert!(focused, "the editor stand-in must hold keyboard focus");
+    assert!(
+        matches!(app.palette.mode, Some(PaletteMode::QuickOpen)),
+        "mod+p must open quick open while the SQL editor is focused"
+    );
+}
+
+/// A fast tap can ship key-down and key-up in one frame; the frame's final
+/// `Modifiers` are already released. Chords must match the modifiers carried
+/// by the key event, otherwise they silently stop working under load.
+#[test]
+fn chord_matches_when_key_release_lands_in_the_same_frame() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    connect(&mut app);
+    let ctx = egui::Context::default();
+    let held = egui::Modifiers {
+        ctrl: true,
+        command: true,
+        ..Default::default()
+    };
+    let input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        events: vec![
+            egui::Event::ModifiersChanged(held),
+            egui::Event::Key {
+                key: egui::Key::P,
+                physical_key: Some(egui::Key::P),
+                pressed: true,
+                repeat: false,
+                modifiers: held,
+            },
+            egui::Event::Key {
+                key: egui::Key::P,
+                physical_key: Some(egui::Key::P),
+                pressed: false,
+                repeat: false,
+                modifiers: held,
+            },
+            egui::Event::Key {
+                key: egui::Key::ControlLeft,
+                physical_key: Some(egui::Key::ControlLeft),
+                pressed: false,
+                repeat: false,
+                modifiers: held,
+            },
+            egui::Event::ModifiersChanged(egui::Modifiers::NONE),
+        ],
+        ..Default::default()
+    };
+
+    let _ = crate::test_frame::frame(&ctx, input, |ui| {
+        ui.interact(
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(10.0, 10.0)),
+            egui::Id::new("shortcut-test-fast-tap"),
+            egui::Sense::click(),
+        )
+        .request_focus();
+        app.handle_shortcuts(ui.ctx());
+    });
+
+    assert_eq!(ctx.input(|i| i.modifiers), egui::Modifiers::NONE);
+    assert!(
+        matches!(app.palette.mode, Some(PaletteMode::QuickOpen)),
+        "mod+p must fire even when the key-up already cleared the frame modifiers"
+    );
+}

@@ -26,7 +26,12 @@ impl DbProApp {
                 return;
             }
         }
-        let text_input_has_focus = egui_text_focused || self.query.editor.query_editor_focused;
+        // Only an egui TextEdit (WHERE filter, agent composer, dialog) typing
+        // text blocks global chords. The custom SqlEditor is our own surface:
+        // Focus it holds must not deaden palette/sidebar/new-connection
+        // shortcuts, otherwise every chord stops working once the user clicks
+        // into the editor (#340 covers the reverse direction).
+        let text_input_has_focus = egui_text_focused;
         if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
             return;
         }

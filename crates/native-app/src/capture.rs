@@ -337,7 +337,11 @@ impl CaptureApp {
     }
 
     fn open_requested_surface(&mut self, ctx: &egui::Context) {
-        if self.opened_dialog || self.frames < 2 {
+        // A late async event (schema load) can switch the active workspace tab
+        // away from the requested fixture. Opt-in reassertion keeps the fixture
+        // in place through the settle window.
+        let reassert = std::env::var_os("DB_PRO_CAPTURE_REASSERT_SURFACE").is_some();
+        if (self.opened_dialog && !reassert) || self.frames < 2 {
             return;
         }
         // Evidence hook: when asked, open the requested fixture surface. Gated
@@ -435,6 +439,9 @@ impl CaptureApp {
 
     /// Remaining single-shot workspace captures, dispatched by env var.
     fn open_workspace_capture(&mut self) -> bool {
+        if self.open_tools_files_capture() {
+            return true;
+        }
         let inner = &mut self.inner;
         if std::env::var_os(DIAGRAM_WORKSPACE_ENV).is_some() {
             inner.open_diagram_workspace_for_capture();
@@ -464,6 +471,23 @@ impl CaptureApp {
             inner.open_quick_open_for_capture(
                 std::env::var_os(QUICK_OPEN_LIGHT_ENV).is_some(),
                 std::env::var_os(QUICK_OPEN_EMPTY_ENV).is_some(),
+            );
+        } else {
+            return false;
+        }
+        true
+    }
+
+    /// Evidence hooks for the Tools hub and Files workspace, kept out of the
+    /// main dispatch chain to stay within its complexity budget.
+    fn open_tools_files_capture(&mut self) -> bool {
+        let inner = &mut self.inner;
+        if std::env::var_os("DB_PRO_CAPTURE_TOOLS").is_some() {
+            inner.open_tools_hub_for_capture(std::env::var_os("DB_PRO_CAPTURE_TOOLS_LIGHT").is_some());
+        } else if std::env::var_os("DB_PRO_CAPTURE_FILES").is_some() {
+            inner.open_files_workspace_for_capture(
+                std::path::PathBuf::from(std::env::var("DB_PRO_CAPTURE_FILES_PATH").unwrap_or_default()),
+                std::env::var_os("DB_PRO_CAPTURE_FILES_LIGHT").is_some(),
             );
         } else {
             return false;

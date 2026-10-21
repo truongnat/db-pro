@@ -239,6 +239,8 @@ table:
   no_indexes: "No indexes found"
   no_constraints: "No constraints found"
   no_foreign_keys: "No foreign keys found"
+  no_dependencies: "No dependencies found"
+  no_dependencies_hint: "No incoming or outgoing dependency relations match the filter."
   no_rows: "No rows loaded"
   refresh_ddl: "Refresh DDL"
   open_in_query: "Open in Query"

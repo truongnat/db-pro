@@ -104,6 +104,8 @@ pub(super) enum ExportDialogAction {
 pub(super) struct ExportDialogContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) overlay: &'a mut OverlayState,
+    /// `COPY … FROM stdin` is PostgreSQL syntax; SQLite/MySQL cannot consume it.
+    pub(super) copy_supported: bool,
 }
 
 impl ExportDialogContext<'_> {
@@ -191,7 +193,7 @@ impl ExportDialogContext<'_> {
 
     fn draw_format_picker(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_wrapped(|ui| {
-            for format in ExportFormat::ALL {
+            for format in ExportFormat::offered(self.copy_supported) {
                 let selected = self.overlay.export_format == format;
                 if Button::new(self.theme)
                     .text(format.label())

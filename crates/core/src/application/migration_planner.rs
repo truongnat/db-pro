@@ -130,11 +130,16 @@ impl MigrationPlanBuilder {
             let (sql, provider_supported, unsupported_reason) = match source {
                 Some(introspect) if !columns.is_empty() => {
                     let primary_key = primary_key_columns(introspect, &schema, &table, &columns);
-                    (
-                        create_table_sql(&self.driver, &schema, &table, &columns, &primary_key),
-                        true,
-                        None,
-                    )
+                    match create_table_sql(&self.driver, &schema, &table, &columns, &primary_key) {
+                        Ok(sql) => (sql, true, None),
+                        Err(reason) => (
+                            String::new(),
+                            false,
+                            Some(format!(
+                                "CREATE TABLE for {qualified} cannot be emitted safely: {reason}"
+                            )),
+                        ),
+                    }
                 }
                 _ => (
                     String::new(),
@@ -150,11 +155,14 @@ impl MigrationPlanBuilder {
                 risk: MigrationRisk::Mutating,
                 dependencies: Vec::new(),
                 provider_supported,
-                unsupported_reason,
+                unsupported_reason: unsupported_reason.clone(),
             });
             if !provider_supported {
                 self.warnings.push(format!(
-                    "{id}: CREATE TABLE for {qualified} needs columns from source introspection before apply"
+                    "{id}: {}",
+                    unsupported_reason
+                        .as_deref()
+                        .unwrap_or("CREATE TABLE is not applicable")
                 ));
             }
         }
@@ -163,37 +171,43 @@ impl MigrationPlanBuilder {
     fn add_source_columns(&mut self, diff: &SchemaDiff, source: Option<&IntrospectResult>) {
         for column_diff in &diff.column_diffs {
             for column in &column_diff.columns_only_in_source {
-                let table_id = self.created_table_id(column_diff);
-                let defined = source
-                    .and_then(|introspect| column_for(introspect, &column_diff.schema, &column_diff.table, column));
-                let (sql, provider_supported, unsupported_reason) = match defined {
-                    Some(defined) if !defined.data_type.is_empty() => (
-                        format!(
-                            "ALTER TABLE {} ADD COLUMN {}",
-                            qualify(&self.driver, &column_diff.schema, &column_diff.table),
-                            column_clause(&self.driver, defined)
-                        ),
-                        true,
-                        None,
-                    ),
-                    _ => (
-                        String::new(),
-                        false,
-                        Some("ADD COLUMN needs the source column type from introspection before apply".into()),
-                    ),
-                };
-                self.add_operation(PendingMigrationOperation {
-                    kind: MigrationOpKind::AddColumn,
-                    schema: column_diff.schema.clone(),
-                    object: format!("{}.{}", column_diff.table, column),
-                    sql,
-                    risk: MigrationRisk::Mutating,
-                    dependencies: table_id.into_iter().collect(),
-                    provider_supported,
-                    unsupported_reason,
-                });
+                self.add_source_column(column_diff, column, source);
             }
         }
+    }
+
+    fn add_source_column(&mut self, column_diff: &TableColumnDiff, column: &str, source: Option<&IntrospectResult>) {
+        let table_id = self.created_table_id(column_diff);
+        let defined =
+            source.and_then(|introspect| column_for(introspect, &column_diff.schema, &column_diff.table, column));
+        let (sql, provider_supported, unsupported_reason) = match defined {
+            Some(defined) if !defined.data_type.trim().is_empty() => match column_clause(&self.driver, defined) {
+                Ok(clause) => (
+                    format!(
+                        "ALTER TABLE {} ADD COLUMN {clause}",
+                        qualify(&self.driver, &column_diff.schema, &column_diff.table)
+                    ),
+                    true,
+                    None,
+                ),
+                Err(reason) => (String::new(), false, Some(reason)),
+            },
+            _ => (
+                String::new(),
+                false,
+                Some("ADD COLUMN needs the source column type from introspection before apply".into()),
+            ),
+        };
+        self.add_operation(PendingMigrationOperation {
+            kind: MigrationOpKind::AddColumn,
+            schema: column_diff.schema.clone(),
+            object: format!("{}.{}", column_diff.table, column),
+            sql,
+            risk: MigrationRisk::Mutating,
+            dependencies: table_id.into_iter().collect(),
+            provider_supported,
+            unsupported_reason,
+        });
     }
 
     fn created_table_id(&self, column_diff: &TableColumnDiff) -> Option<String> {
@@ -215,19 +229,29 @@ impl MigrationPlanBuilder {
                         false,
                         Some("SQLite cannot ALTER COLUMN type in-place; requires table rebuild strategy".into()),
                     )
+                } else if !safe_type_name(&mismatch.source_type) {
+                    (false, Some("source type cannot be emitted safely as DDL".to_string()))
                 } else {
                     (true, None)
+                };
+                // Unsupported operations must not carry executable SQL: a caller
+                // that ignores `provider_supported` would otherwise run the raw
+                // type text. Keep only the reason for the preview.
+                let sql = if provider_supported {
+                    format!(
+                        "ALTER TABLE {} ALTER COLUMN {} TYPE {}",
+                        qualify(&self.driver, &column_diff.schema, &column_diff.table),
+                        quote_ident(&self.driver, &mismatch.column),
+                        mismatch.source_type.trim()
+                    )
+                } else {
+                    String::new()
                 };
                 self.add_operation(PendingMigrationOperation {
                     kind: MigrationOpKind::AlterColumnType,
                     schema: column_diff.schema.clone(),
                     object: format!("{}.{}", column_diff.table, mismatch.column),
-                    sql: format!(
-                        "ALTER TABLE {} ALTER COLUMN {} TYPE {}",
-                        qualify(&self.driver, &column_diff.schema, &column_diff.table),
-                        quote_ident(&self.driver, &mismatch.column),
-                        mismatch.source_type
-                    ),
+                    sql,
                     risk: MigrationRisk::Mutating,
                     dependencies: Vec::new(),
                     provider_supported,
@@ -415,24 +439,108 @@ fn primary_key_columns(source: &IntrospectResult, schema: &str, table: &str, col
         .collect()
 }
 
-fn column_clause(driver: &str, column: &Column) -> String {
-    let mut sql = format!("{} {}", quote_ident(driver, &column.name), column.data_type);
+fn column_clause(driver: &str, column: &Column) -> Result<String, String> {
+    if !safe_type_name(&column.data_type) {
+        return Err(format!(
+            "declared type for column \"{}\" cannot be emitted safely",
+            column.name
+        ));
+    }
+    let mut sql = format!("{} {}", quote_ident(driver, &column.name), column.data_type.trim());
     if !column.nullable {
         sql.push_str(" NOT NULL");
     }
-    if let Some(default) = column.default.as_deref().filter(|default| !default.is_empty()) {
+    if let Some(default) = column.default.as_deref().filter(|default| !default.trim().is_empty()) {
+        if !safe_default_expression(default) {
+            return Err(format!(
+                "default expression for column \"{}\" cannot be emitted safely",
+                column.name
+            ));
+        }
         sql.push_str(" DEFAULT ");
-        sql.push_str(default);
+        sql.push_str(default.trim());
     }
-    sql
+    Ok(sql)
 }
 
-fn create_table_sql(driver: &str, schema: &str, table: &str, columns: &[&Column], primary_key: &[String]) -> String {
+/// `PRAGMA table_info` echoes the declared type verbatim from the user's
+/// `CREATE TABLE`, so it is attacker-controlled text, not a parsed type. Accept
+/// only fragments that cannot terminate the statement or smuggle another one:
+/// no separators/comments outside quotes, balanced quoting and brackets.
+fn safe_type_name(data_type: &str) -> bool {
+    safe_sql_fragment(data_type, 128)
+}
+
+fn safe_default_expression(default: &str) -> bool {
+    safe_sql_fragment(default, 512)
+}
+
+fn safe_sql_fragment(fragment: &str, max_len: usize) -> bool {
+    let trimmed = fragment.trim();
+    if trimmed.is_empty() || trimmed.len() > max_len {
+        return false;
+    }
+    let bytes = trimmed.as_bytes();
+    let mut depth = 0i32;
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte == b'\'' || byte == b'"' {
+            let Some(next) = skip_quoted(bytes, index) else {
+                return false;
+            };
+            index = next;
+            continue;
+        }
+        match byte {
+            b'(' | b'[' => depth += 1,
+            b')' | b']' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            b',' if depth == 0 => return false,
+            b';' | b'\n' | b'\r' | b'\t' => return false,
+            b'-' if bytes.get(index + 1) == Some(&b'-') => return false,
+            b'/' if bytes.get(index + 1) == Some(&b'*') => return false,
+            b'*' if bytes.get(index + 1) == Some(&b'/') => return false,
+            _ => {}
+        }
+        index += 1;
+    }
+    depth == 0
+}
+
+/// Index just past the closing quote (`''`/`""` are escapes), or `None` when
+/// the fragment ends inside an unterminated string.
+fn skip_quoted(bytes: &[u8], start: usize) -> Option<usize> {
+    let quote = bytes[start];
+    let mut index = start + 1;
+    while index < bytes.len() {
+        if bytes[index] != quote {
+            index += 1;
+        } else if bytes.get(index + 1) == Some(&quote) {
+            index += 2;
+        } else {
+            return Some(index + 1);
+        }
+    }
+    None
+}
+
+fn create_table_sql(
+    driver: &str,
+    schema: &str,
+    table: &str,
+    columns: &[&Column],
+    primary_key: &[String],
+) -> Result<String, String> {
     let mut parts: Vec<String> = columns
         .iter()
         .copied()
         .map(|column| column_clause(driver, column))
-        .collect();
+        .collect::<Result<_, _>>()?;
     if !primary_key.is_empty() {
         let names = primary_key
             .iter()
@@ -441,7 +549,11 @@ fn create_table_sql(driver: &str, schema: &str, table: &str, columns: &[&Column]
             .join(", ");
         parts.push(format!("PRIMARY KEY ({names})"));
     }
-    format!("CREATE TABLE {} ({})", qualify(driver, schema, table), parts.join(", "))
+    Ok(format!(
+        "CREATE TABLE {} ({})",
+        qualify(driver, schema, table),
+        parts.join(", ")
+    ))
 }
 
 fn create_index_sql(driver: &str, index: &Index) -> Option<String> {

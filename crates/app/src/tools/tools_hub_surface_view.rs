@@ -255,6 +255,12 @@ impl ToolsHubContext<'_> {
         if response.clicked() {
             actions.push(action);
         }
+        if std::env::var("DB_PRO_CAPTURE_FOCUS_TOOL_CARD").ok().as_deref() == Some(title) {
+            response.request_focus();
+        }
+        if response.has_focus() {
+            crate::components::interact::paint_focus_ring(ui, response.rect, RADIUS_SM, theme);
+        }
         if response.hovered() && !is_active {
             ui.painter().rect_stroke(
                 response.rect,

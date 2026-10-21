@@ -20,6 +20,26 @@
         assert_eq!(TableDataState::layout_scope(Some("connection"), "public", None), None);
     }
 
+    /// Switching tables used to keep the previous grid's client sort/filter,
+    /// so the new table rendered "sorted by" a column it might not even have.
+    #[test]
+    fn table_switch_clears_client_side_view_state() {
+        let mut state = TableDataState {
+            grid_filter: "active".to_owned(),
+            grid_sort_column: Some(3),
+            grid_sort_desc: true,
+            manual_row_identity: Some(vec!["email".to_owned()]),
+            ..Default::default()
+        };
+
+        state.reset_for_table_switch();
+
+        assert!(state.grid_filter.is_empty());
+        assert_eq!(state.grid_sort_column, None);
+        assert!(!state.grid_sort_desc);
+        assert_eq!(state.manual_row_identity, None);
+    }
+
     #[test]
     fn layout_persists_and_restores_named_columns() {
         let mut state = TableDataState {

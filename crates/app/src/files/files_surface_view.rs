@@ -321,6 +321,12 @@ impl FilesSurfaceContext<'_> {
                 if response.clicked() && !is_active {
                     actions.push(FilesSurfaceAction::SelectTab(tab));
                 }
+                if std::env::var("DB_PRO_CAPTURE_FOCUS_FILES_TAB").ok().as_deref() == Some(label) {
+                    response.request_focus();
+                }
+                if response.has_focus() {
+                    crate::components::interact::paint_focus_ring(ui, response.rect, 6.0, self.theme);
+                }
             }
         });
         ui.add_space(SPACE_XS);

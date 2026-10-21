@@ -429,6 +429,7 @@ impl DbProApp {
         )) {
             self.schema.explorer.schema_request = None;
             self.schema.explorer.schema_error = Some("Runtime worker unavailable".to_owned());
+            self.schema.compare.cancel_diff_after_refresh();
             return;
         }
         self.schema.explorer.schema_request = Some(request_id);

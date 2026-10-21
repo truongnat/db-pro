@@ -73,6 +73,14 @@ impl ExportFormat {
         Self::Excel,
     ];
 
+    /// Formats offered for the active connection. `COPY … FROM stdin` is a
+    /// PostgreSQL script, so another provider must not be able to pick it.
+    pub(crate) fn offered(postgres: bool) -> impl Iterator<Item = Self> {
+        Self::ALL
+            .into_iter()
+            .filter(move |format| postgres || *format != Self::SqlCopy)
+    }
+
     /// Short button label. These are file-format names, not UI copy, so they
     /// stay literal across locales.
     pub(crate) fn label(self) -> &'static str {

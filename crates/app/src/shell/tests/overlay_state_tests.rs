@@ -14,6 +14,16 @@ fn default_overlay_state_is_closed_and_non_destructive() {
     assert!(state.folder_delete_confirmation.is_none());
 }
 
+#[test]
+fn copy_format_is_only_offered_for_postgres() {
+    let offered: Vec<_> = ExportFormat::offered(true).collect();
+    assert!(offered.contains(&ExportFormat::SqlCopy));
+
+    let offered: Vec<_> = ExportFormat::offered(false).collect();
+    assert!(!offered.contains(&ExportFormat::SqlCopy));
+    assert_eq!(offered.len(), ExportFormat::ALL.len() - 1);
+}
+
 // #396: a written export must always end in the format's extension — missing or mismatched
 // extensions are appended onto the typed name rather than replacing it.
 #[test]

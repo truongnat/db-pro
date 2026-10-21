@@ -239,6 +239,8 @@ table:
   no_indexes: "インデックスがありません"
   no_constraints: "制約がありません"
   no_foreign_keys: "外部キーがありません"
+  no_dependencies: "依存関係がありません"
+  no_dependencies_hint: "フィルターに一致する依存関係はありません。"
   no_rows: "読み込まれた行がありません"
   refresh_ddl: "DDLを更新"
   open_in_query: "クエリで開く"

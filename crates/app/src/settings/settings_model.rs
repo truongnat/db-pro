@@ -460,11 +460,12 @@ fn modifiers_match(modifiers: egui::Modifiers, parts: &ShortcutParts) -> bool {
 }
 
 /// Match a compact shortcut token (`mod+k`, `mod+shift+p`, `f5`) against egui input.
+///
+/// Reads modifiers from the key event, not `input.modifiers`: a fast tap can
+/// deliver key-down, key-up and `ModifiersChanged(NONE)` in the same frame, so
+/// the frame-level modifier state no longer reflects the press.
 pub(crate) fn match_shortcut_token(input: &egui::InputState, token: &str) -> bool {
-    let Some(parts) = shortcut_parts(token) else {
-        return false;
-    };
-    input.key_pressed(parts.key) && modifiers_match(input.modifiers, &parts)
+    input.events.iter().any(|event| event_matches_shortcut(event, token))
 }
 
 pub(crate) fn event_matches_shortcut(event: &egui::Event, token: &str) -> bool {

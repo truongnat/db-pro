@@ -118,6 +118,7 @@ impl DbProApp {
         self.schema.explorer.selected_table = Some(table);
         // Data filters/sorts are table-scoped; reusing them breaks the next read (#370 / QA P1).
         self.table.data_query.reset_for_table();
+        self.table.data.reset_for_table_switch();
         // Filters are scoped to the previous table's metadata — leaving them
         // would silently hide constraints/dependencies of the new table (#370).
         self.table.state.table_metadata_search.clear();
@@ -798,7 +799,9 @@ impl DbProApp {
         } else {
             self.open_table_workspace_for_capture();
         }
-        if let Some(info) = self.table.state.table_info.as_mut() {
+        if std::env::var_os("DB_PRO_CAPTURE_TABLE_DEPENDENCIES_EMPTY").is_some() {
+            // Evidence hook for the localized empty state; skips the fixture rows below.
+        } else if let Some(info) = self.table.state.table_info.as_mut() {
             info.dependencies = vec![
                 crate::UiTableDependency {
                     name: "products".to_owned(),
@@ -1196,13 +1199,35 @@ impl DbProApp {
     }
 
     /// Capture helper: open Quick Open with the Schema filter selected.
+    /// Capture helper: Tools & Management hub in the sidebar.
+    pub fn open_tools_hub_for_capture(&mut self, light: bool) {
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+        self.workspace.activity = Activity::Tools;
+        self.workspace.sidebar_open = true;
+    }
+
+    /// Capture helper: open a folder so the Files tab strip renders.
+    pub fn open_files_workspace_for_capture(&mut self, folder: std::path::PathBuf, light: bool) {
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+        self.open_workspace_folder(folder);
+    }
+
     pub fn open_quick_open_for_capture(&mut self, light: bool, empty: bool) {
         self.preferences.dark_mode = !light;
         self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
-        self.palette
-            .open_with_scope(PaletteMode::QuickOpen, SearchScope::Schema);
+        let scope = match std::env::var("DB_PRO_CAPTURE_QUICK_OPEN_SCOPE").as_deref() {
+            Ok("all") => SearchScope::All,
+            Ok("commands") => SearchScope::Commands,
+            Ok("agent") => SearchScope::Agent,
+            _ => SearchScope::Schema,
+        };
+        self.palette.open_with_scope(PaletteMode::QuickOpen, scope);
         if empty {
             self.palette.query = "__no_matching_quick_open_item__".to_owned();
+        } else if let Ok(query) = std::env::var("DB_PRO_CAPTURE_QUICK_OPEN_QUERY") {
+            self.palette.query = query;
         }
     }
 

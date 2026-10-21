@@ -106,9 +106,19 @@ impl DbProApp {
                 .unwrap_or_default();
         }
         let result = self.overlay.export_snapshot.clone();
+        // COPY … FROM stdin is a PostgreSQL script; hide it for other drivers and
+        // fall back so a format remembered from another connection cannot be exported.
+        let copy_supported = matches!(
+            crate::app::connection::mapper::ui_driver_from_str(self.active_driver()),
+            crate::UiDriver::Postgres
+        );
+        if !copy_supported && self.overlay.export_format == ExportFormat::SqlCopy {
+            self.overlay.export_format = ExportFormat::Csv;
+        }
         let action = query_dialog_surface_view::ExportDialogContext {
             theme: self.theme,
             overlay: &mut self.overlay,
+            copy_supported,
         }
         .draw(ui.ctx());
         match action {

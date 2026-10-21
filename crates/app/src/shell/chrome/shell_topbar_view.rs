@@ -374,7 +374,10 @@ impl ShellTopbarContext<'_> {
     fn handle_window_drag(response: &egui::Response, ctx: &egui::Context) {
         if cfg!(target_os = "linux") {
             // Frameless windows need an app-owned hit target to request window-manager dragging.
-            let drag_response = response.clone().interact(Sense::click_and_drag());
+            // CLICK|DRAG without FOCUSABLE: upgrading a text label into a focus stop trapped
+            // Tab navigation on the connection name (the drag response was never painted with
+            // a focus ring and could not be activated from the keyboard).
+            let drag_response = response.clone().interact(Sense::CLICK | Sense::DRAG);
             if drag_response.drag_started() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
             } else if drag_response.double_clicked() {

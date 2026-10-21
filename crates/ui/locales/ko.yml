@@ -239,6 +239,8 @@ table:
   no_indexes: "인덱스 없음"
   no_constraints: "제약 조건 없음"
   no_foreign_keys: "외래 키 없음"
+  no_dependencies: "종속성 없음"
+  no_dependencies_hint: "필터와 일치하는 종속성 관계가 없습니다."
   no_rows: "로드된 행 없음"
   refresh_ddl: "DDL 새로고침"
   open_in_query: "쿼리에서 열기"

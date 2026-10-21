@@ -217,6 +217,29 @@ fn parses_sqlite_explain_query_plan_rows_into_a_tree() {
 }
 
 #[test]
+fn sqlite_explain_does_not_treat_plan_keywords_as_relations() {
+    let value = serde_json::json!([
+        { "id": 2, "parent": 0, "detail": "SCAN CONSTANT ROW" },
+        { "id": 3, "parent": 2, "detail": "SCAN TABLE employees" },
+        { "id": 4, "parent": 3, "detail": "USE TEMP B-TREE FOR ORDER BY" },
+        { "id": 5, "parent": 4, "detail": "SCAN SUBQUERY 1" }
+    ]);
+
+    let plan = parse_sqlite_explain_json(&value).expect("parse");
+
+    assert_eq!(plan.root.node_type, "SCAN");
+    assert_eq!(plan.root.relation, None);
+    let old_syntax = &plan.root.children[0];
+    assert_eq!(old_syntax.relation.as_deref(), Some("employees"));
+    let temp_tree = &old_syntax.children[0];
+    assert_eq!(temp_tree.node_type, "USE");
+    assert_eq!(temp_tree.relation, None);
+    let subquery = &temp_tree.children[0];
+    assert_eq!(subquery.node_type, "SCAN SUBQUERY 1");
+    assert_eq!(subquery.relation, None);
+}
+
+#[test]
 fn sqlite_explain_groups_multiple_roots_under_a_plan_node() {
     let value = serde_json::json!([
         { "id": 1, "parent": 0, "detail": "SCAN a" },

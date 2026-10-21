@@ -239,17 +239,27 @@ pub fn parse_sqlite_explain_str(raw: &str) -> Option<QueryPlan> {
 /// `USING COVERING INDEX` names the index.
 fn sqlite_node(detail: &str) -> QueryPlanNode {
     let mut tokens = detail.split_whitespace();
-    let node_type = tokens.next().unwrap_or("Unknown").to_owned();
-    let relation = match tokens.next() {
-        // Keep "USING INDEX …" from being mistaken for a relation named USING.
-        Some(word)
-            if !word.eq_ignore_ascii_case("using")
-                && word.chars().next().is_some_and(|c| c.is_alphanumeric() || c == '_') =>
-        {
-            Some(word.to_owned())
+    let mut node_type = tokens.next().unwrap_or("Unknown").to_owned();
+    let mut relation = None;
+    if let Some(word) = tokens.next() {
+        match word.to_ascii_uppercase().as_str() {
+            // Older SQLite prints "SCAN TABLE t"; newer versions drop TABLE.
+            "TABLE" => relation = tokens.next().map(str::to_owned),
+            // "SCAN SUBQUERY 1": the ordinal labels the node, not a relation.
+            "SUBQUERY" => {
+                if let Some(ordinal) = tokens.next() {
+                    node_type = format!("{node_type} SUBQUERY {ordinal}");
+                }
+            }
+            // "USE TEMP B-TREE FOR ORDER BY" / "SCAN CONSTANT ROW": qualifiers,
+            // not relations. Treating them as tables invented a bogus relation.
+            "USING" | "CONSTANT" | "TEMP" | "FOR" | "MATERIALIZE" | "CO-ROUTINE" => {}
+            _ if word.chars().next().is_some_and(|c| c.is_alphanumeric() || c == '_') => {
+                relation = Some(word.to_owned());
+            }
+            _ => {}
         }
-        _ => None,
-    };
+    }
     let index_name = if let Some(idx) = detail.find("USING ") {
         let rest = &detail[idx + "USING ".len()..];
         rest.strip_prefix("COVERING INDEX ")
