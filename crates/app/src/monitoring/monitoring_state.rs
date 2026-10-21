@@ -1,10 +1,26 @@
 //! State and command planning for the database monitoring surface.
 
+pub(super) const MONITORING_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+
+pub(super) fn monitoring_poll_repaint_delay(
+    last_poll: Option<std::time::Instant>,
+    now: std::time::Instant,
+) -> std::time::Duration {
+    let elapsed = last_poll
+        .map(|last_poll| now.saturating_duration_since(last_poll))
+        .unwrap_or(MONITORING_POLL_INTERVAL);
+    MONITORING_POLL_INTERVAL
+        .saturating_sub(elapsed)
+        .max(std::time::Duration::from_millis(1))
+}
+
 pub(super) struct MonitoringState {
     pub(super) monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
     pub(super) monitoring_error: Option<String>,
     pub(super) monitoring_poll: bool,
     pub(super) monitoring_last_poll: Option<std::time::Instant>,
+    pub(super) monitoring_snapshot_request: Option<(u64, String)>,
+    pub(super) monitoring_workload_request: Option<(u64, String)>,
     /// Full session rows (not just pid) so the terminate/cancel dialogs can
     /// show user/database/query context instead of a bare pid (#386).
     pub(super) monitoring_terminate_confirm: Option<db_pro_core::domain::monitoring::MonitorSession>,
@@ -39,6 +55,8 @@ impl Default for MonitoringState {
             monitoring_error: None,
             monitoring_poll: true,
             monitoring_last_poll: None,
+            monitoring_snapshot_request: None,
+            monitoring_workload_request: None,
             monitoring_terminate_confirm: None,
             monitoring_cancel_confirm: None,
             monitoring_filter_active_only: true,

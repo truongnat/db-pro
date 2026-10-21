@@ -222,11 +222,13 @@ impl MonitoringActivityContext<'_, '_> {
             return;
         };
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(workload_command(
+        if self.dispatch(workload_command(
             self.state,
             request_id,
             connection_id.to_owned(),
-        ));
+        )) {
+            self.state.monitoring_workload_request = Some((request_id.0, connection_id.to_owned()));
+        }
     }
 
     fn request_monitoring_snapshot(&mut self) {
@@ -239,6 +241,7 @@ impl MonitoringActivityContext<'_, '_> {
             connection_id.to_owned(),
             self.state.monitoring_stat_sort,
         )) {
+            self.state.monitoring_snapshot_request = Some((request_id.0, connection_id.to_owned()));
             self.state.monitoring_last_poll = Some(std::time::Instant::now());
         }
     }

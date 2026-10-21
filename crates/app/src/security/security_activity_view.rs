@@ -208,7 +208,7 @@ impl SecurityActivityContext<'_, '_> {
     }
 
     fn request_users(&mut self) {
-        request_security_users(self.connection_id, self.command_dispatcher, self.feedback);
+        request_security_users(self.state, self.connection_id, self.command_dispatcher, self.feedback);
     }
 
     fn request_role_details(&mut self, role_name: &str) {
@@ -344,6 +344,7 @@ impl SecurityActivityContext<'_, '_> {
 }
 
 pub(super) fn request_security_users(
+    state: &mut SecurityState,
     connection_id: Option<&str>,
     command_dispatcher: &mut RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
@@ -352,11 +353,13 @@ pub(super) fn request_security_users(
         return;
     };
     let request_id = command_dispatcher.next_request_id();
-    dispatch(
+    if dispatch(
         command_dispatcher,
         feedback,
         list_users_command(security_request(request_id, connection_id.to_owned())),
-    );
+    ) {
+        state.security_users_request = Some((request_id.0, connection_id.to_owned()));
+    }
 }
 
 fn attribute_enable_needs_confirm(attributes: &db_pro_core::domain::user::RoleAttributes) -> bool {
@@ -374,29 +377,34 @@ pub(super) fn request_security_role_details(
         return;
     };
     let request_id = command_dispatcher.next_request_id();
-    state.security_privilege_request = Some(request_id.0);
+    state.security_privilege_request = None;
+    state.security_membership_request = None;
     state.security_error = None;
-    dispatch(
+    if dispatch(
         command_dispatcher,
         feedback,
         list_privileges_command(
             security_request(request_id, connection_id.to_owned()),
             role_name.to_owned(),
         ),
-    );
+    ) {
+        state.security_privilege_request = Some((request_id.0, connection_id.to_owned()));
+    }
     let request_id = command_dispatcher.next_request_id();
-    dispatch(
+    if dispatch(
         command_dispatcher,
         feedback,
         list_memberships_command(
             security_request(request_id, connection_id.to_owned()),
             role_name.to_owned(),
         ),
-    );
+    ) {
+        state.security_membership_request = Some((request_id.0, connection_id.to_owned()));
+    }
 }
 
 pub(super) fn request_security_rls(
-    state: &SecurityState,
+    state: &mut SecurityState,
     connection_id: Option<&str>,
     command_dispatcher: &mut RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
@@ -410,7 +418,9 @@ pub(super) fn request_security_rls(
         security_request(request_id, connection_id.to_owned()),
     ) {
         Ok(command) => {
-            dispatch(command_dispatcher, feedback, command);
+            if dispatch(command_dispatcher, feedback, command) {
+                state.security_rls_request = Some((request_id.0, connection_id.to_owned()));
+            }
         }
         Err(error) => feedback.runtime_message = error,
     }

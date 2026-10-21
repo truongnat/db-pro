@@ -63,11 +63,13 @@ impl AuditActivityContext<'_, '_> {
             return;
         };
         let request_id = self.command_dispatcher.next_request_id();
-        self.dispatch(audit_events_load_command(
+        if self.dispatch(audit_events_load_command(
             self.state,
             request_id,
             connection_id.to_owned(),
-        ));
+        )) {
+            self.state.audit_page_request = Some((request_id.0, connection_id.to_owned()));
+        }
     }
 
     /// Build the CSV, then route through the native save-file picker; the

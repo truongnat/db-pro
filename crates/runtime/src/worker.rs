@@ -497,18 +497,22 @@ pub enum RuntimeEvent {
     },
     MonitoringSnapshotLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
     },
     MonitoringWorkloadLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     },
     AuditPageLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         page: db_pro_core::domain::audit::AuditPage,
     },
     PgSettingsLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
     },
     PgSettingActionCompleted {
@@ -518,6 +522,7 @@ pub enum RuntimeEvent {
     },
     FdwInventoryLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::fdw::FdwInventory,
     },
     FdwActionCompleted {
@@ -527,6 +532,7 @@ pub enum RuntimeEvent {
     },
     ReplicationInventoryLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     },
     ReplicationActionCompleted {
@@ -536,6 +542,7 @@ pub enum RuntimeEvent {
     },
     EventTriggerInventoryLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
     },
     EventTriggerActionCompleted {
@@ -551,24 +558,30 @@ pub enum RuntimeEvent {
     },
     UsersLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         users: Vec<db_pro_core::domain::user::DatabaseUser>,
     },
     PrivilegesLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         role_name: String,
         privileges: Vec<db_pro_core::domain::user::Privilege>,
     },
     MembershipsLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
     },
     TableRlsLoaded {
         request_id: RuntimeRequestId,
+        connection_id: String,
         state: db_pro_core::domain::rls::TableRlsState,
     },
     DataDiffLoaded {
         request_id: RuntimeRequestId,
+        source_id: String,
+        target_id: String,
         diff: db_pro_core::domain::cross_connection::DataDiff,
     },
     OperationCompleted {
@@ -1883,7 +1896,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match monitoring_api.snapshot(&connection_id, sort).await {
-                            Ok(snapshot) => RuntimeEvent::MonitoringSnapshotLoaded { request_id, snapshot },
+                            Ok(snapshot) => RuntimeEvent::MonitoringSnapshotLoaded {
+                                request_id,
+                                connection_id,
+                                snapshot,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -1985,7 +2002,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match monitoring_api.stat_statements(&connection_id, sort, limit).await {
-                            Ok(workload) => RuntimeEvent::MonitoringWorkloadLoaded { request_id, workload },
+                            Ok(workload) => RuntimeEvent::MonitoringWorkloadLoaded {
+                                request_id,
+                                connection_id,
+                                workload,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2027,7 +2048,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match audit_api.load_page(&connection_id, filter, limit).await {
-                            Ok(page) => RuntimeEvent::AuditPageLoaded { request_id, page },
+                            Ok(page) => RuntimeEvent::AuditPageLoaded {
+                                request_id,
+                                connection_id,
+                                page,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2044,7 +2069,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match postgres_api.list_pg_settings(&connection_id).await {
-                            Ok(snapshot) => RuntimeEvent::PgSettingsLoaded { request_id, snapshot },
+                            Ok(snapshot) => RuntimeEvent::PgSettingsLoaded {
+                                request_id,
+                                connection_id,
+                                snapshot,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2106,7 +2135,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match postgres_api.list_fdw_inventory(&connection_id).await {
-                            Ok(inventory) => RuntimeEvent::FdwInventoryLoaded { request_id, inventory },
+                            Ok(inventory) => RuntimeEvent::FdwInventoryLoaded {
+                                request_id,
+                                connection_id,
+                                inventory,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2180,7 +2213,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match postgres_api.list_replication_inventory(&connection_id).await {
-                            Ok(inventory) => RuntimeEvent::ReplicationInventoryLoaded { request_id, inventory },
+                            Ok(inventory) => RuntimeEvent::ReplicationInventoryLoaded {
+                                request_id,
+                                connection_id,
+                                inventory,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2269,7 +2306,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match postgres_api.list_event_triggers(&connection_id).await {
-                            Ok(inventory) => RuntimeEvent::EventTriggerInventoryLoaded { request_id, inventory },
+                            Ok(inventory) => RuntimeEvent::EventTriggerInventoryLoaded {
+                                request_id,
+                                connection_id,
+                                inventory,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2365,7 +2406,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match user_api.list_users(&connection_id).await {
-                            Ok(users) => RuntimeEvent::UsersLoaded { request_id, users },
+                            Ok(users) => RuntimeEvent::UsersLoaded {
+                                request_id,
+                                connection_id,
+                                users,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2428,6 +2473,7 @@ pub fn spawn_worker(
                         let event = match user_api.list_privileges(&connection_id, &role_name).await {
                             Ok(privileges) => RuntimeEvent::PrivilegesLoaded {
                                 request_id,
+                                connection_id,
                                 role_name,
                                 privileges,
                             },
@@ -2449,7 +2495,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match rls_api.table_rls_state(&connection_id, &schema, &table).await {
-                            Ok(state) => RuntimeEvent::TableRlsLoaded { request_id, state },
+                            Ok(state) => RuntimeEvent::TableRlsLoaded {
+                                request_id,
+                                connection_id,
+                                state,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
@@ -2515,6 +2565,7 @@ pub fn spawn_worker(
                         let event = match user_api.list_memberships(&connection_id, &member).await {
                             Ok(memberships) => RuntimeEvent::MembershipsLoaded {
                                 request_id,
+                                connection_id,
                                 member,
                                 memberships,
                             },
@@ -2656,7 +2707,12 @@ pub fn spawn_worker(
                             .diff_table_data_keyed(&source_id, &target_id, &schema, &table, &key_columns, sample_limit)
                             .await
                         {
-                            Ok(diff) => RuntimeEvent::DataDiffLoaded { request_id, diff },
+                            Ok(diff) => RuntimeEvent::DataDiffLoaded {
+                                request_id,
+                                source_id,
+                                target_id,
+                                diff,
+                            },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,

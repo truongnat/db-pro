@@ -152,6 +152,16 @@ impl DbProApp {
         }
         self.request_connections_once();
         let runtime_events_pending = self.apply_runtime_events();
+        if self.workspace.activity == Activity::Monitor
+            && self.connection.lifecycle.is_connected()
+            && self.connection.lifecycle.active_connection_id().is_some()
+            && self.management.monitoring.monitoring_poll
+        {
+            ctx.request_repaint_after(crate::app::monitoring_state::monitoring_poll_repaint_delay(
+                self.management.monitoring.monitoring_last_poll,
+                std::time::Instant::now(),
+            ));
+        }
         self.tick_saved_task_scheduler();
         // Worker-thread results (git ops, workspace scans, file reads,
         // transfer harness) land here so no draw path blocks on I/O (#391,

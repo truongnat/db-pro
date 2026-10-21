@@ -36,6 +36,8 @@ impl DbProApp {
         let request_id = self.next_request_id();
         match self.schema.compare.prepare_data_diff_request() {
             Ok(request) => {
+                let target_id = request.target_id.clone();
+                let source_connection_id = source_id.clone();
                 let command = UiCommand::DiffTableDataKeyed {
                     request_id,
                     source_id,
@@ -46,6 +48,7 @@ impl DbProApp {
                     sample_limit: request.sample_limit,
                 };
                 if self.dispatch_command(command) {
+                    self.schema.compare.data_diff_request = Some((request_id.0, source_connection_id, target_id));
                     self.feedback.runtime_message = t!("workspace.running_data_compare").into_owned();
                 }
             }

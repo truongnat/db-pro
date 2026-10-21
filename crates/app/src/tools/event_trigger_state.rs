@@ -21,6 +21,7 @@ pub(super) enum EventTriggerApply {
 
 pub(super) struct EventTriggerState {
     pub(super) event_trigger_inventory: Option<db_pro_core::domain::event_trigger::EventTriggerInventory>,
+    pub(super) event_trigger_inventory_request: Option<(u64, String)>,
     pub(super) event_trigger_error: Option<String>,
     pub(super) event_trigger_create_name: String,
     pub(super) event_trigger_create_event: String,
@@ -35,6 +36,7 @@ impl Default for EventTriggerState {
     fn default() -> Self {
         Self {
             event_trigger_inventory: None,
+            event_trigger_inventory_request: None,
             event_trigger_error: None,
             event_trigger_create_name: String::new(),
             event_trigger_create_function: String::new(),

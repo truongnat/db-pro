@@ -17,6 +17,7 @@ pub(super) struct SecurityState {
     pub(super) security_rls_schema: String,
     pub(super) security_rls_table: String,
     pub(super) security_rls_state: Option<db_pro_core::domain::rls::TableRlsState>,
+    pub(super) security_rls_request: Option<(u64, String)>,
     pub(super) security_rls_policy_name: String,
     pub(super) security_rls_command: String,
     pub(super) security_rls_roles: String,
@@ -27,7 +28,9 @@ pub(super) struct SecurityState {
     pub(super) security_rls_restrictive: bool,
     pub(super) security_drop_confirm: Option<String>,
     pub(super) security_pending: Option<PendingSecurityAction>,
-    pub(super) security_privilege_request: Option<u64>,
+    pub(super) security_users_request: Option<(u64, String)>,
+    pub(super) security_privilege_request: Option<(u64, String)>,
+    pub(super) security_membership_request: Option<(u64, String)>,
     pub(super) security_error: Option<String>,
 }
 
@@ -88,6 +91,7 @@ impl Default for SecurityState {
             security_rls_schema: "public".to_owned(),
             security_rls_table: String::new(),
             security_rls_state: None,
+            security_rls_request: None,
             security_rls_policy_name: String::new(),
             security_rls_command: "SELECT".to_owned(),
             security_rls_roles: String::new(),
@@ -98,7 +102,9 @@ impl Default for SecurityState {
             security_rls_restrictive: false,
             security_drop_confirm: None,
             security_pending: None,
+            security_users_request: None,
             security_privilege_request: None,
+            security_membership_request: None,
             security_error: None,
         }
     }
@@ -106,7 +112,7 @@ impl Default for SecurityState {
 
 impl SecurityState {
     pub(super) fn note_privilege_failure(&mut self, request_id: u64, message: &str) -> bool {
-        if self.security_privilege_request != Some(request_id) {
+        if self.security_privilege_request.as_ref().map(|(id, _)| *id) != Some(request_id) {
             return false;
         }
         self.security_privilege_request = None;
