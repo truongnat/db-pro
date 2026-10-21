@@ -25,6 +25,7 @@ pub mod pg_settings;
 pub mod query;
 pub mod replication;
 pub mod rls;
+pub mod routine_debug;
 pub mod run_config;
 pub mod safety;
 pub mod saved_task;

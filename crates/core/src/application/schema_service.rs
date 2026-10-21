@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
+use crate::domain::routine_debug::{RoutineDebugProbe, DEBUG_CAPABILITY_PROBE_SQL};
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
 use crate::domain::schema::{IntrospectResult, TableInfo};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
@@ -123,6 +124,32 @@ impl SchemaService {
             return true;
         }
         sqlite_file_matches_cached_schema(&config.database, cached)
+    }
+
+    /// Reads whether server-side PL/pgSQL debugging is possible on this connection (#252).
+    ///
+    /// Catalog reads only — the probe never installs an extension, never edits
+    /// `shared_preload_libraries`, and never reloads server config, so it is safe against
+    /// read-only and production connections. Drivers other than PostgreSQL have no
+    /// PL/pgSQL debug provider to look for and are answered without a round trip.
+    ///
+    /// A failed probe is data, not an error: the caller always receives a
+    /// [`RoutineDebugProbe`] whose state the workbench can explain.
+    pub async fn routine_debug_probe(&self, connection_id: &ConnectionId) -> Result<RoutineDebugProbe, DbError> {
+        let config = self.connection_config(connection_id).await?;
+        if config.driver != DriverType::Postgres {
+            return Ok(RoutineDebugProbe::unsupported_driver());
+        }
+        let Some(handle) = self.registry.get(connection_id) else {
+            return Ok(RoutineDebugProbe::probe_failed(format!(
+                "connection {connection_id} is not active"
+            )));
+        };
+        let result = self.connector.query(&handle, DEBUG_CAPABILITY_PROBE_SQL, &[]).await;
+        Ok(match result {
+            Ok(result) => RoutineDebugProbe::from_probe_result(&result),
+            Err(error) => RoutineDebugProbe::probe_failed(error.to_string()),
+        })
     }
 
     pub async fn get_table_info(

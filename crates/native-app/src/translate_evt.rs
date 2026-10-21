@@ -57,6 +57,15 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             connection_id,
             page,
         }),
+        RuntimeEvent::RoutineDebugProbeLoaded {
+            request_id,
+            connection_id,
+            probe,
+        } => Some(UiEvent::RoutineDebugProbeLoaded {
+            request_id: ui_request_id(request_id),
+            connection_id,
+            probe,
+        }),
         RuntimeEvent::PgSettingsLoaded {
             request_id,
             connection_id,

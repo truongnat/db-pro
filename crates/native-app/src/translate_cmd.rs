@@ -178,7 +178,8 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::IntrospectSchema { .. }
         | UiCommand::LoadTableInfo { .. }
         | UiCommand::LoadTableDdl { .. }
-        | UiCommand::LoadTableData { .. } => translate_schema_command(command),
+        | UiCommand::LoadTableData { .. }
+        | UiCommand::ProbeRoutineDebug { .. } => translate_schema_command(command),
         UiCommand::ListConnections { .. }
         | UiCommand::CreateConnection { .. }
         | UiCommand::UpdateConnection { .. }
@@ -521,6 +522,13 @@ pub(crate) fn translate_schema_command(command: UiCommand) -> Option<RuntimeComm
             connection_id,
             schema,
             table,
+        }),
+        UiCommand::ProbeRoutineDebug {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::ProbeRoutineDebug {
+            request_id: runtime_request_id(request_id),
+            connection_id,
         }),
         UiCommand::LoadTableData {
             request_id,

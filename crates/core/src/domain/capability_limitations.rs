@@ -13,6 +13,12 @@ fn postgres_reason(feature: CapabilityFeature) -> &'static str {
     match feature {
         CapabilityFeature::Cancel => "PostgreSQL wire-level query cancellation is not exposed by the connector yet",
         CapabilityFeature::PositionalParameters => "PostgreSQL uses numbered parameters ($1, $2), not positional ?",
+        // cc-scan:allow LINE_TOO_LONG — driver guidance must stay one literal
+        CapabilityFeature::RoutineDebug => {
+            "PL/pgSQL server-side debugging requires the plugin_debugger extension (pldbgapi), which is not \
+             installed on this server and is not available for PostgreSQL 18; DB Pro will not install server \
+             extensions automatically"
+        }
         feature => generic_reason(feature),
     }
 }
@@ -36,6 +42,9 @@ fn sqlite_reason(feature: CapabilityFeature) -> &'static str {
         CapabilityFeature::SshTunnel => "SSH tunneling is not used for local SQLite files",
         CapabilityFeature::NumberedParameters => "SQLite uses positional ? parameters, not numbered $n",
         CapabilityFeature::RenameObjects => "renaming arbitrary schema objects is limited for this driver",
+        CapabilityFeature::RoutineDebug => {
+            "this engine has no server-side PL/pgSQL debugger; routines run without stepping support"
+        }
         feature => generic_reason(feature),
     }
 }
@@ -57,6 +66,9 @@ fn mysql_reason(feature: CapabilityFeature) -> &'static str {
         CapabilityFeature::UuidType => "MySQL has no native UUID type in the shipped capability set",
         CapabilityFeature::TransactionalDdl => "MySQL DDL statements cause an implicit commit",
         CapabilityFeature::RenameObjects => "renaming arbitrary schema objects is limited for this driver",
+        CapabilityFeature::RoutineDebug => {
+            "this engine has no server-side PL/pgSQL debugger; routines run without stepping support"
+        }
         feature => generic_reason(feature),
     }
 }
@@ -76,6 +88,9 @@ fn sql_server_reason(feature: CapabilityFeature) -> &'static str {
         CapabilityFeature::SshTunnel => "SQL Server SSH tunneling is not implemented by the provider yet",
         CapabilityFeature::Backup => "SQL Server backup/restore is not implemented by the shared backup service yet",
         CapabilityFeature::TriggerEnableDisable => "SQL Server trigger enable/disable is not enabled for this provider",
+        CapabilityFeature::RoutineDebug => {
+            "SQL Server routine debugging needs a server-side debug provider that this build does not probe or attach to"
+        }
         feature => generic_reason(feature),
     }
 }
@@ -86,6 +101,7 @@ fn generic_reason(feature: CapabilityFeature) -> &'static str {
         CapabilityFeature::Parameters => "parameterized queries are not available for this driver",
         CapabilityFeature::DataDiff => "data diff is not available for this driver",
         CapabilityFeature::Backup => "backup/restore is not available for this driver",
+        CapabilityFeature::RoutineDebug => "server-side routine debugging is not available for this driver",
         _ => "this capability is not available for the current driver",
     }
 }

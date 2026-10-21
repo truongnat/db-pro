@@ -1776,3 +1776,37 @@ async fn pg_typed_query_null_parameters_preserve_contextual_inference() {
     assert!(matches!(mixed.rows[0].0[0], CellValue::Null));
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// #252: the PL/pgSQL debug-capability probe must run cleanly against a real server and
+/// report an honest "extension absent" — never a faked capability. The CI fixture (PG16)
+/// and the local fixture (PG18) both ship without plugin_debugger preloaded.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_routine_debug_probe_reports_extension_absent_cleanly() {
+    let (connector, handle) = setup().await;
+    let result = connector
+        .query(
+            &handle,
+            db_pro_core::domain::routine_debug::DEBUG_CAPABILITY_PROBE_SQL,
+            &[],
+        )
+        .await
+        .expect("catalog probe SQL must be valid on any supported PostgreSQL");
+    let probe = db_pro_core::domain::routine_debug::RoutineDebugProbe::from_probe_result(&result);
+    assert!(
+        probe.probe_error.is_none(),
+        "probe row must be readable: {:?}",
+        probe.probe_error
+    );
+    assert!(!probe.extension_installed, "fixture never installs plugin_debugger");
+    assert_eq!(
+        probe.state,
+        db_pro_core::domain::routine_debug::RoutineDebugState::ExtensionMissing,
+        "absent extension must map to ExtensionMissing, not a faked capability"
+    );
+    assert!(
+        !probe.server_version.is_empty(),
+        "server_version must come back from the probe"
+    );
+    connector.disconnect(&handle).await.unwrap();
+}

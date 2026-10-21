@@ -42,6 +42,12 @@ pub enum RuntimeCommand {
         schema: String,
         table: String,
     },
+    /// Read the server catalogs that decide whether PL/pgSQL routine debugging is
+    /// possible on this connection (#252). Catalog-only; installs nothing.
+    ProbeRoutineDebug {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
     ExecuteDdl {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -510,6 +516,11 @@ pub enum RuntimeEvent {
         connection_id: String,
         page: db_pro_core::domain::audit::AuditPage,
     },
+    RoutineDebugProbeLoaded {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        probe: db_pro_core::domain::routine_debug::RoutineDebugProbe,
+    },
     PgSettingsLoaded {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -829,6 +840,27 @@ pub fn spawn_worker(
                         },
                     };
                     let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::ProbeRoutineDebug {
+                    request_id,
+                    connection_id,
+                } => {
+                    let schema_api = runtime.schema_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match schema_api.routine_debug_probe(&connection_id).await {
+                            Ok(probe) => RuntimeEvent::RoutineDebugProbeLoaded {
+                                request_id,
+                                connection_id,
+                                probe,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
                 }
                 RuntimeCommand::ExecuteDdl {
                     request_id,

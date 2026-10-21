@@ -26,6 +26,12 @@ pub enum UiCommand {
         schema: String,
         table: String,
     },
+    /// Read the server catalogs that decide whether PL/pgSQL routine debugging is
+    /// possible on this connection (#252). Catalog-only: it installs nothing.
+    ProbeRoutineDebug {
+        request_id: RequestId,
+        connection_id: String,
+    },
     ExecuteDdl {
         request_id: RequestId,
         connection_id: String,
@@ -521,6 +527,11 @@ pub enum UiEvent {
         request_id: RequestId,
         connection_id: String,
         page: db_pro_core::domain::audit::AuditPage,
+    },
+    RoutineDebugProbeLoaded {
+        request_id: RequestId,
+        connection_id: String,
+        probe: db_pro_core::domain::routine_debug::RoutineDebugProbe,
     },
     PgSettingsLoaded {
         request_id: RequestId,

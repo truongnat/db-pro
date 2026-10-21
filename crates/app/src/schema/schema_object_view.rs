@@ -100,6 +100,10 @@ impl DbProApp {
             self.management.routine.sync_from(&function);
         }
         let dialect = self.editor_dialect();
+        // The debug-capability block goes FIRST: it is the status banner for this workbench,
+        // and below the two editor cards it would never be seen at laptop window heights (#252).
+        self.draw_routine_debug_status(ui);
+        ui.add_space(SPACE_MD);
         let action = {
             let mut context = routine_workbench_surface_view::RoutineWorkbenchContext {
                 theme: self.theme,
@@ -115,6 +119,60 @@ impl DbProApp {
         };
         if let Some(action) = action {
             self.apply_routine_workbench_action(&function, action);
+        }
+    }
+
+    /// Draws the PL/pgSQL debug-capability status block above the workbench cards (#252).
+    ///
+    /// The block is probe-driven: opening the workbench on a live connection fires one
+    /// catalog read, and the block renders exactly what that read measured. DB Pro never
+    /// installs server extensions, so the guidance states the manual DBA path instead of
+    /// offering a one-click fix.
+    fn draw_routine_debug_status(&mut self, ui: &mut egui::Ui) {
+        let active_connection_id = self.active_database_connection_id();
+        if let Some(connection_id) = active_connection_id.as_deref() {
+            if self.management.routine.needs_debug_probe(connection_id) {
+                self.request_routine_debug_probe(connection_id);
+            }
+        }
+        let stale_probe = active_connection_id.is_some()
+            && self.management.routine.routine_debug_probe_connection.as_deref() != active_connection_id.as_deref();
+        let probe = if stale_probe { None } else { self.management.routine.routine_debug_probe.as_ref() };
+        let probing = self.management.routine.routine_debug_probe_request.is_some();
+        let environment_label = self
+            .active_connection()
+            .filter(|connection| connection.environment == db_pro_core::domain::connection::ConnectionEnvironment::Production)
+            .map(|connection| connection.environment.as_label());
+        let guidance = routine_debug_status_view::build_debug_guidance(probe, probing, environment_label);
+        let mut recheck = false;
+        {
+            let mut context = routine_debug_status_view::RoutineDebugStatusContext {
+                theme: self.theme,
+                guidance,
+                state: probe.map(|probe| probe.state),
+                probing,
+                can_recheck: active_connection_id.is_some(),
+                recheck_slot: &mut recheck,
+            };
+            routine_debug_status_view::draw_debug_status(&mut context, ui);
+        }
+        if recheck {
+            if let Some(connection_id) = active_connection_id.as_deref() {
+                self.request_routine_debug_probe(connection_id);
+            }
+        }
+    }
+
+    /// Sends one catalog-only debug-capability probe for `connection_id` and records the
+    /// in-flight request so the reply can be authenticated (#252).
+    fn request_routine_debug_probe(&mut self, connection_id: &str) {
+        let request_id = self.next_request_id();
+        let command = UiCommand::ProbeRoutineDebug {
+            request_id,
+            connection_id: connection_id.to_owned(),
+        };
+        if self.dispatch_command(command) {
+            self.management.routine.begin_debug_probe(request_id.0, connection_id);
         }
     }
 

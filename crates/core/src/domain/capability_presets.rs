@@ -55,6 +55,9 @@ impl DatabaseCapabilities {
             sequences: true,
             enum_types: true,
             rename_objects: true,
+            // PostgreSQL *could* have it, but only when the server has `plugin_debugger`
+            // installed and preloaded — a live-probe answer, never a preset claim (#252).
+            routine_debug: false,
         }
     }
 
@@ -129,6 +132,7 @@ impl DatabaseCapabilities {
             sequences: false,
             enum_types: false,
             rename_objects: false,
+            routine_debug: false,
         }
     }
 
@@ -212,6 +216,7 @@ impl DatabaseCapabilities {
             sequences: false,
             enum_types: true,
             rename_objects: false,
+            routine_debug: false,
         }
     }
 
@@ -299,6 +304,7 @@ impl DatabaseCapabilities {
             sequences: true,
             enum_types: false,
             rename_objects: true,
+            routine_debug: false,
         }
     }
 

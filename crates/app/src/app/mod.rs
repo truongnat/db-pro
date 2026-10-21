@@ -167,6 +167,9 @@ impl DbProApp {
         ) else {
             return;
         };
+        // A fresh session can carry different server-side debug state (#252): drop the
+        // cached probe so the routine workbench re-reads the catalogs on next draw.
+        self.management.routine.clear_debug_probe();
         self.request_schema_introspection(connection_id.clone(), false);
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(query_save_commands::list_queries_command(

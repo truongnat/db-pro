@@ -1,5 +1,7 @@
 use super::*;
 use crate::domain::connection::ConnectionHandle;
+use crate::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
+use crate::domain::routine_debug::RoutineDebugState;
 use crate::domain::schema::*;
 use crate::ports::MockIntrospectionCache;
 use crate::ports::{MockConnectionRepository, MockDbConnector};
@@ -977,4 +979,107 @@ fn mysql_ddl_declares_supporting_indexes_before_foreign_keys_once() {
     assert!(!ddl.contains("INDEX `PRIMARY`"));
     assert!(!ddl.contains("CREATE INDEX"));
     assert!(!ddl.contains("CREATE UNIQUE INDEX"));
+}
+
+fn debug_probe_result(installed: bool, available: bool, preloaded: bool, version: &str) -> QueryResult {
+    let cells = vec![
+        CellValue::Bool(installed),
+        CellValue::Bool(available),
+        CellValue::Bool(preloaded),
+        CellValue::Text(version.into()),
+    ];
+    QueryResult {
+        columns: (0..4)
+            .map(|i| ColumnMeta {
+                name: format!("col{i}"),
+                data_type: "bool".into(),
+                nullable: true,
+            })
+            .collect(),
+        rows: vec![Row(cells)],
+        row_count: 1,
+        duration_ms: 0,
+    }
+}
+
+#[tokio::test]
+async fn routine_debug_probe_sends_the_catalog_probe_sql_verbatim() {
+    let conn_id = ConnectionId::new();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(conn_id, ConnectionHandle(1));
+
+    let mut connector = MockDbConnector::new();
+    connector
+        .expect_query()
+        .withf(|handle, sql, params| handle.0 == 1 && sql == DEBUG_CAPABILITY_PROBE_SQL && params.is_empty())
+        .once()
+        .returning(|_, _, _| Ok(debug_probe_result(false, true, false, "18.0")));
+
+    let svc = SchemaService::new(
+        Box::new(connector),
+        Box::new(MockIntrospectionCache::new()),
+        Arc::clone(&registry),
+        Box::new(mock_connections()),
+    );
+
+    let probe = svc.routine_debug_probe(&conn_id).await.expect("probe runs");
+    assert_eq!(probe.state, RoutineDebugState::ExtensionMissing);
+    assert!(probe.extension_available, "installable is not the same as installed");
+    assert_eq!(probe.server_version, "18.0");
+}
+
+#[tokio::test]
+async fn routine_debug_probe_keeps_query_failures_as_explainable_state() {
+    let conn_id = ConnectionId::new();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(conn_id, ConnectionHandle(1));
+
+    let mut connector = MockDbConnector::new();
+    connector
+        .expect_query()
+        .returning(|_, _, _| Err(DbError::Internal("permission denied for pg_extension".into())));
+
+    let svc = SchemaService::new(
+        Box::new(connector),
+        Box::new(MockIntrospectionCache::new()),
+        Arc::clone(&registry),
+        Box::new(mock_connections()),
+    );
+
+    let probe = svc.routine_debug_probe(&conn_id).await.expect("probe outcome is data");
+    assert_eq!(probe.state, RoutineDebugState::ProbeFailed);
+    assert!(probe.probe_error.unwrap().contains("permission denied"));
+}
+
+#[tokio::test]
+async fn routine_debug_probe_answers_non_postgres_without_a_round_trip() {
+    let conn_id = ConnectionId::new();
+    let registry = Arc::new(ConnectionRegistry::new());
+    registry.register(conn_id, ConnectionHandle(1));
+
+    // No `expect_query` is set up: any query attempt panics the mock, proving the shortcut.
+    let svc = SchemaService::new(
+        Box::new(MockDbConnector::new()),
+        Box::new(MockIntrospectionCache::new()),
+        Arc::clone(&registry),
+        Box::new(sqlite_connections()),
+    );
+
+    let probe = svc.routine_debug_probe(&conn_id).await.expect("answered locally");
+    assert_eq!(probe.state, RoutineDebugState::UnsupportedDriver);
+}
+
+#[tokio::test]
+async fn routine_debug_probe_reports_inactive_connection_honestly() {
+    let conn_id = ConnectionId::new();
+    let svc = SchemaService::new(
+        Box::new(MockDbConnector::new()),
+        Box::new(MockIntrospectionCache::new()),
+        Arc::new(ConnectionRegistry::new()),
+        Box::new(mock_connections()),
+    );
+
+    let probe = svc.routine_debug_probe(&conn_id).await.expect("still a probe result");
+    assert_eq!(probe.state, RoutineDebugState::ProbeFailed);
+    assert!(probe.probe_error.unwrap().contains("not active"));
 }

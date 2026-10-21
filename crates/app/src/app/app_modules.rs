@@ -236,6 +236,8 @@ mod query_save_events;
 mod replication_activity_view;
 #[path = "../tools/replication_state.rs"]
 mod replication_state;
+#[path = "../schema/routine_debug_status_view.rs"]
+mod routine_debug_status_view;
 #[path = "../schema/routine_state.rs"]
 mod routine_state;
 #[path = "../schema/routine_workbench_surface_view.rs"]

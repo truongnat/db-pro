@@ -54,6 +54,9 @@ impl DbProApp {
             UiEvent::PgSettingsLoaded { request_id, connection_id, snapshot } => {
                 self.on_pg_settings_loaded(request_id, connection_id, snapshot)
             }
+            UiEvent::RoutineDebugProbeLoaded { request_id, connection_id, probe } => {
+                self.on_routine_debug_probe_loaded(request_id, connection_id, probe)
+            }
             UiEvent::PgSettingActionCompleted { action, name, .. } => self.on_pg_setting_action_completed(action, name),
             UiEvent::FdwInventoryLoaded { request_id, connection_id, inventory } => {
                 self.on_fdw_inventory_loaded(request_id, connection_id, inventory)

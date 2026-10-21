@@ -76,6 +76,15 @@ pub struct SchemaCapabilities {
     pub enum_types: bool,
     /// Supports renaming schema objects.
     pub rename_objects: bool,
+    /// Supports server-side PL/pgSQL routine debugging (breakpoints, stepping,
+    /// variable inspection) on this connection.
+    ///
+    /// Every preset sets this to `false`: debug support is *server* state (the
+    /// `plugin_debugger` extension exposing `pldbgapi`), not driver state, so the honest
+    /// answer only a live probe can give ([`crate::domain::routine_debug`]) — never a
+    /// static table.
+    #[serde(default)]
+    pub routine_debug: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +159,7 @@ pub enum CapabilityFeature {
     DataDiff,
     TransactionalDdl,
     RenameObjects,
+    RoutineDebug,
 }
 
 impl DatabaseCapabilities {
@@ -178,6 +188,7 @@ impl DatabaseCapabilities {
             CapabilityFeature::DataDiff => self.features.data_diff,
             CapabilityFeature::TransactionalDdl => self.schema.transactional_ddl,
             CapabilityFeature::RenameObjects => self.schema.rename_objects,
+            CapabilityFeature::RoutineDebug => self.schema.routine_debug,
         }
     }
 

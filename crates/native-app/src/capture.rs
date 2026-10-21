@@ -461,6 +461,8 @@ impl CaptureApp {
             inner.open_component_gallery_for_capture();
         } else if std::env::var_os(EXPLORER_FILTER_ENV).is_some() {
             inner.open_explorer_filter_for_capture();
+        } else if std::env::var_os("DB_PRO_CAPTURE_ROUTINE_DEBUG").is_some() {
+            inner.open_routine_debug_for_capture(std::env::var_os("DB_PRO_CAPTURE_ROUTINE_DEBUG_LIGHT").is_some());
         } else if std::env::var_os(HISTORY_ACTIVITY_ENV).is_some() {
             inner.open_history_activity_for_capture();
         } else if std::env::var_os(COMPARE_WORKSPACE_ENV).is_some() {

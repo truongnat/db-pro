@@ -959,6 +959,57 @@ impl DbProApp {
         self.schema.explorer.explorer_filter.mode = ExplorerMatchMode::Prefix;
     }
 
+    /// Capture/evidence helper: routine workbench on a seeded PL/pgSQL function so the
+    /// #252 Debug capability block is on screen. With a live connection the block shows
+    /// the *real* catalog probe (the fixture server has no plugin_debugger); offline it
+    /// seeds the same measured "extension missing" answer deterministically.
+    pub fn open_routine_debug_for_capture(&mut self, light: bool) {
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
+        self.workspace.activity = Activity::Explorer;
+        self.workspace.active_tab = WorkspaceTab::SchemaObject;
+        self.schema.explorer.schema.functions = vec![crate::UiFunctionSummary {
+            schema: "public".to_owned(),
+            name: "order_total".to_owned(),
+            routine_type: "FUNCTION".to_owned(),
+            data_type: "numeric".to_owned(),
+            definition: "BEGIN\n  RETURN (SELECT sum(o.total) FROM orders o WHERE o.customer_id = customer_id);\nEND"
+                .to_owned(),
+            identity_arguments: "customer_id integer".to_owned(),
+            language: "plpgsql".to_owned(),
+            volatility: "VOLATILE".to_owned(),
+            security_definer: false,
+            parameters: vec![crate::UiRoutineParameter {
+                name: "customer_id".to_owned(),
+                data_type: "integer".to_owned(),
+                mode: "IN".to_owned(),
+                has_default: false,
+                default_expr: String::new(),
+            }],
+        }];
+        self.schema.explorer.selected_schema_object = Some(SchemaObjectSelection::Function {
+            name: "order_total".to_owned(),
+            identity_arguments: "customer_id integer".to_owned(),
+        });
+        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
+        if self.active_database_connection_id().is_some() {
+            // A live session is probing for itself; never overwrite in-flight probe state.
+            return;
+        }
+        // Offline fallback: the honest fixture answer — plugin_debugger absent on
+        // PostgreSQL 18, listed installable but never auto-installed by DB Pro.
+        self.management.routine.routine_debug_probe = Some(db_pro_core::domain::routine_debug::RoutineDebugProbe {
+            state: db_pro_core::domain::routine_debug::RoutineDebugState::ExtensionMissing,
+            extension_installed: false,
+            extension_available: true,
+            preload_configured: false,
+            server_version: "18.6".to_owned(),
+            probe_error: None,
+        });
+        self.management.routine.routine_debug_probe_connection = Some("capture-routine-debug".to_owned());
+        self.management.routine.routine_debug_probe_request = None;
+    }
+
     /// Capture/evidence helper: open the Compare workspace with a real
     /// snapshot→diff→plan chain recorded against a different session target,
     /// so the spec-09 safety lock is exercised end-to-end.

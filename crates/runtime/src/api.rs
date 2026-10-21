@@ -648,6 +648,20 @@ impl SchemaApi {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.invalidate_cache(&connection_id).await.map_err(Into::into)
     }
+
+    /// Reads server-side PL/pgSQL debug capability for one live connection (#252).
+    ///
+    /// Catalog-only read; nothing is installed or reloaded on the server.
+    pub async fn routine_debug_probe(
+        &self,
+        connection_id: &str,
+    ) -> Result<db_pro_core::domain::routine_debug::RoutineDebugProbe, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .routine_debug_probe(&connection_id)
+            .await
+            .map_err(Into::into)
+    }
 }
 
 #[derive(Clone)]

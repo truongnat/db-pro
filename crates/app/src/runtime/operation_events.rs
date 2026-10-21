@@ -26,7 +26,7 @@ fn is_authoritative_connection_completion(operation: &str, pending: bool) -> boo
 }
 
 impl DbProApp {
-    fn active_database_connection_id(&self) -> Option<String> {
+    pub(super) fn active_database_connection_id(&self) -> Option<String> {
         if !self.connection.lifecycle.is_connected() {
             return None;
         }
@@ -122,6 +122,24 @@ impl DbProApp {
             return;
         }
         management_events::on_pg_settings_loaded(&mut self.management.pg_settings, &mut self.feedback, snapshot);
+    }
+
+    /// Stores one PL/pgSQL debug-capability probe reply (#252).
+    ///
+    /// The reply must answer the pending request for the connection the workbench still
+    /// shows; a stale or foreign reply is dropped instead of painting another server's
+    /// debug state onto the current connection.
+    pub(super) fn on_routine_debug_probe_loaded(
+        &mut self,
+        request_id: RequestId,
+        connection_id: String,
+        probe: db_pro_core::domain::routine_debug::RoutineDebugProbe,
+    ) {
+        let active_connection_id = self.active_database_connection_id();
+        if active_connection_id.as_deref() != Some(connection_id.as_str()) {
+            return;
+        }
+        self.management.routine.complete_debug_probe(request_id.0, &connection_id, probe);
     }
 
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
