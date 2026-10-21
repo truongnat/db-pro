@@ -162,7 +162,10 @@ async fn sqlserver_foreign_key_actions_round_trip_through_schema_service() {
     use db_pro_infrastructure::meta::store::SQLiteMetaStore;
     use std::sync::Arc;
 
-    let (connector, handle) = setup().await.expect("requires a live SQLSERVER_URL");
+    let Some((connector, handle)) = setup().await else {
+        eprintln!("skipping SQL Server integration test: SQLSERVER_URL is unavailable");
+        return;
+    };
     let connector = Arc::new(connector);
     let suffix = uuid::Uuid::new_v4().simple().to_string();
     let parent = format!("dbpro442_action_parent_{suffix}");
