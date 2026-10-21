@@ -114,6 +114,7 @@ impl DbProApp {
         );
         if !copy_supported && self.overlay.export_format == ExportFormat::SqlCopy {
             self.overlay.export_format = ExportFormat::Csv;
+            self.overlay.export_overwrite_pending = None;
         }
         let action = query_dialog_surface_view::ExportDialogContext {
             theme: self.theme,
@@ -130,7 +131,7 @@ impl DbProApp {
             Some(query_dialog_surface_view::ExportDialogAction::Cancel) => {
                 self.overlay.export_open = false;
                 self.overlay.export_snapshot = None;
-                self.overlay.export_overwrite_pending = false;
+                self.overlay.export_overwrite_pending = None;
                 self.overlay.export_table_name.clear();
             }
             Some(query_dialog_surface_view::ExportDialogAction::Overwrite) => {
@@ -139,10 +140,12 @@ impl DbProApp {
                 }
             }
             Some(query_dialog_surface_view::ExportDialogAction::KeepExisting) => {
-                self.overlay.export_overwrite_pending = false;
+                self.overlay.export_overwrite_pending = None;
             }
             None => {}
             Some(query_dialog_surface_view::ExportDialogAction::Browse) => {
+                // A newly picked path is not the path the prompt named (#539).
+                self.overlay.export_overwrite_pending = None;
                 let request_id = self.next_request_id();
                 self.dispatch_command(UiCommand::PickExportFile { request_id });
             }
@@ -241,6 +244,9 @@ impl DbProApp {
     /// #244 (E-1): the file is published atomically and an existing path is never replaced without
     /// asking, so a failed export cannot leave a truncated file that looks complete and a typo in the
     /// path cannot destroy an unrelated file.
+    ///
+    /// #539: confirmation is bound to the effective path the prompt named. Changing the Format or
+    /// the path while the prompt is open must not let `Overwrite` replace a file the user never saw.
     pub(super) fn export_result_to_disk(&mut self, result: &UiQueryResult, overwrite: bool) {
         let path_text = self.overlay.export_path.trim().to_owned();
         if path_text.is_empty() {
@@ -252,8 +258,10 @@ impl DbProApp {
         // normalization so the overwrite prompt covers the real destination).
         let path = self.overlay.effective_export_path();
         let path_text = path.to_string_lossy().into_owned();
-        if path.exists() && !overwrite {
-            self.overlay.export_overwrite_pending = true;
+        let overwrite_confirmed = overwrite
+            && self.overlay.export_overwrite_pending.as_deref() == Some(path.as_path());
+        if path.exists() && !overwrite_confirmed {
+            self.overlay.export_overwrite_pending = Some(path);
             return;
         }
 
@@ -262,7 +270,7 @@ impl DbProApp {
                 Ok(bytes) => bytes,
                 Err(error) => {
                     self.feedback.runtime_message = t!("query.export_failed", error = error.to_string().as_str()).into_owned();
-                    self.overlay.export_overwrite_pending = false;
+                    self.overlay.export_overwrite_pending = None;
                     self.overlay.export_open = false;
                     self.overlay.export_snapshot = None;
                     self.overlay.export_table_name.clear();
@@ -270,15 +278,18 @@ impl DbProApp {
                 }
             }
         } else {
+            let driver = self.active_driver().to_owned();
             match self.overlay.export_format {
                 // Empty field falls back to a visible placeholder rather than `INSERT INTO ""` (#426).
                 ExportFormat::SqlInsert => result_grid_export::format_result_sql_insert(
                     result,
                     export_table_name_or_placeholder(self.overlay.export_table_name.trim()),
+                    &driver,
                 ),
                 ExportFormat::SqlCopy => result_grid_export::format_result_copy(
                     result,
                     export_table_name_or_placeholder(self.overlay.export_table_name.trim()),
+                    &driver,
                 ),
                 ExportFormat::Json => result_grid_export::format_result_json(result),
                 ExportFormat::Markdown => result_grid_export::format_result_markdown(result),
@@ -311,7 +322,7 @@ impl DbProApp {
                 self.feedback.runtime_message = t!("query.export_failed", error = error.to_string().as_str()).into_owned();
             }
         }
-        self.overlay.export_overwrite_pending = false;
+        self.overlay.export_overwrite_pending = None;
         self.overlay.export_open = false;
         self.overlay.export_snapshot = None;
         self.overlay.export_table_name.clear();

@@ -140,6 +140,19 @@ impl<'a> TableMutationContext<'a> {
             self.table_editing.data_editing_cell = None;
             return false;
         };
+        // #537: write-boundary guard — the display prefix must never overwrite the full value,
+        // no matter which UI path staged this edit.
+        if result
+            .rows
+            .get(row_index)
+            .and_then(|row| row.get(column_index))
+            .is_some_and(UiCell::is_truncated)
+        {
+            let error = t!("query.cell_truncated_for_display").into_owned();
+            self.feedback.runtime_message = error.clone();
+            self.table_editing.data_edit_error = Some(error);
+            return false;
+        }
         let Some(column_info) = info.columns.iter().find(|item| item.name == column) else {
             self.feedback.runtime_message = "The selected column is not present in the table metadata".to_owned();
             self.table_editing.data_editing_cell = None;

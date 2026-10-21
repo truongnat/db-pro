@@ -132,6 +132,21 @@ impl ExportDialogContext<'_> {
         ui.add_space(SPACE_XS);
         self.draw_format_picker(ui);
         ui.add_space(SPACE_SM);
+        self.draw_output_fields(ui, action);
+        ui.add_space(SPACE_XS);
+        ui.label(
+            RichText::new(t!("query.export_visible_only"))
+                .font(font_caption())
+                .color(self.theme.text_muted),
+        );
+        if self.overlay.export_overwrite_pending.is_some() {
+            self.draw_overwrite_confirmation(ui, action);
+        }
+        ui.add_space(SPACE_MD);
+        self.draw_footer(ui, action);
+    }
+
+    fn draw_output_fields(&mut self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {
         ui.label(
             RichText::new(t!("query.export_output_file"))
                 .font(font_ui_label())
@@ -139,6 +154,7 @@ impl ExportDialogContext<'_> {
         );
         ui.add_space(SPACE_XS);
         let placeholder = format!("/path/to/results.{}", self.overlay.export_format.extension());
+        let path_before = self.overlay.export_path.clone();
         ui.horizontal(|ui| {
             let input_width = ui.available_width() - 108.0;
             Input::new(&mut self.overlay.export_path, placeholder, self.theme)
@@ -155,19 +171,11 @@ impl ExportDialogContext<'_> {
                 *action = Some(ExportDialogAction::Browse);
             }
         });
-        // #396: surface the effective file name live so a missing/wrong extension is never a
-        // silent surprise — the write itself normalizes the same way.
-        let trimmed = self.overlay.export_path.trim().to_owned();
-        if !trimmed.is_empty() {
-            let effective = self.overlay.effective_export_path();
-            if effective != std::path::Path::new(&trimmed) {
-                ui.add_space(SPACE_XS);
-                ui.colored_label(
-                    self.theme.warning,
-                    t!("query.export_path_adjusted", path = effective.display().to_string().as_str()).into_owned(),
-                );
-            }
+        // #539: a path typed after the prompt appeared is a different destination.
+        if self.overlay.export_path != path_before {
+            self.overlay.export_overwrite_pending = None;
         }
+        self.draw_effective_path_hint(ui);
         if matches!(self.overlay.export_format, ExportFormat::SqlInsert | ExportFormat::SqlCopy) {
             ui.add_space(SPACE_XS);
             ui.label(
@@ -178,17 +186,23 @@ impl ExportDialogContext<'_> {
             ui.add_space(SPACE_XS);
             Input::new(&mut self.overlay.export_table_name, "exported_rows", self.theme).show(ui);
         }
-        ui.add_space(SPACE_XS);
-        ui.label(
-            RichText::new(t!("query.export_visible_only"))
-                .font(font_caption())
-                .color(self.theme.text_muted),
-        );
-        if self.overlay.export_overwrite_pending {
-            self.draw_overwrite_confirmation(ui, action);
+    }
+
+    /// #396: surface the effective file name live so a missing/wrong extension is never a
+    /// silent surprise — the write itself normalizes the same way.
+    fn draw_effective_path_hint(&self, ui: &mut egui::Ui) {
+        let trimmed = self.overlay.export_path.trim().to_owned();
+        if trimmed.is_empty() {
+            return;
         }
-        ui.add_space(SPACE_MD);
-        self.draw_footer(ui, action);
+        let effective = self.overlay.effective_export_path();
+        if effective != std::path::Path::new(&trimmed) {
+            ui.add_space(SPACE_XS);
+            ui.colored_label(
+                self.theme.warning,
+                t!("query.export_path_adjusted", path = effective.display().to_string().as_str()).into_owned(),
+            );
+        }
     }
 
     fn draw_format_picker(&mut self, ui: &mut egui::Ui) {
@@ -205,8 +219,11 @@ impl ExportDialogContext<'_> {
                     .size(ButtonSize::Sm)
                     .show(ui)
                     .clicked()
+                    && !selected
                 {
                     self.overlay.export_format = format;
+                    // #539: the prompt named the previous format's effective path.
+                    self.overlay.export_overwrite_pending = None;
                 }
             }
         });
@@ -237,9 +254,12 @@ impl ExportDialogContext<'_> {
 
     fn draw_overwrite_confirmation(&self, ui: &mut egui::Ui, action: &mut Option<ExportDialogAction>) {
         ui.add_space(SPACE_XS);
+        // #539: name the file that will actually be replaced, not the raw typed path.
+        let effective = self.overlay.effective_export_path();
+        let effective = effective.display().to_string();
         ui.colored_label(
             self.theme.warning,
-            t!("query.export_overwrite_prompt", path = self.overlay.export_path.trim()).into_owned(),
+            t!("query.export_overwrite_prompt", path = effective.as_str()).into_owned(),
         );
         ui.horizontal(|ui| {
             if Button::new(self.theme)

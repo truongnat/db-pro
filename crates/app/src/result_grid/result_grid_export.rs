@@ -1,6 +1,10 @@
 //! Pure result-grid export and value formatting functions.
 
 use super::*;
+use db_pro_core::application::driver_dialect::driver_type_from_name;
+use db_pro_core::application::DriverDialect;
+use db_pro_core::domain::connection::DriverType;
+use db_pro_core::ports::SqlDialect;
 
 pub(crate) fn quote_sql_identifier(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
@@ -158,14 +162,19 @@ pub(super) fn format_result_delimited(result: &UiQueryResult, delimiter: &str) -
     output
 }
 
-pub(super) fn format_result_sql_insert(result: &UiQueryResult, table: &str) -> String {
+pub(super) fn format_result_sql_insert(result: &UiQueryResult, table: &str, driver: &str) -> String {
     if result.columns.is_empty() {
         return String::new();
     }
+    // #538: identifiers and literals must match the connection's dialect — MySQL rejects ANSI
+    // quotes, SQL Server rejects backticks, and MySQL treats an unescaped backslash as an
+    // escape introducer.
+    let dialect = DriverDialect::from_name(driver);
+    let driver_type = driver_type_from_name(driver);
     let cols = result
         .columns
         .iter()
-        .map(|column| quote_sql_identifier(&column.name))
+        .map(|column| dialect.quote_identifier(&column.name))
         .collect::<Vec<_>>()
         .join(", ");
     let mut output = String::new();
@@ -173,10 +182,14 @@ pub(super) fn format_result_sql_insert(result: &UiQueryResult, table: &str) -> S
     for chunk in result.rows.chunks(BATCH) {
         output.push_str(&format!(
             "INSERT INTO {} ({cols}) VALUES\n",
-            quote_sql_identifier(table)
+            dialect.quote_identifier(table)
         ));
         for (index, row) in chunk.iter().enumerate() {
-            let values = row.iter().map(format_cell_sql_literal).collect::<Vec<_>>().join(", ");
+            let values = row
+                .iter()
+                .map(|cell| format_cell_sql_literal(cell, driver_type))
+                .collect::<Vec<_>>()
+                .join(", ");
             output.push_str("  (");
             output.push_str(&values);
             output.push(')');
@@ -191,14 +204,17 @@ pub(super) fn format_result_sql_insert(result: &UiQueryResult, table: &str) -> S
     output
 }
 
-pub(super) fn format_result_copy(result: &UiQueryResult, table: &str) -> String {
+/// PostgreSQL `COPY … FROM stdin` script. The export dialog only offers this format for
+/// PostgreSQL, so the ANSI quoting and COPY text escaping below are intentionally PG-specific.
+pub(super) fn format_result_copy(result: &UiQueryResult, table: &str, driver: &str) -> String {
+    let dialect = DriverDialect::from_name(driver);
     let cols = result
         .columns
         .iter()
-        .map(|column| quote_sql_identifier(&column.name))
+        .map(|column| dialect.quote_identifier(&column.name))
         .collect::<Vec<_>>()
         .join(", ");
-    let mut output = format!("COPY {} ({cols}) FROM stdin;\n", quote_sql_identifier(table));
+    let mut output = format!("COPY {} ({cols}) FROM stdin;\n", dialect.quote_identifier(table));
     for row in &result.rows {
         output.push_str(&row.iter().map(format_cell_copy_field).collect::<Vec<_>>().join("\t"));
         output.push('\n');
@@ -272,13 +288,23 @@ pub(super) fn format_result_json(result: &UiQueryResult) -> String {
     serde_json::to_string_pretty(&array).unwrap_or_else(|_| "[]".to_owned())
 }
 
-pub(super) fn format_cell_sql_literal(cell: &UiCell) -> String {
+pub(super) fn format_cell_sql_literal(cell: &UiCell, driver: DriverType) -> String {
     match cell {
         UiCell::Null => "NULL".into(),
-        UiCell::Boolean(value) => if *value { "TRUE" } else { "FALSE" }.into(),
+        // SQL Server has no boolean literal; `bit` takes 1/0.
+        UiCell::Boolean(value) => match driver {
+            DriverType::SqlServer => if *value { "1" } else { "0" }.into(),
+            _ => if *value { "TRUE" } else { "FALSE" }.into(),
+        },
         UiCell::Number(value) => value.clone(),
         UiCell::Text(value) | UiCell::Json(value) | UiCell::Bytes(value) => {
-            format!("'{}'", value.replace('\'', "''"))
+            // MySQL treats `\` as an escape introducer inside single-quoted strings; doubling it
+            // keeps `C:\new` from turning into a newline. Other drivers keep backslashes literal.
+            let escaped = match driver {
+                DriverType::Mysql => value.replace('\\', "\\\\").replace('\'', "''"),
+                _ => value.replace('\'', "''"),
+            };
+            format!("'{escaped}'")
         }
     }
 }

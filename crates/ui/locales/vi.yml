@@ -216,6 +216,7 @@ query:
   export_failed: "Xuất thất bại: %{error} (không có file nào được ghi)"
   export_done: "Đã xuất %{rows} hàng ra %{path}"
   export_done_capped: "Đã xuất %{rows} hàng ra %{path} (tổng %{total} hàng; kết quả chỉ giữ %{rows} hàng đầu)"
+  cell_truncated_for_display: "Giá trị này quá lớn để tải đầy đủ và đã bị cắt bớt khi hiển thị. Sửa tại đây sẽ ghi đè lên giá trị đầy đủ nên ô này chỉ đọc. Hãy dùng SQL để thay đổi."
   unsaved_query_title: "Truy vấn chưa lưu"
   unsaved_query_prompt: "Lưu thay đổi của %{title} trước khi đóng?"
   dont_save: "Không lưu"

@@ -205,6 +205,18 @@ impl DbProApp {
             self.feedback.runtime_message = "Discard the staged delete before editing this row".to_owned();
             return;
         }
+        // #537: the grid only holds a display prefix of an oversized value; opening an
+        // editor on it would stage that prefix over the full value.
+        let truncated = result
+            .rows
+            .get(row_index)
+            .and_then(|row| row.get(column_index))
+            .is_some_and(UiCell::is_truncated);
+        if truncated {
+            self.open_cell_inspector(result, row_index, column_index);
+            self.feedback.runtime_message = t!("query.cell_truncated_for_display").into_owned();
+            return;
+        }
         if let Some(block) = result
             .columns
             .get(column_index)

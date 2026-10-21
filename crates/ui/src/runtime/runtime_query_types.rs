@@ -19,6 +19,32 @@ pub enum UiCell {
     Bytes(String),
 }
 
+/// Byte cap the runtime applies when mapping provider values into [`UiCell`] (#537).
+///
+/// Text and JSON keep a bounded prefix; bytea values keep half as many source
+/// bytes because they cross the bridge hex-encoded.
+pub const MAX_CELL_TEXT_BYTES: usize = 65_536;
+
+impl UiCell {
+    /// `true` when the runtime elided this value for transport.
+    ///
+    /// A truncated text/JSON value is a char-boundary prefix of at most
+    /// [`MAX_CELL_TEXT_BYTES`] with a trailing `…`; a truncated bytea value is
+    /// a hex render of that size, also ending in `…`. No untruncated runtime
+    /// value can take this shape, so writes must never stage it back — doing so
+    /// would replace the full value with its prefix. The check is deliberately
+    /// conservative: a user-typed value that happens to be that large and ends
+    /// in `…` is treated as truncated, which blocks the edit instead of risking
+    /// silent data loss.
+    pub fn is_truncated(&self) -> bool {
+        match self {
+            Self::Text(value) | Self::Json(value) => value.len() >= MAX_CELL_TEXT_BYTES && value.ends_with('…'),
+            Self::Bytes(value) => value.len() > MAX_CELL_TEXT_BYTES && value.ends_with('…'),
+            Self::Null | Self::Boolean(_) | Self::Number(_) => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UiQueryResult {
     pub columns: Vec<UiColumn>,
@@ -73,3 +99,7 @@ pub struct UiQueryHistoryEntry {
     pub error_code: Option<String>,
     pub error_summary: Option<String>,
 }
+
+#[cfg(test)]
+#[path = "tests/runtime_query_types_tests.rs"]
+mod tests;

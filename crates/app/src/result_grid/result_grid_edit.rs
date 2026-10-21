@@ -142,6 +142,11 @@ impl DbProApp {
             .column_write_policy(&column_name)
             .and_then(|policy| policy.write_block());
         let writable = write_block.is_none() && self.table.editing.data_editing_cell.is_some();
+        let truncated = result
+            .rows
+            .get(row_index)
+            .and_then(|row| row.get(column_index))
+            .is_some_and(UiCell::is_truncated);
         let cell = self
             .copy_cell_value(result, row_index, column_index)
             .unwrap_or(UiCell::Null);
@@ -155,6 +160,7 @@ impl DbProApp {
                 data_type: &data_type,
                 cell,
                 kind,
+                truncated,
                 write_block,
                 writable,
                 mode: &mut self.table.editing.cell_inspector_mode,
@@ -196,6 +202,13 @@ impl DbProApp {
         let Some(cell) = self.copy_cell_value(result, row_index, column_index) else {
             return;
         };
+        // #537: a cell the runtime truncated holds only a display prefix. Staging an edit
+        // would write that prefix back over the full value, so the inspector is read-only.
+        let truncated = result
+            .rows
+            .get(row_index)
+            .and_then(|row| row.get(column_index))
+            .is_some_and(UiCell::is_truncated);
         self.table.data.selected_cell = Some((row_index, column_index));
         self.table.data.selected_row = Some(row_index);
         let write_block = result
@@ -203,7 +216,7 @@ impl DbProApp {
             .get(column_index)
             .and_then(|column| self.table.state.column_write_policy(&column.name))
             .and_then(|policy| policy.write_block());
-        if write_block.is_none() && self.can_mutate_active_connection() {
+        if write_block.is_none() && self.can_mutate_active_connection() && !truncated {
             self.table.editing.data_editing_cell = Some((row_index, column_index));
         } else {
             self.table.editing.data_editing_cell = None;
@@ -225,6 +238,8 @@ impl DbProApp {
         self.table.editing.data_edit_value = cell_inspector::cell_raw_text(&cell);
         if let Some(reason) = write_block {
             self.feedback.runtime_message = reason.reason().to_owned();
+        } else if truncated {
+            self.feedback.runtime_message = t!("query.cell_truncated_for_display").into_owned();
         }
     }
 

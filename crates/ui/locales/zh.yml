@@ -216,6 +216,7 @@ query:
   export_failed: "导出失败: %{error}(未写入任何文件)"
   export_done: "已导出 %{rows} 行到 %{path}"
   export_done_capped: "已导出 %{rows} 行到 %{path}(共匹配 %{total} 行;结果仅保留前 %{rows} 行)"
+  cell_truncated_for_display: "该值过大，无法完整加载，显示时已被截断。在此编辑会覆盖完整值，因此该单元格为只读。请使用 SQL 修改。"
   unsaved_query_title: "未保存的查询"
   unsaved_query_prompt: "关闭前保存对 %{title} 的更改吗？"
   dont_save: "不保存"

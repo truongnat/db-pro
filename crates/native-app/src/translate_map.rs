@@ -1,6 +1,7 @@
 //! Shared UI↔domain value mapping helpers.
 //! UiCommand → RuntimeCommand mapping.
 use super::super::*;
+use db_pro_ui::MAX_CELL_TEXT_BYTES;
 
 pub(crate) fn escape_like_pattern(val: &str) -> String {
     let mut escaped = String::with_capacity(val.len());
@@ -103,8 +104,8 @@ pub(crate) fn map_table_data_sort(sort: UiTableDataSort) -> SortClause {
 
 /// Grid cells are owned strings. A multi-megabyte text, JSON, or bytea value
 /// would be copied into every open result, so the UI keeps a bounded prefix.
-const MAX_CELL_TEXT_BYTES: usize = 65_536;
-
+/// The cap and the matching `UiCell::is_truncated` check live in `db_pro_ui`
+/// so the grid can refuse to write a display-only prefix back (#537).
 fn cap_text(mut value: String) -> String {
     if value.len() <= MAX_CELL_TEXT_BYTES {
         return value;
@@ -347,6 +348,10 @@ pub(crate) fn map_query_result(result: db_pro_core::domain::query::QueryResult) 
 pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
+
+#[cfg(test)]
+#[path = "tests/translate_map_tests.rs"]
+mod tests;
 
 pub(crate) fn ui_request_id(request_id: RuntimeRequestId) -> db_pro_ui::RequestId {
     db_pro_ui::RequestId(request_id.0)

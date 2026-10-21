@@ -18,6 +18,8 @@ pub(super) struct ValueInspectorContext<'a> {
     pub(super) data_type: &'a str,
     pub(super) cell: UiCell,
     pub(super) kind: cell_inspector::CellInspectorKind,
+    /// #537: the runtime holds only a display prefix of this value.
+    pub(super) truncated: bool,
     pub(super) write_block: Option<ColumnWriteBlock>,
     pub(super) writable: bool,
     pub(super) mode: &'a mut cell_inspector::CellInspectorMode,
@@ -38,6 +40,13 @@ pub(super) fn draw(
         .show_framed_ctx(egui_context, |frame| {
             frame.body(|ui| {
                 draw_metadata(context, ui);
+                if context.truncated {
+                    ui.add_space(4.0);
+                    ui.colored_label(
+                        context.theme.warning,
+                        t!("query.cell_truncated_for_display").into_owned(),
+                    );
+                }
                 draw_toolbar(context, ui, &mut action);
                 ui.add_space(6.0);
                 draw_value(context, ui);
@@ -96,6 +105,7 @@ fn draw_toolbar(context: &mut ValueInspectorContext<'_>, ui: &mut egui::Ui, acti
             *action = Some(ValueInspectorAction::CopyRaw);
         }
         if context.kind == cell_inspector::CellInspectorKind::Bytes
+            && !context.truncated
             && Button::new(context.theme)
                 .text("Export bytes…")
                 .size(ButtonSize::Sm)
@@ -176,6 +186,14 @@ fn draw_tree(context: &ValueInspectorContext<'_>, ui: &mut egui::Ui) {
 }
 
 fn draw_bytes(context: &ValueInspectorContext<'_>, ui: &mut egui::Ui, hex: bool) {
+    if context.truncated {
+        // Decoding the capped hex would report a byte count that does not exist (#537).
+        ui.colored_label(
+            context.theme.warning,
+            t!("query.cell_truncated_for_display").into_owned(),
+        );
+        return;
+    }
     let text = match cell_inspector::decode_bytes_payload(context.value) {
         Ok(bytes) => {
             ui.label(

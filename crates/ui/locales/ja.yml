@@ -216,6 +216,7 @@ query:
   export_failed: "エクスポート失敗: %{error} (ファイルは書き込まれていません)"
   export_done: "%{rows} 行を %{path} にエクスポートしました"
   export_done_capped: "%{rows} 行を %{path} にエクスポート (%{total} 行が一致; 結果は先頭 %{rows} 行を保持)"
+  cell_truncated_for_display: "この値は大きすぎて完全に読み込めず、表示用に切り詰められています。ここで編集すると完全な値が上書きされるため、読み取り専用です。変更には SQL を使用してください。"
   unsaved_query_title: "未保存のクエリ"
   unsaved_query_prompt: "閉じる前に %{title} の変更を保存しますか？"
   dont_save: "保存しない"

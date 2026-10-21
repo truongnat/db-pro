@@ -9,7 +9,10 @@ pub(crate) struct OverlayState {
     pub(super) export_path: String,
     /// Target table name used by SqlInsert/SqlCopy exports (#426).
     pub(super) export_table_name: String,
-    pub(super) export_overwrite_pending: bool,
+    /// Effective path the overwrite prompt was raised for (#539). A `bool`
+    /// would stay armed across a Format/path change and let `Overwrite` replace
+    /// a different file than the one named in the prompt.
+    pub(super) export_overwrite_pending: Option<std::path::PathBuf>,
     pub(super) backup_output_path: String,
     pub(super) restore_input_path: String,
     pub(super) restore_confirmation: bool,

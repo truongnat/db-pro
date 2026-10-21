@@ -112,3 +112,61 @@
         };
         assert_eq!(format_result_delimited(&result, "\t"), "a\tb\n\\N\t\n");
     }
+
+    fn dialect_result() -> UiQueryResult {
+        UiQueryResult {
+            columns: vec![
+                crate::UiColumn { name: "id".to_owned(), data_type: "int".to_owned(), nullable: false },
+                crate::UiColumn { name: "path".to_owned(), data_type: "text".to_owned(), nullable: true },
+                crate::UiColumn { name: "ok".to_owned(), data_type: "bool".to_owned(), nullable: true },
+            ],
+            rows: vec![vec![
+                UiCell::Number("1".to_owned()),
+                UiCell::Text("C:\\temp\\O'Brien".to_owned()),
+                UiCell::Boolean(true),
+            ]],
+            row_count: 1,
+            duration_ms: 0,
+        }
+    }
+
+    // #538: SQL export must quote identifiers and escape literals for the connection's driver,
+    // not always emit PostgreSQL syntax.
+    #[test]
+    fn sql_insert_export_uses_mysql_quoting_and_backslash_escaping() {
+        let insert = format_result_sql_insert(&dialect_result(), "people", "mysql");
+
+        assert!(insert.contains("INSERT INTO `people` (`id`, `path`, `ok`)"), "{insert}");
+        assert!(insert.contains("'C:\\\\temp\\\\O''Brien'"), "{insert}");
+        assert!(insert.contains("TRUE"), "{insert}");
+        assert!(!insert.contains('"'), "MySQL must not receive ANSI-quoted identifiers: {insert}");
+    }
+
+    #[test]
+    fn sql_insert_export_uses_sql_server_quoting_and_bit_literals() {
+        let insert = format_result_sql_insert(&dialect_result(), "people", "sql server");
+
+        assert!(insert.contains("INSERT INTO [people] ([id], [path], [ok])"), "{insert}");
+        // Backslashes are literal in T-SQL; only the quote is doubled.
+        assert!(insert.contains("'C:\\temp\\O''Brien'"), "{insert}");
+        assert!(insert.contains(", 1)"), "SQL Server has no TRUE literal: {insert}");
+    }
+
+    #[test]
+    fn sql_insert_export_keeps_ansi_quoting_for_postgres_and_sqlite() {
+        for driver in ["postgres", "sqlite"] {
+            let insert = format_result_sql_insert(&dialect_result(), "people", driver);
+
+            assert!(insert.contains("INSERT INTO \"people\" (\"id\", \"path\", \"ok\")"), "{driver}: {insert}");
+            assert!(insert.contains("'C:\\temp\\O''Brien'"), "{driver}: {insert}");
+            assert!(insert.contains("TRUE"), "{driver}: {insert}");
+        }
+    }
+
+    #[test]
+    fn sql_copy_export_quotes_for_postgres() {
+        let copy = format_result_copy(&dialect_result(), "people", "postgres");
+
+        assert!(copy.starts_with("COPY \"people\" (\"id\", \"path\", \"ok\") FROM stdin;"), "{copy}");
+        assert!(copy.ends_with("\\.\n"), "{copy}");
+    }

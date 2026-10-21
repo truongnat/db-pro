@@ -216,6 +216,7 @@ query:
   export_failed: "Export failed: %{error} (no file was written)"
   export_done: "Exported %{rows} rows to %{path}"
   export_done_capped: "Exported %{rows} rows to %{path} (%{total} rows matched; the result holds the first %{rows})"
+  cell_truncated_for_display: "This value is too large to load in full and was truncated for display. Editing it here would overwrite the full value, so it is read-only. Use SQL to change it."
   unsaved_query_title: "Unsaved query"
   unsaved_query_prompt: "Save changes to %{title} before closing?"
   dont_save: "Don't Save"

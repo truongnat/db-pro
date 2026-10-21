@@ -27,6 +27,7 @@ pub use runtime::{
     UiRoutineParameter, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
     UiStatementOutput, UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator,
     UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    MAX_CELL_TEXT_BYTES,
 };
 pub use theme::tokens;
 pub use theme::DbProTheme;

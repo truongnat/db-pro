@@ -214,7 +214,7 @@ mod export_tests {
         app.export_result(&result);
 
         assert!(
-            app.overlay.export_overwrite_pending,
+            app.overlay.export_overwrite_pending.is_some(),
             "the first click must ask, not overwrite"
         );
         assert!(app.overlay.export_open, "the dialog stays open for the confirmation");
@@ -226,9 +226,67 @@ mod export_tests {
 
         app.export_result_confirming_overwrite(&result);
 
-        assert!(!app.overlay.export_overwrite_pending);
+        assert!(app.overlay.export_overwrite_pending.is_none());
         assert!(!app.overlay.export_open);
         assert_eq!(std::fs::read_to_string(&path).expect("read"), "id\n1\n");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// #539: the overwrite prompt is bound to the effective path it named. Changing the
+    /// Format while the prompt is open must not let `Overwrite` replace the new format's
+    /// file without asking again.
+    #[test]
+    fn overwrite_confirmation_does_not_follow_a_format_change() {
+        let dir = temp_dir("format-change");
+        let csv_path = dir.join("out.csv");
+        let json_path = dir.join("out.csv.json");
+        std::fs::write(&csv_path, "previous csv\n").expect("seed csv");
+        std::fs::write(&json_path, "previous json\n").expect("seed json");
+        let mut app = DbProApp {
+            overlay: OverlayState {
+                export_open: true,
+                export_path: csv_path.to_string_lossy().into_owned(),
+                export_format: ExportFormat::Csv,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        app.export_result(&result);
+        assert_eq!(
+            app.overlay.export_overwrite_pending.as_deref(),
+            Some(csv_path.as_path()),
+            "the prompt names the CSV destination"
+        );
+
+        app.overlay.export_format = ExportFormat::Json;
+        app.export_result_confirming_overwrite(&result);
+
+        assert_eq!(
+            std::fs::read_to_string(&csv_path).expect("read csv"),
+            "previous csv\n",
+            "the confirmed CSV file must stay untouched"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&json_path).expect("read json"),
+            "previous json\n",
+            "the JSON destination was never named by the prompt, so Overwrite must ask again"
+        );
+        assert_eq!(
+            app.overlay.export_overwrite_pending.as_deref(),
+            Some(json_path.as_path()),
+            "the prompt is re-raised for the new effective path"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

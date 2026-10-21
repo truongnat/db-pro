@@ -8,7 +8,7 @@ fn default_overlay_state_is_closed_and_non_destructive() {
 
     assert!(!state.export_open);
     assert_eq!(state.export_format, ExportFormat::Csv);
-    assert!(!state.export_overwrite_pending);
+    assert!(state.export_overwrite_pending.is_none());
     assert!(!state.restore_confirmation);
     assert!(state.connection_delete_confirmation_id.is_none());
     assert!(state.folder_delete_confirmation.is_none());

@@ -199,3 +199,47 @@ fn query_result_edits_when_primary_key_remains() {
     assert!(app.table.editing.data_editing_cell.is_none());
     assert_eq!(app.feedback.runtime_message, table_editor_context::INLINE_SQL_READ_ONLY);
 }
+
+fn truncated_text_cell() -> UiCell {
+    let mut value = "x".repeat(db_pro_ui::MAX_CELL_TEXT_BYTES);
+    value.push('…');
+    UiCell::Text(value)
+}
+
+// #537: the grid only holds a display prefix of an oversized value. Opening an
+// editor on it must not be possible, because Apply would write the prefix back.
+#[test]
+fn truncated_cell_never_opens_an_editor() {
+    let mut app = writable_orders_app();
+    let mut result = result_with(UiCell::Number("7".to_owned()));
+    result.rows[0][1] = truncated_text_cell();
+
+    app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
+
+    assert_eq!(app.table.editing.data_editing_cell, None, "the cell must stay read-only");
+    assert!(
+        app.feedback.runtime_message.to_ascii_lowercase().contains("truncated"),
+        "the user needs to know why: {}",
+        app.feedback.runtime_message
+    );
+    assert!(app.table.mutation.staged_changes.counts().total() == 0);
+}
+
+// #537: the write boundary refuses a truncated cell even when the editor state
+// was populated by another path.
+#[test]
+fn truncated_cell_is_rejected_at_the_write_boundary() {
+    let mut app = writable_orders_app();
+    let mut result = result_with(UiCell::Number("7".to_owned()));
+    result.rows[0][1] = truncated_text_cell();
+    app.table.editing.data_edit_value = "Grace".to_owned();
+
+    assert!(!app.submit_data_cell_edit(&result, 0, 1));
+
+    assert_eq!(app.table.mutation.staged_changes.counts().total(), 0);
+    assert!(
+        app.feedback.runtime_message.to_ascii_lowercase().contains("truncated"),
+        "{}",
+        app.feedback.runtime_message
+    );
+}
