@@ -352,3 +352,35 @@ async fn sqlserver_cancel_on_idle_session_keeps_the_connection() {
     );
     connector.disconnect(&handle).await.expect("disconnect");
 }
+
+/// Issue #260 (audit item 6): `query.explain: true` needs live evidence beyond the
+/// capability flag — `SqlServerConnector::explain` wraps the statement in a single
+/// `SET SHOWPLAN_TEXT ON; …; SET SHOWPLAN_TEXT OFF` batch (the only shape that takes
+/// effect, since SHOWPLAN does not reach `sp_executesql` child sessions) and must
+/// return an actual plan row without executing the query.
+#[tokio::test]
+#[ignore = "requires SQLSERVER_URL and a live SQL Server fixture"]
+async fn sqlserver_showplan_text_explain_returns_a_plan_row() {
+    let Some((connector, handle)) = setup().await else {
+        eprintln!("skipping SQL Server integration test: SQLSERVER_URL is unavailable");
+        return;
+    };
+
+    let plan = connector
+        .explain(&handle, "SELECT CAST(1 AS int) AS one", &[], false)
+        .await
+        .expect("SHOWPLAN_TEXT explain should return a plan result set");
+    let rendered = plan.to_string();
+    assert!(
+        rendered.to_ascii_uppercase().contains("SELECT"),
+        "the plan JSON must describe the SELECT operator, got: {rendered}"
+    );
+
+    // SHOWPLAN was switched off inside the same batch: the session executes normally.
+    let probe = connector
+        .query(&handle, "SELECT CAST(1 AS bigint) AS one", &[])
+        .await
+        .expect("session should execute queries again after explain");
+    assert!(matches!(probe.rows[0].0[0], CellValue::Int64(1)));
+    connector.disconnect(&handle).await.expect("disconnect");
+}

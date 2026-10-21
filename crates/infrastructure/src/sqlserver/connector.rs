@@ -64,10 +64,72 @@ fn is_transaction_control(sql: &str) -> bool {
 
 /// A statement string carrying more than one `;`-delimited statement (trailing
 /// semicolons do not count). Such scripts must stay a single server-side batch
-/// (e.g. `SET SHOWPLAN_TEXT ON; <sql>; SET SHOWPLAN_TEXT OFF`), which the raw
-/// batch path delivers verbatim.
+/// (e.g. `CREATE TABLE …; CREATE INDEX …`), which the raw batch path delivers
+/// verbatim. Session settings that need their *own* batch (SHOWPLAN) do not use
+/// this rule — see `showplan_batches`.
 fn is_multi_statement(sql: &str) -> bool {
     sql.trim_end().trim_end_matches(';').trim_end().contains(';')
+}
+
+/// Drain a stream of TDS result items into the canonical column/row model,
+/// shared by the normal query path and the SHOWPLAN batches of `explain`.
+async fn collect_rows<S>(
+    stream: &mut S,
+    max_rows: Option<u64>,
+) -> Result<(Vec<db_pro_core::domain::query::ColumnMeta>, Vec<Row>), DbError>
+where
+    S: futures_util::stream::TryStream<Ok = QueryItem, Error = tiberius::error::Error> + Unpin,
+{
+    let mut columns = Vec::new();
+    let mut rows = Vec::new();
+    while let Some(item) = stream
+        .try_next()
+        .await
+        .map_err(|error| DbError::QueryFailed(format!("SQL Server result stream failed: {error}")))?
+    {
+        match item {
+            QueryItem::Metadata(metadata) if metadata.result_index() == 0 => {
+                columns = metadata
+                    .columns()
+                    .iter()
+                    .map(|column| db_pro_core::domain::query::ColumnMeta {
+                        name: column.name().to_owned(),
+                        data_type: format!("{:?}", column.column_type()),
+                        nullable: true,
+                    })
+                    .collect();
+            }
+            QueryItem::Row(row) if row.result_index() == 0 => {
+                if let Some(max) = max_rows {
+                    if rows.len() as u64 >= max {
+                        break;
+                    }
+                }
+                let cells = (0..row.len())
+                    .map(|index| decode_cell(&row, index))
+                    .collect::<Result<Vec<_>, _>>()?;
+                rows.push(Row(cells));
+            }
+            _ => {}
+        }
+    }
+    Ok((columns, rows))
+}
+
+/// Run one statement as a raw batch and discard its output. Used for the
+/// `SET SHOWPLAN_TEXT` switches, which must be alone in their batch (error 1067).
+async fn drain_batch(client: &mut SqlServerClient, sql: &str) -> Result<(), DbError> {
+    let mut stream = client
+        .simple_query(sql)
+        .await
+        .map_err(|error| DbError::QueryFailed(format!("SQL Server batch failed: {error}")))?;
+    while stream
+        .try_next()
+        .await
+        .map_err(|error| DbError::QueryFailed(format!("SQL Server batch stream failed: {error}")))?
+        .is_some()
+    {}
+    Ok(())
 }
 
 /// `KILL` takes only an integer session id and rejects query parameters, so the
@@ -268,39 +330,7 @@ impl SqlServerConnector {
                 .await
                 .map_err(|error| DbError::QueryFailed(format!("SQL Server query failed: {error}")))?,
         };
-        let mut columns = Vec::new();
-        let mut rows = Vec::new();
-        while let Some(item) = stream
-            .try_next()
-            .await
-            .map_err(|error| DbError::QueryFailed(format!("SQL Server result stream failed: {error}")))?
-        {
-            match item {
-                QueryItem::Metadata(metadata) if metadata.result_index() == 0 => {
-                    columns = metadata
-                        .columns()
-                        .iter()
-                        .map(|column| db_pro_core::domain::query::ColumnMeta {
-                            name: column.name().to_owned(),
-                            data_type: format!("{:?}", column.column_type()),
-                            nullable: true,
-                        })
-                        .collect();
-                }
-                QueryItem::Row(row) if row.result_index() == 0 => {
-                    if let Some(max) = max_rows {
-                        if rows.len() as u64 >= max {
-                            break;
-                        }
-                    }
-                    let cells = (0..row.len())
-                        .map(|index| decode_cell(&row, index))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    rows.push(Row(cells));
-                }
-                _ => {}
-            }
-        }
+        let (columns, rows) = collect_rows(&mut stream, max_rows).await?;
         let row_count = rows.len() as u64;
         Ok(QueryResult {
             columns,
@@ -308,6 +338,32 @@ impl SqlServerConnector {
             row_count,
             duration_ms: started.elapsed().as_millis() as u64,
         })
+    }
+
+    /// EXPLAIN via `SET SHOWPLAN_TEXT`, the TDS equivalent of the PG/MySQL
+    /// explain paths. SQL Server error 1067 requires each SHOWPLAN switch to be
+    /// the sole statement of its batch, and a plan is never produced for the
+    /// `sp_executesql` child session an RPC would use — so all three steps run
+    /// as separate raw batches on this session's connection. SHOWPLAN does not
+    /// execute the statement; the session is restored even when planning fails.
+    async fn showplan_batches(&self, session: &SessionRef, sql: &str) -> Result<Vec<Row>, DbError> {
+        let client = Arc::clone(&session.client);
+        let mut client = client.lock().await;
+        let _active = ActiveSqlServer::new(&session.active);
+        drain_batch(&mut client, "SET SHOWPLAN_TEXT ON").await?;
+        let planned = async {
+            let mut stream = client
+                .simple_query(sql)
+                .await
+                .map_err(|error| DbError::QueryFailed(format!("SQL Server query failed: {error}")))?;
+            let (_columns, rows) = collect_rows(&mut stream, None).await?;
+            Ok::<_, DbError>(rows)
+        }
+        .await;
+        let restored = drain_batch(&mut client, "SET SHOWPLAN_TEXT OFF").await;
+        let rows = planned?;
+        restored?;
+        Ok(rows)
     }
 
     async fn execute_one(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
@@ -762,15 +818,22 @@ impl DbConnector for SqlServerConnector {
         params: &[QueryParam],
         _analyze: bool,
     ) -> Result<serde_json::Value, DbError> {
-        // SHOWPLAN_TEXT does not execute the statement. Parameters bind on the user SQL.
-        let result = self
-            .query(
-                handle,
-                &format!("SET SHOWPLAN_TEXT ON; {sql}; SET SHOWPLAN_TEXT OFF"),
-                params,
-            )
+        // Bound parameters can only travel through `sp_executesql`, whose child
+        // session ignores SHOWPLAN, and interpolating values into the batched text
+        // would be an injection surface — so a parameterized EXPLAIN is rejected
+        // honestly instead of silently executing the statement (live evidence:
+        // `sqlserver_showplan_text_explain_returns_a_plan_row`, #260).
+        if !params.is_empty() {
+            return Err(DbError::Unsupported(
+                "SQL Server EXPLAIN cannot bind parameters: plans are only produced for raw batch statements"
+                    .to_owned(),
+            ));
+        }
+        let session = self.session(handle).await?;
+        let rows = self
+            .run_with_deadline(handle, &session, self.showplan_batches(&session, sql))
             .await?;
-        Ok(serde_json::to_value(result.rows)
+        Ok(serde_json::to_value(rows)
             .map_err(|error| DbError::Internal(format!("SQL Server plan serialization failed: {error}")))?)
     }
 

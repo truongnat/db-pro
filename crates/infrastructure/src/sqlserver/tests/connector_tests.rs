@@ -25,8 +25,10 @@ fn transaction_control_statements_route_to_simple_batch() {
 #[test]
 fn multi_statement_scripts_route_to_simple_batch() {
     assert_eq!(
-        sql_execution_path("SET SHOWPLAN_TEXT ON; SELECT 1; SET SHOWPLAN_TEXT OFF", 0),
-        SqlExecutionPath::SimpleBatch
+        sql_execution_path("CREATE TABLE a (id int); CREATE INDEX ia ON a (id);", 0),
+        SqlExecutionPath::SimpleBatch,
+        "scripts must stay one server-side batch (SHOWPLAN-style session settings
+         are handled by dedicated batch paths in `explain`, never through query)"
     );
     assert_eq!(
         sql_execution_path("CREATE TABLE a (id int); CREATE TABLE b (id int);", 0),

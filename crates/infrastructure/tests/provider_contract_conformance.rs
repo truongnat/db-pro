@@ -1,5 +1,6 @@
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
-use db_pro_core::domain::connection::{ConnectionConfig, DriverType};
+use db_pro_core::domain::cloud_presets::parse_connection_snippet;
+use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, QueryResult};
 use db_pro_core::ports::{DbConnector, ProviderFactory, TransactionFailureOutcome, TransactionFailurePhase};
@@ -254,7 +255,11 @@ fn register_factory_replaces_existing_factory() {
 // This section reads the fixture's `decoder_matrix` — the table both fixtures ship for
 // exactly this purpose (`fixtures/postgres/001_schema.sql`, `fixtures/mysql/001_schema.sql`)
 // — through the composite connector, so the same contract is asserted against whichever
-// provider `DATABASE_URL` points at. With no `postgres://`/`mysql://` URL the tests skip
+// provider `DATABASE_URL` points at. SQL Server drives the capability-appropriate subset
+// of the same matrix (`fixtures/mssql/001_schema.sql`, #260): classes whose TDS decoder
+// arm exists (`query_mapper.rs::decode_cell`) assert unchanged; the Json arm has no SQL
+// Server counterpart and is driver-gated to a parse-and-members check, not weakened.
+// With no `postgres://`/`mysql://`/`sqlserver://` URL the tests skip
 // with a reason instead of failing, which keeps a PostgreSQL-only CI job green.
 
 /// A fixture this suite can drive: the parsed connection plus the two per-fixture details
@@ -270,8 +275,14 @@ struct FixtureTarget {
 }
 
 /// Parses `DATABASE_URL` the way `pg_integration.rs` and `mysql_fixture_matrix.rs` already do.
+/// `sqlserver://` (and `mssql://`) go through the product parser instead of the manual split,
+/// because TDS fixture passwords are percent-encoded in the URL (`…%21` must arrive as `…!`)
+/// and `parse_connection_snippet` is the only decoder of that form (#260).
 fn fixture_target() -> Option<FixtureTarget> {
     let url = std::env::var("DATABASE_URL").ok()?;
+    if url.starts_with("sqlserver://") || url.starts_with("mssql://") || url.starts_with("jdbc:sqlserver:") {
+        return sqlserver_target(&url);
+    }
     let (driver, rest, fallback_port) = if let Some(rest) = url.strip_prefix("postgres://") {
         (DriverType::Postgres, rest, 5432u16)
     } else {
@@ -281,6 +292,7 @@ fn fixture_target() -> Option<FixtureTarget> {
     let (binary_column, binary_hex) = match driver {
         DriverType::Postgres => ("blob", "deadbeef"),
         DriverType::Mysql => ("blob_data", "ff00fe01"),
+        // SQLite has no fixture server; SQL Server is handled by `sqlserver_target` above.
         DriverType::SQLite | DriverType::SqlServer => return None,
     };
 
@@ -316,6 +328,45 @@ fn fixture_target() -> Option<FixtureTarget> {
         password: password.to_string(),
         binary_column,
         binary_hex,
+    })
+}
+
+/// Build the SQL Server fixture target from a parsed `sqlserver://` URL. The TDS
+/// matrix (`fixtures/mssql/001_schema.sql`) names its binary column like the MySQL
+/// fixture; its seed bytes are distinct so a cross-fixture mix-up is visible.
+fn sqlserver_target(url: &str) -> Option<FixtureTarget> {
+    let parsed = parse_connection_snippet(url).ok()?;
+    if parsed.driver != DriverType::SqlServer {
+        return None;
+    }
+    let password = parsed.password.unwrap_or_default();
+    Some(FixtureTarget {
+        config: ConnectionConfig {
+            name: "conformance-fixture".into(),
+            host: parsed.host,
+            port: parsed.port,
+            database: parsed.database,
+            username: parsed.username,
+            driver: DriverType::SqlServer,
+            // Mirrors `sqlserver_integration.rs`: live fixture runs with TLS required.
+            ssl_mode: parsed.ssl_mode.unwrap_or(SslMode::Require),
+            ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
+            query_timeout_ms: 30_000,
+            max_rows: 10_000,
+            color: None,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: Default::default(),
+            readonly: false,
+        },
+        password,
+        binary_column: "blob_data",
+        binary_hex: "deadbeef2024",
     })
 }
 
@@ -395,7 +446,9 @@ fn assert_null(cell: &CellValue, column: &str) {
 #[tokio::test]
 async fn provider_value_decoder_contract_holds_against_the_fixture() {
     let Some(target) = fixture_target() else {
-        eprintln!("skipping value/decoder conformance: DATABASE_URL is not a postgres:// or mysql:// URL");
+        eprintln!(
+            "skipping value/decoder conformance: DATABASE_URL is not a postgres://, mysql:// or sqlserver:// URL"
+        );
         return;
     };
     let connector = CompositeConnector::new();
@@ -479,6 +532,15 @@ async fn provider_value_decoder_contract_holds_against_the_fixture() {
     // ── Structured classes ─────────────────────────────────────────────────
     match cell(&result, 0, "doc") {
         CellValue::Json(value) => assert_eq!(value["a"], serde_json::json!(1)),
+        // SQL Server has no JSON decoder arm in `query_mapper::decode_cell`: its JSON
+        // is NVARCHAR(MAX) behind an ISJSON CHECK, so Text is the honest class for this
+        // driver. Gated by driver instead of downgrading the Json assertion for everyone:
+        // the payload must still parse as JSON and carry the same member.
+        CellValue::Text(value) if target.config.driver == DriverType::SqlServer => {
+            let parsed: serde_json::Value =
+                serde_json::from_str(value).unwrap_or_else(|error| panic!("doc must be valid JSON text: {error}"));
+            assert_eq!(parsed["a"], serde_json::json!(1));
+        }
         other => panic!("doc must decode to Json, got {other:?}"),
     }
     expect_text(cell(&result, 0, "status"), "status");
@@ -492,8 +554,9 @@ async fn provider_value_decoder_contract_holds_against_the_fixture() {
     );
 
     // ── NULL is preserved per family, on the all-NULL row ──────────────────
-    // `flag` is excluded: PostgreSQL declares it NOT NULL and seeds FALSE, MySQL declares
-    // it nullable and seeds NULL, so that one column differs by provider on the NULL row.
+    // `flag` is excluded: PostgreSQL and SQL Server declare it NOT NULL (and seed FALSE/0),
+    // MySQL declares it nullable and seeds NULL, so that one column differs by provider
+    // on the NULL row.
     for column in [
         "big_count",
         "ratio",
@@ -518,7 +581,7 @@ async fn provider_value_decoder_contract_holds_against_the_fixture() {
 #[tokio::test]
 async fn factory_dispatch_drives_postgres_against_the_live_fixture() {
     let Some(target) = fixture_target() else {
-        eprintln!("skipping factory-dispatch test: DATABASE_URL is not a postgres:// or mysql:// URL");
+        eprintln!("skipping factory-dispatch test: DATABASE_URL is not a postgres://, mysql:// or sqlserver:// URL");
         return;
     };
     if target.config.driver != DriverType::Postgres {
@@ -552,4 +615,103 @@ async fn factory_dispatch_drives_postgres_against_the_live_fixture() {
         .expect("introspect through the composite");
     assert!(introspected.tables.iter().any(|table| table.name == "decoder_matrix"));
     connector.disconnect(&handle).await.expect("disconnect");
+}
+
+/// Issue #260: the same factory-dispatch evidence PostgreSQL got in #235, for the
+/// TDS provider — the composite must serve the SQL Server factory's own capability
+/// set (including the honesty flips: no partitions / dependency catalog / sequences)
+/// and drive connect/query/introspect through it against the live fixture.
+#[tokio::test]
+async fn factory_dispatch_drives_sql_server_against_the_live_fixture() {
+    let Some(target) = fixture_target() else {
+        eprintln!("skipping SQL Server factory-dispatch test: DATABASE_URL is not a sqlserver:// URL");
+        return;
+    };
+    if target.config.driver != DriverType::SqlServer {
+        eprintln!("skipping SQL Server factory-dispatch test: DATABASE_URL is not a sqlserver:// URL");
+        return;
+    }
+
+    let connector = CompositeConnector::new();
+    let caps = connector.capabilities(&target.config);
+    assert_eq!(caps.driver, DriverType::SqlServer);
+    assert!(caps.schema.schemas, "the SQL Server factory's own set is served");
+    // #260 capability honesty: paths the TDS provider does not implement stay false.
+    assert!(!caps.features.partitions);
+    assert!(!caps.features.object_dependencies);
+    assert!(!caps.schema.sequences);
+    assert!(!caps.features.server_sessions);
+
+    let handle = connector
+        .connect(&target.config, &target.password)
+        .await
+        .expect("the factory-built SQL Server connector must connect");
+    let result = connector
+        .query(&handle, "SELECT COUNT(*) AS total FROM decoder_matrix", &[])
+        .await
+        .expect("query through the composite");
+    assert_eq!(
+        expect_int64(cell(&result, 0, "total"), "total"),
+        2,
+        "the fixture seeds two rows"
+    );
+    let introspected = connector
+        .introspect(&handle)
+        .await
+        .expect("introspect through the composite");
+    assert!(introspected.tables.iter().any(|table| table.name == "decoder_matrix"));
+    connector.disconnect(&handle).await.expect("disconnect");
+}
+
+/// Issue #260: the classes the shared matrix cannot express but SQL Server ships —
+/// `uniqueidentifier` — must arrive losslessly through the composite, and the
+/// datetimeoffset arm must keep its offset marker (the shared test asserts this
+/// shape; this one pins the concrete value end to end).
+#[tokio::test]
+async fn sqlserver_native_classes_decode_losslessly_through_the_composite() {
+    let Some(target) = fixture_target() else {
+        eprintln!("skipping SQL Server native-class test: DATABASE_URL is not a sqlserver:// URL");
+        return;
+    };
+    if target.config.driver != DriverType::SqlServer {
+        eprintln!("skipping SQL Server native-class test: DATABASE_URL is not a sqlserver:// URL");
+        return;
+    }
+
+    let connector = CompositeConnector::new();
+    let handle = connector
+        .connect(&target.config, &target.password)
+        .await
+        .expect("fixture connect must succeed");
+    let result = connector
+        .query(
+            &handle,
+            "SELECT token, instant, blob_data FROM decoder_matrix WHERE id = 1",
+            &[],
+        )
+        .await
+        .expect("the mssql decoder_matrix must exist: load fixtures/mssql (001_schema.sql, 002_seed.sql)");
+    connector.disconnect(&handle).await.expect("disconnect");
+
+    match cell(&result, 0, "token") {
+        CellValue::Uuid(value) => {
+            let parsed = uuid::Uuid::parse_str(value).unwrap_or_else(|error| panic!("token must be a UUID: {error}"));
+            assert_eq!(
+                parsed.simple().to_string(),
+                "a0eebc999c0b4ef8bb6d6bb9bd380a11",
+                "the uniqueidentifier arrives without byte or ordering loss"
+            );
+        }
+        other => panic!("token must decode to Uuid, got {other:?}"),
+    }
+    let instant = expect_timestamp_tz(cell(&result, 0, "instant"), "instant");
+    assert!(
+        instant.starts_with("2024-03-15T10:20:30.123456") && (instant.ends_with('Z') || instant.contains('+')),
+        "datetimeoffset keeps its wall reading and an explicit offset: {instant}"
+    );
+    assert_eq!(
+        expect_bytes_hex(cell(&result, 0, target.binary_column), target.binary_column),
+        target.binary_hex,
+        "varbinary(max) stays byte-exact"
+    );
 }

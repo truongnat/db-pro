@@ -78,6 +78,25 @@ docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -S localhost \
   -Q "IF DB_ID('dbpro_fixture') IS NULL CREATE DATABASE dbpro_fixture;" >/dev/null
 log "SQL Server fixture database dbpro_fixture ensured"
 
+# Apply the T-SQL decoder fixture (#260) when the matrix table is absent, mirroring
+# how CI loads fixtures/postgres and fixtures/mysql. 002/003 are re-runnable by design.
+MSSQL_MATRIX_STATE=$(docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -h -1 -W -S localhost \
+  -U sa -P "$MSSQL_SA_PASSWORD" -d dbpro_fixture \
+  -Q "SELECT CASE WHEN OBJECT_ID('dbo.decoder_matrix') IS NULL THEN 'missing' ELSE 'present' END;" \
+  | tr -d '[:space:]')
+if [ "$MSSQL_MATRIX_STATE" = "missing" ]; then
+  log "Loading SQL Server decoder fixture (fixtures/mssql)"
+  for f in 001_schema.sql 002_seed.sql 003_verify.sql; do
+    docker exec -i "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost \
+      -U sa -P "$MSSQL_SA_PASSWORD" -d dbpro_fixture -i /dev/stdin \
+      < "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/mssql/$f" >/dev/null \
+      || die "fixture load failed: fixtures/mssql/$f"
+  done
+  log "SQL Server decoder fixture loaded and verified"
+else
+  log "SQL Server decoder fixture already present; scripts not re-applied"
+fi
+
 # ---------------------------------------------------------------------------
 # 2. MySQL fixture (repo docker-compose service on :33306) + reference database
 # ---------------------------------------------------------------------------
