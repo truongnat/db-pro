@@ -66,7 +66,7 @@ impl<'a> AgentResultWorkspaceContext<'a> {
 
         let sample_len = ui_result.rows.len();
         let total_rows = ui_result.row_count;
-        document.query_results = vec![ui_result];
+        document.query_results = vec![std::rc::Rc::new(ui_result)];
         document.query_result = None;
         document.active_result_index = 0;
         let document_id = document.id.clone();

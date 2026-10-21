@@ -279,8 +279,11 @@ impl DbProApp {
             egui::vec2(ui.available_width(), body_height),
             Layout::top_down(Align::Min),
             |ui| {
-                let result = self.query.session.active_result().cloned();
-                self.draw_output_pane(ui, result.as_ref());
+                // #541: the draw path takes a refcount-bump handle and paints by
+                // reference — a deep `active_result().cloned()` here cost 58 ms per
+                // frame at 100k x 8 and defeated grid virtualization.
+                let result = self.query.session.active_result_handle();
+                self.draw_output_pane(ui, result.as_deref());
             },
         );
     }

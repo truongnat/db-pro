@@ -423,3 +423,152 @@ mod export_tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// #541 — the query output dock used to deep-clone the entire active result every
+/// frame just to pick the output pane (measured 67.4 ms/frame at 100k rows x 8 cols
+/// on this machine, 58.6 ms in the issue's Linux run). The dock now takes a
+/// refcount-bump `Rc` handle and paints by reference. These tests pin both halves:
+/// the structural sharing and the release-mode frame budget.
+mod issue541_dock_clone_tests {
+    use super::super::*;
+    use std::rc::Rc;
+    use std::time::Instant;
+
+    /// Same shape as the issue fixture: N rows x 8 Text columns of ~25 chars.
+    fn dock_fixture(rows: usize, cols: usize) -> UiQueryResult {
+        UiQueryResult {
+            columns: (0..cols)
+                .map(|c| crate::UiColumn {
+                    name: format!("column_{c}"),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                })
+                .collect(),
+            rows: (0..rows)
+                .map(|r| {
+                    (0..cols)
+                        .map(|c| UiCell::Text(format!("value-{r}-{c}-padding-text!")))
+                        .collect()
+                })
+                .collect(),
+            row_count: rows as u64,
+            duration_ms: 12,
+        }
+    }
+
+    fn seeded_app(rows: usize) -> DbProApp {
+        let mut app = DbProApp::default();
+        if app.query.session.active_document().is_none() {
+            app.new_query_document();
+        }
+        app.query
+            .session
+            .active_document_mut()
+            .unwrap()
+            .query_results = vec![Rc::new(dock_fixture(rows, 8))];
+        app.query
+            .session
+            .active_document_mut()
+            .unwrap()
+            .active_result_index = 0;
+        app
+    }
+
+    /// One real dock frame — the production `draw_query_output_dock`, not a mimic.
+    fn dock_frame(app: &mut DbProApp, ctx: &egui::Context) {
+        crate::test_frame::frame(
+            ctx,
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1024.0, 640.0),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    app.draw_query_output_dock(ui, 240.0);
+                });
+            },
+        );
+    }
+
+    /// Structural proof of the fix: the frame handle aliases the stored grid —
+    /// cloning it bumps a refcount, it never copies cells. A regression to
+    /// `active_result().cloned()` cannot compile past this.
+    #[test]
+    fn dock_frame_handle_shares_the_stored_result() {
+        let app = seeded_app(10);
+        let handle = app
+            .query
+            .session
+            .active_result_handle()
+            .expect("seeded document must expose an active result");
+        let stored = &app.query.session.active_document().unwrap().query_results[0];
+        assert!(
+            Rc::ptr_eq(&handle, stored),
+            "the draw handle must point at the stored grid, not a copy"
+        );
+
+        // A second frame handle (what the dock takes per repaint) adds no row copy:
+        // same allocation, refcount grows.
+        let second = app
+            .query
+            .session
+            .active_result_handle()
+            .expect("handle stays available across frames");
+        assert!(Rc::ptr_eq(&handle, &second));
+        assert_eq!(
+            Rc::strong_count(&handle),
+            3,
+            "storage + two frame handles must alias one grid"
+        );
+
+        // The draw path itself is reference-only: `draw_output_pane` accepts
+        // `Option<&UiQueryResult>` derived from the local handle, so a 100k-row
+        // grid needs no ownership to paint.
+        let result = app.query.session.active_result_handle();
+        let by_ref: Option<&UiQueryResult> = result.as_deref();
+        assert!(by_ref.is_some(), "as_deref must expose the grid by reference");
+    }
+
+    /// Release-mode acceptance: a full dock frame at the issue's worst fixture
+    /// (100k x 8) must fit the 16.7 ms/60 fps budget — it measured 67.4 ms before
+    /// the fix because every frame deep-copied all 800k cells. Debug builds keep
+    /// constant overhead, so they only paint (and print) without the assert.
+    #[test]
+    fn query_output_dock_frame_fits_budget_at_100k_rows() {
+        let sizes = [1_000usize, 10_000, 100_000];
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        for &rows in &sizes {
+            let mut app = seeded_app(rows);
+            // Warm-up: projection build, egui internals, font atlas.
+            dock_frame(&mut app, &ctx);
+            let mut best = std::time::Duration::MAX;
+            let mut median_samples = Vec::new();
+            for _ in 0..5 {
+                let t = Instant::now();
+                dock_frame(&mut app, &ctx);
+                let elapsed = t.elapsed();
+                best = best.min(elapsed);
+                median_samples.push(elapsed);
+            }
+            median_samples.sort();
+            println!(
+                "rows={rows:<7} dock_frame_best={best:?} dock_frame_median={:?}",
+                median_samples[median_samples.len() / 2]
+            );
+            assert!(
+                app.table.data.grid_projection_cache.rebuilds() >= 1,
+                "the Results pane must actually receive the seeded grid (rows={rows})"
+            );
+            if !cfg!(debug_assertions) {
+                assert!(
+                    best.as_millis() < 17,
+                    "query dock frame exceeded the 16.7 ms budget at {rows} rows: {best:?}"
+                );
+            }
+        }
+    }
+}

@@ -79,8 +79,10 @@ impl DbProApp {
             WorkspaceTab::Table => self.draw_table_workspace(ui),
             WorkspaceTab::SchemaObject => self.draw_schema_object_workspace(ui),
             WorkspaceTab::Results => {
-                let result = self.query.session.active_result().cloned();
-                self.draw_results_pane(ui, result.as_ref());
+                // #541: owned refcount-bump handle, painted by reference — never a
+                // per-frame deep clone of the active grid.
+                let result = self.query.session.active_result_handle();
+                self.draw_results_pane(ui, result.as_deref());
             }
             WorkspaceTab::Diagram => {
                 let active_driver = self.active_driver().to_owned();

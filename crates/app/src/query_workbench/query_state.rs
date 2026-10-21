@@ -4,6 +4,7 @@ use super::{PendingBulkClose, QueryDocument, QueryExecutionState};
 use crate::runtime::UiQueryResult;
 use crate::RequestId;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::Instant;
 
 /// Soft cap on open query tabs (#401): palette/saved-query/agent opens each
@@ -87,6 +88,17 @@ impl QuerySessionState {
     }
 
     pub(crate) fn active_result(&self) -> Option<&UiQueryResult> {
+        self.active_result_handle_ref().map(Rc::as_ref)
+    }
+
+    /// Cheap owned handle to the active result (#541): a refcount bump, safe to take
+    /// once per frame in the draw path. Never deep-clone the grid to satisfy the
+    /// borrow checker — `Option<&UiQueryResult>` consumers take `handle.as_deref()`.
+    pub(crate) fn active_result_handle(&self) -> Option<Rc<UiQueryResult>> {
+        self.active_result_handle_ref().cloned()
+    }
+
+    fn active_result_handle_ref(&self) -> Option<&Rc<UiQueryResult>> {
         self.active_document().and_then(|document| {
             document
                 .query_results

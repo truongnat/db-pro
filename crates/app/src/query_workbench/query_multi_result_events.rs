@@ -51,6 +51,7 @@ pub(super) fn on_query_multi_completed(
             .statements
             .iter_mut()
             .filter_map(|statement| statement.result_set.take())
+            .map(std::rc::Rc::new)
             .collect();
         doc.query_result = None;
         doc.active_result_index = 0;

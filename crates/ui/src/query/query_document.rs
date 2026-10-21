@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -136,8 +137,12 @@ pub struct QueryDocument {
     pub prediction_last_debounce_ms: Option<u64>,
     pub cached_tokens: CachedSqlTokens,
     pub search: EditorSearchState,
-    pub query_result: Option<UiQueryResult>,
-    pub query_results: Vec<UiQueryResult>,
+    /// Result grids are shared behind an `Rc` (#541): the per-frame draw path takes a
+    /// refcount-bump handle instead of deep-cloning every cell of a 100k-row result.
+    /// Handle clones must never be mutated in place — clone-on-write through
+    /// `Rc::make_mut` if an in-place grid edit is ever needed.
+    pub query_result: Option<Rc<UiQueryResult>>,
+    pub query_results: Vec<Rc<UiQueryResult>>,
     pub query_result_names: HashMap<usize, String>,
     pub pinned_results: std::collections::BTreeSet<usize>,
     pub active_result_index: usize,

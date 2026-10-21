@@ -474,7 +474,7 @@ impl DbProApp {
             .documents
             .get_mut(self.query.session.active_document_index)
         {
-            doc.query_results = vec![capture_results_fixture()];
+            doc.query_results = vec![std::rc::Rc::new(capture_results_fixture())];
             doc.active_result_index = 0;
         }
         self.workspace.bottom_panel_open = true;

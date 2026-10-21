@@ -57,7 +57,7 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
             ));
             // One owned copy. `query_result` and `execution_output.result_set`
             // used to each hold another full grid.
-            doc.query_results = vec![result];
+            doc.query_results = vec![std::rc::Rc::new(result)];
             doc.query_result = None;
             doc.active_result_index = 0;
             doc.execution_output = Some(UiQueryExecutionOutput {

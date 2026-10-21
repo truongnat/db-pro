@@ -155,12 +155,16 @@ impl DbProApp {
         if !self.workspace.bottom_panel_open {
             return;
         }
-        let result = self
-            .query
-            .session
-            .active_result()
-            .or(self.table.data_query.result.as_ref())
-            .cloned();
+        // #541: the query result reaches the pane as a refcount-bump handle. The
+        // table-view fallback keeps its historical per-frame clone (its storage is
+        // not shared); only the query-dock path was measured as hot.
+        let result = self.query.session.active_result_handle().or_else(|| {
+            self.table
+                .data_query
+                .result
+                .as_ref()
+                .map(|result| std::rc::Rc::new(result.clone()))
+        });
         let height = self.workspace.bottom_panel_height;
         let response = egui::Panel::bottom("output_panel")
             .resizable(true)
@@ -189,7 +193,7 @@ impl DbProApp {
                     active_tab: Some(&mut self.workspace.shell.active_tab),
                 };
                 query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
-                self.draw_output_pane(ui, result.as_ref());
+                self.draw_output_pane(ui, result.as_deref());
             });
         // egui's resizable Panel emits an anonymous `Unknown` node for the
         // drag handle (id = panel id + "__resize") — name it so AT can
