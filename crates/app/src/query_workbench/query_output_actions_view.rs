@@ -145,14 +145,14 @@ pub(super) fn draw_explain_pane(
                 });
             }
         } else {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::ChartNoAxesCombined,
                 "No query plan yet",
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "Execute EXPLAIN or EXPLAIN ANALYZE from the toolbar or query actions to see costs, plan nodes, and advisor findings.",
                 context.theme,
-            );
+            )
+            .show(ui);
         }
     });
     action
@@ -177,7 +177,11 @@ pub(super) fn draw_history_pane(
         const HISTORY_SHOWN_LIMIT: usize = 50;
         let shown = matching.min(HISTORY_SHOWN_LIMIT);
         ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new(t!("query.recent_executions")).font(font_subheading()).strong());
+            ui.label(
+                RichText::new(t!("query.recent_executions"))
+                    .font(font_subheading())
+                    .strong(),
+            );
             ui.add_space(SPACE_MD);
             Input::new(
                 &mut context.editor.query_history_search,
@@ -204,11 +208,7 @@ pub(super) fn draw_history_pane(
                 format!("{shown} of {matching} shown · {total} total")
             };
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(
-                    RichText::new(count_label)
-                        .small()
-                        .color(context.theme.text_muted),
-                );
+                ui.label(RichText::new(count_label).small().color(context.theme.text_muted));
             });
         });
         ui.add_space(SPACE_SM);
@@ -238,72 +238,73 @@ pub(super) fn draw_history_pane(
             )
             .show(ui);
         } else {
-            ScrollArea::new(context.theme).max_height(ui.available_height()).show(ui, |ui| {
-                for entry in filtered_entries {
-                    panel_frame(context.theme).show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            let (badge_text, badge_variant) = if entry.status == UiQueryHistoryStatus::Failed {
-                                ("✕ FAIL", BadgeVariant::Destructive)
-                            } else {
-                                ("✓ OK", BadgeVariant::Success)
-                            };
-                            Badge::new(badge_text, context.theme)
-                                .variant(badge_variant)
-                                .compact(true)
-                                .show(ui);
-                            ui.label(
-                                RichText::new(format!("{}ms", entry.duration_ms))
-                                    .small()
-                                    .monospace()
-                                    .color(context.theme.text_secondary),
-                            );
-                            let rows_display = entry.row_count.or(entry.affected_rows);
-                            if let Some(rows) = rows_display {
+            ScrollArea::new(context.theme)
+                .max_height(ui.available_height())
+                .show(ui, |ui| {
+                    for entry in filtered_entries {
+                        panel_frame(context.theme).show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                let (badge_text, badge_variant) = if entry.status == UiQueryHistoryStatus::Failed {
+                                    ("✕ FAIL", BadgeVariant::Destructive)
+                                } else {
+                                    ("✓ OK", BadgeVariant::Success)
+                                };
+                                Badge::new(badge_text, context.theme)
+                                    .variant(badge_variant)
+                                    .compact(true)
+                                    .show(ui);
                                 ui.label(
-                                    RichText::new(format!("{rows} rows"))
+                                    RichText::new(format!("{}ms", entry.duration_ms))
                                         .small()
-                                        .color(context.theme.text_muted),
+                                        .monospace()
+                                        .color(context.theme.text_secondary),
                                 );
-                            }
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                if Button::new(context.theme)
-                                    .text("Replay")
-                                    .size(ButtonSize::Sm)
-                                    .variant(ButtonVariant::Ghost)
-                                    .icon(Icon::RotateCw)
-                                    .show(ui)
-                                    .clicked()
-                                {
-                                    action = Some(QueryOutputAction::OpenHistory(
-                                        Box::new(entry.clone()),
-                                        true,
-                                    ));
+                                let rows_display = entry.row_count.or(entry.affected_rows);
+                                if let Some(rows) = rows_display {
+                                    ui.label(
+                                        RichText::new(format!("{rows} rows"))
+                                            .small()
+                                            .color(context.theme.text_muted),
+                                    );
                                 }
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    if Button::new(context.theme)
+                                        .text("Replay")
+                                        .size(ButtonSize::Sm)
+                                        .variant(ButtonVariant::Ghost)
+                                        .icon(Icon::RotateCw)
+                                        .show(ui)
+                                        .clicked()
+                                    {
+                                        action = Some(QueryOutputAction::OpenHistory(Box::new(entry.clone()), true));
+                                    }
+                                });
                             });
+                            ui.add_space(2.0);
+                            let preview: String = entry.sql.lines().take(2).collect::<Vec<_>>().join(" ");
+                            let truncated = if preview.len() > 120 {
+                                format!("{}…", &preview[..117])
+                            } else {
+                                preview
+                            };
+                            if ui
+                                .label(
+                                    RichText::new(truncated)
+                                        .monospace()
+                                        .small()
+                                        .color(context.theme.text_primary),
+                                )
+                                .interact(egui::Sense::click())
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .on_hover_text("Open in a new editor")
+                                .clicked()
+                            {
+                                action = Some(QueryOutputAction::OpenHistory(Box::new(entry.clone()), false));
+                            }
                         });
-                        ui.add_space(2.0);
-                        let preview: String = entry.sql.lines().take(2).collect::<Vec<_>>().join(" ");
-                        let truncated = if preview.len() > 120 {
-                            format!("{}…", &preview[..117])
-                        } else {
-                            preview
-                        };
-                        if ui
-                            .label(RichText::new(truncated).monospace().small().color(context.theme.text_primary))
-                            .interact(egui::Sense::click())
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .on_hover_text("Open in a new editor")
-                            .clicked()
-                        {
-                            action = Some(QueryOutputAction::OpenHistory(
-                                Box::new(entry.clone()),
-                                false,
-                            ));
-                        }
-                    });
-                    ui.add_space(4.0);
-                }
-            });
+                        ui.add_space(4.0);
+                    }
+                });
         }
     });
     action
@@ -312,4 +313,3 @@ pub(super) fn draw_history_pane(
 #[cfg(test)]
 #[path = "tests/query_output_actions_view_tests.rs"]
 mod tests;
-

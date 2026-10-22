@@ -114,10 +114,16 @@ impl PgSettingsSurfaceContext<'_> {
                             .color(self.theme.text_primary),
                     );
                     if setting.pending_restart {
-                        badge(ui, "pending restart", self.theme.warning, self.theme.text_primary);
+                        Badge::new("pending restart", self.theme)
+                            .tint(self.theme.warning)
+                            .compact(true)
+                            .show(ui);
                     }
                     if setting.sensitive {
-                        badge(ui, "redacted", self.theme.surface_active, self.theme.text_secondary);
+                        Badge::new("redacted", self.theme)
+                            .variant(BadgeVariant::Secondary)
+                            .compact(true)
+                            .show(ui);
                     }
                 });
                 ui.label(

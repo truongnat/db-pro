@@ -138,7 +138,10 @@ impl VisualQueryBuilderContext<'_> {
                     .small(),
                 );
                 if index == 0 {
-                    badge(ui, "FROM", self.theme.surface_active, self.theme.text_secondary);
+                    Badge::new("FROM", self.theme)
+                        .variant(BadgeVariant::Secondary)
+                        .compact(true)
+                        .show(ui);
                 }
                 if Button::new(self.theme)
                     .text("Remove")

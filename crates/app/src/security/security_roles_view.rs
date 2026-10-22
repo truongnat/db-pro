@@ -74,19 +74,34 @@ impl SecurityRolesContext<'_> {
                 actions.push(SecurityRolesAction::Select(user.name.clone()));
             }
             if user.can_login {
-                badge(ui, "login", self.theme.surface_active, self.theme.text_secondary);
+                Badge::new("login", self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             }
             if user.is_super {
-                badge(ui, "super", self.theme.warning, self.theme.text_primary);
+                Badge::new("super", self.theme)
+                    .tint(self.theme.warning)
+                    .compact(true)
+                    .show(ui);
             }
             if user.can_create_db {
-                badge(ui, "createdb", self.theme.surface_active, self.theme.text_secondary);
+                Badge::new("createdb", self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             }
             if user.can_create_role {
-                badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
+                Badge::new("createrole", self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             }
             if user.is_predefined {
-                badge(ui, "system", self.theme.surface_active, self.theme.text_muted);
+                Badge::new("system", self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             } else if Button::new(self.theme)
                 .text("Drop")
                 .variant(ButtonVariant::Destructive)

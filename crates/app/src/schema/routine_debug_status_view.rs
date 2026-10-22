@@ -41,9 +41,8 @@ pub(super) fn build_debug_guidance(
     environment_label: Option<&str>,
 ) -> RoutineDebugGuidance {
     let stepping_note = t!("routine.debug_stepping_note").into_owned();
-    let production_warning = environment_label.map(|environment| {
-        t!("routine.debug_production_warning", environment = environment).into_owned()
-    });
+    let production_warning = environment_label
+        .map(|environment| t!("routine.debug_production_warning", environment = environment).into_owned());
     let Some(probe) = probe else {
         let (status, reason) = if probing {
             (
@@ -128,12 +127,10 @@ pub(super) fn draw_debug_status(context: &mut RoutineDebugStatusContext<'_>, ui:
     card_frame(context.theme).show(ui, |ui| {
         section_label(ui, t!("routine.debug_title").into_owned(), context.theme);
         ui.add_space(SPACE_SM);
-        badge(
-            ui,
-            context.guidance.status.as_str(),
-            status_surface(context.state, context.theme),
-            status_text(context.state, context.theme),
-        );
+        Badge::new(context.guidance.status.as_str(), context.theme)
+            .variant(status_badge_variant(context.state))
+            .compact(true)
+            .show(ui);
         ui.add_space(SPACE_SM);
         Alert::new(
             t!("routine.debug_title").into_owned(),
@@ -183,21 +180,12 @@ fn alert_variant(state: Option<RoutineDebugState>) -> AlertVariant {
     }
 }
 
-fn status_surface(state: Option<RoutineDebugState>, theme: DbProTheme) -> egui::Color32 {
+fn status_badge_variant(state: Option<RoutineDebugState>) -> BadgeVariant {
     match state {
-        None => theme.surface_2,
-        Some(RoutineDebugState::ServerReady) => theme.surface_active,
-        Some(RoutineDebugState::ExtensionNotPreloaded | RoutineDebugState::ProbeFailed) => theme.surface_hover,
-        Some(RoutineDebugState::ExtensionMissing | RoutineDebugState::UnsupportedDriver) => theme.surface_2,
-    }
-}
-
-fn status_text(state: Option<RoutineDebugState>, theme: DbProTheme) -> egui::Color32 {
-    match state {
-        None => theme.text_muted,
-        Some(RoutineDebugState::ServerReady) => theme.text_primary,
-        Some(RoutineDebugState::ExtensionNotPreloaded | RoutineDebugState::ProbeFailed) => theme.warning,
-        Some(RoutineDebugState::ExtensionMissing | RoutineDebugState::UnsupportedDriver) => theme.text_muted,
+        None => BadgeVariant::Secondary,
+        Some(RoutineDebugState::ServerReady) => BadgeVariant::Info,
+        Some(RoutineDebugState::ExtensionNotPreloaded | RoutineDebugState::ProbeFailed) => BadgeVariant::Warning,
+        Some(RoutineDebugState::ExtensionMissing | RoutineDebugState::UnsupportedDriver) => BadgeVariant::Secondary,
     }
 }
 

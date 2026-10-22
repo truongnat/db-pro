@@ -64,7 +64,10 @@ impl SidebarDataContext<'_> {
         ui.horizontal(|ui| {
             section_label(ui, title, self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                badge(ui, &count.to_string(), self.theme.surface_hover, self.theme.text_muted);
+                Badge::new(count.to_string(), self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             });
         });
     }
@@ -90,7 +93,11 @@ impl SidebarDataContext<'_> {
         from_pinned: bool,
     ) -> Vec<SidebarDataAction> {
         let is_pinned = self.pinned_tables.iter().any(|item| item == table);
-        let pin_label = if is_pinned { t!("sidebar.unpin_table") } else { t!("sidebar.pin_table") };
+        let pin_label = if is_pinned {
+            t!("sidebar.unpin_table")
+        } else {
+            t!("sidebar.pin_table")
+        };
         let mut actions = Vec::new();
 
         context_action_menu(ui, response, self.theme, |ui, close_menu| {

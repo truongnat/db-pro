@@ -35,13 +35,13 @@ impl SavedTasksSurfaceContext<'_> {
             ui.add_space(8.0);
         }
         if self.saved_tasks.store.tasks.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::ListTodo,
                 "No saved tasks",
                 "Create a SQL, export, backup, or maintenance task to run manually.",
                 self.theme,
-            );
+            )
+            .show(ui);
             return action;
         }
         let tasks = self.saved_tasks.store.tasks.clone();

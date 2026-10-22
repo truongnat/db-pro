@@ -58,20 +58,15 @@ fn draw_health_findings(
         };
         card_frame(theme).show(ui, |ui| {
             ui.horizontal(|ui| {
-                // Muted fill + severity-colored label: a severity-filled pill
-                // with text_primary text fails contrast (white text on a
-                // warning/info fill reads as a blank chip).
-                badge(ui, finding.severity.as_label(), theme.surface_active, color);
+                // Soft-tinted severity pill: the tint keeps the label readable
+                // (a solid severity fill with white text fails contrast).
+                Badge::new(finding.severity.as_label(), theme)
+                    .tint(color)
+                    .compact(true)
+                    .show(ui);
                 // Wrap so long titles reflow below the badge instead of
                 // clipping at the sidebar edge.
-                ui.add(
-                    egui::Label::new(
-                        RichText::new(&finding.title)
-                            .strong()
-                            .color(theme.text_primary),
-                    )
-                    .wrap(),
-                );
+                ui.add(egui::Label::new(RichText::new(&finding.title).strong().color(theme.text_primary)).wrap());
             });
             ui.label(
                 RichText::new(format!("affected: {}", finding.affected))

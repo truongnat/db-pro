@@ -84,8 +84,8 @@ fn draw_source_editor(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::
     section_label(ui, format!("{} SOURCE", context.function.routine_type), context.theme);
     ui.add_space(SPACE_SM);
     crate::components::Textarea::new(context.source_draft, "routine source...", context.theme)
-            .min_rows(8)
-            .show(ui);
+        .min_rows(8)
+        .show(ui);
     ui.add_space(SPACE_SM);
 }
 
@@ -128,7 +128,10 @@ fn draw_source_actions(context: &RoutineWorkbenchContext<'_>, ui: &mut egui::Ui)
 fn draw_ddl_preview(theme: DbProTheme, dialect: crate::editor::SqlDialect, preview: &str, ui: &mut egui::Ui) {
     ui.add_space(SPACE_SM);
     ui.label(RichText::new("DDL preview").small().color(theme.text_secondary));
-    CodeBlock::new(preview, theme).language("sql").sql_dialect(dialect).show(ui);
+    CodeBlock::new(preview, theme)
+        .language("sql")
+        .sql_dialect(dialect)
+        .show(ui);
 }
 
 fn draw_drop_confirmation(
@@ -199,14 +202,22 @@ fn draw_invoke_card(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui
         } else {
             draw_parameter_inputs(context, ui, &inputs);
         }
-        let invoke = build_routine_invoke_sql(context.function, context.parameter_values, context.parameter_nulls, context.driver);
+        let invoke = build_routine_invoke_sql(
+            context.function,
+            context.parameter_values,
+            context.parameter_nulls,
+            context.driver,
+        );
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new("Generated SQL")
                 .small()
                 .color(context.theme.text_secondary),
         );
-        CodeBlock::new(&invoke.sql, context.theme).language("sql").sql_dialect(context.dialect).show(ui);
+        CodeBlock::new(&invoke.sql, context.theme)
+            .language("sql")
+            .sql_dialect(context.dialect)
+            .show(ui);
         if invoke.bound_with_cast {
             ui.label(
                 RichText::new("Types that cannot be bound directly are passed as text with an explicit cast.")
@@ -271,7 +282,10 @@ fn draw_parameter_inputs(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egu
                     .color(context.theme.text_secondary),
             );
             if parameter.has_default {
-                badge(ui, "default", context.theme.surface_active, context.theme.text_muted);
+                Badge::new("default", context.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             }
         });
         ui.horizontal(|ui| {
@@ -503,11 +517,13 @@ fn requires_explicit_cast(data_type: &str) -> bool {
 fn sanitize_cast_type(data_type: &str) -> Result<String, String> {
     let token = data_type.trim();
     if token.is_empty()
-        || !token.chars().all(|ch| {
-            ch.is_ascii_alphanumeric() || matches!(ch, '_' | ' ' | '.' | '(' | ')' | '[' | ']' | ',')
-        })
+        || !token
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | ' ' | '.' | '(' | ')' | '[' | ']' | ','))
     {
-        return Err(format!("data type \"{data_type}\" cannot be safely cast in generated SQL"));
+        return Err(format!(
+            "data type \"{data_type}\" cannot be safely cast in generated SQL"
+        ));
     }
     Ok(token.to_owned())
 }
@@ -530,10 +546,7 @@ fn bind_argument(data_type: &str, raw: &str) -> Result<QueryParam, String> {
     };
     match type_family(data_type) {
         TypeFamily::Bool => parse_bool(trimmed).map(QueryParam::Bool).ok_or_else(mismatch),
-        TypeFamily::Integer => trimmed
-            .parse::<i64>()
-            .map(QueryParam::Int64)
-            .map_err(|_| mismatch()),
+        TypeFamily::Integer => trimmed.parse::<i64>().map(QueryParam::Int64).map_err(|_| mismatch()),
         TypeFamily::Float => trimmed.parse::<f64>().map(QueryParam::Float64).map_err(|_| mismatch()),
         TypeFamily::Decimal => trimmed
             .parse::<bigdecimal::BigDecimal>()
@@ -621,4 +634,3 @@ fn parse_hex_bytes(value: &str) -> Option<Vec<u8>> {
 #[cfg(test)]
 #[path = "tests/routine_workbench_surface_view_tests.rs"]
 mod tests;
-

@@ -71,7 +71,10 @@ impl SchemaObjectSurfaceContext<'_> {
                 .color(self.theme.accent),
         );
         if let Some(metadata) = self.metadata {
-            badge(ui, metadata, self.theme.surface_active, self.theme.text_secondary);
+            Badge::new(metadata, self.theme)
+                .variant(BadgeVariant::Secondary)
+                .compact(true)
+                .show(ui);
         }
     }
 

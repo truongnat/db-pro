@@ -34,12 +34,10 @@ impl TableWorkspaceSurfaceContext<'_> {
             ui.horizontal(|ui| {
                 self.draw_breadcrumb(ui);
                 if let Some(rows) = self.row_count {
-                    badge(
-                        ui,
-                        &format!("{rows} rows"),
-                        self.theme.surface_active,
-                        self.theme.text_secondary,
-                    );
+                    Badge::new(format!("{rows} rows"), self.theme)
+                        .variant(BadgeVariant::Secondary)
+                        .compact(true)
+                        .show(ui);
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

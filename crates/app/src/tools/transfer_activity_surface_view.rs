@@ -534,14 +534,14 @@ impl TransferActivityContext<'_> {
 
     fn draw_jobs(&self, ui: &mut egui::Ui) {
         if self.management.transfer.transfer_jobs.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::Upload,
                 "No transfers yet",
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 "Run the synthetic harness to verify streaming progress, or import/export from Query once formats land.",
                 self.theme,
-            );
+            )
+            .show(ui);
             return;
         }
         for job in &self.management.transfer.transfer_jobs {
@@ -549,12 +549,10 @@ impl TransferActivityContext<'_> {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(&job.label).strong().color(self.theme.text_primary));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        badge(
-                            ui,
-                            transfer_status_label(job.status),
-                            self.theme.surface_active,
-                            self.theme.text_secondary,
-                        );
+                        Badge::new(transfer_status_label(job.status), self.theme)
+                            .variant(BadgeVariant::Secondary)
+                            .compact(true)
+                            .show(ui);
                     });
                 });
                 ui.label(

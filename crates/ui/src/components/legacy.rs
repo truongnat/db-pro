@@ -7,18 +7,12 @@ use lucide_icons::Icon;
 
 use crate::{
     components::card::CARD_FRAME_STROKE_WIDTH,
-    tokens::{font_icon, CARD_INNER_PAD, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN},
+    tokens::{
+        font_icon, CARD_INNER_PAD, FONT_SIZE_UI_LABEL, ICON_SM, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS,
+        STROKE_THIN,
+    },
     DbProTheme,
 };
-
-/// `"1 table"` / `"2 tables"` style labels for dense status chips.
-pub fn plural_count(count: usize, singular: &str, plural: &str) -> String {
-    if count == 1 {
-        format!("1 {singular}")
-    } else {
-        format!("{count} {plural}")
-    }
-}
 
 fn icon_layout(icon: Icon, label: &str, color: Color32) -> LayoutJob {
     let mut job = LayoutJob::default();
@@ -26,7 +20,7 @@ fn icon_layout(icon: Icon, label: &str, color: Color32) -> LayoutJob {
         &char::from(icon).to_string(),
         0.0,
         TextFormat {
-            font_id: FontId::new(14.0, FontFamily::Name("lucide".into())),
+            font_id: font_icon(ICON_SM),
             color,
             ..Default::default()
         },
@@ -36,7 +30,7 @@ fn icon_layout(icon: Icon, label: &str, color: Color32) -> LayoutJob {
             &format!("  {label}"),
             0.0,
             TextFormat {
-                font_id: FontId::proportional(13.0),
+                font_id: FontId::proportional(FONT_SIZE_UI_LABEL),
                 color,
                 ..Default::default()
             },
@@ -307,26 +301,6 @@ pub fn grid_frame(theme: DbProTheme) -> Frame {
     }
 }
 
-/// Quiet, centered empty content for workspace surfaces that have no objects yet.
-/// Keeping the icon/title/description stack here prevents metadata screens from
-/// falling back to a tiny, top-left label that reads like unfinished egui output.
-// cc-scan:allow TOO_MANY_PARAMS — context params passed through
-pub fn empty_state(ui: &mut Ui, icon: Icon, title: &str, description: &str, theme: DbProTheme) {
-    ui.vertical_centered(|ui| {
-        ui.add_space(8.0);
-        ui.label(
-            RichText::new(char::from(icon).to_string())
-                .font(font_icon(18.0))
-                .color(theme.text_muted),
-        );
-        ui.label(RichText::new(title).strong().color(theme.text_secondary));
-        if !description.is_empty() {
-            ui.label(RichText::new(description).small().color(theme.text_muted));
-        }
-        ui.add_space(8.0);
-    });
-}
-
 /// Compatibility single-line field. New surfaces use `components::input::Input`,
 /// which owns the disabled, error, focus, and hover chrome.
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
@@ -369,23 +343,20 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
     response
 }
 
+/// Font size of the muted uppercase section labels above field groups, in egui
+/// points (10.5 sits between caption 12 and kbd 9).
+const SECTION_LABEL_FONT_SIZE: f32 = 10.5;
+
 pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
     ui.label(
         RichText::new(text.into())
-            .font(FontId::new(10.5, FontFamily::Name("ui_medium".into())))
+            .font(FontId::new(
+                SECTION_LABEL_FONT_SIZE,
+                FontFamily::Name("ui_medium".into()),
+            ))
             .strong()
             .color(theme.text_muted),
     )
-}
-
-pub fn badge(ui: &mut Ui, text: &str, fill: Color32, foreground: Color32) {
-    let galley = ui
-        .painter()
-        .layout_no_wrap(text.to_owned(), egui::FontId::proportional(10.0), foreground);
-    let size = galley.size() + egui::vec2(12.0, 4.0);
-    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-    ui.painter().rect_filled(rect, CornerRadius::same(7.0 as u8), fill);
-    ui.painter().galley(rect.min + egui::vec2(6.0, 2.0), galley, foreground);
 }
 
 /// Build a tinted version of `color` with the given alpha (0..=255).
@@ -393,6 +364,19 @@ pub fn badge(ui: &mut Ui, text: &str, fill: Color32, foreground: Color32) {
 fn tinted(color: Color32, alpha: u8) -> Color32 {
     Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha)
 }
+
+/// Allocated square size of the status dot hit area, in egui points.
+const STATUS_DOT_SIZE: f32 = 12.0;
+/// Radius of the solid core circle, in egui points.
+const STATUS_DOT_CORE_RADIUS: f32 = 4.0;
+/// Inner radius where the pulse ring starts, in egui points.
+const STATUS_DOT_PULSE_MIN_RADIUS: f32 = 3.0;
+/// Outer radius the pulse ring expands to over one cycle, in egui points.
+const STATUS_DOT_PULSE_MAX_RADIUS: f32 = 6.0;
+/// Pulse ring alpha at the start of the cycle (fades to 0).
+const STATUS_DOT_PULSE_MAX_ALPHA: f32 = 120.0;
+/// Duration of one pulse cycle, in seconds.
+const STATUS_DOT_PULSE_SECS: f32 = 1.6;
 
 // ── Status dot ─────────────────────────────────────────────────────────────
 
@@ -408,8 +392,7 @@ pub fn status_dot(
     reduce_motion: bool,
     _theme: DbProTheme,
 ) -> egui::Response {
-    let size = 12.0;
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(STATUS_DOT_SIZE, STATUS_DOT_SIZE), egui::Sense::hover());
     let center = rect.center();
 
     if pulsing {
@@ -417,16 +400,15 @@ pub fn status_dot(
             0.0
         } else {
             ui.ctx()
-                .animate_value_with_time(egui::Id::new("dbpro.status_dot.phase"), 1.0, 1.6)
+                .animate_value_with_time(egui::Id::new("dbpro.status_dot.phase"), 1.0, STATUS_DOT_PULSE_SECS)
         };
-        let max_r = 6.0;
-        let pulse_r = 3.0 + (max_r - 3.0) * phase;
-        let alpha = ((1.0 - phase) * 120.0) as u8;
+        let pulse_r = STATUS_DOT_PULSE_MIN_RADIUS + (STATUS_DOT_PULSE_MAX_RADIUS - STATUS_DOT_PULSE_MIN_RADIUS) * phase;
+        let alpha = ((1.0 - phase) * STATUS_DOT_PULSE_MAX_ALPHA) as u8;
         ui.painter().circle_filled(center, pulse_r, tinted(color, alpha));
         if !reduce_motion {
             ui.ctx().request_repaint();
         }
     }
-    ui.painter().circle_filled(center, 4.0, color);
+    ui.painter().circle_filled(center, STATUS_DOT_CORE_RADIUS, color);
     response
 }

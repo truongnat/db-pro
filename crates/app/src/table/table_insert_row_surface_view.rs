@@ -3,10 +3,10 @@
 use super::*;
 use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::components::dialog::Dialog;
 use crate::components::dialog::config::DIALOG_FORM_BODY_HEIGHT;
+use crate::components::dialog::Dialog;
 use crate::UiTableColumn;
-use egui::{Frame, Margin, CornerRadius, Stroke};
+use egui::{CornerRadius, Frame, Margin, Stroke};
 use lucide_icons::Icon;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -156,9 +156,15 @@ impl InsertRowDialogContext<'_> {
         let column = &self.info.columns[index];
         ui.horizontal(|ui| {
             if column.is_primary_key {
-                badge(ui, "PK", self.theme.accent_soft, self.theme.warning);
+                Badge::new("PK", self.theme)
+                    .tint(self.theme.warning)
+                    .compact(true)
+                    .show(ui);
             } else if is_fk {
-                badge(ui, "FK", self.theme.surface_active, self.theme.accent);
+                Badge::new("FK", self.theme)
+                    .tint(self.theme.accent)
+                    .compact(true)
+                    .show(ui);
             }
             ui.label(
                 RichText::new(&column.name)
@@ -186,7 +192,11 @@ impl InsertRowDialogContext<'_> {
 
     fn draw_column_requirement(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
         if !column.nullable && column.default.is_none() {
-            ui.label(RichText::new(t!("table.required")).font(font_caption()).color(self.theme.danger));
+            ui.label(
+                RichText::new(t!("table.required"))
+                    .font(font_caption())
+                    .color(self.theme.danger),
+            );
         } else if column.nullable {
             ui.label(
                 RichText::new(t!("table.nullable"))

@@ -68,3 +68,17 @@ Not yet run: fmt --check workspace, clippy, tests, captures (scheduled Wave 6).
   and schema compare (`/tmp/w5a_compare_{dark,light}.png`) — migrated
   ghost/secondary buttons ("Take snapshot", "Diff vs snapshot", "Snapshot",
   "Diff now") render correctly in both themes.
+
+## Wave 5a/5b (legacy callers → core components) — `a67107a6`, pending commit
+
+- `cargo check --workspace` PASS; `cargo test -p db-pro-app` 676/676 both waves.
+- 5a: 77 button callsites migrated, captures tools+compare dark/light OK.
+- 5b: `plural_count`/`empty_state`/`badge` deleted (3+8+28 sites →
+  format_count_with_suffix / chrome::EmptyState / components::Badge);
+  `section_label`, `status_dot`, `icon_text`, `tinted` kept — retokenized
+  (no core equivalent for pulse ring / muted section label / layout job).
+- Captures 1280×800 dark+light: `table_profile` pane with reassert flag
+  (`/tmp/w5b_profile_{dark,light}.png`) — migrated badges ("Page sample"
+  Secondary, pattern tints Unique/Repeated/Varied) legible in both themes.
+  NOTE: `DB_PRO_CAPTURE_REASSERT_SURFACE=1` required — schema load steals
+  the active tab otherwise; earlier captures without it showed Welcome.

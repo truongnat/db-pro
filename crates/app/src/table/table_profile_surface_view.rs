@@ -6,7 +6,7 @@ use super::super::*;
 use crate::components::table::{Table, TableColumn};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
-use egui::{Rect, CornerRadius, Vec2};
+use egui::{CornerRadius, Rect, Vec2};
 
 pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult>, ui: &mut egui::Ui) {
     panel_frame(theme).show(ui, |ui| {
@@ -62,7 +62,10 @@ pub(super) fn draw_profile_pane(theme: DbProTheme, result: Option<&UiQueryResult
                 );
             });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                badge(ui, "Page sample", theme.surface_active, theme.text_secondary);
+                Badge::new("Page sample", theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             });
         });
         ui.add_space(SPACE_2XL);
@@ -256,100 +259,108 @@ fn draw_profile_grid(theme: DbProTheme, ui: &mut egui::Ui, profiles: &[ColumnPro
                 .row_height(48.0)
                 .row_label(&|i| profiles[i].name.clone())
                 .show(
-                ui,
-                profiles.len(),
-                |_| false,
-                |_| {},
-                |_| {},
-                |_| {},
-                |ui, row_idx, col_idx| {
-                    let profile = &profiles[row_idx];
-                    match col_idx {
-                        0 => {
-                            ui.vertical(|ui| {
-                                let column_name = crate::components::truncate_ellipsis(&profile.name, 28);
-                                ui.add(
-                                    egui::Label::new(RichText::new(column_name).strong().color(theme.text_primary))
+                    ui,
+                    profiles.len(),
+                    |_| false,
+                    |_| {},
+                    |_| {},
+                    |_| {},
+                    |ui, row_idx, col_idx| {
+                        let profile = &profiles[row_idx];
+                        match col_idx {
+                            0 => {
+                                ui.vertical(|ui| {
+                                    let column_name = crate::components::truncate_ellipsis(&profile.name, 28);
+                                    ui.add(
+                                        egui::Label::new(RichText::new(column_name).strong().color(theme.text_primary))
+                                            .truncate(),
+                                    )
+                                    .on_hover_text(&profile.name);
+                                    ui.add_space(SPACE_XS);
+                                    let data_type = crate::components::truncate_ellipsis(&profile.data_type, 22);
+                                    ui.add(
+                                        egui::Label::new(
+                                            RichText::new(data_type).small().monospace().color(theme.text_muted),
+                                        )
                                         .truncate(),
-                                )
-                                .on_hover_text(&profile.name);
-                                ui.add_space(SPACE_XS);
-                                let data_type = crate::components::truncate_ellipsis(&profile.data_type, 22);
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(data_type).small().monospace().color(theme.text_muted),
                                     )
-                                    .truncate(),
-                                )
-                                .on_hover_text(&profile.data_type);
-                            });
-                        }
-                        1 => {
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing.x = SPACE_SM;
-                                let bar_w = 60.0;
-                                let bar_h = 6.0;
-                                let (rect, _) = ui.allocate_exact_size(Vec2::new(bar_w, bar_h), egui::Sense::hover());
-                                let fill_pct = (1.0 - profile.null_rate).clamp(0.0, 1.0) as f32;
-
-                                ui.painter()
-                                    .rect_filled(rect, CornerRadius::same(2.0 as u8), theme.surface_active);
-                                if fill_pct > 0.0 {
-                                    let fill_rect = Rect::from_min_size(rect.min, Vec2::new(bar_w * fill_pct, bar_h));
-                                    ui.painter().rect_filled(fill_rect, CornerRadius::same(2.0 as u8), theme.accent);
-                                }
-
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(format!("{:.0}% full", (1.0 - profile.null_rate) * 100.0))
-                                            .small()
-                                            .color(theme.text_secondary),
-                                    )
-                                    .truncate()
-                                    .sense(egui::Sense::hover()),
-                                )
-                                .on_hover_text(format!(
-                                    "{}% full · {} null of {} rows",
-                                    (1.0 - profile.null_rate) * 100.0,
-                                    profile.null_count,
-                                    row_count
-                                ));
-                            });
-                        }
-                        2 => {
-                            ui.label(
-                                RichText::new(format!(
-                                    "{} · {:.0}%",
-                                    profile.distinct_count,
-                                    profile.distinct_rate * 100.0
-                                ))
-                                .monospace()
-                                .color(theme.text_secondary),
-                            );
-                        }
-                        3 => {
-                            let non_null_count = row_count.saturating_sub(profile.null_count);
-                            draw_profile_pattern(theme, ui, profile, non_null_count);
-                        }
-                        4 => {
-                            draw_profile_range(theme, ui, profile);
-                        }
-                        5 => {
-                            if let (Some(avg), Some(sum)) = (profile.avg, profile.sum) {
-                                let summary = format!("{avg:.2} / {sum:.1}");
-                                ui.add(
-                                    egui::Label::new(RichText::new(summary).monospace().color(theme.text_secondary))
-                                        .extend(),
-                                )
-                                .on_hover_text(format!("Average: {avg:.2}\nSum: {sum:.1}"));
-                            } else {
-                                ui.label(RichText::new("—").small().color(theme.text_muted));
+                                    .on_hover_text(&profile.data_type);
+                                });
                             }
+                            1 => {
+                                ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = SPACE_SM;
+                                    let bar_w = 60.0;
+                                    let bar_h = 6.0;
+                                    let (rect, _) =
+                                        ui.allocate_exact_size(Vec2::new(bar_w, bar_h), egui::Sense::hover());
+                                    let fill_pct = (1.0 - profile.null_rate).clamp(0.0, 1.0) as f32;
+
+                                    ui.painter()
+                                        .rect_filled(rect, CornerRadius::same(2.0 as u8), theme.surface_active);
+                                    if fill_pct > 0.0 {
+                                        let fill_rect =
+                                            Rect::from_min_size(rect.min, Vec2::new(bar_w * fill_pct, bar_h));
+                                        ui.painter().rect_filled(
+                                            fill_rect,
+                                            CornerRadius::same(2.0 as u8),
+                                            theme.accent,
+                                        );
+                                    }
+
+                                    ui.add(
+                                        egui::Label::new(
+                                            RichText::new(format!("{:.0}% full", (1.0 - profile.null_rate) * 100.0))
+                                                .small()
+                                                .color(theme.text_secondary),
+                                        )
+                                        .truncate()
+                                        .sense(egui::Sense::hover()),
+                                    )
+                                    .on_hover_text(format!(
+                                        "{}% full · {} null of {} rows",
+                                        (1.0 - profile.null_rate) * 100.0,
+                                        profile.null_count,
+                                        row_count
+                                    ));
+                                });
+                            }
+                            2 => {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "{} · {:.0}%",
+                                        profile.distinct_count,
+                                        profile.distinct_rate * 100.0
+                                    ))
+                                    .monospace()
+                                    .color(theme.text_secondary),
+                                );
+                            }
+                            3 => {
+                                let non_null_count = row_count.saturating_sub(profile.null_count);
+                                draw_profile_pattern(theme, ui, profile, non_null_count);
+                            }
+                            4 => {
+                                draw_profile_range(theme, ui, profile);
+                            }
+                            5 => {
+                                if let (Some(avg), Some(sum)) = (profile.avg, profile.sum) {
+                                    let summary = format!("{avg:.2} / {sum:.1}");
+                                    ui.add(
+                                        egui::Label::new(
+                                            RichText::new(summary).monospace().color(theme.text_secondary),
+                                        )
+                                        .extend(),
+                                    )
+                                    .on_hover_text(format!("Average: {avg:.2}\nSum: {sum:.1}"));
+                                } else {
+                                    ui.label(RichText::new("—").small().color(theme.text_muted));
+                                }
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
-                },
-            );
+                    },
+                );
         });
     crate::components::name_scroll_bars(ui.ctx(), profile_scroll.id, "Column profile grid");
 }
@@ -370,8 +381,11 @@ fn draw_profile_range(theme: DbProTheme, ui: &mut egui::Ui, profile: &ColumnProf
 }
 
 fn draw_profile_pattern(theme: DbProTheme, ui: &mut egui::Ui, profile: &ColumnProfile, non_null_count: usize) {
-    let (label, fill, foreground) = profile_pattern(theme, profile, non_null_count);
-    badge(ui, label, fill, foreground);
+    // The canonical tint recipe replaces the hand-picked (fill, foreground)
+    // pair — `profile_pattern` keeps its signature for the tests that assert
+    // the label; only the foreground drives the badge look now.
+    let (label, _fill, foreground) = profile_pattern(theme, profile, non_null_count);
+    Badge::new(label, theme).tint(foreground).compact(true).show(ui);
 }
 
 fn profile_pattern(
@@ -431,4 +445,3 @@ fn cell_profile_text(cell: &UiCell) -> String {
 #[cfg(test)]
 #[path = "tests/table_profile_surface_view_tests.rs"]
 mod tests;
-

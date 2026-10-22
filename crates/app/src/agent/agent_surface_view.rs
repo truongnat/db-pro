@@ -258,11 +258,20 @@ impl AgentContextSurfaceContext<'_> {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 if self.provider_label == "Offline draft" {
-                    badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
+                    Badge::new("Preview", self.theme)
+                        .variant(BadgeVariant::Secondary)
+                        .compact(true)
+                        .show(ui);
                 }
-                badge(ui, self.provider_label, self.theme.accent_soft, self.theme.accent);
+                Badge::new(self.provider_label, self.theme)
+                    .tint(self.theme.accent)
+                    .compact(true)
+                    .show(ui);
                 if self.auto_run_read_only {
-                    badge(ui, "Auto-run Read-only", self.theme.accent_soft, self.theme.accent);
+                    Badge::new("Auto-run Read-only", self.theme)
+                        .tint(self.theme.accent)
+                        .compact(true)
+                        .show(ui);
                 }
             });
             ui.label(

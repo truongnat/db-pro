@@ -187,10 +187,10 @@ fn resolve_active_subset(
     }
     // #544: the seed scan and the BFS neighborhood re-run only when the graph,
     // query, or hop depth changes — a pan/zoom repaint reuses the cached subset.
-    let matched = ctx
-        .diagram
-        .subset_cache
-        .resolve(&ctx.diagram.graph, frame.search_query, ctx.diagram.neighborhood_depth);
+    let matched =
+        ctx.diagram
+            .subset_cache
+            .resolve(&ctx.diagram.graph, frame.search_query, ctx.diagram.neighborhood_depth);
     // An empty seed set is exactly the no-match condition the uncached pass used
     // in both branches: nothing matched the query, or (empty query) the graph is
     // still building so `take(3)` had no nodes to seed from.
@@ -397,20 +397,22 @@ fn draw_diagram_toolbar(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, fra
     let narrow = frame.large_schema && ui.available_width() < 900.0;
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
-        badge(
-            ui,
-            &plural_count(visible_tables, "table", "tables"),
-            ctx.theme.accent_soft,
-            ctx.theme.accent,
-        );
-        badge(
-            ui,
-            &plural_count(relationship_count, "relationship", "relationships"),
-            ctx.theme.surface_hover,
-            ctx.theme.text_secondary,
-        );
-            if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
-            badge(ui, "Arranging…", ctx.theme.surface_hover, ctx.theme.text_secondary);
+        Badge::new(format_count_with_suffix(visible_tables, "table", "tables"), ctx.theme)
+            .tint(ctx.theme.accent)
+            .compact(true)
+            .show(ui);
+        Badge::new(
+            format_count_with_suffix(relationship_count, "relationship", "relationships"),
+            ctx.theme,
+        )
+        .variant(BadgeVariant::Secondary)
+        .compact(true)
+        .show(ui);
+        if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
+            Badge::new("Arranging…", ctx.theme)
+                .variant(BadgeVariant::Secondary)
+                .compact(true)
+                .show(ui);
         }
 
         if frame.large_schema && !narrow {
@@ -966,7 +968,7 @@ pub(super) fn paint_er_node_lod(
                 theme.text_primary,
             );
             let subtitle = {
-                let cols = plural_count(node.table.columns.len(), "col", "cols");
+                let cols = format_count_with_suffix(node.table.columns.len(), "col", "cols");
                 let mut parts = Vec::with_capacity(3);
                 if !node.table.schema.is_empty() {
                     parts.push(node.table.schema.clone());
@@ -1175,11 +1177,7 @@ pub(super) fn draw_diagram_zoom_controls(
                         .sense(Sense::click()),
                 );
                 zoom_response.widget_info(|| {
-                    egui::WidgetInfo::labeled(
-                        egui::WidgetType::Button,
-                        true,
-                        format!("{reset_hint} ({zoom_percent})"),
-                    )
+                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, format!("{reset_hint} ({zoom_percent})"))
                 });
                 if zoom_response.on_hover_text(reset_hint).clicked() {
                     *zoom = 1.0;

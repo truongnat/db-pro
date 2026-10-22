@@ -23,10 +23,9 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
     ui.add_space(SPACE_XS);
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
         if dock_chrome {
-            if let (Some(results_open), Some(active_tab)) = (
-                context.results_open.as_deref_mut(),
-                context.active_tab.as_deref_mut(),
-            ) {
+            if let (Some(results_open), Some(active_tab)) =
+                (context.results_open.as_deref_mut(), context.active_tab.as_deref_mut())
+            {
                 if Button::new(context.theme)
                     .icon(Icon::ExternalLink)
                     .variant(ButtonVariant::Ghost)
@@ -145,38 +144,27 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                         );
                         if !icon_only {
                             ui.add_space(2.0);
-                            ui.label(
-                                RichText::new(label).font(font_ui_label()).color(text_color),
-                            );
+                            ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
                         }
                         if tab == OutputTab::Results {
                             if let Some(result) = context.session.active_result() {
-                                badge(
-                                    ui,
-                                    &result.row_count.to_string(),
-                                    context.theme.accent_soft,
-                                    context.theme.accent,
-                                );
+                                Badge::new(result.row_count.to_string(), context.theme)
+                                    .tint(context.theme.accent)
+                                    .compact(true)
+                                    .show(ui);
                             }
                         } else if tab == OutputTab::Messages && !context.session.active_messages().is_empty() {
-                            badge(
-                                ui,
-                                &context.session.active_messages().len().to_string(),
-                                context.theme.surface_hover,
-                                context.theme.text_muted,
-                            );
+                            Badge::new(context.session.active_messages().len().to_string(), context.theme)
+                                .variant(BadgeVariant::Secondary)
+                                .compact(true)
+                                .show(ui);
                         }
                     });
                 });
 
                 let response = response.response.interact(egui::Sense::click());
                 response.widget_info(|| {
-                    egui::WidgetInfo::selected(
-                        egui::WidgetType::SelectableLabel,
-                        ui.is_enabled(),
-                        selected,
-                        label,
-                    )
+                    egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, ui.is_enabled(), selected, label)
                 });
                 let response = if icon_only {
                     response.on_hover_text(label)

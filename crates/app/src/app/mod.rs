@@ -16,7 +16,7 @@ use crate::{
     result_grid::{GridProjectionCache, GridProjectionKey},
 };
 use db_pro_ui::{
-    badge, card_frame, components::*, editor::PredictionMode, editor_frame, empty_state, grid_frame, icon_text, input,
+    card_frame, components::*, editor::PredictionMode, editor_frame, grid_frame, icon_text, input,
     query::SchemaSymbolIndex, section_label, sidebar_item, tokens::*, toolbar_frame, DbProTheme, RequestId, TaskBridge,
     UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
     UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,

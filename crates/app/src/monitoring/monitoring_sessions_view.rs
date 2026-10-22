@@ -121,7 +121,10 @@ impl MonitoringSessionsContext<'_> {
                     .color(self.theme.text_primary),
             );
             if session.is_current {
-                badge(ui, "current", self.theme.surface_active, self.theme.text_secondary);
+                Badge::new("current", self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             }
             ui.label(
                 RichText::new(session.state.clone().unwrap_or_else(|| "—".into()))
@@ -143,7 +146,10 @@ impl MonitoringSessionsContext<'_> {
                 );
             }
             if session.idle_in_transaction {
-                badge(ui, "idle-in-xact", self.theme.warning, self.theme.text_primary);
+                Badge::new("idle-in-xact", self.theme)
+                    .tint(self.theme.warning)
+                    .compact(true)
+                    .show(ui);
             }
         });
     }

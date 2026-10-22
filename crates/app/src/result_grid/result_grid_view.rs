@@ -51,13 +51,13 @@ impl DbProApp {
     pub(super) fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         if result.columns.is_empty() {
             ui.centered_and_justified(|ui| {
-                empty_state(
-                    ui,
+                EmptyState::new(
                     Icon::CircleCheck,
                     "Statement completed",
                     "This statement did not return any rows to display.",
                     self.theme,
-                );
+                )
+                .show(ui);
             });
             return;
         }

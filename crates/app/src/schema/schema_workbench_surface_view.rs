@@ -54,7 +54,10 @@ impl SchemaWorkbenchSurfaceContext<'_> {
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    badge(ui, self.driver, self.theme.accent_soft, self.theme.accent);
+                    Badge::new(self.driver, self.theme)
+                        .tint(self.theme.accent)
+                        .compact(true)
+                        .show(ui);
                 });
                 ui.add_space(SPACE_MD);
 
@@ -172,7 +175,6 @@ fn workbench_modes() -> [(SchemaWorkbenchMode, Icon, &'static str); 15] {
 #[cfg(test)]
 #[path = "tests/schema_workbench_surface_view_tests.rs"]
 mod tests;
-
 
 /// Map the connection driver onto the SQL highlighting dialect — same mapping
 /// as the query editor's `editor_dialect` (#336).

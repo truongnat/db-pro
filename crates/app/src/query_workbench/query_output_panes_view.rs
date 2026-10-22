@@ -14,13 +14,13 @@ pub(super) fn draw_messages_pane(context: &mut QueryOutputPanesContext<'_>, ui: 
     card_frame(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         if messages.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::MessageSquareText,
                 "No messages yet",
                 "Query notices and execution details will appear here.",
                 context.theme,
-            );
+            )
+            .show(ui);
         } else {
             ScrollArea::new(context.theme).show(ui, |ui| {
                 for message in messages.iter().rev().take(20) {
@@ -48,23 +48,23 @@ pub(super) fn draw_chart_pane(
     card_frame(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         let Some(result) = result else {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::BarChart3,
                 "No result to chart",
                 "Run a query that returns rows, then open Chart.",
                 context.theme,
-            );
+            )
+            .show(ui);
             return;
         };
         if result.columns.is_empty() || result.rows.is_empty() {
-            empty_state(
-                ui,
+            EmptyState::new(
                 Icon::BarChart3,
                 "No data to chart",
                 "The current result has no rows.",
                 context.theme,
-            );
+            )
+            .show(ui);
             return;
         }
 
@@ -107,20 +107,21 @@ pub(super) fn draw_chart_pane(
             const CHART_SELECT_NARROW: f32 = 88.0;
             const CHART_SELECT_WIDE: f32 = 120.0;
             ui.horizontal_wrapped(|ui| {
-                let select = |ui: &mut egui::Ui,
-                              salt: &'static str,
-                              selected: &mut usize,
-                              options: &[String],
-                              width: f32| {
-                    crate::components::Select::new(salt, selected, options)
-                        .theme(context.theme)
-                        .size(crate::components::SelectSize::Sm)
-                        .variant(crate::components::SelectVariant::Ghost)
-                        .width(width)
-                        .show(ui)
-                };
+                let select =
+                    |ui: &mut egui::Ui, salt: &'static str, selected: &mut usize, options: &[String], width: f32| {
+                        crate::components::Select::new(salt, selected, options)
+                            .theme(context.theme)
+                            .size(crate::components::SelectSize::Sm)
+                            .variant(crate::components::SelectVariant::Ghost)
+                            .width(width)
+                            .show(ui)
+                    };
 
-                ui.label(RichText::new("Type").font(font_caption()).color(context.theme.text_secondary));
+                ui.label(
+                    RichText::new("Type")
+                        .font(font_caption())
+                        .color(context.theme.text_secondary),
+                );
                 const CHART_TYPES: [ChartType; 5] = [
                     ChartType::Bar,
                     ChartType::Line,
@@ -136,20 +137,29 @@ pub(super) fn draw_chart_pane(
                     config.chart_type = CHART_TYPES[type_selected];
                 }
 
-                ui.label(RichText::new("X").font(font_caption()).color(context.theme.text_secondary));
-                let mut x_selected = config
-                    .x_column
-                    .unwrap_or(0)
-                    .min(column_names.len().saturating_sub(1));
+                ui.label(
+                    RichText::new("X")
+                        .font(font_caption())
+                        .color(context.theme.text_secondary),
+                );
+                let mut x_selected = config.x_column.unwrap_or(0).min(column_names.len().saturating_sub(1));
                 select(ui, "chart_x", &mut x_selected, &column_names, CHART_SELECT_WIDE);
                 // Unconditional write-back: a None or stale index must snap to the
                 // column the picker actually displays.
                 config.x_column = Some(x_selected);
 
-                ui.label(RichText::new("Y").font(font_caption()).color(context.theme.text_secondary));
+                ui.label(
+                    RichText::new("Y")
+                        .font(font_caption())
+                        .color(context.theme.text_secondary),
+                );
                 let numeric_names: Vec<String> = numeric_indexes.iter().map(|i| column_names[*i].clone()).collect();
                 if numeric_names.is_empty() {
-                    ui.label(RichText::new("No numeric columns").font(font_caption()).color(context.theme.text_muted));
+                    ui.label(
+                        RichText::new("No numeric columns")
+                            .font(font_caption())
+                            .color(context.theme.text_muted),
+                    );
                 } else {
                     let mut y_selected = config
                         .y_column
@@ -162,7 +172,11 @@ pub(super) fn draw_chart_pane(
                     config.y_column = Some(numeric_indexes[y_selected]);
                 }
 
-                ui.label(RichText::new("Agg").font(font_caption()).color(context.theme.text_secondary));
+                ui.label(
+                    RichText::new("Agg")
+                        .font(font_caption())
+                        .color(context.theme.text_secondary),
+                );
                 const AGGREGATIONS: [ChartAggregation; 6] = [
                     ChartAggregation::None,
                     ChartAggregation::Count,
@@ -179,7 +193,11 @@ pub(super) fn draw_chart_pane(
                     config.aggregation = AGGREGATIONS[agg_selected];
                 }
 
-                ui.label(RichText::new("Series").font(font_caption()).color(context.theme.text_secondary));
+                ui.label(
+                    RichText::new("Series")
+                        .font(font_caption())
+                        .color(context.theme.text_secondary),
+                );
                 let mut series_options = vec!["—".to_owned()];
                 series_options.extend(column_names.iter().cloned());
                 let mut series_selected = config
@@ -187,7 +205,13 @@ pub(super) fn draw_chart_pane(
                     .map(|index| index + 1)
                     .unwrap_or(0)
                     .min(series_options.len().saturating_sub(1));
-                select(ui, "chart_series", &mut series_selected, &series_options, CHART_SELECT_WIDE);
+                select(
+                    ui,
+                    "chart_series",
+                    &mut series_selected,
+                    &series_options,
+                    CHART_SELECT_WIDE,
+                );
                 config.series_column = series_selected.checked_sub(1);
             });
         }

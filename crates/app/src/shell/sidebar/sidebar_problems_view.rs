@@ -1,6 +1,6 @@
 //! Diagnostics/problems sidebar rendering and intent mapping.
-use super::*;
 use super::sidebar_constants::{FILTER_SEVERITY_WIDTH, FILTER_SOURCE_WIDTH, SEVERITY_OPTIONS, SOURCE_OPTIONS};
+use super::*;
 use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
@@ -69,12 +69,10 @@ impl SidebarProblemsContext<'_> {
         ui.horizontal(|ui| {
             section_label(ui, "PROBLEMS", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                badge(
-                    ui,
-                    &format!("{error_count}E · {warning_count}W"),
-                    self.theme.surface_hover,
-                    self.theme.text_muted,
-                );
+                Badge::new(format!("{error_count}E · {warning_count}W"), self.theme)
+                    .variant(BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
             });
         });
         Vec::new()
@@ -116,7 +114,9 @@ impl SidebarProblemsContext<'_> {
                 .variant(crate::components::SelectVariant::Ghost)
                 .show(ui);
             if source_selected != source_previous {
-                actions.push(SidebarProblemsAction::SetSourceFilter(SOURCE_OPTIONS[source_selected].0));
+                actions.push(SidebarProblemsAction::SetSourceFilter(
+                    SOURCE_OPTIONS[source_selected].0,
+                ));
             }
         });
         actions
