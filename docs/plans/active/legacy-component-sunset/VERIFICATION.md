@@ -116,3 +116,19 @@ Not yet run: fmt --check workspace, clippy, tests, captures (scheduled Wave 6).
     focus-injection hook or manual Tab pass.
   - Captures recorded at 1280×800 only; 1440×900/1920×1080 pending (host
     caps effective height at 838 per prior audits).
+
+## Focus-ring per-site check — 2026-10-22 (live app, manual Tab pass)
+
+Drove the running `/tmp/DB Pro.app` binary via `orca computer` + `cliclick kp:tab`
+(cliclick sends real key events; orca `press-key` requires OS focus which the
+detached binary launch never gets — known trap).
+
+- Tab #1 (after canvas click): accent ring around top-right topbar icon
+  → `/tmp/focus_ring_topbar.png`
+- Tab #2: accent ring around "AI Copilot Assistant" Welcome action card
+  → `/tmp/focus_ring_card.png`
+- Both rings use the unified `paint_focus_ring` recipe (accent stroke, widget
+  radius + expand margin, no fill) — confirms per-site unification renders
+  correctly, not just the recipe in isolation.
+- Coverage: 2 of 6 migrated sites exercised live; remaining sites share the
+  identical `paint_focus_ring` call, source-verified.
