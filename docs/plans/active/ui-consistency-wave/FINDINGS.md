@@ -20,7 +20,7 @@ Consolidated detail: `REPORT.md`. Persistent audit memory:
    history filter) or reverse authored order (composer `bottom_up`).
 4. Strings, sizes, and widths are duplicated as literals instead of tokens/locales.
 
-## Resolution (working tree on `89095cc7`, uncommitted)
+## Resolution (commit `0e370498` on top of `89095cc7`)
 
 - P1: 3/3 fixed (explorer toolbar, composer order, schema picker scroll).
 - P2: 20/22 fixed; UI-20 (dialog width presets + destructive footer) and UI-22

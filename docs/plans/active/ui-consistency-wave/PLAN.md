@@ -1,7 +1,7 @@
 # UI consistency wave
 
-State: REVIEW. Baseline SHA: `89095cc7d4b056a9fcc19dd9368f7c2863c8759f`. Fixes are in the
-working tree (uncommitted); gates and runtime captures recorded in `VERIFICATION.md`.
+State: REVIEW. Baseline SHA: `89095cc7d4b056a9fcc19dd9368f7c2863c8759f`. Fix commit:
+`0e370498`; gates and runtime captures recorded in `VERIFICATION.md`.
 
 ## Scope
 

@@ -1,8 +1,7 @@
 # Verification — UI consistency wave
 
 Baseline audit: `89095cc7d4b056a9fcc19dd9368f7c2863c8759f`.
-Implementation state: working tree on `main` (uncommitted — the owner has not requested a
-commit). No fix SHA exists yet; statuses below are evidence-backed but pre-commit.
+Fix commit: `0e370498` (`fix(ui): resolve UI consistency audit findings`) on `main`.
 
 ## Commands (actually executed)
 

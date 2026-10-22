@@ -107,7 +107,7 @@ Tổng: 10 width literal, 28/38 trộn trong cùng form, Ghost/Outline không qu
 | UI-24 | P2 | Dark `text_muted` 4.09:1 < AA | `semantic.rs:182-290` | fixed |
 | UI-25 | P2 | Diagram control thiếu accessible name | `diagram_view.rs:1171` | fixed |
 
-### 4.1 Kết quả sửa (working tree, chưa commit)
+### 4.1 Kết quả sửa (commit `0e370498`)
 
 - **Select component** — `show` chỉ bọc `vertical` khi có label; theme `Option<DbProTheme>`
   tự suy từ visuals; disabled visual; menu row truncate 1 dòng; `WidgetInfo` cho option;
