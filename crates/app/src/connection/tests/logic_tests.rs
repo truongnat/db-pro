@@ -18,7 +18,10 @@ fn valid_network_draft() -> UiConnectionDraft {
 fn network_draft_requires_host() {
     let mut draft = valid_network_draft();
     draft.host = "   ".to_owned();
-    assert_eq!(validate_connection_draft(&draft), Err("Host is required".to_owned()));
+    assert_eq!(
+        validate_connection_draft(&draft),
+        Err(t!("connection.validation_host_required").to_string())
+    );
 }
 
 #[test]
@@ -27,8 +30,16 @@ fn network_draft_requires_username() {
     draft.username = String::new();
     assert_eq!(
         validate_connection_draft(&draft),
-        Err("Username is required".to_owned())
+        Err(t!("connection.validation_username_required").to_string())
     );
+}
+
+#[test]
+fn draft_validation_messages_are_localized() {
+    let mut draft = valid_network_draft();
+    draft.name = String::new();
+    let message = validate_connection_draft(&draft).expect_err("empty name must fail");
+    assert_eq!(message, t!("connection.validation_name_required"));
 }
 
 #[test]

@@ -1,7 +1,7 @@
 use egui::{pos2, Color32, FontFamily, FontId, Response, Sense, Ui, Vec2};
 use lucide_icons::Icon;
 
-use super::super::handler::{option_check_icon_pos, option_galley_pos, option_text_rect};
+use super::super::handler::{option_check_icon_pos, option_galley_pos, option_label_job, option_text_rect};
 use crate::{
     components::animation::{hover_t, lerp_color},
     tokens::{component::table::TABLE_ROW_HEIGHT_COMPACT, FONT_SIZE_UI_LABEL, ICON_XS},
@@ -70,14 +70,11 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
     } else {
         theme.text_primary
     };
-    // Measure/wrap text within the helper-computed rectangle, keeping layout policy testable outside egui painting.
+    // One fixed-height row: long labels truncate with an ellipsis instead of
+    // wrapping into a second line that the row height cannot contain.
     let text_rect = option_text_rect(rect.with_min_x(text_left), ui.spacing().button_padding.x, selected);
-    let galley = ui.painter().layout(
-        label.to_owned(),
-        FontId::proportional(FONT_SIZE_UI_LABEL),
-        text_color,
-        text_rect.width(),
-    );
+    let galley =
+        ui.fonts_mut(|fonts| fonts.layout_job(option_label_job(label.to_owned(), text_color, text_rect.width())));
     // Position the measured galley separately so vertical centering remains independent of text measurement.
     let galley_pos = option_galley_pos(text_rect.left(), text_rect.center().y, galley.size().y);
     ui.painter().galley(galley_pos, galley, text_color);
@@ -99,6 +96,16 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
             theme.text_disabled,
         );
     }
+    // Rows are hand-painted, so publish their name/role/state explicitly for
+    // assistive technology instead of relying on egui to derive them.
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::WidgetType::SelectableLabel,
+            !disabled && ui.is_enabled(),
+            selected,
+            label,
+        )
+    });
     let response = response.on_hover_cursor(if disabled {
         egui::CursorIcon::NotAllowed
     } else {

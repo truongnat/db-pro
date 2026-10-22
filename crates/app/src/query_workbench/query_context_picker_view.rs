@@ -34,7 +34,7 @@ pub(super) fn draw_picker(
         .show(ctx, |ui| {
             ui.set_min_width(280.0);
             ui.label(
-                RichText::new("Connection")
+                RichText::new(t!("query.context_connection"))
                     .small()
                     .strong()
                     .color(context.theme.text_muted),
@@ -65,24 +65,34 @@ pub(super) fn draw_picker(
                 }
             });
             Separator::horizontal(context.theme).show(ui);
-            ui.label(RichText::new("Schema").small().strong().color(context.theme.text_muted));
+            ui.label(
+                RichText::new(t!("query.context_schema"))
+                    .small()
+                    .strong()
+                    .color(context.theme.text_muted),
+            );
             ui.add_space(4.0);
-            for schema in context.available_schemas {
-                if crate::components::select::paint_option(
-                    ui,
-                    crate::components::select::SelectOption {
-                        label: schema,
-                        selected: context.current_schema == schema,
-                        theme: context.theme,
-                        icon: None,
-                        disabled: false,
-                    },
-                )
-                .clicked()
-                {
-                    action = Some(QueryContextPickerAction::SelectSchema(schema.clone()));
+            // Schema lists grow with tenants (PostgreSQL search_paths, one schema per
+            // tenant). Without a bounded scroll the popup clipped every schema past
+            // the viewport, making them unreachable — UI-03.
+            ScrollArea::new(context.theme).max_height(180.0).show(ui, |ui| {
+                for schema in context.available_schemas {
+                    if crate::components::select::paint_option(
+                        ui,
+                        crate::components::select::SelectOption {
+                            label: schema,
+                            selected: context.current_schema == schema,
+                            theme: context.theme,
+                            icon: None,
+                            disabled: false,
+                        },
+                    )
+                    .clicked()
+                    {
+                        action = Some(QueryContextPickerAction::SelectSchema(schema.clone()));
+                    }
                 }
-            }
+            });
         });
 
     let clicked_outside = ctx.input(|input| {
@@ -92,7 +102,8 @@ pub(super) fn draw_picker(
                 .interact_pos()
                 .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
     });
-    if clicked_outside {
+    let escape = ctx.input(|input| input.key_pressed(egui::Key::Escape));
+    if clicked_outside || escape {
         Some(QueryContextPickerAction::Close)
     } else {
         action

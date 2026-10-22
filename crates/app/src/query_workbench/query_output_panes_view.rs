@@ -102,7 +102,11 @@ pub(super) fn draw_chart_pane(
 
         if let Some(document) = context.session.documents.get_mut(document_index) {
             let config = &mut document.chart_config;
-            ui.horizontal(|ui| {
+            // Fixed picker widths keep the five config controls from stretching
+            // to the pane, and wrapping lets the row reflow instead of clipping.
+            const CHART_SELECT_NARROW: f32 = 88.0;
+            const CHART_SELECT_WIDE: f32 = 120.0;
+            ui.horizontal_wrapped(|ui| {
                 let select = |ui: &mut egui::Ui,
                               salt: &'static str,
                               selected: &mut usize,
@@ -116,7 +120,7 @@ pub(super) fn draw_chart_pane(
                         .show(ui)
                 };
 
-                ui.label(RichText::new("Type").small().color(context.theme.text_secondary));
+                ui.label(RichText::new("Type").font(font_caption()).color(context.theme.text_secondary));
                 const CHART_TYPES: [ChartType; 5] = [
                     ChartType::Bar,
                     ChartType::Line,
@@ -127,38 +131,38 @@ pub(super) fn draw_chart_pane(
                 let type_labels: Vec<String> = CHART_TYPES.iter().map(ToString::to_string).collect();
                 let mut type_selected = CHART_TYPES.iter().position(|t| *t == config.chart_type).unwrap_or(0);
                 let type_previous = type_selected;
-                select(ui, "chart_type", &mut type_selected, &type_labels, 88.0);
+                select(ui, "chart_type", &mut type_selected, &type_labels, CHART_SELECT_NARROW);
                 if type_selected != type_previous {
                     config.chart_type = CHART_TYPES[type_selected];
                 }
 
-                ui.label(RichText::new("X").small().color(context.theme.text_secondary));
+                ui.label(RichText::new("X").font(font_caption()).color(context.theme.text_secondary));
                 let mut x_selected = config
                     .x_column
                     .unwrap_or(0)
                     .min(column_names.len().saturating_sub(1));
-                select(ui, "chart_x", &mut x_selected, &column_names, 120.0);
+                select(ui, "chart_x", &mut x_selected, &column_names, CHART_SELECT_WIDE);
                 // Unconditional write-back: a None or stale index must snap to the
                 // column the picker actually displays.
                 config.x_column = Some(x_selected);
 
-                ui.label(RichText::new("Y").small().color(context.theme.text_secondary));
+                ui.label(RichText::new("Y").font(font_caption()).color(context.theme.text_secondary));
                 let numeric_names: Vec<String> = numeric_indexes.iter().map(|i| column_names[*i].clone()).collect();
                 if numeric_names.is_empty() {
-                    ui.label(RichText::new("No numeric columns").small().color(context.theme.text_muted));
+                    ui.label(RichText::new("No numeric columns").font(font_caption()).color(context.theme.text_muted));
                 } else {
                     let mut y_selected = config
                         .y_column
                         .and_then(|index| numeric_indexes.iter().position(|i| *i == index))
                         .unwrap_or(0);
-                    select(ui, "chart_y", &mut y_selected, &numeric_names, 120.0);
+                    select(ui, "chart_y", &mut y_selected, &numeric_names, CHART_SELECT_WIDE);
                     // Same: keep config aligned with the displayed pick — `y_column`
                     // used to stay None/stale while the dropdown showed a numeric
                     // column, so projection silently charted the wrong column.
                     config.y_column = Some(numeric_indexes[y_selected]);
                 }
 
-                ui.label(RichText::new("Agg").small().color(context.theme.text_secondary));
+                ui.label(RichText::new("Agg").font(font_caption()).color(context.theme.text_secondary));
                 const AGGREGATIONS: [ChartAggregation; 6] = [
                     ChartAggregation::None,
                     ChartAggregation::Count,
@@ -170,12 +174,12 @@ pub(super) fn draw_chart_pane(
                 let agg_labels: Vec<String> = AGGREGATIONS.iter().map(ToString::to_string).collect();
                 let mut agg_selected = AGGREGATIONS.iter().position(|a| *a == config.aggregation).unwrap_or(0);
                 let agg_previous = agg_selected;
-                select(ui, "chart_agg", &mut agg_selected, &agg_labels, 88.0);
+                select(ui, "chart_agg", &mut agg_selected, &agg_labels, CHART_SELECT_NARROW);
                 if agg_selected != agg_previous {
                     config.aggregation = AGGREGATIONS[agg_selected];
                 }
 
-                ui.label(RichText::new("Series").small().color(context.theme.text_secondary));
+                ui.label(RichText::new("Series").font(font_caption()).color(context.theme.text_secondary));
                 let mut series_options = vec!["—".to_owned()];
                 series_options.extend(column_names.iter().cloned());
                 let mut series_selected = config
@@ -183,7 +187,7 @@ pub(super) fn draw_chart_pane(
                     .map(|index| index + 1)
                     .unwrap_or(0)
                     .min(series_options.len().saturating_sub(1));
-                select(ui, "chart_series", &mut series_selected, &series_options, 120.0);
+                select(ui, "chart_series", &mut series_selected, &series_options, CHART_SELECT_WIDE);
                 config.series_column = series_selected.checked_sub(1);
             });
         }

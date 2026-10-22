@@ -245,6 +245,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
             .map(|spec| spec.is_disabled)
             .collect();
         let resp = crate::components::Select::new("db_engine_select", &mut selected_idx, &options)
+            .theme(self.theme)
             .label(t!("connection.database_engine"))
             .width(avail)
             .option_icons(&icon_ids)

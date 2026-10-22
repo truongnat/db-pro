@@ -338,9 +338,11 @@ impl DbProApp {
                 port: "0".to_owned(),
                 ..UiConnectionDraft::default()
             });
-            self.connection
-                .dialog
-                .set_error("Name, database, and port values are required and must be valid.");
+            // Replay the real validator so the captured error matches what a
+            // user sees, including the localized field message.
+            if let Err(message) = connection::logic::validate_connection_draft(self.connection.dialog.draft()) {
+                self.connection.dialog.set_error(message);
+            }
             self.feedback.runtime_message = t!("workspace.connection_invalid").into_owned();
         }
     }

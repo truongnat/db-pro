@@ -1,0 +1,156 @@
+# UI consistency audit — method
+
+## 1. Scope and claim
+
+State the claim as a sentence with a measurable predicate:
+
+- Good: "The row-limit Select, Run button, and context chip in the query toolbar do not
+  share a vertical centerline; the Select sits `N` px higher."
+- Bad: "The query toolbar looks off."
+
+Name the shared component(s) under suspicion and every call site in scope. If the
+claim is about a single view, also check two other call sites of the same component —
+consistency is a component property, not a view property.
+
+## 2. Static pass
+
+### 2.1 Component contract
+
+For the component (`crates/ui/src/components/<name>/`), record:
+
+| Question | Why it matters |
+|---|---|
+| Which props are required? | Optional visual props create silent defaults. |
+| What are the defaults? | A light theme default in a dark app is a defect generator. |
+| Does `show` impose a layout (`with_layout`, `set_width`, `set_max_width`)? | A wrapper that re-anchors breaks the caller's horizontal/RTL layout. |
+| Does it read `ui.is_enabled()` / `ui.set_enabled`? | Without it, `add_enabled_ui` produces no disabled visual. |
+| Does it paint all states: resting, hover, focus, open, disabled, error, required? | Missing states are UI defects, not polish. |
+| Does it expose semantics (`widget_info`, access labels) for the trigger and each option? | Painted rows without widget info are invisible to screen readers. |
+| Can the capture harness drive its open state? | Evidence must cover menus, not only closed triggers. |
+
+### 2.2 Call-site inventory
+
+Run:
+
+```bash
+python3 .skills/ui-consistency-audit/scripts/ui_consistency_scan.py --format md
+```
+
+Then verify each row by reading the call site. Record: size, variant, width source
+(token vs literal vs `available_width()`), label source (component label, shared
+`Label`, hand-rolled `.small()`), theme passed, container layout (`ui.horizontal`,
+`horizontal_wrapped`, `right_to_left`, form column).
+
+### 2.3 Layout-parent check
+
+For every call site, identify the parent layout. A component that internally creates
+a `top_down` child will:
+
+- top-align inside `ui.horizontal` (visible when siblings are taller);
+- left-anchor inside `Layout::right_to_left` (visible as dead space on the right);
+- ignore `Align::Center` from the parent.
+
+These are the highest-yield tells. Grep for `Layout::right_to_left` and
+`ui.horizontal` in the same function as the component call.
+
+## 3. Runtime pass
+
+### 3.1 Build
+
+Use a capture-enabled debug build (the `capture` feature is what installs
+`DB_PRO_CAPTURE_*`):
+
+```bash
+cargo build -p db-pro-native --features capture
+```
+
+The binary is not guaranteed to be under `<repo>/target`: this workspace redirects
+`build.build-dir` and may use a workspace-level target dir. Resolve it once:
+
+```bash
+cargo metadata --format-version 1 --no-deps | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])'
+```
+
+`capture_ui_matrix.sh` already does this (or honors `DB_PRO_CAPTURE_BIN`); use the same
+resolved path in ad-hoc commands instead of hardcoding `./target/debug/db-pro-native`.
+
+### 3.2 Environment
+
+The app prefers Wayland when `WAYLAND_DISPLAY` is inherited. Force X11:
+
+```bash
+env -i HOME="$HOME" PATH="$PATH" DISPLAY=:0 WINIT_UNIX_BACKEND=x11 \
+  XAUTHORITY="$HOME/.Xauthority" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+  DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
+  DB_PRO_CAPTURE_TO=/tmp/ui-audit/x.png DB_PRO_WINDOW_SIZE=1440x900 \
+  DB_PRO_CAPTURE_QUERY=1 \
+  ./target/debug/db-pro-native
+```
+
+For headless runs use `xvfb-run -a -s "-screen 0 1920x1080x24"`. Under Xvfb the
+capture engine works; `import`-based screenshots do not read the GL surface.
+
+### 3.3 Harness variables
+
+| Variable | Effect |
+|---|---|
+| `DB_PRO_CAPTURE_TO` | Output PNG path; enables capture mode. |
+| `DB_PRO_WINDOW_SIZE` | `WxH` (e.g. `1440x900`). |
+| `DB_PRO_CAPTURE_SETTLE_FRAMES` | Frames before the shot. Loaded data needs ~120; 12 is too early. |
+| `DB_PRO_AUDIT_JSON` | Enables headless audit mode and is **required** for `DB_PRO_INSPECTOR_DUMP`. |
+| `DB_PRO_INSPECTOR_DUMP` | One-shot WID geometry dump (stderr) once the pipeline is warm. |
+| `DB_PRO_CAPTURE_<SURFACE>` | Surface fixtures, e.g. `QUERY`, `QUERY_LIGHT`, `RESULTS`, `HISTORY`, `AGENT`, `CONNECTIONS`, `DIAGRAM`, `SETTINGS`, `COMPARE`, `FILTER` (explorer), `CONNECTION_ERROR`. |
+| `DB_PRO_CAPTURE_QUERY_LIMIT` | Opens the query row-limit Select (uses the same temp-data key as the component). |
+| `DB_PRO_CAPTURE_REASSERT_SURFACE` | Keeps the requested fixture from being replaced by late async events. |
+
+Light variants are only wired for the surfaces listed in `light_env()` in
+`capture_ui_matrix.sh` (query, results, quick-open, connection dialogs, welcome, files,
+tools). A `--light` run for any other surface silently produces a dark screenshot, so
+check the filename/theme before claiming light coverage; record the gap otherwise.
+
+### 3.4 Reading geometry
+
+From the WID dump, take sibling rectangles in the same row:
+
+- `height = y_max - y_min`; compare with `INPUT_HEIGHT_DEFAULT` (38),
+  `BUTTON_HEIGHT_SM` (28), `BUTTON_ICON_SIZE_SM` (26).
+- `center_y = (y_min + y_max) / 2`; siblings in one visual row must share it within
+  ~1 px. The query toolbar failure measured an 11 px offset (= half of 50−28).
+- Inside `right_to_left`, compare `x_min` with the parent slot: a left-anchored child
+  leaves the remaining width as dead space (history filter: 88 px control in a 164 px
+  slot → 76 px void).
+
+If the surface cannot be captured, say so in "Evidence gaps" and downgrade the claim
+to LIKELY. Do not present source-only claims as CONFIRMED.
+
+## 4. Severity
+
+| Level | Meaning |
+|---|---|
+| P1 | A user flow is blocked or the wrong control receives the click; a menu cannot reach options. |
+| P2 | Visual inconsistency, missing state, a11y label, hardcoded string, or drift that does not block the flow. |
+| P3 | Cosmetic only; record but do not schedule ahead of P2. |
+
+## 5. Fix verification
+
+1. Re-run the **same** capture command and compare the **same** numbers.
+2. Cover light and dark, and the sizes required by `AGENTS.md`
+   (1280×800, 1440×900, 1920×1080).
+3. For menus, capture the open state (not only the closed trigger).
+4. Run the repo gates: `cargo +nightly fmt --all -- --check`, `cargo check --workspace`,
+   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`,
+   `cargo build --release --locked -p db-pro-native`,
+   `bash scripts/check-ui-architecture.sh`, and the clean-code diff ratchet.
+5. Update the ledger status and evidence path. A fix without a re-capture is not
+   verified.
+
+## 6. Evidence layout
+
+Store artifacts outside the repo under a stable directory per round:
+
+```text
+/tmp/ui-audit/<round>/
+  png/           # screenshots
+  audit/         # DB_PRO_AUDIT_JSON + WID logs
+  capture.tsv    # surface | viewport | status | exit code
+```

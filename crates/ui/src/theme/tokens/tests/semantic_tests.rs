@@ -47,3 +47,34 @@ fn light_muted_coincides_with_tertiary_but_dark_deliberately_differs() {
     assert_eq!(light.foreground.muted, light.foreground.tertiary);
     assert_ne!(dark.foreground.muted, dark.foreground.tertiary);
 }
+
+fn relative_luminance(color: Color32) -> f64 {
+    fn channel(value: u8) -> f64 {
+        let value = value as f64 / 255.0;
+        if value <= 0.04045 {
+            value / 12.92
+        } else {
+            ((value + 0.055) / 1.055).powf(2.4)
+        }
+    }
+    0.2126 * channel(color.r()) + 0.7152 * channel(color.g()) + 0.0722 * channel(color.b())
+}
+
+fn contrast_ratio(a: Color32, b: Color32) -> f64 {
+    let (lighter, darker) = if relative_luminance(a) >= relative_luminance(b) {
+        (relative_luminance(a), relative_luminance(b))
+    } else {
+        (relative_luminance(b), relative_luminance(a))
+    };
+    (lighter + 0.05) / (darker + 0.05)
+}
+
+#[test]
+fn dark_muted_text_meets_aa_on_elevated_surfaces() {
+    let dark = SemanticTokens::dark();
+    let ratio = contrast_ratio(dark.foreground.muted, dark.background.elevated);
+    assert!(
+        ratio >= 4.5,
+        "dark muted text is {ratio:.2}:1 on elevated surfaces, below the 4.5:1 AA floor"
+    );
+}

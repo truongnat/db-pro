@@ -19,7 +19,17 @@ impl ExplorerToolbarContext<'_> {
     pub(super) fn draw_toolbar(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerToolbarAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            ui.allocate_ui_with_layout(ui.available_size(), Layout::right_to_left(Align::Center), |ui| {
+            // Reserve the filter and refresh slots up front: SearchInput expands to
+            // `available_width`, so a nested opposite-aligned layout let it paint over
+            // the refresh button (UI-01).
+            let gap = ui.spacing().item_spacing.x;
+            let control = crate::tokens::component::button::BUTTON_ICON_SIZE_SM.x;
+            let search_width = (ui.available_width() - control * 2.0 - gap * 2.0).max(80.0);
+            SearchInput::new(self.search, &t!("explorer.filter_objects"), self.theme)
+                .width(search_width)
+                .show(ui);
+            self.draw_filter_workbench(ui);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let mut refresh_schema = false;
                 let refresh_button = Button::new(self.theme)
                     .icon(Icon::RotateCcw)
@@ -46,10 +56,6 @@ impl ExplorerToolbarContext<'_> {
                 if refresh_button.clicked() || refresh_schema {
                     actions.push(ExplorerToolbarAction::RefreshSchema);
                 }
-                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    SearchInput::new(self.search, &t!("explorer.filter_objects"), self.theme).show(ui);
-                    self.draw_filter_workbench(ui);
-                });
             });
         });
         actions

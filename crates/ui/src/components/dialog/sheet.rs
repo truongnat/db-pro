@@ -14,6 +14,7 @@ use super::{
 };
 use crate::{
     components::{animation::overlay_t, overlay::screen_rect},
+    tokens::font_subheading,
     DbProTheme,
 };
 
@@ -144,7 +145,10 @@ impl<'a> Sheet<'a> {
                                 ui.set_max_width(title_width);
                                 ui.add(
                                     egui::Label::new(
-                                        RichText::new(title).size(16.0).strong().color(theme.text_primary),
+                                        RichText::new(title)
+                                            .font(font_subheading())
+                                            .strong()
+                                            .color(theme.text_primary),
                                     )
                                     .truncate(),
                                 )

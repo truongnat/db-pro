@@ -54,6 +54,11 @@ pub(super) const STATUS_DOT_RADIUS: f32 = 3.0;
 pub(super) const DETAILS_MAX_HEIGHT: f32 = crate::tokens::SPACE_6XL * 1.5;
 /// Outcome filter select width: fits "Cancelled" at BODY_SM.
 pub(super) const FILTER_SELECT_WIDTH: f32 = crate::tokens::SPACE_6XL + crate::tokens::SPACE_2XL;
+/// Severity filter: one step wider than the outcome filter for "Warnings".
+pub(super) const FILTER_SEVERITY_WIDTH: f32 = crate::tokens::SPACE_6XL + crate::tokens::SPACE_3XL;
+/// Source filter: fits the longest source label ("Delimiter"/"All sources").
+pub(super) const FILTER_SOURCE_WIDTH: f32 =
+    crate::tokens::SPACE_6XL + crate::tokens::SPACE_3XL + crate::tokens::SPACE_2XL;
 
 // --- Query library ----------------------------------------------------------
 

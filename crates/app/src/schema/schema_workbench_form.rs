@@ -295,8 +295,8 @@ fn draw_trigger_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut 
             crate::components::Select::new("trigger_timing_cb", &mut timing_selected, &timing_labels)
                 .theme(context.theme)
                 .width(140.0)
-                .size(crate::components::SelectSize::Sm)
-                .variant(crate::components::SelectVariant::Ghost)
+                .size(crate::components::SelectSize::Default)
+                .variant(crate::components::SelectVariant::Outline)
                 .show(ui);
             if timing_selected != timing_previous {
                 context.workbench.timing = timings[timing_selected].to_owned();
@@ -489,8 +489,8 @@ fn draw_index_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
             crate::components::Select::new("index_method_cb", &mut method_selected, &method_labels)
                 .theme(context.theme)
                 .width(140.0)
-                .size(crate::components::SelectSize::Sm)
-                .variant(crate::components::SelectVariant::Ghost)
+                .size(crate::components::SelectSize::Default)
+                .variant(crate::components::SelectVariant::Outline)
                 .show(ui);
             if method_selected != method_previous {
                 context.workbench.index_method = methods[method_selected].to_owned();
@@ -540,8 +540,8 @@ fn draw_constraint_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &m
         crate::components::Select::new("constraint_kind_cb", &mut kind_selected, &kind_labels)
             .theme(context.theme)
             .width(180.0)
-            .size(crate::components::SelectSize::Sm)
-            .variant(crate::components::SelectVariant::Ghost)
+            .size(crate::components::SelectSize::Default)
+            .variant(crate::components::SelectVariant::Outline)
             .show(ui);
         if kind_selected != kind_previous {
             context.workbench.constraint_kind = CONSTRAINT_KINDS[kind_selected].0;
@@ -617,8 +617,8 @@ fn draw_constraint_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &m
                 crate::components::Select::new("fk_on_delete_cb", &mut action_selected, &action_labels)
                     .theme(context.theme)
                     .width(180.0)
-                    .size(crate::components::SelectSize::Sm)
-                    .variant(crate::components::SelectVariant::Ghost)
+                    .size(crate::components::SelectSize::Default)
+                    .variant(crate::components::SelectVariant::Outline)
                     .show(ui);
                 if action_selected != action_previous {
                     context.workbench.on_delete = actions[action_selected].to_owned();
@@ -634,8 +634,8 @@ fn draw_constraint_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &m
                 crate::components::Select::new("fk_on_update_cb", &mut action_selected, &action_labels)
                     .theme(context.theme)
                     .width(180.0)
-                    .size(crate::components::SelectSize::Sm)
-                    .variant(crate::components::SelectVariant::Ghost)
+                    .size(crate::components::SelectSize::Default)
+                    .variant(crate::components::SelectVariant::Outline)
                     .show(ui);
                 if action_selected != action_previous {
                     context.workbench.on_update = actions[action_selected].to_owned();
@@ -778,8 +778,8 @@ fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut eg
                 crate::components::Select::new(&type_salt, &mut type_selected, &type_labels)
                     .theme(context.theme)
                     .width(120.0)
-                    .size(crate::components::SelectSize::Sm)
-                    .variant(crate::components::SelectVariant::Ghost)
+                    .size(crate::components::SelectSize::Default)
+                    .variant(crate::components::SelectVariant::Outline)
                     .show(ui);
                 if type_selected != type_previous {
                     col.data_type = types[type_selected].to_owned();

@@ -134,22 +134,22 @@ impl AgentPanelContent<'_> {
             return;
         }
         self.draw_context(ui, actions);
-        // The composer is pinned to the panel bottom in its own bottom-up
-        // child ui; the thread gets exactly the space left above it. The old
-        // ≈112pt reserve inside the thread clipped the composer whenever the
-        // badge row wrapped (#337).
-        let composer_top = ui.max_rect().bottom() - self.composer_height(ui);
+        // Pin the composer to the panel bottom by allocating its exact rect, then
+        // author it top-down. The previous bottom-up child reversed the composer's
+        // own order (label under the input, Send at the top) — UI-02.
+        let composer_height = self.composer_height(ui);
+        let composer_top = (ui.max_rect().bottom() - composer_height).max(ui.cursor().top());
         let thread_rect = egui::Rect::from_min_max(
             ui.cursor().min,
             egui::pos2(ui.max_rect().right(), composer_top.max(ui.cursor().top())),
         );
         let mut thread_ui = ui.new_child(egui::UiBuilder::new().max_rect(thread_rect));
         self.draw_thread(&mut thread_ui, actions);
-        let mut composer_ui = ui.new_child(
-            egui::UiBuilder::new()
-                .max_rect(ui.max_rect())
-                .layout(egui::Layout::bottom_up(egui::Align::Min)),
+        let composer_rect = egui::Rect::from_min_max(
+            egui::pos2(ui.cursor().min.x, composer_top),
+            egui::pos2(ui.max_rect().right(), ui.max_rect().bottom()),
         );
+        let mut composer_ui = ui.new_child(egui::UiBuilder::new().max_rect(composer_rect));
         self.draw_composer(&mut composer_ui, actions);
     }
 

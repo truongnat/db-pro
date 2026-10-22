@@ -50,6 +50,9 @@ pub(super) fn draw_schema_compare_sidebar(
             .compare
             .take_snapshot(context.schema, context.connection_name, context.feedback);
     }
+    // The shell zeroes workspace item_spacing; stacked sidebar buttons need
+    // an explicit gap or they read as one split control.
+    ui.add_space(SPACE_XS);
     let mut action = None;
     if Button::new(context.theme)
         .icon(Icon::GitCompare)
@@ -93,6 +96,23 @@ pub(super) fn draw_schema_compare(
     context: &mut SchemaCompareViewContext<'_>,
     ui: &mut egui::Ui,
 ) -> Option<SchemaCompareAction> {
+    // The shell body runs flush to the window edge; give this page its own
+    // gutter so the header buttons and form fields do not touch it.
+    let mut action = None;
+    ui.horizontal(|ui| {
+        ui.add_space(SPACE_LG);
+        ui.vertical(|ui| {
+            ui.set_max_width((ui.available_width() - SPACE_LG).max(0.0));
+            action = draw_schema_compare_body(context, ui);
+        });
+    });
+    action
+}
+
+fn draw_schema_compare_body(
+    context: &mut SchemaCompareViewContext<'_>,
+    ui: &mut egui::Ui,
+) -> Option<SchemaCompareAction> {
     ui.set_min_width(ui.available_width());
     ui.add_space(SPACE_SM);
     let mut action = None;
@@ -106,6 +126,7 @@ pub(super) fn draw_schema_compare(
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // First allocation lands flush at the window edge — inset it.
             ui.add_space(SPACE_MD);
+            ui.spacing_mut().item_spacing.x = SPACE_XS;
             if Button::new(context.theme)
                 .icon(Icon::GitCompare)
                 .text(t!("compare.diff_now"))
@@ -442,44 +463,30 @@ pub(super) fn draw_schema_compare(
                 .color(context.theme.text_muted),
         );
         ui.add_space(SPACE_XS);
-        ui.label(
-            RichText::new("Target connection id")
-                .small()
-                .color(context.theme.text_secondary),
-        );
         Input::new(
             &mut context.compare.data_diff_target_id,
             "e.g. the connection to compare against",
             context.theme,
         )
+        .label("Target connection id")
         .show(ui);
         // The shell zeroes workspace item_spacing — form fields must breathe
         // explicitly or consecutive inputs render as one fused field.
-        ui.add_space(SPACE_XS);
-        ui.label(
-            RichText::new("Schema")
-                .small()
-                .color(context.theme.text_secondary),
-        );
-        Input::new(&mut context.compare.data_diff_schema, "public", context.theme).show(ui);
-        ui.add_space(SPACE_XS);
-        ui.label(
-            RichText::new("Table")
-                .small()
-                .color(context.theme.text_secondary),
-        );
-        Input::new(&mut context.compare.data_diff_table, "table name", context.theme).show(ui);
-        ui.add_space(SPACE_XS);
-        ui.label(
-            RichText::new("Key columns")
-                .small()
-                .color(context.theme.text_secondary),
-        );
+        ui.add_space(SPACE_SM);
+        Input::new(&mut context.compare.data_diff_schema, "public", context.theme)
+            .label("Schema")
+            .show(ui);
+        ui.add_space(SPACE_SM);
+        Input::new(&mut context.compare.data_diff_table, "table name", context.theme)
+            .label("Table")
+            .show(ui);
+        ui.add_space(SPACE_SM);
         Input::new(
             &mut context.compare.data_diff_keys,
             "comma-separated, e.g. id",
             context.theme,
         )
+        .label("Key columns")
         .show(ui);
         ui.add_space(SPACE_XS);
         // Bottom margin so the pinned results panel never overlays the button.
@@ -512,6 +519,7 @@ pub(super) fn draw_schema_compare(
                 .color(context.theme.text_secondary),
             );
             ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_XS;
                 for label in ["all", "added", "removed", "changed"] {
                     if Button::new(context.theme)
                         .text(label)

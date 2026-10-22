@@ -64,7 +64,7 @@ fn draw_filter_controls(context: &mut ResultGridToolbarContext<'_>, ui: &mut egu
             .icon(Icon::X)
             .access_label("Clear filter")
             .variant(ButtonVariant::Ghost)
-            .size(ButtonSize::IconSm)
+            .size(ButtonSize::Icon)
             .tooltip("Clear filter")
             .show(ui)
             .clicked()
@@ -100,11 +100,13 @@ fn draw_copy_actions(
         action,
     );
 
+    // One control rhythm on this row: the filter Input is 38px, so every
+    // toolbar button is Default size instead of mixing 38/28/26.
     let menu_button = Button::new(context.theme)
         .text("Copy as")
         .icon(Icon::ChevronDown)
         .variant(ButtonVariant::Ghost)
-        .size(ButtonSize::Sm)
+        .size(ButtonSize::Default)
         .access_label("Copy visible rows in another format")
         .tooltip("Copy visible rows as CSV, JSON, Markdown or SQL INSERT")
         .show(ui);
@@ -140,7 +142,7 @@ fn draw_inspect_actions(
     if Button::new(context.theme)
         .icon(Icon::PanelRight)
         .variant(ButtonVariant::Ghost)
-        .size(ButtonSize::IconSm)
+        .size(ButtonSize::Icon)
         .access_label("Toggle record inspector")
         .tooltip("Toggle record / value inspector panel")
         .show(ui)
@@ -152,7 +154,7 @@ fn draw_inspect_actions(
         if Button::new(context.theme)
             .icon(Icon::ScanSearch)
             .variant(ButtonVariant::Ghost)
-            .size(ButtonSize::IconSm)
+            .size(ButtonSize::Icon)
             .access_label("Inspect selected cell")
             .tooltip("Open advanced value inspector for the selected cell")
             .show(ui)
@@ -169,7 +171,7 @@ fn draw_inspect_actions(
         Button::new(context.theme)
             .icon(Icon::Info)
             .variant(ButtonVariant::Ghost)
-            .size(ButtonSize::IconSm)
+            .size(ButtonSize::Icon)
             .access_label("Result grid help")
             .tooltip(if context.editable {
                 "Double-click / Enter to edit\nRight-click for actions\nDrag divider to resize"
@@ -191,7 +193,7 @@ fn icon_action(
     if Button::new(context.theme)
         .icon(icon)
         .variant(ButtonVariant::Ghost)
-        .size(ButtonSize::IconSm)
+        .size(ButtonSize::Icon)
         .access_label(tooltip)
         .tooltip(tooltip)
         .show(ui)

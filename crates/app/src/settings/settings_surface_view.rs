@@ -95,29 +95,39 @@ impl SettingsSurfaceContext<'_> {
     }
 
     fn draw_content(&mut self, ui: &mut egui::Ui, actions: &mut Vec<SettingsSurfaceAction>) {
-        ui.set_width((ui.available_width() - SPACE_4XL * 2.0).max(0.0));
-        ui.add_space(SPACE_3XL);
-        ui.label(
-            egui::RichText::new(t!(self.selected.label_key()).to_string())
-                .font(font_section_title())
-                .strong()
-                .color(self.theme.text_primary),
-        );
-        ui.add_space(SPACE_MD);
-        self.draw_selected_section(ui, actions);
-        if self.selected == SettingsSection::Advanced {
-            ui.add_space(SPACE_2XL);
-            actions.extend(
-                SettingsDiagnosticsContext {
-                    theme: *self.theme,
-                    summary: self.diagnostics,
+        // Cap the reading measure and center it: subtracting the inset on the
+        // left only left an 80px void on the right edge.
+        let full_width = ui.available_width();
+        let content_width = (full_width - SPACE_4XL * 2.0).max(0.0);
+        let side_pad = ((full_width - content_width) / 2.0).max(0.0);
+        ui.horizontal(|ui| {
+            ui.add_space(side_pad);
+            ui.vertical(|ui| {
+                ui.set_width(content_width);
+                ui.add_space(SPACE_3XL);
+                ui.label(
+                    egui::RichText::new(t!(self.selected.label_key()).to_string())
+                        .font(font_section_title())
+                        .strong()
+                        .color(self.theme.text_primary),
+                );
+                ui.add_space(SPACE_MD);
+                self.draw_selected_section(ui, actions);
+                if self.selected == SettingsSection::Advanced {
+                    ui.add_space(SPACE_2XL);
+                    actions.extend(
+                        SettingsDiagnosticsContext {
+                            theme: *self.theme,
+                            summary: self.diagnostics,
+                        }
+                        .draw(ui)
+                        .into_iter()
+                        .map(SettingsSurfaceAction::Diagnostics),
+                    );
                 }
-                .draw(ui)
-                .into_iter()
-                .map(SettingsSurfaceAction::Diagnostics),
-            );
-        }
-        ui.add_space(SPACE_3XL);
+                ui.add_space(SPACE_3XL);
+            });
+        });
     }
 
     fn draw_navigation(&self, ui: &mut egui::Ui) -> Vec<SettingsSurfaceAction> {

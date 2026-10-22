@@ -1,6 +1,6 @@
 //! Diagnostics/problems sidebar rendering and intent mapping.
 use super::*;
-use super::sidebar_constants::{SEVERITY_OPTIONS, SOURCE_OPTIONS};
+use super::sidebar_constants::{FILTER_SEVERITY_WIDTH, FILTER_SOURCE_WIDTH, SEVERITY_OPTIONS, SOURCE_OPTIONS};
 use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
@@ -93,7 +93,7 @@ impl SidebarProblemsContext<'_> {
             let severity_previous = severity_selected;
             crate::components::Select::new("problems_severity_filter", &mut severity_selected, &severity_labels)
                 .theme(self.theme)
-                .width(96.0)
+                .width(FILTER_SEVERITY_WIDTH)
                 .size(crate::components::SelectSize::Sm)
                 .variant(crate::components::SelectVariant::Ghost)
                 .show(ui);
@@ -111,7 +111,7 @@ impl SidebarProblemsContext<'_> {
             let source_previous = source_selected;
             crate::components::Select::new("problems_source_filter", &mut source_selected, &source_labels)
                 .theme(self.theme)
-                .width(120.0)
+                .width(FILTER_SOURCE_WIDTH)
                 .size(crate::components::SelectSize::Sm)
                 .variant(crate::components::SelectVariant::Ghost)
                 .show(ui);

@@ -1,5 +1,6 @@
 //! Query context strip rendering and its local toggle state.
 use super::*;
+use crate::tokens::{component::button::BUTTON_HEIGHT_SM, RADIUS_INPUT, SPACE_SM, SPACE_XS, STROKE_THIN};
 use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
@@ -54,7 +55,7 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
     };
     if compact {
         let chip_response = draw_context_chip(context, ui, context_width);
-        if chip_response.clicked() {
+        if context_chip_activated(&chip_response, ui) {
             context.editor.query_context_picker_open = !context.editor.query_context_picker_open;
         }
         anchors.context_anchor = Some(chip_response.rect);
@@ -63,7 +64,7 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
         ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
         if !compact {
             let chip_response = draw_context_chip(context, ui, context_width);
-            if chip_response.clicked() {
+            if context_chip_activated(&chip_response, ui) {
                 context.editor.query_context_picker_open = !context.editor.query_context_picker_open;
             }
             anchors.context_anchor = Some(chip_response.rect);
@@ -151,27 +152,30 @@ fn draw_row_limit_picker(context: &mut QueryContextViewContext<'_>, ui: &mut egu
     if context.execution.query_row_limit.is_none() {
         context.execution.query_row_limit = Some(QUERY_ROW_CAP_CEILING);
     }
-    const OPTIONS: [(Option<u64>, &str); 4] = [
-        (Some(100), "100 rows"),
-        (Some(500), "500 rows"),
-        (Some(1_000), "1,000 rows"),
-        (Some(QUERY_ROW_CAP_CEILING), "100,000 rows"),
-    ];
-    let mut selected = OPTIONS
+    const ROW_CAPS: [u64; 4] = [100, 500, 1_000, QUERY_ROW_CAP_CEILING];
+    let labels: Vec<String> = ROW_CAPS
         .iter()
-        .position(|(value, _)| *value == context.execution.query_row_limit)
+        .map(|cap| match cap {
+            100 => t!("query.row_limit_100").into_owned(),
+            500 => t!("query.row_limit_500").into_owned(),
+            1_000 => t!("query.row_limit_1000").into_owned(),
+            _ => t!("query.row_limit_100000").into_owned(),
+        })
+        .collect();
+    let mut selected = ROW_CAPS
+        .iter()
+        .position(|value| Some(*value) == context.execution.query_row_limit)
         .unwrap_or(usize::MAX);
     let previous = selected;
-    let labels: Vec<String> = OPTIONS.iter().map(|(_, label)| (*label).to_owned()).collect();
     crate::components::Select::new("query_row_limit", &mut selected, &labels)
         .theme(context.theme)
         .width(108.0)
         .size(crate::components::SelectSize::Sm)
         .variant(crate::components::SelectVariant::Ghost)
         .show(ui)
-        .on_hover_text("Cap rows returned by the next run");
+        .on_hover_text(t!("query.row_limit_tooltip"));
     if selected != previous {
-        context.execution.query_row_limit = OPTIONS[selected].0;
+        context.execution.query_row_limit = Some(ROW_CAPS[selected]);
     }
 }
 
@@ -205,6 +209,12 @@ fn draw_file_path_breadcrumb(theme: DbProTheme, ui: &mut egui::Ui, path: &str) {
     .on_hover_text(path);
 }
 
+fn context_chip_activated(response: &egui::Response, ui: &egui::Ui) -> bool {
+    response.clicked()
+        || (response.has_focus()
+            && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space)))
+}
+
 fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui, max_width: f32) -> egui::Response {
     let is_production = matches!(
         context.environment,
@@ -218,7 +228,7 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui, m
     let tooltip = if context.connected {
         format!("{} · {}", context.connection_name, context.schema)
     } else {
-        "Choose a connection to run SQL".to_owned()
+        t!("query.context_pick_connection").into_owned()
     };
     let color = if !context.connected {
         context.theme.warning
@@ -228,8 +238,11 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui, m
         context.theme.text_secondary
     };
 
-    let response = card_frame(context.theme)
+    let response = context_chip_frame(context.theme)
         .show(ui, |ui| {
+            // Match the small-button (28px) row height so the chip centers with
+            // the run control instead of pushing the whole strip down.
+            ui.set_min_height(BUTTON_HEIGHT_SM - SPACE_XS * 2.0 - STROKE_THIN * 2.0);
             // cc-scan:allow TOO_MANY_PARAMS — context params passed through
             draw_context_chip_contents(context, ui, is_production, &chip_text, color, max_width)
         })
@@ -239,6 +252,19 @@ fn draw_context_chip(context: &QueryContextViewContext<'_>, ui: &mut egui::Ui, m
     // The chip is clickable but painted manually — egui can't derive a name.
     response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), chip_text.as_str()));
     response
+}
+
+/// Toolbar-height chrome for the context chip. `card_frame`'s 12px card inset
+/// made the chip ~50px tall, so every 28px control in the strip centered 11px
+/// lower and read as a separate row.
+fn context_chip_frame(theme: DbProTheme) -> egui::Frame {
+    egui::Frame {
+        fill: theme.surface_elevated,
+        inner_margin: egui::Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+        corner_radius: egui::CornerRadius::same(RADIUS_INPUT as u8),
+        stroke: egui::Stroke::new(STROKE_THIN, theme.border_subtle),
+        ..Default::default()
+    }
 }
 
 fn draw_context_chip_contents(
@@ -263,7 +289,7 @@ fn draw_context_chip_contents(
         }
         let mut job = egui::text::LayoutJob::simple_singleline(chip_text.to_owned(), font_caption(), color);
         // Reserve the frame margins, status glyph, disclosure and inter-item gaps.
-        job.wrap.max_width = (max_width - SPACE_MD * 4.0 - ICON_DEFAULT * 2.0).max(1.0);
+        job.wrap.max_width = (max_width - SPACE_SM * 2.0 - ICON_DEFAULT * 2.0 - SPACE_XS * 2.0).max(1.0);
         job.wrap.max_rows = 1;
         job.wrap.break_anywhere = true;
         let galley = ui.fonts_mut(|fonts| fonts.layout_job(job));

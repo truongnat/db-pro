@@ -8,9 +8,9 @@ use lucide_icons::Icon;
 
 use super::{
     super::handler::{
-        calculate_menu_geometry, menu_min_content_width, navigate_selection, selected_label, selection_from_click,
-        should_close_for_key, should_request_load_more, trigger_accessibility_label, trigger_content_width,
-        trigger_inner_margin, trigger_text_width, NavigationKeys,
+        calculate_menu_geometry, menu_key_action, menu_min_content_width, navigate_selection, selected_label,
+        selection_from_click, should_request_load_more, trigger_accessibility_label, trigger_content_width,
+        trigger_inner_margin, trigger_text_width, MenuKeyAction, NavigationKeys,
     },
     option::{paint_option, SelectOption},
 };
@@ -20,7 +20,7 @@ use crate::{
         interact::{combo_box_info, paint_focus_ring},
         overlay::screen_rect,
     },
-    tokens::{FONT_SIZE_CAPTION, ICON_TEXT_GAP, SPACE_XS},
+    tokens::ICON_TEXT_GAP,
     DbProTheme,
 };
 
@@ -56,7 +56,9 @@ pub struct Select<'a> {
     option_disabled: Option<&'a [bool]>,
     has_more: bool,
     load_more: Option<&'a mut bool>,
-    theme: DbProTheme,
+    /// `None` resolves from the egui visuals at show time — the light default
+    /// used to leak a light dropdown into dark dialogs when a caller forgot it.
+    theme: Option<DbProTheme>,
     size: SelectSize,
     variant: SelectVariant,
 }
@@ -80,7 +82,7 @@ impl<'a> Select<'a> {
             option_disabled: None,
             has_more: false,
             load_more: None,
-            theme: DbProTheme::default(),
+            theme: None,
             size: SelectSize::default(),
             variant: SelectVariant::default(),
         }
@@ -94,7 +96,7 @@ impl<'a> Select<'a> {
     }
 
     pub fn theme(mut self, theme: DbProTheme) -> Self {
-        self.theme = theme;
+        self.theme = Some(theme);
         self
     }
 
@@ -143,6 +145,36 @@ impl<'a> Select<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let width = self.width.unwrap_or_else(|| ui.available_width());
+        // A label forces a vertical label+trigger stack, but only then. An unlabeled
+        // Select must be allocated directly in the parent layout: wrapping it in a
+        // top_down child re-anchored it to the top of horizontal rows and to the left
+        // of right-to-left toolbars (UI-04).
+        if let Some(label) = self.label.clone() {
+            let theme = self.theme_for(ui);
+            return ui
+                .vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    ui.set_width(width);
+                    ui.set_max_width(width);
+                    // Same label component and gap as `FormField`/`Input`, so a
+                    // labeled Select sits in the form rhythm instead of inventing
+                    // its own caption typography.
+                    crate::components::Label::new(label, theme).show(ui);
+                    ui.add_space(crate::tokens::LABEL_HELPER_GAP);
+                    self.show_body(ui, width)
+                })
+                .inner;
+        }
+        self.show_body(ui, width)
+    }
+
+    fn theme_for(&self, ui: &Ui) -> DbProTheme {
+        self.theme.unwrap_or_else(|| DbProTheme::from_visuals(ui.visuals()))
+    }
+
+    fn show_body(self, ui: &mut Ui, width: f32) -> Response {
+        let theme = self.theme_for(ui);
+        let enabled = ui.is_enabled();
         let compact = crate::components::button::SizeTokens::from_size(crate::components::ButtonSize::Sm);
         let (height, font_size, icon_size, margin) = match self.size {
             SelectSize::Default => (
@@ -159,7 +191,8 @@ impl<'a> Select<'a> {
             ),
         };
         // egui 0.36 counts `2 * stroke.width` in the Frame's total size; subtract it so the
-        // trigger keeps its token-driven outer height. Borderless (ghost) variants need no offset.
+        // trigger keeps its token-driven outer box (height and width). Borderless (ghost)
+        // variants need no offset.
         let stroke_extra = if self.variant == SelectVariant::Ghost {
             0.0
         } else {
@@ -167,152 +200,148 @@ impl<'a> Select<'a> {
         };
         let content_height = height - stroke_extra - margin.topf() - margin.bottomf();
 
-        ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
-            ui.spacing_mut().item_spacing.y = 0.0;
-            ui.set_width(width);
-            ui.set_max_width(width);
-            if let Some(ref lbl) = self.label {
-                ui.add(
-                    egui::Label::new(
-                        RichText::new(lbl.as_ref())
-                            .font(DbProTheme::ui_medium_font(FONT_SIZE_CAPTION))
-                            .color(self.theme.text_secondary),
-                    )
-                    .halign(egui::Align::Min),
-                );
-                ui.add_space(SPACE_XS);
-            }
+        let current_text = match &self.selected_text {
+            Some(text) => text.clone().into_owned(),
+            None => selected_label(self.options, *self.selected).to_owned(),
+        };
 
-            let current_text = match &self.selected_text {
-                Some(text) => text.clone().into_owned(),
-                None => selected_label(self.options, *self.selected).to_owned(),
-            };
+        // Stable identity preserves menu open state across frames.
+        let popup_id = self.id_salt;
+        let draft_id = popup_id.with("draft");
+        let was_open = ui.ctx().data_mut(|d| d.get_temp::<bool>(popup_id).unwrap_or(false));
 
-            // Comment: Stable identity preserves menu open state across frames.
-            let popup_id = self.id_salt;
-            let is_open = ui.ctx().data_mut(|d| d.get_temp::<bool>(popup_id).unwrap_or(false));
-
-            let ghost = self.variant == SelectVariant::Ghost;
-            let rounding = egui::CornerRadius::same(crate::tokens::RADIUS_INPUT as u8);
-            let background = ghost.then(|| ui.painter().add(egui::Shape::Noop));
-            let trigger_btn = Frame {
-                fill: if ghost {
-                    egui::Color32::TRANSPARENT
-                } else {
-                    self.theme.surface_editor
-                },
-                stroke: if ghost {
-                    Stroke::NONE
-                } else {
-                    Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_default)
-                },
-                inner_margin: margin,
-                corner_radius: rounding,
-                ..Default::default()
-            }
-            .show(ui, |ui| {
-                let content_width =
-                    trigger_content_width(width - margin.leftf() - margin.rightf(), ui.available_width());
-                ui.set_width(content_width);
-                ui.spacing_mut().interact_size.y = content_height;
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.set_min_height(content_height);
-                    let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
-                    let text_width = trigger_text_width(ui.available_width());
-                    let text_response = ui.allocate_ui_with_layout(
-                        egui::vec2(text_width, content_height),
-                        egui::Layout::left_to_right(egui::Align::Center),
-                        |text_ui| {
-                            text_ui.set_min_width(text_width);
-                            text_ui.add(
-                                egui::Label::new(
-                                    RichText::new(&current_text)
-                                        .size(font_size)
-                                        .color(self.theme.text_primary),
-                                )
-                                .halign(egui::Align::Min)
-                                .truncate(),
-                            )
-                        },
-                    );
-                    text_response.inner.on_hover_text(&current_text);
-                    ui.add_space(ICON_TEXT_GAP);
-                    ui.label(
-                        RichText::new(char::from(icon).to_string())
-                            .font(crate::tokens::font_icon(icon_size))
-                            .color(self.theme.text_muted),
-                    );
-                });
-            })
-            .response;
-
-            let response = trigger_btn.interact(Sense::click());
-            let info_label = trigger_accessibility_label(self.label.as_deref(), &current_text);
-            response.widget_info(|| combo_box_info(true, &info_label));
-            // Both pointer and keyboard toggles write the same temp flag;
-            // `!response.clicked()` prevents a double toggle on activation keys.
-            let keyboard_toggle =
-                ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
-            if response.has_focus() && keyboard_toggle && !response.clicked() {
-                ui.ctx().data_mut(|d| {
-                    let open = !d.get_temp::<bool>(popup_id).unwrap_or(false);
-                    d.insert_temp(popup_id, open);
-                });
-            }
-            let hover = hover_t(
-                ui.ctx(),
-                response.id.with("hover"),
-                response.hovered() || response.has_focus() || is_open,
-            );
-            let border = if is_open || response.has_focus() {
-                self.theme.accent
+        let ghost = self.variant == SelectVariant::Ghost;
+        let rounding = egui::CornerRadius::same(crate::tokens::RADIUS_INPUT as u8);
+        let background = ghost.then(|| ui.painter().add(egui::Shape::Noop));
+        let trigger_btn = Frame {
+            fill: if !enabled {
+                theme.surface_2
             } else if ghost {
                 egui::Color32::TRANSPARENT
             } else {
-                lerp_color(self.theme.border_default, self.theme.border_strong, hover)
-            };
-            if let Some(background) = background {
-                ui.painter().set(
-                    background,
-                    egui::Shape::rect_filled(
-                        response.rect,
-                        rounding,
-                        lerp_color(egui::Color32::TRANSPARENT, self.theme.surface_hover, hover),
-                    ),
-                );
-            }
-            ui.painter().rect_stroke(
-                response.rect,
-                rounding,
-                Stroke::new(crate::tokens::STROKE_THIN, border),
-                egui::StrokeKind::Inside,
+                theme.surface_editor
+            },
+            stroke: if !enabled {
+                Stroke::new(crate::tokens::STROKE_THIN, theme.border_subtle)
+            } else if ghost {
+                Stroke::NONE
+            } else {
+                Stroke::new(crate::tokens::STROKE_THIN, theme.border_default)
+            },
+            inner_margin: margin,
+            corner_radius: rounding,
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            let content_width = trigger_content_width(
+                width - margin.leftf() - margin.rightf() - stroke_extra,
+                ui.available_width(),
             );
-            if response.has_focus() {
-                paint_focus_ring(ui, response.rect, f32::from(rounding.nw), self.theme);
-            }
-
-            // Open state lives in egui temp data keyed by `popup_id`; we own
-            // the toggle ourselves instead of `egui::Popup::menu`, whose
-            // memory bookkeeping (Toggle + keep_popup_open + CloseOnClick*)
-            // deadlocks inside modal dialogs (menu stuck closed or painted
-            // under the card).
-            if response.clicked() {
-                ui.ctx().data_mut(|d| {
-                    let open = !d.get_temp::<bool>(popup_id).unwrap_or(false);
-                    d.insert_temp(popup_id, open);
-                });
-            }
-            if ui.ctx().data_mut(|d| d.get_temp::<bool>(popup_id).unwrap_or(false)) {
-                self.show_menu(ui, popup_id, &response);
-            }
-
-            response
+            ui.set_width(content_width);
+            ui.spacing_mut().interact_size.y = content_height;
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.set_min_height(content_height);
+                let icon = if was_open { Icon::ChevronUp } else { Icon::ChevronDown };
+                let text_width = trigger_text_width(ui.available_width());
+                let text_response = ui.allocate_ui_with_layout(
+                    egui::vec2(text_width, content_height),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |text_ui| {
+                        text_ui.set_min_width(text_width);
+                        text_ui.add(
+                            egui::Label::new(RichText::new(&current_text).size(font_size).color(if enabled {
+                                theme.text_primary
+                            } else {
+                                theme.text_disabled
+                            }))
+                            .halign(egui::Align::Min)
+                            .truncate(),
+                        )
+                    },
+                );
+                text_response.inner.on_hover_text(&current_text);
+                ui.add_space(ICON_TEXT_GAP);
+                ui.label(
+                    RichText::new(char::from(icon).to_string())
+                        .font(crate::tokens::font_icon(icon_size))
+                        .color(if enabled { theme.text_muted } else { theme.text_disabled }),
+                );
+            });
         })
-        .inner
+        .response;
+
+        let response = trigger_btn.interact(if enabled { Sense::click() } else { Sense::hover() });
+        let info_label = trigger_accessibility_label(self.label.as_deref(), &current_text);
+        response.widget_info(|| combo_box_info(enabled, &info_label));
+        // Open state lives in egui temp data keyed by `popup_id`; we own the
+        // toggle ourselves instead of `egui::Popup::menu`, whose bookkeeping
+        // (Toggle + keep_popup_open + CloseOnClick*) deadlocks inside modal
+        // dialogs (menu stuck closed or painted under the card). A pointer
+        // click and an activation key are the same toggle; the explicit
+        // keyboard path only covers the frame where egui did not mark the
+        // response clicked, and never re-toggles an open menu (Enter there
+        // commits the draft selection in `show_menu`).
+        let keyboard_toggle = enabled
+            && response.has_focus()
+            && !was_open
+            && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
+        let toggled = enabled && (response.clicked() || keyboard_toggle);
+        let mut just_opened = false;
+        if toggled {
+            let open = !was_open;
+            just_opened = open;
+            let seeded = *self.selected;
+            ui.ctx().data_mut(|d| {
+                d.insert_temp(popup_id, open);
+                if open {
+                    d.insert_temp(draft_id, seeded);
+                }
+            });
+        }
+        let is_open = if toggled { !was_open } else { was_open };
+        let hover = hover_t(
+            ui.ctx(),
+            response.id.with("hover"),
+            enabled && (response.hovered() || response.has_focus() || is_open),
+        );
+        let border = if !enabled {
+            theme.border_subtle
+        } else if is_open || response.has_focus() {
+            theme.accent
+        } else if ghost {
+            egui::Color32::TRANSPARENT
+        } else {
+            lerp_color(theme.border_default, theme.border_strong, hover)
+        };
+        if let Some(background) = background {
+            ui.painter().set(
+                background,
+                egui::Shape::rect_filled(
+                    response.rect,
+                    rounding,
+                    lerp_color(egui::Color32::TRANSPARENT, theme.surface_hover, hover),
+                ),
+            );
+        }
+        ui.painter().rect_stroke(
+            response.rect,
+            rounding,
+            Stroke::new(crate::tokens::STROKE_THIN, border),
+            egui::StrokeKind::Inside,
+        );
+        if response.has_focus() {
+            paint_focus_ring(ui, response.rect, f32::from(rounding.nw), theme);
+        }
+
+        if is_open {
+            self.show_menu(ui, popup_id, &response, theme, just_opened);
+        }
+
+        response
     }
 
-    fn show_menu(self, ui: &mut Ui, popup_id: Id, response: &egui::Response) {
+    fn show_menu(self, ui: &mut Ui, popup_id: Id, response: &egui::Response, theme: DbProTheme, just_opened: bool) {
         // Open state is a temp flag owned by `show` — no `egui::Popup`
         // bookkeeping (Toggle/keep_popup_open/CloseOnClick*), which deadlocks
         // inside modal dialogs. A plain `Area` paints on Foreground and
@@ -320,6 +349,11 @@ impl<'a> Select<'a> {
         let close = |ctx: &egui::Context| {
             ctx.data_mut(|d| d.insert_temp(popup_id, false));
         };
+        let draft_id = popup_id.with("draft");
+        let mut draft = ui
+            .ctx()
+            .data_mut(|d| d.get_temp::<usize>(draft_id))
+            .unwrap_or(*self.selected);
         let key_actions = ui.input(|input| {
             (
                 input.key_pressed(egui::Key::Escape),
@@ -328,17 +362,33 @@ impl<'a> Select<'a> {
                 input.key_pressed(egui::Key::ArrowUp),
             )
         });
-        // Comment: Navigation is bounded to real options and does not wrap.
-        *self.selected = navigate_selection(
-            *self.selected,
+        // Arrows move a draft highlight; the committed selection changes only
+        // on Enter/click, so Escape leaves the previous value untouched.
+        let narrowed = navigate_selection(
+            draft,
             self.options.len(),
             NavigationKeys {
                 arrow_down: key_actions.2,
                 arrow_up: key_actions.3,
             },
         );
-        if should_close_for_key(key_actions.0, key_actions.1) {
-            close(ui.ctx());
+        if narrowed != draft {
+            draft = narrowed;
+            ui.ctx().data_mut(|d| d.insert_temp(draft_id, draft));
+        }
+        if !just_opened {
+            match menu_key_action(key_actions.0, key_actions.1) {
+                MenuKeyAction::Commit => {
+                    *self.selected = draft;
+                    close(ui.ctx());
+                    return;
+                }
+                MenuKeyAction::Cancel => {
+                    close(ui.ctx());
+                    return;
+                }
+                MenuKeyAction::None => {}
+            }
         }
 
         let screen = screen_rect(ui);
@@ -350,7 +400,7 @@ impl<'a> Select<'a> {
             .constrain_to(screen.shrink(4.0))
             .show(ui.ctx(), |ui| {
                 crate::components::overlay::floating_surface(
-                    self.theme,
+                    theme,
                     f32::from(ui.style().visuals.window_corner_radius.nw),
                     super::super::handler::menu_surface_margin(ui.spacing().menu_margin.leftf()),
                 )
@@ -367,8 +417,8 @@ impl<'a> Select<'a> {
                                     ui,
                                     SelectOption {
                                         label: opt,
-                                        selected: idx == *self.selected,
-                                        theme: self.theme,
+                                        selected: idx == draft,
+                                        theme,
                                         icon: self.option_icons.and_then(|icons| icons.get(idx).copied().flatten()),
                                         disabled: self
                                             .option_disabled
@@ -390,7 +440,7 @@ impl<'a> Select<'a> {
                                     SelectOption {
                                         label: "Load more…",
                                         selected: false,
-                                        theme: self.theme,
+                                        theme,
                                         icon: None,
                                         disabled: false,
                                     },

@@ -22,6 +22,10 @@ coverage/
 # Local native runtime state
 /.db-pro-data/
 
+# Python bytecode (audit skill scripts)
+__pycache__/
+*.pyc
+
 # WorkBuddy AI session memory and scripts
 .workbuddy-ai/
 

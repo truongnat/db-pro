@@ -1,11 +1,12 @@
-use egui::{Margin, Pos2, Rect};
+use egui::{Color32, FontId, Margin, Pos2, Rect};
 
 use super::config::{
     DOUBLE_FACTOR, MAX_VISIBLE_ITEMS, MENU_MIN_SCREEN_WIDTH, MENU_MIN_WIDTH, MIN_TRIGGER_TEXT_WIDTH, MIN_TRIGGER_WIDTH,
     TRIGGER_TEXT_RESERVED_WIDTH, VERTICAL_CENTER_FACTOR,
 };
 use crate::tokens::{
-    component::table::TABLE_ROW_HEIGHT_COMPACT, ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XS,
+    component::table::TABLE_ROW_HEIGHT_COMPACT, FONT_SIZE_UI_LABEL, ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM,
+    SPACE_XS,
 };
 
 pub fn dropdown_should_open_above(space_below: f32, space_above: f32, menu_h: f32) -> bool {
@@ -95,6 +96,26 @@ pub fn option_text_rect(rect: Rect, button_padding_x: f32, selected: bool) -> Re
     Rect::from_min_max(Pos2::new(text_left, rect.top()), Pos2::new(text_right, rect.bottom()))
 }
 
+/// Lay a menu row label out as one truncated line. The row height is fixed, so
+/// wrapping to a second line would overflow into the next option.
+pub fn option_label_job(label: String, color: Color32, max_width: f32) -> egui::text::LayoutJob {
+    let mut job = egui::text::LayoutJob::single_section(
+        label,
+        egui::TextFormat {
+            font_id: FontId::proportional(FONT_SIZE_UI_LABEL),
+            color,
+            ..Default::default()
+        },
+    );
+    job.wrap = egui::text::TextWrapping {
+        max_width,
+        max_rows: 1,
+        break_anywhere: true,
+        overflow_character: Some('…'),
+    };
+    job
+}
+
 pub fn option_galley_pos(label_left: f32, vertical_center: f32, galley_height: f32) -> Pos2 {
     Pos2::new(label_left, vertical_center - galley_height * VERTICAL_CENTER_FACTOR)
 }
@@ -128,8 +149,22 @@ pub fn navigate_selection(selected: usize, option_count: usize, keys: Navigation
     }
 }
 
-pub fn should_close_for_key(escape_pressed: bool, enter_pressed: bool) -> bool {
-    escape_pressed || enter_pressed
+/// What an open menu does with this frame's activation keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuKeyAction {
+    None,
+    Commit,
+    Cancel,
+}
+
+pub fn menu_key_action(escape_pressed: bool, enter_pressed: bool) -> MenuKeyAction {
+    if enter_pressed {
+        MenuKeyAction::Commit
+    } else if escape_pressed {
+        MenuKeyAction::Cancel
+    } else {
+        MenuKeyAction::None
+    }
 }
 
 pub fn selection_from_click(clicked: bool, option_index: usize) -> Option<usize> {

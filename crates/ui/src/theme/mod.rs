@@ -145,6 +145,16 @@ impl DbProTheme {
             chart_series: semantic.chart.series,
         }
     }
+    /// Follow the palette already installed on a context. Shared widgets that
+    /// are not handed a theme use this so they cannot fall back to light.
+    pub fn from_visuals(visuals: &Visuals) -> Self {
+        if visuals.dark_mode {
+            Self::dark()
+        } else {
+            Self::light()
+        }
+    }
+
     pub fn dark() -> Self {
         let semantic = SemanticTokens::dark();
         Self {

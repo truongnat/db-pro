@@ -95,6 +95,9 @@ pub(super) fn draw_diagram_canvas(
     canvas_frame.show(ui, |ui| {
         let canvas_size = egui::vec2(ui.available_width(), ui.available_height().max(360.0));
         let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Other, true, t!("diagram.canvas_label"))
+        });
         let viewport_rect = response.rect;
 
         let search_subset = active_filter.is_some_and(|filter| !filter.is_empty());
@@ -550,6 +553,9 @@ fn draw_minimap(
         let ui = &mut minimap_ui;
         crate::components::floating_surface(theme, 6.0, egui::Margin::same(5.0 as i8)).show(ui, |ui| {
             let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Other, true, t!("diagram.minimap_label"))
+            });
             let map_rect = response.rect;
             let world = ctx.diagram.graph.world_bounds;
             let scale = (map_rect.width() / world.width())

@@ -177,12 +177,13 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             value = default_port_for_driver(self.dialog.draft.driver)
         );
         let show_port_error = !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
+        let show_host_error = !self.dialog.error.is_empty() && self.dialog.draft.host.trim().is_empty();
         form_row(
             ui,
             &widths,
             vec![
                 Box::new(|ui| {
-                    Input::new(
+                    let mut host_input = Input::new(
                         &mut self.dialog.draft.host,
                         t!("connection.field_example", value = "localhost"),
                         self.theme,
@@ -192,8 +193,11 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     .bordered(true)
                     .id_salt(focus_id::HOST)
                     .width(widths[0])
-                    .leading_icon(Icon::Server)
-                    .show(ui);
+                    .leading_icon(Icon::Server);
+                    if show_host_error {
+                        host_input = host_input.error_text(t!("connection.validation_host_required"));
+                    }
+                    host_input.show(ui);
                 }),
                 Box::new(|ui| {
                     let mut port_input = Input::new(&mut self.dialog.draft.port, port_hint, self.theme)
@@ -224,6 +228,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             value = default_username_for_driver(self.dialog.draft.driver)
         );
         let show_database_error = !self.dialog.error.is_empty() && self.dialog.draft.database.trim().is_empty();
+        let show_username_error = !self.dialog.error.is_empty() && self.dialog.draft.username.trim().is_empty();
         form_row(
             ui,
             &widths,
@@ -243,14 +248,17 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     db_input.show(ui);
                 }),
                 Box::new(|ui| {
-                    Input::new(&mut self.dialog.draft.username, user_hint, self.theme)
+                    let mut user_input = Input::new(&mut self.dialog.draft.username, user_hint, self.theme)
                         .label(t!("connection.username"))
                         .required(true)
                         .bordered(true)
                         .id_salt(focus_id::USERNAME)
                         .width(widths[1])
-                        .leading_icon(Icon::User)
-                        .show(ui);
+                        .leading_icon(Icon::User);
+                    if show_username_error {
+                        user_input = user_input.error_text(t!("connection.validation_username_required"));
+                    }
+                    user_input.show(ui);
                 }),
             ],
             gap,

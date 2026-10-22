@@ -397,7 +397,9 @@ impl CaptureApp {
             self.inner.open_query_workspace_for_capture();
         }
         if std::env::var_os("DB_PRO_CAPTURE_QUERY_LIMIT").is_some() {
-            egui::Popup::open_id(ctx, egui::Id::new("query_row_limit"));
+            // Select stores its open flag in temp data, not egui's Popup memory;
+            // opening the Popup id left the menu closed in every capture.
+            ctx.data_mut(|d| d.insert_temp(egui::Id::new("query_row_limit"), true));
         }
         true
     }

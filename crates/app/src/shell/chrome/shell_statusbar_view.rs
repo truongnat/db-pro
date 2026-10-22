@@ -83,11 +83,15 @@ impl ShellStatusbarContext<'_> {
         );
         ui.add_space(SPACE_SM);
         if self.connected {
-            ui.label(
-                RichText::new(crate::components::truncate_ellipsis(self.connection_name, 28))
+            let name = crate::components::truncate_ellipsis(self.connection_name, 28);
+            let response = ui.label(
+                RichText::new(&name)
                     .font(font_caption())
                     .color(self.theme.text_secondary),
             );
+            if name != self.connection_name {
+                response.on_hover_text(self.connection_name);
+            }
         }
         ui.label(
             RichText::new(self.driver)
@@ -95,11 +99,15 @@ impl ShellStatusbarContext<'_> {
                 .color(self.theme.text_muted),
         );
         if let Some(database) = self.database {
-            ui.label(
-                RichText::new(crate::components::truncate_ellipsis(database, 40))
+            let shown = crate::components::truncate_ellipsis(database, 40);
+            let response = ui.label(
+                RichText::new(&shown)
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
+            if shown != database {
+                response.on_hover_text(database);
+            }
         }
         if let Some(schema) = self.schema {
             ui.label(RichText::new(schema).font(font_caption()).color(self.theme.text_muted));
@@ -118,10 +126,13 @@ impl ShellStatusbarContext<'_> {
             let width = (ui.available_width() - STATUS_RIGHT_RESERVE).min(STATUS_MESSAGE_W);
             if width >= 90.0 {
                 ui.add_space(SPACE_SM);
-                ui.add_sized(
+                let response = ui.add_sized(
                     [width, STATUS_MESSAGE_H],
                     egui::Label::new(RichText::new(message).font(font_caption()).color(*message_color)).truncate(),
                 );
+                // The label elides to a fixed 260px slot; the tooltip is the only
+                // way to read the full runtime message.
+                response.on_hover_text(message);
             }
         }
     }

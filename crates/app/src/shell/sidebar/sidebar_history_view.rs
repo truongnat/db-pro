@@ -206,7 +206,12 @@ impl SidebarHistoryContext<'_> {
                 );
             }
             ui.add_space(SPACE_XXS);
-            ScrollArea::new(self.theme).max_height(DETAILS_MAX_HEIGHT).show(ui, |ui| {
+            // Shrink to the SQL height: a fixed 96px block left dead space for
+            // the short statements that dominate history.
+            ScrollArea::new(self.theme)
+                .max_height(DETAILS_MAX_HEIGHT)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
                 ui.add(
                     egui::Label::new(
                         RichText::new(&entry.sql)
@@ -216,7 +221,9 @@ impl SidebarHistoryContext<'_> {
                     .selectable(true),
                 );
             });
-            ui.horizontal(|ui| {
+            // The rail is narrow: let the two actions wrap instead of clipping
+            // "Copy SQL" at the sidebar edge.
+            ui.horizontal_wrapped(|ui| {
                 if Button::new(self.theme)
                     .icon(Icon::ExternalLink)
                     .text(t!("sidebar.open_as_new").as_ref())

@@ -1168,18 +1168,20 @@ pub(super) fn draw_diagram_zoom_controls(
                 {
                     *zoom = (*zoom - 0.1).clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
                 }
-                if ui
-                    .add(
-                        egui::Label::new(
-                            RichText::new(format!("{:.0}%", *zoom * 100.0))
-                                .small()
-                                .color(theme.text_secondary),
-                        )
+                let zoom_percent = format!("{:.0}%", *zoom * 100.0);
+                let reset_hint = t!("diagram.zoom_reset").to_string();
+                let zoom_response = ui.add(
+                    egui::Label::new(RichText::new(&zoom_percent).small().color(theme.text_secondary))
                         .sense(Sense::click()),
+                );
+                zoom_response.widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::Button,
+                        true,
+                        format!("{reset_hint} ({zoom_percent})"),
                     )
-                    .on_hover_text("Click to reset zoom to 100%")
-                    .clicked()
-                {
+                });
+                if zoom_response.on_hover_text(reset_hint).clicked() {
                     *zoom = 1.0;
                 }
                 if Button::new(theme)

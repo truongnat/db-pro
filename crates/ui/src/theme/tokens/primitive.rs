@@ -65,7 +65,6 @@ pub const RADIUS_CODE_BLOCK: f32 = RADIUS_MD; // 8.0
 // ── 3. Typography scale & font helpers ───────────────────────────────────────
 
 pub const FONT_SIZE_DISPLAY: f32 = 32.0;
-pub const FONT_SIZE_PAGE_TITLE: f32 = 24.0;
 pub const FONT_SIZE_SECTION_TITLE: f32 = 18.0;
 pub const FONT_SIZE_SUBHEADING: f32 = 16.0;
 pub const FONT_SIZE_BODY: f32 = 15.0;
@@ -79,10 +78,6 @@ pub const FONT_SIZE_KBD: f32 = 11.0;
 
 pub fn font_display() -> FontId {
     FontId::new(FONT_SIZE_DISPLAY, FontFamily::Name("ui_medium".into()))
-}
-
-pub fn font_page_title() -> FontId {
-    FontId::new(FONT_SIZE_PAGE_TITLE, FontFamily::Name("ui_medium".into()))
 }
 
 pub fn font_section_title() -> FontId {
@@ -214,7 +209,7 @@ pub mod dark {
     pub const NEUTRAL_50: Color32 = Color32::from_rgb(236, 236, 236); // #ececec (primary text & white pill)
     pub const NEUTRAL_200: Color32 = Color32::from_rgb(180, 180, 180); // #b4b4b4 (secondary text)
     pub const NEUTRAL_350: Color32 = Color32::from_rgb(160, 160, 160); // #a0a0a0 (tertiary text)
-    pub const NEUTRAL_450: Color32 = Color32::from_rgb(142, 142, 142); // #8e8e8e (muted text)
+    pub const NEUTRAL_450: Color32 = Color32::from_rgb(153, 153, 153); // #999999 (muted text, ≥4.5:1 on elevated)
     pub const NEUTRAL_500: Color32 = Color32::from_rgb(90, 90, 90); // #5a5a5a (disabled)
     pub const NEUTRAL_650: Color32 = Color32::from_rgb(74, 74, 74); // #4a4a4a (border strong)
     pub const NEUTRAL_700: Color32 = Color32::from_rgb(58, 58, 58); // #3a3a3a (border default)

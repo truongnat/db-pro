@@ -70,7 +70,11 @@ fn keyboard_input_maps_to_selection_and_popup_actions() {
         ),
         1
     );
-    assert!(should_close_for_key(true, false));
+    assert_eq!(menu_key_action(true, false), MenuKeyAction::Cancel);
+    assert_eq!(menu_key_action(false, true), MenuKeyAction::Commit);
+    assert_eq!(menu_key_action(false, false), MenuKeyAction::None);
+    // Enter wins when both arrive in one frame; there is nothing to cancel after a commit.
+    assert_eq!(menu_key_action(true, true), MenuKeyAction::Commit);
 }
 
 #[test]
@@ -107,6 +111,19 @@ fn option_geometry_helpers_compute_correct_positions_and_bounds() {
 
     let check_pos = option_check_icon_pos(row_rect.right(), vertical_center);
     assert_eq!(check_pos, Pos2::new(row_rect.right() - SPACE_SM, vertical_center));
+}
+
+#[test]
+fn option_labels_stay_on_one_truncated_line() {
+    let job = option_label_job(
+        "a very long schema name that cannot fit".to_owned(),
+        egui::Color32::WHITE,
+        120.0,
+    );
+    assert_eq!(job.wrap.max_width, 120.0);
+    assert_eq!(job.wrap.max_rows, 1);
+    assert!(job.wrap.break_anywhere);
+    assert_eq!(job.wrap.overflow_character, Some('…'));
 }
 
 #[test]

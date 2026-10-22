@@ -7,7 +7,7 @@ use lucide_icons::Icon;
 
 use crate::{
     components::card::CARD_FRAME_STROKE_WIDTH,
-    tokens::{CARD_INNER_PAD, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN},
+    tokens::{font_icon, CARD_INNER_PAD, RADIUS_SM, RADIUS_XS, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -316,7 +316,7 @@ pub fn empty_state(ui: &mut Ui, icon: Icon, title: &str, description: &str, them
         ui.add_space(8.0);
         ui.label(
             RichText::new(char::from(icon).to_string())
-                .font(FontId::new(18.0, FontFamily::Name("lucide".into())))
+                .font(font_icon(18.0))
                 .color(theme.text_muted),
         );
         ui.label(RichText::new(title).strong().color(theme.text_secondary));
