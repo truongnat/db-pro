@@ -97,3 +97,22 @@ Not yet run: fmt --check workspace, clippy, tests, captures (scheduled Wave 6).
 - Captures 1280×800: settings dark (`/tmp/w5c_settings_dark.png`) — section
   labels + card frame render correctly; gallery `form` dark+light
   (`/tmp/w5c_form_{dark,light}.png`) — migrated `Input` fields + cards clean.
+
+## Final gates — HEAD `da4c7bfa` + doc updates
+
+- `cargo +nightly fmt --all -- --check` → PASS
+- `cargo clippy --workspace --all-targets -- -D warnings` → 0 diagnostics
+- `cargo test --workspace` → **2257 passed / 0 failed**
+- `scripts/check-ui-architecture.sh` → PASS
+- `cargo build --release --locked -p db-pro-native` → PASS
+- clean-code diff-ratchet → 0 fail (6 warnings, pre-existing)
+- **Limitations (state: RUNTIME_VERIFY):**
+  - `DB_PRO_CAPTURE_QUICK_OPEN` and `GALLERY_SECTION=alerts` capture runs
+    hang (no screenshot reply within 180s) — pre-existing capture-infra gap,
+    not from this work; open-popover radius (12→8) verified at source level
+    only.
+  - `has_focus` ring sites: unified recipe `paint_focus_ring` is
+    runtime-verified from the keyboard wave, but per-site rings need a
+    focus-injection hook or manual Tab pass.
+  - Captures recorded at 1280×800 only; 1440×900/1920×1080 pending (host
+    caps effective height at 838 per prior audits).
