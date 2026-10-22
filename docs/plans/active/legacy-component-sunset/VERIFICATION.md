@@ -138,3 +138,24 @@ detached binary launch never gets — known trap).
   remaining sites (tree rows, workspace items, dropdown items, agent
   chips/disclosure headers, radio, slider) share the identical helper
   call and are source-verified.
+
+## Focus-visible semantics fix — live verified (2026-10-22)
+
+Problem: many components `request_focus` on pointer click (tabs, calendar,
+radio, welcome cards…), so `has_focus()` was true after a mouse click and the
+ring painted for pointer users too — `has_focus` ≠ `:focus-visible`.
+
+Fix: `interact::update_focus_visible(ctx)` runs once per frame in
+`DbProApp::logic` (app_lifecycle.rs) and tracks last-input-kind in
+`ctx.data` (`insert_temp`, per-frame). `focus_visible` defaults false,
+turns true on focus keys (Tab/arrows/Enter/Space), false on pointer
+press/release. `paint_focus_ring` early-returns when not keyboard-driven —
+single gate covers all ~25 call sites.
+
+Live verification (orca + cliclick on the running app):
+- Click workspace tab / employees row → tab switched, NO ring.
+- Tab in Settings → accent ring on "Light" radio.
+- Click "Dark" afterwards → ring gone.
+- Deadlock note fixed: `ctx.input` closure captures flags only; `ctx.data`
+  read/write happen outside it (advisory caught `input`+`data_mut` sharing
+  `ctx.write`).

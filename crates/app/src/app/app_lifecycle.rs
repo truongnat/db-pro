@@ -15,6 +15,7 @@ impl eframe::App for DbProApp {
     }
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        db_pro_ui::components::interact::update_focus_visible(ctx);
         self.normalize_input_modifiers(ctx);
         self.prepare_frame(ctx);
     }
