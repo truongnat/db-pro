@@ -232,10 +232,8 @@ impl DbProApp {
         // The shell is flush; Gallery content uses the theme's normal widget spacing.
         let content_spacing = ui.ctx().global_style().spacing.item_spacing;
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
+            ui.spacing_mut().item_spacing.x = SPACE_MD;
             self.draw_gallery_category_navigation(ui, available_height);
-
-            Separator::vertical(self.theme).show(ui);
 
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing = content_spacing;

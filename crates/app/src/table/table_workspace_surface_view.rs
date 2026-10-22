@@ -130,7 +130,7 @@ impl TableWorkspaceSurfaceContext<'_> {
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 2.0;
+                        ui.spacing_mut().item_spacing.x = crate::tokens::SPACE_XS;
                         for (view, icon, label) in table_view_tabs() {
                             let selected = self.active_view == view;
                             if tab_button(ui, self.theme, Some(icon), label, selected).clicked() && !selected {

@@ -183,7 +183,7 @@ impl ToolsHubContext<'_> {
 
     fn draw_category_header(&self, ui: &mut egui::Ui, title: &str, icon: Icon) {
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = SPACE_XXS;
+            ui.spacing_mut().item_spacing.x = crate::tokens::ICON_TEXT_GAP;
             ui.label(
                 RichText::new(char::from(icon).to_string())
                     .font(font_icon(ICON_XS))
@@ -224,13 +224,15 @@ impl ToolsHubContext<'_> {
         let response = card_frame.show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {
+                // Card rows are tighter than the shell rhythm: the title and the
+                // description belong to one text block, not two stacked controls.
+                ui.spacing_mut().item_spacing = egui::vec2(crate::tokens::SPACE_SM, crate::tokens::SPACE_XXS);
                 ui.label(
                     RichText::new(char::from(icon).to_string())
                         .font(font_icon(ICON_DEFAULT))
                         .color(if is_active { theme.accent } else { theme.text_primary }),
                 );
                 ui.vertical(|ui| {
-                    ui.spacing_mut().item_spacing.y = 1.0;
                     ui.label(
                         RichText::new(title)
                             .font(font_ui_label())

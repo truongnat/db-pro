@@ -575,8 +575,9 @@ fn run_native_app(
         // A `visible:false` window never receives drawRect on macOS, so the
         // first frame may never paint and the capture stalls before the first
         // update. Normal launches get their first redraw from the maximize
-        // resize storm instead.
-        Some(size) => viewport.with_inner_size(size).with_visible(true),
+        // resize storm instead. X11 keeps painting an unmapped window, so there
+        // a capture run stays off-screen instead of flashing over the user.
+        Some(size) => viewport.with_inner_size(size).with_visible(!cfg!(target_os = "linux")),
         None => viewport.with_maximized(true),
     };
 

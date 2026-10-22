@@ -46,7 +46,7 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
     // Optional row icon sits left of the label at 16px.
     let mut text_left = rect.left();
     if let Some(tex) = icon {
-        let icon_side = 16.0;
+        let icon_side = super::super::config::OPTION_ICON_SIDE;
         let icon_rect = egui::Rect::from_center_size(
             pos2(
                 text_left + ui.spacing().button_padding.x + icon_side * 0.5,

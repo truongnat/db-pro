@@ -140,7 +140,7 @@ impl TableMetadataContext<'_> {
             self.search,
             "Filter constraints…",
             |ui, rtl| {
-                ui.spacing_mut().item_spacing.x = 2.0;
+                ui.spacing_mut().item_spacing.x = crate::tokens::SPACE_XS;
                 // Right-to-left layout keeps the category group against the right edge.
                 let tabs = [
                     ("all", "All"),

@@ -232,7 +232,7 @@ impl<'a> MetricTrend<'a> {
         ui.add_space(METRIC_TREND_TOP_GAP);
         let visual = metric_trend_visual(self.direction, self.tone, theme);
         let row = ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
+            ui.spacing_mut().item_spacing.x = crate::tokens::ICON_TEXT_GAP;
             if let Some(icon) = visual.icon {
                 ui.label(
                     RichText::new(char::from(icon).to_string())

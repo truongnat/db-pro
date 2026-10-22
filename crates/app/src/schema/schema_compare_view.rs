@@ -50,9 +50,6 @@ pub(super) fn draw_schema_compare_sidebar(
             .compare
             .take_snapshot(context.schema, context.connection_name, context.feedback);
     }
-    // The shell zeroes workspace item_spacing; stacked sidebar buttons need
-    // an explicit gap or they read as one split control.
-    ui.add_space(SPACE_XS);
     let mut action = None;
     if Button::new(context.theme)
         .icon(Icon::GitCompare)
@@ -181,9 +178,6 @@ fn draw_schema_compare_body(
             + diff.column_changes.len();
 
         ui.horizontal(|ui| {
-            // The shell zeroes workspace item_spacing — the count chips must
-            // space explicitly or they render as one fused label.
-            ui.spacing_mut().item_spacing.x = SPACE_SM;
             let added = diff.tables_only_in_target.len()
                 + diff.views_only_in_target.len()
                 + diff.functions_only_in_target.len();
@@ -470,8 +464,7 @@ fn draw_schema_compare_body(
         )
         .label("Target connection id")
         .show(ui);
-        // The shell zeroes workspace item_spacing — form fields must breathe
-        // explicitly or consecutive inputs render as one fused field.
+        // Labeled inputs need more air than the shell's row rhythm.
         ui.add_space(SPACE_SM);
         Input::new(&mut context.compare.data_diff_schema, "public", context.theme)
             .label("Schema")

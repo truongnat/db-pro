@@ -21,7 +21,14 @@ where
         .frame(shell_surface_frame(context.theme, surface, egui::Margin::symmetric(split_inset, 0), false))
         .show(ui, |ui| {
             ui.set_min_size(ui.available_size());
-            ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
+            // egui propagates `item_spacing` into every Frame/ScrollArea/child Ui
+            // below, and only top-level panels reset it. Zeroing it here used to
+            // make every workspace view that forgot an explicit `add_space`
+            // render its labels, buttons and pickers fused; the theme's own row
+            // rhythm (SPACE_SM × SPACE_XS) is the safe default instead. Views
+            // that want tighter packing override locally.
+            ui.spacing_mut().item_spacing =
+                egui::vec2(crate::tokens::SPACE_SM, crate::tokens::SPACE_XS);
             draw_workspace(ui);
         });
 }

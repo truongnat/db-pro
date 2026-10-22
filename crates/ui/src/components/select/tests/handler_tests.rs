@@ -141,3 +141,89 @@ fn menu_and_trigger_geometry_helpers_compute_correct_values() {
     assert_eq!(min_content_width, 150.0 - ICON_TEXT_GAP);
     assert_eq!(menu_min_content_width(2.0), 0.0);
 }
+
+#[test]
+fn menu_row_width_matches_the_columns_paint_option_reserves() {
+    let pad = 8.0;
+    // Label only: symmetric padding around the text.
+    assert_eq!(menu_row_width(90.0, false, false, pad), 90.0 + pad * 2.0);
+    // Leading icon: 16px column plus the gap before the label.
+    assert_eq!(
+        menu_row_width(90.0, true, false, pad),
+        90.0 + pad * 2.0 + OPTION_ICON_SIDE + SPACE_XS
+    );
+    // Selected row: the check indicator column is reserved so navigating never
+    // resizes the popup.
+    assert_eq!(
+        menu_row_width(90.0, false, true, pad),
+        90.0 + pad * 2.0 + SPACE_SM + ICON_LG
+    );
+}
+
+#[test]
+fn trigger_preferred_width_covers_label_chevron_padding_and_stroke() {
+    let margin = trigger_inner_margin(8.0, 4.0);
+    let outline = trigger_preferred_width(90.0, margin, 2.0);
+    assert_eq!(
+        outline,
+        90.0 + TRIGGER_TEXT_RESERVED_WIDTH + margin.leftf() + margin.rightf() + 2.0
+    );
+    // A borderless ghost needs no stroke allowance.
+    assert_eq!(trigger_preferred_width(90.0, margin, 0.0), outline - 2.0);
+}
+
+#[test]
+fn menu_width_fits_the_widest_option_instead_of_a_magic_number() {
+    let screen = egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1440.0, 900.0));
+    let trigger = egui::Rect::from_min_max(egui::Pos2::new(100.0, 100.0), egui::Pos2::new(208.0, 138.0));
+    // Long option, short trigger: the popup grows so the choice is readable.
+    let roomy = menu_row_width(400.0, false, true, 8.0);
+    assert_eq!(
+        calculate_menu_geometry(screen, trigger, 4, false, roomy).menu_width,
+        roomy
+    );
+    // Short options: no 152px floor any more — the popup stops at the trigger.
+    assert_eq!(
+        calculate_menu_geometry(screen, trigger, 4, false, 40.0).menu_width,
+        trigger.width()
+    );
+    // Empty list still gets a usable target.
+    let tiny = egui::Rect::from_min_max(egui::Pos2::new(100.0, 100.0), egui::Pos2::new(120.0, 138.0));
+    assert_eq!(
+        calculate_menu_geometry(screen, tiny, 0, false, 0.0).menu_width,
+        MIN_TRIGGER_WIDTH
+    );
+    // Never wider than the screen allows.
+    assert!(calculate_menu_geometry(screen, trigger, 4, false, 5000.0).menu_width <= screen.width() - SPACE_SM * 2.0);
+}
+
+#[test]
+fn menu_max_width_clamps_to_the_screen_with_a_usable_floor() {
+    let wide = egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1440.0, 900.0));
+    assert_eq!(menu_max_width(wide), 1440.0 - SPACE_SM * DOUBLE_FACTOR);
+    // A viewport narrower than the floor still gets a tappable popup.
+    let narrow = egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(40.0, 900.0));
+    assert_eq!(menu_max_width(narrow), MENU_MIN_SCREEN_WIDTH);
+}
+
+#[test]
+fn widest_label_width_stops_measuring_once_the_cap_is_reached() {
+    let ctx = egui::Context::default();
+    crate::DbProTheme::install_fonts(&ctx);
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let font = egui::FontId::proportional(13.0);
+            let short = ["ab", "abcd", "abc"];
+            let none: [&str; 0] = [];
+            // Below the cap: the widest label is reported exactly.
+            let measured = widest_label_width(ui, &short, &font, 500.0);
+            assert!(measured > 0.0 && measured < 500.0);
+            assert_eq!(measured, widest_label_width(ui, &["abcd"], &font, 500.0));
+            // Above the cap: the scan returns the cap instead of the real width,
+            // because every caller clamps to it anyway.
+            assert_eq!(widest_label_width(ui, &short, &font, 1.0), 1.0);
+            assert_eq!(widest_label_width(ui, &short, &font, 0.0), 0.0);
+            assert_eq!(widest_label_width(ui, &none, &font, 120.0), 0.0);
+        });
+    });
+}

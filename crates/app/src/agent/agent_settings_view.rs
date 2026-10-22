@@ -47,7 +47,7 @@ impl AgentSettingsContext<'_> {
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = SPACE_XXS;
+                    ui.spacing_mut().item_spacing.x = crate::tokens::ICON_TEXT_GAP;
                     ui.label(
                         RichText::new(char::from(Icon::KeyRound).to_string())
                             .font(font_icon(ICON_XS))

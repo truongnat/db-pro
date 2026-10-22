@@ -1,8 +1,8 @@
-use egui::{Color32, FontId, Margin, Pos2, Rect};
+use egui::{Color32, FontId, Margin, Pos2, Rect, Ui};
 
 use super::config::{
-    DOUBLE_FACTOR, MAX_VISIBLE_ITEMS, MENU_MIN_SCREEN_WIDTH, MENU_MIN_WIDTH, MIN_TRIGGER_TEXT_WIDTH, MIN_TRIGGER_WIDTH,
-    TRIGGER_TEXT_RESERVED_WIDTH, VERTICAL_CENTER_FACTOR,
+    DOUBLE_FACTOR, MAX_VISIBLE_ITEMS, MENU_MIN_SCREEN_WIDTH, MIN_TRIGGER_TEXT_WIDTH, MIN_TRIGGER_WIDTH,
+    OPTION_ICON_SIDE, TRIGGER_TEXT_RESERVED_WIDTH, VERTICAL_CENTER_FACTOR,
 };
 use crate::tokens::{
     component::table::TABLE_ROW_HEIGHT_COMPACT, FONT_SIZE_UI_LABEL, ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM,
@@ -19,11 +19,18 @@ pub struct DropdownGeometry {
     pub max_height: f32,
 }
 
+/// Widest popup that still fits the screen; anything measured beyond this is
+/// clamped away by [`calculate_menu_geometry`], so it also bounds label scanning.
+pub fn menu_max_width(screen: Rect) -> f32 {
+    (screen.width() - SPACE_SM * DOUBLE_FACTOR).max(MENU_MIN_SCREEN_WIDTH)
+}
+
 pub fn calculate_menu_geometry(
     screen: Rect,
     parent_rect: Rect,
     option_count: usize,
     has_more: bool,
+    content_width: f32,
 ) -> DropdownGeometry {
     // Count real options plus the optional action row, saturate overflow, then cap the visible row count.
     let extra = usize::from(has_more);
@@ -34,12 +41,13 @@ pub fn calculate_menu_geometry(
     let space_above = (parent_rect.top() - screen.top()).max(0.0);
     // Flip upward only if the menu does not fit below and above has more room; otherwise keep downward placement.
     let open_up = dropdown_should_open_above(space_below, space_above, menu_h);
-    // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-    // Clamp width in order: at least trigger/design minimum, at most usable screen width (with minimum screen fallback).
+    // Clamp width in order: at least the trigger or the widest option row (so no label
+    // ellipsizes), at most usable screen width (with minimum screen fallback).
     let menu_width = parent_rect
         .width()
-        .max(MENU_MIN_WIDTH)
-        .min((screen.width() - SPACE_SM * DOUBLE_FACTOR).max(MENU_MIN_SCREEN_WIDTH));
+        .max(content_width)
+        .max(MIN_TRIGGER_WIDTH)
+        .min(menu_max_width(screen));
     let menu_left = parent_rect.left().clamp(
         screen.left() + SPACE_SM,
         (screen.right() - menu_width - SPACE_SM).max(screen.left() + SPACE_SM),
@@ -72,8 +80,43 @@ pub fn trigger_content_width(width: f32, available: f32) -> f32 {
     width.max(MIN_TRIGGER_WIDTH).min(available).max(0.0)
 }
 
+/// Width the trigger needs to show `label_width` without ellipsis: the label plus
+/// the reserved chevron column and the frame's own padding and stroke.
+pub fn trigger_preferred_width(label_width: f32, margin: Margin, stroke_extra: f32) -> f32 {
+    label_width + TRIGGER_TEXT_RESERVED_WIDTH + margin.leftf() + margin.rightf() + stroke_extra
+}
+
+/// Width a menu row needs to show its label without ellipsizing: symmetric button
+/// padding, the optional leading icon column, and the trailing check/`soon`
+/// indicator column that `paint_option` reserves for the selected row.
+pub fn menu_row_width(label_width: f32, has_icon: bool, selected: bool, button_padding_x: f32) -> f32 {
+    let icon = if has_icon { OPTION_ICON_SIDE + SPACE_XS } else { 0.0 };
+    let indicator = if selected { SPACE_SM + ICON_LG } else { 0.0 };
+    button_padding_x * DOUBLE_FACTOR + icon + label_width + indicator
+}
+
 pub fn trigger_text_width(available: f32) -> f32 {
     (available - TRIGGER_TEXT_RESERVED_WIDTH).max(MIN_TRIGGER_TEXT_WIDTH)
+}
+
+/// Widest one-line label at `font_id`, stopping as soon as a label reaches `cap`.
+/// Callers clamp the result to `cap` anyway, so measuring further cannot change the
+/// layout — this keeps the scan cheap for long option lists. Measurement only: the
+/// text is never painted, so the colour argument is a placeholder.
+pub fn widest_label_width(ui: &Ui, labels: &[&str], font_id: &FontId, cap: f32) -> f32 {
+    let mut widest: f32 = 0.0;
+    for label in labels {
+        let width = ui
+            .painter()
+            .layout_no_wrap((*label).to_owned(), font_id.clone(), Color32::WHITE)
+            .size()
+            .x;
+        widest = widest.max(width);
+        if widest >= cap {
+            return cap;
+        }
+    }
+    widest
 }
 
 pub fn trigger_inner_margin(padding_x: f32, padding_y: f32) -> Margin {

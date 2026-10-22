@@ -235,7 +235,7 @@ impl TableDataToolbarContext<'_> {
                 ui.spacing_mut().item_spacing.x = SPACE_XS;
                 chip_frame(self.theme).show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = SPACE_XXS;
+                        ui.spacing_mut().item_spacing.x = crate::tokens::ICON_TEXT_GAP;
                         ui.label(
                             RichText::new(char::from(Icon::ListFilter).to_string())
                                 .font(font_icon(ICON_XS))

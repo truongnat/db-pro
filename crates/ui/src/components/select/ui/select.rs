@@ -3,14 +3,18 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use std::borrow::Cow;
 
-use egui::{Frame, Id, Response, RichText, Sense, Stroke, TextureId, Ui};
+use egui::{Frame, Id, Margin, Response, RichText, Sense, Stroke, TextureId, Ui};
 use lucide_icons::Icon;
 
 use super::{
-    super::handler::{
-        calculate_menu_geometry, menu_key_action, menu_min_content_width, navigate_selection, selected_label,
-        selection_from_click, should_request_load_more, trigger_accessibility_label, trigger_content_width,
-        trigger_inner_margin, trigger_text_width, MenuKeyAction, NavigationKeys,
+    super::{
+        config::MIN_TRIGGER_WIDTH,
+        handler::{
+            calculate_menu_geometry, menu_key_action, menu_max_width, menu_min_content_width, menu_row_width,
+            navigate_selection, selected_label, selection_from_click, should_request_load_more,
+            trigger_accessibility_label, trigger_content_width, trigger_inner_margin, trigger_preferred_width,
+            trigger_text_width, widest_label_width, MenuKeyAction, NavigationKeys,
+        },
     },
     option::{paint_option, SelectOption},
 };
@@ -20,7 +24,7 @@ use crate::{
         interact::{combo_box_info, paint_focus_ring},
         overlay::screen_rect,
     },
-    tokens::ICON_TEXT_GAP,
+    tokens::{FONT_SIZE_UI_LABEL, ICON_TEXT_GAP},
     DbProTheme,
 };
 
@@ -36,6 +40,15 @@ pub enum SelectVariant {
     #[default]
     Outline,
     Ghost,
+}
+
+/// Token-driven trigger box, resolved once per frame from `SelectSize`/`SelectVariant`.
+struct TriggerMetrics {
+    height: f32,
+    font_size: f32,
+    icon_size: f32,
+    margin: Margin,
+    stroke_extra: f32,
 }
 
 // Block comment: The selected value is an index into the borrowed options slice. The optional
@@ -144,7 +157,20 @@ impl<'a> Select<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width = self.width.unwrap_or_else(|| ui.available_width());
+        let width = match self.width {
+            Some(width) => width,
+            // A labeled Select belongs to a form column and follows the field
+            // rhythm (full width). An unlabeled one hugs its widest option: the
+            // old `available_width()` default stretched a one-word choice across
+            // the whole row, and the popup — which follows the trigger — with it.
+            None => {
+                if self.label.is_some() {
+                    ui.available_width()
+                } else {
+                    self.preferred_trigger_width(ui)
+                }
+            }
+        };
         // A label forces a vertical label+trigger stack, but only then. An unlabeled
         // Select must be allocated directly in the parent layout: wrapping it in a
         // top_down child re-anchored it to the top of horizontal rows and to the left
@@ -172,14 +198,14 @@ impl<'a> Select<'a> {
         self.theme.unwrap_or_else(|| DbProTheme::from_visuals(ui.visuals()))
     }
 
-    fn show_body(self, ui: &mut Ui, width: f32) -> Response {
-        let theme = self.theme_for(ui);
-        let enabled = ui.is_enabled();
+    /// Outer box of the trigger, shared by the paint path and the width
+    /// measurement so a measured label can never disagree with what is drawn.
+    fn trigger_metrics(&self, ui: &Ui) -> TriggerMetrics {
         let compact = crate::components::button::SizeTokens::from_size(crate::components::ButtonSize::Sm);
         let (height, font_size, icon_size, margin) = match self.size {
             SelectSize::Default => (
                 crate::tokens::component::input::INPUT_HEIGHT_DEFAULT,
-                crate::tokens::FONT_SIZE_UI_LABEL,
+                FONT_SIZE_UI_LABEL,
                 crate::tokens::ICON_SM,
                 trigger_inner_margin(ui.spacing().button_padding.x, ui.spacing().button_padding.y),
             ),
@@ -187,7 +213,7 @@ impl<'a> Select<'a> {
                 compact.min_height,
                 compact.font_size,
                 compact.icon_size,
-                egui::Margin::symmetric(compact.padding.x as i8, compact.padding.y as i8),
+                Margin::symmetric(compact.padding.x as i8, compact.padding.y as i8),
             ),
         };
         // egui 0.36 counts `2 * stroke.width` in the Frame's total size; subtract it so the
@@ -198,6 +224,55 @@ impl<'a> Select<'a> {
         } else {
             2.0 * crate::tokens::STROKE_THIN
         };
+        TriggerMetrics {
+            height,
+            font_size,
+            icon_size,
+            margin,
+            stroke_extra,
+        }
+    }
+
+    fn preferred_trigger_width(&self, ui: &Ui) -> f32 {
+        let metrics = self.trigger_metrics(ui);
+        let mut labels: Vec<&str> = self.options.iter().map(String::as_str).collect();
+        if let Some(text) = &self.selected_text {
+            labels.push(text);
+        }
+        // A label wider than the space left after the trigger chrome can only ever be
+        // clamped, so stop measuring there instead of scanning the whole option list.
+        let chrome = trigger_preferred_width(0.0, metrics.margin, metrics.stroke_extra);
+        let cap = (ui.available_width() - chrome).max(0.0);
+        let widest = widest_label_width(ui, &labels, &egui::FontId::proportional(metrics.font_size), cap);
+        trigger_preferred_width(widest, metrics.margin, metrics.stroke_extra)
+            .max(MIN_TRIGGER_WIDTH)
+            .min(ui.available_width())
+    }
+
+    /// Widest option row, so the popup never ellipsizes a choice it just offered.
+    /// The check indicator and icon column are reserved unconditionally: any row
+    /// can be the selected one, and the menu must not resize while navigating.
+    fn menu_content_width(&self, ui: &Ui) -> f32 {
+        let labels: Vec<&str> = self.options.iter().map(String::as_str).collect();
+        let has_icon = self
+            .option_icons
+            .is_some_and(|icons| icons.iter().any(|icon| icon.is_some()));
+        let extras = menu_row_width(0.0, has_icon, true, ui.spacing().button_padding.x);
+        let cap = (menu_max_width(screen_rect(ui)) - extras).max(0.0);
+        let widest = widest_label_width(ui, &labels, &egui::FontId::proportional(FONT_SIZE_UI_LABEL), cap);
+        menu_row_width(widest, has_icon, true, ui.spacing().button_padding.x)
+    }
+
+    fn show_body(self, ui: &mut Ui, width: f32) -> Response {
+        let theme = self.theme_for(ui);
+        let enabled = ui.is_enabled();
+        let TriggerMetrics {
+            height,
+            font_size,
+            icon_size,
+            margin,
+            stroke_extra,
+        } = self.trigger_metrics(ui);
         let content_height = height - stroke_extra - margin.topf() - margin.bottomf();
 
         let current_text = match &self.selected_text {
@@ -392,7 +467,8 @@ impl<'a> Select<'a> {
         }
 
         let screen = screen_rect(ui);
-        let geo = calculate_menu_geometry(screen, response.rect, self.options.len(), self.has_more);
+        let content_width = self.menu_content_width(ui);
+        let geo = calculate_menu_geometry(screen, response.rect, self.options.len(), self.has_more, content_width);
 
         let area = egui::Area::new(popup_id)
             .order(egui::Order::Foreground)
@@ -405,13 +481,18 @@ impl<'a> Select<'a> {
                     super::super::handler::menu_surface_margin(ui.spacing().menu_margin.leftf()),
                 )
                 .show(ui, |ui| {
-                    ui.set_min_width(geo.menu_width);
+                    // Pin the width, not just a minimum: rows allocate
+                    // `available_width()`, so an unpinned popup reports itself as
+                    // wide as everything to the right of the trigger (a 598px
+                    // panel for a 90px option list) and no `auto_shrink` can undo
+                    // a content size that big.
+                    ui.set_width(geo.menu_width);
                     egui::ScrollArea::vertical()
                         .id_salt(popup_id.with("scroll"))
                         .max_height(geo.max_height)
-                        .auto_shrink([false, true])
+                        .auto_shrink([true, true])
                         .show(ui, |ui| {
-                            ui.set_min_width(menu_min_content_width(geo.menu_width));
+                            ui.set_width(menu_min_content_width(geo.menu_width));
                             for (idx, opt) in self.options.iter().enumerate() {
                                 let clicked = paint_option(
                                     ui,
