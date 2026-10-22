@@ -121,7 +121,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
             egui::vec2(form_width, ui.available_height()),
             egui::Layout::top_down(egui::Align::Min),
             |ui| {
-                card_frame(self.theme).show(ui, |ui| {
+                Card::new(self.theme).frame().show(ui, |ui| {
                     ui.set_min_width(form_width - 8.0);
                     section_label(ui, "DEFINITION", self.theme);
                     ui.add_space(SPACE_SM);

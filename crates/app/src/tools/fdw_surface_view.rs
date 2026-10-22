@@ -138,7 +138,7 @@ impl FdwSurfaceContext<'_> {
             .map(|option| format!("{}={}", option.key, option.display_value()))
             .collect::<Vec<_>>()
             .join(", ");
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.label(
                 RichText::new(format!("server {} · fdw={}", server.name, server.fdw_name))
                     .strong()
@@ -174,13 +174,23 @@ impl FdwSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create foreign server").small().strong());
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.fdw_create_name, "server name", 130.0, self.theme);
-            input(ui, &mut self.state.fdw_create_wrapper, "fdw", 90.0, self.theme);
+            Input::new(&mut self.state.fdw_create_name, "server name", self.theme)
+                .width(130.0)
+                .show(ui);
+            Input::new(&mut self.state.fdw_create_wrapper, "fdw", self.theme)
+                .width(90.0)
+                .show(ui);
         });
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.fdw_create_host, "host", 110.0, self.theme);
-            input(ui, &mut self.state.fdw_create_dbname, "dbname", 110.0, self.theme);
-            input(ui, &mut self.state.fdw_create_port, "port", 56.0, self.theme);
+            Input::new(&mut self.state.fdw_create_host, "host", self.theme)
+                .width(110.0)
+                .show(ui);
+            Input::new(&mut self.state.fdw_create_dbname, "dbname", self.theme)
+                .width(110.0)
+                .show(ui);
+            Input::new(&mut self.state.fdw_create_port, "port", self.theme)
+                .width(56.0)
+                .show(ui);
         });
         ui.horizontal(|ui| {
             if Button::new(self.theme)

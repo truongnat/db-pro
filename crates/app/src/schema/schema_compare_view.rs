@@ -235,7 +235,7 @@ fn draw_schema_compare_body(
             if items.is_empty() {
                 continue;
             }
-            card_frame(context.theme).show(ui, |ui| {
+            Card::new(context.theme).frame().show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = SPACE_XS;
                     let badge_text = if is_added {
@@ -293,7 +293,7 @@ fn draw_schema_compare_body(
         }
         if let Some(plan_target) = context.compare.migration_plan_target.clone() {
             if plan_target != current_target {
-                card_frame(context.theme).show(ui, |ui| {
+                Card::new(context.theme).frame().show(ui, |ui| {
                     ui.label(
                         RichText::new("SAFETY LOCK — plan target mismatch")
                             .small()

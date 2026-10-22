@@ -35,7 +35,9 @@ pub(super) fn draw_editor_search_overlay(context: &mut QuerySearchContext<'_>, c
             if let Some(doc) = context.session.documents.get_mut(context.session.active_document_index) {
                 ui.horizontal(|ui| {
                     let previous_search = context.editor.editor_search.clone();
-                    input(ui, &mut context.editor.editor_search, "Search…", 160.0, context.theme);
+                    Input::new(&mut context.editor.editor_search, "Search…", context.theme)
+                        .width(160.0)
+                        .show(ui);
                     if context.editor.editor_search != previous_search {
                         doc.search.query = context.editor.editor_search.clone();
                         doc.search.update_matches(doc.buffer.text());
@@ -139,13 +141,9 @@ pub(super) fn draw_editor_search_bar(context: &mut QuerySearchContext<'_>, ui: &
     if let Some(doc) = context.session.documents.get_mut(context.session.active_document_index) {
         ui.horizontal(|ui| {
             let previous_search = context.editor.editor_search.clone();
-            input(
-                ui,
-                &mut context.editor.editor_search,
-                "Find in SQL…",
-                240.0,
-                context.theme,
-            );
+            Input::new(&mut context.editor.editor_search, "Find in SQL…", context.theme)
+                .width(240.0)
+                .show(ui);
             if context.editor.editor_search != previous_search {
                 doc.search.query = context.editor.editor_search.clone();
                 doc.search.update_matches(doc.buffer.text());

@@ -9,7 +9,8 @@ use super::{
         BREADCRUMB_CHEVRON_SIZE, BREADCRUMB_TEXT_SIZE, BREADCRUMB_UNDERLINE_INSET, BREADCRUMB_UNDERLINE_THICKNESS,
         PAGE_BUTTON_ICON_SIZE, PAGE_BUTTON_RADIUS, PAGE_HEADER_DESCRIPTION_SIZE, PAGE_HEADER_GAP,
         PAGE_HEADER_TITLE_SIZE, PAGE_LABEL_FONT_SIZE, SECTION_HEADER_DESCRIPTION_SIZE, SECTION_HEADER_GAP,
-        SECTION_HEADER_TITLE_SIZE,
+        SECTION_HEADER_TITLE_SIZE, SECTION_LABEL_FONT_SIZE, SIDEBAR_ITEM_PILL_INSET_X, SIDEBAR_ITEM_PILL_INSET_Y,
+        SIDEBAR_ITEM_PILL_RADIUS, SIDEBAR_ITEM_PILL_WIDTH,
     },
     handler::{
         breadcrumb_item_color, can_navigate_next, can_navigate_prev, clamp_page, format_page_label, next_page,
@@ -237,6 +238,55 @@ impl<'a> SectionHeader<'a> {
         })
         .response
     }
+}
+
+/// Muted uppercase label above a field group (settings panels, sidebars).
+pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
+    ui.label(
+        RichText::new(text.into())
+            .font(FontId::new(
+                SECTION_LABEL_FONT_SIZE,
+                FontFamily::Name("ui_medium".into()),
+            ))
+            .strong()
+            .color(theme.text_muted),
+    )
+}
+
+/// Full-width sidebar row: ghost button when idle, secondary + accent pill when
+/// the item is the active view.
+// cc-scan:allow TOO_MANY_PARAMS — context params passed through
+pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: DbProTheme) -> Response {
+    let button = crate::components::button::Button::new(theme)
+        .icon(icon)
+        .text(label)
+        .variant(if active {
+            crate::components::button::ButtonVariant::Secondary
+        } else {
+            crate::components::button::ButtonVariant::Ghost
+        })
+        .size(crate::components::button::ButtonSize::Sm)
+        .full_width(true)
+        .left_aligned();
+    let response = button.show(ui);
+    if active {
+        let pill_rect = egui::Rect::from_min_max(
+            egui::pos2(
+                response.rect.left() + SIDEBAR_ITEM_PILL_INSET_X,
+                response.rect.top() + SIDEBAR_ITEM_PILL_INSET_Y,
+            ),
+            egui::pos2(
+                response.rect.left() + SIDEBAR_ITEM_PILL_INSET_X + SIDEBAR_ITEM_PILL_WIDTH,
+                response.rect.bottom() - SIDEBAR_ITEM_PILL_INSET_Y,
+            ),
+        );
+        ui.painter().rect_filled(
+            pill_rect,
+            CornerRadius::same(SIDEBAR_ITEM_PILL_RADIUS as u8),
+            theme.accent,
+        );
+    }
+    response
 }
 
 #[cfg(test)]

@@ -85,7 +85,7 @@ impl ReplicationSurfaceContext<'_> {
     ) {
         for publication in publications.iter().take(40) {
             let name = publication.name.clone();
-            card_frame(self.theme).show(ui, |ui| {
+            Card::new(self.theme).frame().show(ui, |ui| {
                 ui.label(
                     RichText::new(format!(
                         "publication {} · all_tables={} · owner={:?}",
@@ -133,7 +133,7 @@ impl ReplicationSurfaceContext<'_> {
     ) {
         for subscription in subscriptions.iter().take(40) {
             let name = subscription.name.clone();
-            card_frame(self.theme).show(ui, |ui| {
+            Card::new(self.theme).frame().show(ui, |ui| {
                 ui.label(
                     RichText::new(format!(
                         "subscription {} · enabled={} · slot={:?}",
@@ -193,13 +193,9 @@ impl ReplicationSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create publication (FOR ALL TABLES)").small().strong());
         ui.horizontal(|ui| {
-            input(
-                ui,
-                &mut self.state.replication_create_name,
-                "publication name",
-                160.0,
-                self.theme,
-            );
+            Input::new(&mut self.state.replication_create_name, "publication name", self.theme)
+                .width(160.0)
+                .show(ui);
             if Button::new(self.theme)
                 .icon(Icon::FileCode2)
                 .text("Preview CREATE")

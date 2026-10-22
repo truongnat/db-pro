@@ -198,12 +198,7 @@ impl ToolsHubContext<'_> {
         });
     }
 
-    fn draw_tool_card(
-        &self,
-        ui: &mut egui::Ui,
-        actions: &mut Vec<ToolsHubAction>,
-        item: ToolCardItem<'_>,
-    ) {
+    fn draw_tool_card(&self, ui: &mut egui::Ui, actions: &mut Vec<ToolsHubAction>, item: ToolCardItem<'_>) {
         let ToolCardItem {
             action,
             icon,
@@ -219,41 +214,36 @@ impl ToolsHubContext<'_> {
             return;
         }
         let theme = self.theme;
-        let card_frame = selectable_card_frame(theme, is_active);
+        let card_frame = selectable_frame(theme, is_active);
 
-        let response = card_frame.show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                // Card rows are tighter than the shell rhythm: the title and the
-                // description belong to one text block, not two stacked controls.
-                ui.spacing_mut().item_spacing = egui::vec2(crate::tokens::SPACE_SM, crate::tokens::SPACE_XXS);
-                ui.label(
-                    RichText::new(char::from(icon).to_string())
-                        .font(font_icon(ICON_DEFAULT))
-                        .color(if is_active { theme.accent } else { theme.text_primary }),
-                );
-                ui.vertical(|ui| {
+        let response = card_frame
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    // Card rows are tighter than the shell rhythm: the title and the
+                    // description belong to one text block, not two stacked controls.
+                    ui.spacing_mut().item_spacing = egui::vec2(crate::tokens::SPACE_SM, crate::tokens::SPACE_XXS);
                     ui.label(
-                        RichText::new(title)
-                            .font(font_ui_label())
-                            .strong()
+                        RichText::new(char::from(icon).to_string())
+                            .font(font_icon(ICON_DEFAULT))
                             .color(if is_active { theme.accent } else { theme.text_primary }),
                     );
-                    ui.label(
-                        RichText::new(description)
-                            .font(font_caption())
-                            .color(theme.text_muted),
-                    );
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new(title).font(font_ui_label()).strong().color(if is_active {
+                            theme.accent
+                        } else {
+                            theme.text_primary
+                        }));
+                        ui.label(RichText::new(description).font(font_caption()).color(theme.text_muted));
+                    });
                 });
-            });
-        }).response;
+            })
+            .response;
 
         let response = ui.interact(response.rect, response.id, egui::Sense::click());
         // The card is painted by a custom frame — egui can't infer the role, so
         // declare it as a named button for accessibility tools.
-        response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), title)
-        });
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), title));
         if response.clicked() {
             actions.push(action);
         }

@@ -13,7 +13,7 @@ pub(super) struct QuerySnippetsContext {
 impl QuerySnippetsContext {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Option<QuerySnippetsAction> {
         let mut action = None;
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.label(egui::RichText::new("SQL snippets").strong());
             for (label, _trigger, snippet) in query_snippets::builtin_sql_snippets() {
                 if Button::new(self.theme)

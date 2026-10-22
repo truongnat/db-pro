@@ -21,21 +21,30 @@ impl SettingsSystemContext<'_> {
     }
 
     fn draw_data_grid(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "DATA GRID", self.theme);
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Page size").color(self.theme.text_secondary));
                 ui.add(egui::DragValue::new(&mut self.preferences.settings.data_grid.page_size).range(25..=1_000));
             });
-            Checkbox::new(&mut self.preferences.settings.data_grid.show_row_numbers, "Show row numbers", self.theme)
-                .show(ui);
-            Checkbox::new(&mut self.preferences.settings.data_grid.wrap_cell_text, "Wrap cell text", self.theme).show(ui);
+            Checkbox::new(
+                &mut self.preferences.settings.data_grid.show_row_numbers,
+                "Show row numbers",
+                self.theme,
+            )
+            .show(ui);
+            Checkbox::new(
+                &mut self.preferences.settings.data_grid.wrap_cell_text,
+                "Wrap cell text",
+                self.theme,
+            )
+            .show(ui);
         });
     }
 
     fn draw_connections(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "CONNECTIONS", self.theme);
             ui.add_space(10.0);
             Checkbox::new(
@@ -59,10 +68,15 @@ impl SettingsSystemContext<'_> {
     }
 
     fn draw_ai(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "AI PROVIDERS", self.theme);
             ui.add_space(10.0);
-            Checkbox::new(&mut self.preferences.settings.ai.enabled, "Enable Agent workspace", self.theme).show(ui);
+            Checkbox::new(
+                &mut self.preferences.settings.ai.enabled,
+                "Enable Agent workspace",
+                self.theme,
+            )
+            .show(ui);
             Checkbox::new(
                 &mut self.preferences.settings.ai.auto_run_read_only,
                 "Allow Agent to auto-run read-only queries",
@@ -84,7 +98,7 @@ impl SettingsSystemContext<'_> {
     }
 
     fn draw_security(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "SECURITY", self.theme);
             ui.add_space(10.0);
             Checkbox::new(
@@ -103,7 +117,7 @@ impl SettingsSystemContext<'_> {
     }
 
     fn draw_advanced(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "ADVANCED", self.theme);
             ui.add_space(10.0);
             Checkbox::new(
@@ -130,4 +144,3 @@ impl SettingsSystemContext<'_> {
 #[cfg(test)]
 #[path = "tests/settings_system_view_tests.rs"]
 mod tests;
-

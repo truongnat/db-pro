@@ -33,15 +33,19 @@ pub(super) struct FilesAgentContextView<'a> {
 impl<'a> FilesAgentContextView<'a> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<FilesAgentContextAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme)
-        .show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(Icon::Bot).to_string())
                         .font(font_icon(ICON_DEFAULT))
                         .color(self.theme.accent),
                 );
-                ui.label(RichText::new("AGENT CONTEXT").font(font_caption()).strong().color(self.theme.text_secondary));
+                ui.label(
+                    RichText::new("AGENT CONTEXT")
+                        .font(font_caption())
+                        .strong()
+                        .color(self.theme.text_secondary),
+                );
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let popup_id = ui.make_persistent_id("files_agent_context_actions");
                     let more = Button::new(self.theme)
@@ -109,8 +113,7 @@ impl<'a> FilesAgentContextView<'a> {
                             {
                                 actions.push(FilesAgentContextAction::Clear);
                             }
-                        },
-                    );
+                        });
                 });
             });
 

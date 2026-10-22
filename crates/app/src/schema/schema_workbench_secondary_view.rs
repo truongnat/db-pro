@@ -165,7 +165,7 @@ pub(super) fn draw_execution_history(
     ui.add_space(SPACE_SM);
 
     if context.workbench.history.is_empty() {
-        card_frame(context.theme).show(ui, |ui| {
+        Card::new(context.theme).frame().show(ui, |ui| {
             EmptyState::new(
                 Icon::History,
                 "No DDL execution history yet",
@@ -178,7 +178,7 @@ pub(super) fn draw_execution_history(
     }
 
     for entry in &context.workbench.history {
-        card_frame(context.theme).show(ui, |ui| {
+        Card::new(context.theme).frame().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(RichText::new(&entry.timestamp).small().color(context.theme.text_muted));
                 Badge::new(&entry.object_kind, context.theme)

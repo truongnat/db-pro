@@ -12,7 +12,7 @@ use super::{
     handler::{footer_separator_segment, metric_trend_visual, trend_label_text},
 };
 use crate::{
-    tokens::{CARD_INNER_PAD, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS},
+    tokens::{CARD_INNER_PAD, RADIUS_CARD, RADIUS_SM, SPACE_MD, SPACE_SM, SPACE_XS, SPACE_XXS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -38,6 +38,22 @@ impl Card {
 
     pub fn show<R>(&self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
         self.frame().show(ui, add_contents).inner
+    }
+}
+
+/// Card container for a selectable/active row (tools hub, launcher grids):
+/// `surface_active` + accent border when active, quiet panel otherwise.
+pub fn selectable_frame(theme: DbProTheme, active: bool) -> Frame {
+    Frame {
+        fill: if active {
+            theme.surface_active
+        } else {
+            theme.surface_panel
+        },
+        inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
+        stroke: Stroke::new(STROKE_THIN, if active { theme.accent } else { theme.border_subtle }),
+        corner_radius: CornerRadius::same(RADIUS_SM as u8),
+        ..Default::default()
     }
 }
 

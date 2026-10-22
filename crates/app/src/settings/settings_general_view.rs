@@ -21,7 +21,7 @@ pub(crate) struct SettingsGeneralContext<'a> {
 impl SettingsGeneralContext<'_> {
     pub(crate) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<SettingsGeneralAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             self.draw_general_preferences(ui);
             actions.extend(self.draw_workspace_sessions(ui));
         });

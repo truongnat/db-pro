@@ -29,14 +29,18 @@ impl ExplorerSchemaFeedbackContext<'_> {
 
     fn draw_error(&self, ui: &mut egui::Ui, error: &str) -> Vec<ExplorerSchemaFeedbackAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(Icon::TriangleAlert).to_string())
                         .font(font_icon(ICON_DEFAULT))
                         .color(self.theme.danger),
                 );
-                ui.label(RichText::new(t!("explorer.schema_load_failed")).strong().color(self.theme.danger));
+                ui.label(
+                    RichText::new(t!("explorer.schema_load_failed"))
+                        .strong()
+                        .color(self.theme.danger),
+                );
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if self.has_active_connection
                         && Button::new(self.theme)
@@ -66,7 +70,7 @@ impl ExplorerSchemaFeedbackContext<'_> {
     }
 
     fn draw_loading(&self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.horizontal(|ui| {
                 if self.reduce_motion {
                     ui.label(

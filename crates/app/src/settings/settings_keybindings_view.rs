@@ -16,7 +16,7 @@ pub(crate) struct SettingsKeybindingsContext<'a> {
 impl SettingsKeybindingsContext<'_> {
     pub(crate) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<SettingsKeybindingsAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             actions.extend(self.draw_header(ui));
             self.draw_command_list(ui);
         });
@@ -27,12 +27,7 @@ impl SettingsKeybindingsContext<'_> {
         let mut actions = Vec::new();
         section_label(ui, "KEYBINDINGS", self.theme);
         ui.add_space(10.0);
-        Input::new(
-            &mut self.preferences.keybindings_filter,
-            "Search commands…",
-            self.theme,
-        )
-        .show(ui);
+        Input::new(&mut self.preferences.keybindings_filter, "Search commands…", self.theme).show(ui);
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
@@ -117,11 +112,12 @@ impl SettingsKeybindingsContext<'_> {
                 .clicked()
         {
             let draft = self.preferences.keybinding_edit_draft.clone();
-            if self.preferences.settings.keybindings.save_override(
-                command.id,
-                command.default_shortcut,
-                &draft,
-            ) {
+            if self
+                .preferences
+                .settings
+                .keybindings
+                .save_override(command.id, command.default_shortcut, &draft)
+            {
                 self.preferences.keybinding_edit_id = None;
             }
         }

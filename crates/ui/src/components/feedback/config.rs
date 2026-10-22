@@ -18,3 +18,16 @@ pub const KBD_SEPARATOR_TEXT_SIZE: f32 = crate::tokens::FONT_SIZE_KBD;
 pub const KBD_SEPARATOR_HEIGHT: f32 = 14.0;
 pub const KBD_SEPARATOR_MIN_LINE_WIDTH: f32 = 10.0;
 pub const KBD_SEPARATOR_PADDING_EXTRA: f32 = crate::tokens::SPACE_LG;
+
+/// Allocated square size of the status dot hit area, in egui points.
+pub const STATUS_DOT_SIZE: f32 = 12.0;
+/// Radius of the solid core circle, in egui points.
+pub const STATUS_DOT_CORE_RADIUS: f32 = 4.0;
+/// Inner radius where the pulse ring starts, in egui points.
+pub const STATUS_DOT_PULSE_MIN_RADIUS: f32 = 3.0;
+/// Outer radius the pulse ring expands to over one cycle, in egui points.
+pub const STATUS_DOT_PULSE_MAX_RADIUS: f32 = 6.0;
+/// Pulse ring alpha at the start of the cycle (fades to 0).
+pub const STATUS_DOT_PULSE_MAX_ALPHA: f32 = 120.0;
+/// Duration of one pulse cycle, in seconds.
+pub const STATUS_DOT_PULSE_SECS: f32 = 1.6;

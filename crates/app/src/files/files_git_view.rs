@@ -49,7 +49,12 @@ impl FilesGitContext<'_> {
     fn draw_header(&self, ui: &mut egui::Ui) -> Vec<FilesGitAction> {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
-            ui.label(RichText::new("GIT").font(font_caption()).strong().color(self.theme.text_secondary));
+            ui.label(
+                RichText::new("GIT")
+                    .font(font_caption())
+                    .strong()
+                    .color(self.theme.text_secondary),
+            );
             if self.busy {
                 ui.label(RichText::new("Git running…").small().color(self.theme.text_muted));
             }
@@ -121,7 +126,6 @@ impl FilesGitContext<'_> {
         ui.add_space(6.0);
     }
 
-
     fn draw_status_placeholder(&self, ui: &mut egui::Ui) {
         ui.label(
             RichText::new("Refresh to probe Git for the active workspace root.")
@@ -142,13 +146,13 @@ impl FilesGitContext<'_> {
             .color(self.theme.text_secondary),
         );
         ui.add_space(6.0);
-        input(
-            ui,
+        Input::new(
             self.commit_message,
             "commit message (explicit only — never auto)",
-            ui.available_width(),
             self.theme,
-        );
+        )
+        .width(ui.available_width())
+        .show(ui);
         if Button::new(self.theme)
             .text("Commit staged")
             .variant(ButtonVariant::Destructive)

@@ -18,7 +18,7 @@ pub(super) struct MonitoringHeaderContext<'a> {
 impl MonitoringHeaderContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<MonitoringHeaderAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.set_max_width(ui.available_width());
             // A right-to-left group in this narrow card paints over the status
             // label. Wrap instead so Connected and Auto-refresh stay readable.

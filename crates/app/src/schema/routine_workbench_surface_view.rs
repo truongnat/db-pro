@@ -67,7 +67,7 @@ pub(super) fn draw_workbench(
 
 fn draw_source_card(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui) -> Option<RoutineWorkbenchAction> {
     let mut action = None;
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).frame().show(ui, |ui| {
         draw_source_editor(context, ui);
         action = draw_source_actions(context, ui);
         if let Some(preview) = context.ddl_preview {
@@ -182,7 +182,7 @@ fn draw_invoke_card(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egui::Ui
 
     let is_procedure = context.function.routine_type.eq_ignore_ascii_case("PROCEDURE");
     let mut action = None;
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).frame().show(ui, |ui| {
         section_label(
             ui,
             if is_procedure {
@@ -297,17 +297,17 @@ fn draw_parameter_inputs(context: &mut RoutineWorkbenchContext<'_>, ui: &mut egu
             }
             ui.add_enabled_ui(!is_null, |ui| {
                 if let Some(value) = context.parameter_values.get_mut(index) {
-                    input(
-                        ui,
+                    Input::new(
                         value,
                         if parameter.has_default {
                             parameter.default_expr.as_str()
                         } else {
                             "value"
                         },
-                        ui.available_width(),
                         context.theme,
-                    );
+                    )
+                    .width(ui.available_width())
+                    .show(ui);
                 }
             });
         });

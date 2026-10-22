@@ -124,7 +124,7 @@ pub(super) struct RoutineDebugStatusContext<'a> {
 /// Draws the status block; returns `true` when the user asked for a fresh probe.
 pub(super) fn draw_debug_status(context: &mut RoutineDebugStatusContext<'_>, ui: &mut egui::Ui) -> bool {
     let mut requested = false;
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).frame().show(ui, |ui| {
         section_label(ui, t!("routine.debug_title").into_owned(), context.theme);
         ui.add_space(SPACE_SM);
         Badge::new(context.guidance.status.as_str(), context.theme)

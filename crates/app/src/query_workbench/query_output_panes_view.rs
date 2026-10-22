@@ -11,7 +11,7 @@ pub(super) struct QueryOutputPanesContext<'a> {
 pub(super) fn draw_messages_pane(context: &mut QueryOutputPanesContext<'_>, ui: &mut egui::Ui) {
     let output_width = ui.available_width();
     let messages = context.session.active_messages();
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).frame().show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         if messages.is_empty() {
             EmptyState::new(
@@ -45,7 +45,7 @@ pub(super) fn draw_chart_pane(
     use crate::{ChartAggregation, ChartEngine, ChartRenderer, ChartType};
 
     let output_width = ui.available_width();
-    card_frame(context.theme).show(ui, |ui| {
+    Card::new(context.theme).frame().show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         let Some(result) = result else {
             EmptyState::new(

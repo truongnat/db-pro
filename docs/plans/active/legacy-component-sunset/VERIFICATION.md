@@ -82,3 +82,18 @@ Not yet run: fmt --check workspace, clippy, tests, captures (scheduled Wave 6).
   Secondary, pattern tints Unique/Repeated/Varied) legible in both themes.
   NOTE: `DB_PRO_CAPTURE_REASSERT_SURFACE=1` required — schema load steals
   the active tab otherwise; earlier captures without it showed Welcome.
+
+## Wave 5c (legacy.rs deleted entirely) — pending commit
+
+- `legacy.rs` (414 lines post-5b) removed; `pub use legacy::*` dropped from
+  `components/mod.rs`. Relocations: `card_frame` callers → `Card::new(...).frame()`
+  (40 sites); `input` → `components::input::Input` (30 sites);
+  `selectable_card_frame` → `card::selectable_frame`; `sidebar_item` +
+  `section_label` → `nav`; `tab_button` → `tabs/ui/tab_button.rs`;
+  `status_dot`+`tinted` → `feedback`; `icon_text`/`icon_layout` → `common::text`;
+  all 12 `*_frame` + `ShellSurface` → `common::frames` (retokenized).
+- `cargo check --workspace` PASS, `cargo test -p db-pro-ui` 715 PASS,
+  `cargo test -p db-pro-app` 676 PASS (one timing flake passed on rerun).
+- Captures 1280×800: settings dark (`/tmp/w5c_settings_dark.png`) — section
+  labels + card frame render correctly; gallery `form` dark+light
+  (`/tmp/w5c_form_{dark,light}.png`) — migrated `Input` fields + cards clean.

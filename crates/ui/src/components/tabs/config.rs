@@ -45,3 +45,11 @@ pub(super) const UNDERLINE_INDICATOR_MIN_WIDTH: f32 = 12.0;
 pub(super) const SEGMENTED_FONT_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
 // Font size shared by labels in the underline tab row, in egui points.
 pub(super) const UNDERLINE_FONT_SIZE: f32 = 13.0;
+
+// Half-padding around a standalone content-tab label (tab_button), in egui points.
+pub(super) const TAB_BUTTON_PAD_X: f32 = 11.0;
+pub(super) const TAB_BUTTON_PAD_Y: f32 = 7.0;
+// Wash inset for the selected/hovered content-tab background, in egui points.
+pub(super) const TAB_BUTTON_WASH_INSET: f32 = crate::tokens::STROKE_THIN;
+// Corner radius of the content-tab wash, in egui points.
+pub(super) const TAB_BUTTON_WASH_RADIUS: f32 = RADIUS_SM;

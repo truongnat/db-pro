@@ -9,7 +9,7 @@ pub(super) struct SettingsAppearanceContext<'a> {
 
 impl SettingsAppearanceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
-        card_frame(*self.theme).show(ui, |ui| {
+        Card::new(*self.theme).frame().show(ui, |ui| {
             section_label(ui, "APPEARANCE", *self.theme);
             ui.add_space(10.0);
             ui.horizontal_wrapped(|ui| {

@@ -160,9 +160,15 @@ impl VisualQueryBuilderContext<'_> {
         section_label(ui, "JOINS", self.theme);
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.join_table, "schema.table", 110.0, self.theme);
-            input(ui, &mut self.state.join_left, "left_alias.col", 110.0, self.theme);
-            input(ui, &mut self.state.join_right, "right_alias.col", 110.0, self.theme);
+            Input::new(&mut self.state.join_table, "schema.table", self.theme)
+                .width(110.0)
+                .show(ui);
+            Input::new(&mut self.state.join_left, "left_alias.col", self.theme)
+                .width(110.0)
+                .show(ui);
+            Input::new(&mut self.state.join_right, "right_alias.col", self.theme)
+                .width(110.0)
+                .show(ui);
             if Button::new(self.theme)
                 .text("Add INNER JOIN")
                 .variant(ButtonVariant::Secondary)
@@ -213,9 +219,15 @@ impl VisualQueryBuilderContext<'_> {
         section_label(ui, "COLUMNS", self.theme);
         Checkbox::new(&mut self.state.model.select_star, "SELECT *", self.theme).show(ui);
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.col_ref, "alias.column", 110.0, self.theme);
-            input(ui, &mut self.state.col_alias, "AS alias", 90.0, self.theme);
-            input(ui, &mut self.state.col_agg, "AGG optional", 90.0, self.theme);
+            Input::new(&mut self.state.col_ref, "alias.column", self.theme)
+                .width(110.0)
+                .show(ui);
+            Input::new(&mut self.state.col_alias, "AS alias", self.theme)
+                .width(90.0)
+                .show(ui);
+            Input::new(&mut self.state.col_agg, "AGG optional", self.theme)
+                .width(90.0)
+                .show(ui);
             if Button::new(self.theme)
                 .text("Add column")
                 .variant(ButtonVariant::Secondary)
@@ -252,9 +264,15 @@ impl VisualQueryBuilderContext<'_> {
         ui.add_space(SPACE_SM);
         section_label(ui, "WHERE / HAVING / ORDER / LIMIT", self.theme);
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.where_left, "alias.col", 110.0, self.theme);
-            input(ui, &mut self.state.where_op, "=", 48.0, self.theme);
-            input(ui, &mut self.state.where_value, "value", 110.0, self.theme);
+            Input::new(&mut self.state.where_left, "alias.col", self.theme)
+                .width(110.0)
+                .show(ui);
+            Input::new(&mut self.state.where_op, "=", self.theme)
+                .width(48.0)
+                .show(ui);
+            Input::new(&mut self.state.where_value, "value", self.theme)
+                .width(110.0)
+                .show(ui);
             if Button::new(self.theme)
                 .text("Add WHERE")
                 .variant(ButtonVariant::Secondary)
@@ -285,7 +303,9 @@ impl VisualQueryBuilderContext<'_> {
             });
         }
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.order, "alias.col", 110.0, self.theme);
+            Input::new(&mut self.state.order, "alias.col", self.theme)
+                .width(110.0)
+                .show(ui);
             Checkbox::new(&mut self.state.order_desc, "DESC", self.theme).show(ui);
             if Button::new(self.theme)
                 .text("Add ORDER")
@@ -296,9 +316,13 @@ impl VisualQueryBuilderContext<'_> {
                 self.state.add_order(self.dialect);
             }
             ui.label("LIMIT");
-            input(ui, &mut self.state.limit, "limit", 60.0, self.theme);
+            Input::new(&mut self.state.limit, "limit", self.theme)
+                .width(60.0)
+                .show(ui);
             ui.label("OFFSET");
-            input(ui, &mut self.state.offset, "offset", 60.0, self.theme);
+            Input::new(&mut self.state.offset, "offset", self.theme)
+                .width(60.0)
+                .show(ui);
             if Button::new(self.theme)
                 .text("Apply limit")
                 .variant(ButtonVariant::Ghost)

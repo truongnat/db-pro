@@ -28,7 +28,6 @@ pub mod form;
 pub mod hover_card;
 pub mod input;
 pub mod interact;
-pub mod legacy;
 pub mod logs;
 pub mod nav;
 pub mod overlay;
@@ -58,28 +57,30 @@ pub use badge::{Badge, BadgeVariant};
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonVariant};
 pub use calendar::{day_of_week, days_in_month, is_leap_year, Calendar, DatePicker, SimpleDate};
 pub use card::{
-    card_content, card_footer, card_header, Card, MetricCard, MetricTrend, MetricTrendDirection, MetricTrendTone,
+    card_content, card_footer, card_header, selectable_frame, Card, MetricCard, MetricTrend, MetricTrendDirection,
+    MetricTrendTone,
 };
 pub use chrome::{toolbar_button, Avatar, AvatarShape, AvatarSize, AvatarStatus, EmptyState, Skeleton, Toolbar};
 pub use code::{sql_layouter, CodeBlock, InlineCode};
 pub use collapsible::Collapsible;
 pub use command::{CommandEmpty, CommandGroup, CommandInput, CommandItem};
 pub use common::{
-    calculate_dialog_layout, calculate_sheet_layout, clamp_popup_to_screen, format_bytes, format_count_with_suffix,
-    format_duration_millis, format_page_range, format_percentage, truncate_ellipsis, DialogLayout,
+    activity_bar_frame, agent_message_frame, app_frame, calculate_dialog_layout, calculate_sheet_layout, chip_frame,
+    clamp_popup_to_screen, editor_frame, format_bytes, format_count_with_suffix, format_duration_millis,
+    format_page_range, format_percentage, grid_frame, icon_text, list_row_frame, panel_frame, shell_surface_frame,
+    sidebar_frame, tab_frame, toolbar_frame, truncate_ellipsis, DialogLayout, ShellSurface,
 };
 pub use database::{ConnectionCard, ConnectionCardAction, ConnectionStatus, DatabaseDriver, DatabaseTypeBadge};
 pub use dev_tools::{ProgressRing, TerminalBlock};
 pub use dialog::{dialog_actions, Dialog, DialogActionLabels, Sheet};
 pub use diff::{DiffLine, DiffLineType, DiffViewer};
 pub use explain::{ExplainPlanTree, PlanNode};
-pub use feedback::{kbd_badge, kbd_combo, separator_with_text, Progress, Spinner};
+pub use feedback::{kbd_badge, kbd_combo, separator_with_text, status_dot, Progress, Spinner};
 pub use form::{FieldRule, FormField, FormState, Label, ValidationMode};
 pub use hover_card::HoverCard;
 pub use input::{Input, PasswordInput, SearchInput, Textarea};
-pub use legacy::*;
 pub use logs::{LogEntry, LogLevel, LogViewer};
-pub use nav::{Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
+pub use nav::{section_label, sidebar_item, Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
 pub use overlay::{
     context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
     FloatingPopup, Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip,
@@ -94,7 +95,8 @@ pub use separator::{Separator, SeparatorOrientation};
 pub use sql_editor::{SqlEditorAction, SqlEditorToolbar};
 pub use table::{Table, TableColumn, TableColumnAlign};
 pub use tabs::{
-    draw_document_tab, DocumentTabAction, DocumentTabItem, SegmentedTabs, UnderlineTabs, DOCUMENT_TAB_HEIGHT,
+    draw_document_tab, tab_button, DocumentTabAction, DocumentTabItem, SegmentedTabs, UnderlineTabs,
+    DOCUMENT_TAB_HEIGHT,
 };
 pub use toggle::{Toggle, ToggleGroup, ToggleGroupItem, ToggleSize, ToggleVariant};
 pub use transaction::{DestructiveOperationDialog, TransactionAction, TransactionBar};

@@ -1,8 +1,10 @@
 mod segmented;
+mod tab_button;
 mod underline;
 
 use egui::{Key, Ui};
 pub use segmented::SegmentedTabs;
+pub use tab_button::tab_button;
 pub use underline::UnderlineTabs;
 
 fn navigation_keys(ui: &Ui) -> super::handler::NavigationKeys {

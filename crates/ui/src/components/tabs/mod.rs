@@ -12,4 +12,4 @@ mod ui;
 mod tests;
 
 pub use document_tab::{draw_document_tab, DocumentTabAction, DocumentTabItem, DOCUMENT_TAB_HEIGHT};
-pub use ui::{SegmentedTabs, UnderlineTabs};
+pub use ui::{tab_button, SegmentedTabs, UnderlineTabs};

@@ -26,13 +26,9 @@ impl FilesTasksContext<'_> {
 
     fn draw_command_form(&mut self, ui: &mut egui::Ui) -> Vec<FilesTasksAction> {
         let mut actions = Vec::new();
-        input(
-            ui,
-            self.command,
-            "shell command in workspace root…",
-            ui.available_width(),
-            self.theme,
-        );
+        Input::new(self.command, "shell command in workspace root…", self.theme)
+            .width(ui.available_width())
+            .show(ui);
         ui.add_space(4.0);
         if Button::new(self.theme)
             .text("Run")

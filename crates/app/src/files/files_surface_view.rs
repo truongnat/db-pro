@@ -43,7 +43,12 @@ impl FilesSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<FilesSurfaceAction>) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("WORKSPACE").font(font_caption()).strong().color(self.theme.text_secondary));
+            ui.label(
+                RichText::new("WORKSPACE")
+                    .font(font_caption())
+                    .strong()
+                    .color(self.theme.text_secondary),
+            );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if Button::new(self.theme)
                     .icon(Icon::FolderOpen)
@@ -94,7 +99,12 @@ impl FilesSurfaceContext<'_> {
             return;
         }
         ui.add_space(12.0);
-        ui.label(RichText::new("RECENT").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("RECENT")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(6.0);
         for path in self.workspace.recent_roots.iter().take(8) {
             let label = path
@@ -117,14 +127,18 @@ impl FilesSurfaceContext<'_> {
     }
 
     fn draw_workspace_card(&self, ui: &mut egui::Ui, actions: &mut Vec<FilesSurfaceAction>) {
-        card_frame(self.theme)
-        .show(ui, |ui| {
-            let active_root_name = self.workspace.roots.get(self.workspace.active_root).map(|root| {
-                root.path
-                    .file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| root.path.display().to_string())
-            }).unwrap_or_else(|| "Workspace".to_owned());
+        Card::new(self.theme).frame().show(ui, |ui| {
+            let active_root_name = self
+                .workspace
+                .roots
+                .get(self.workspace.active_root)
+                .map(|root| {
+                    root.path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| root.path.display().to_string())
+                })
+                .unwrap_or_else(|| "Workspace".to_owned());
 
             // Header row: Folder icon + Name + Action buttons
             ui.horizontal(|ui| {
@@ -134,7 +148,12 @@ impl FilesSurfaceContext<'_> {
                         .color(self.theme.accent),
                 );
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                ui.label(RichText::new(crate::components::truncate_ellipsis(&active_root_name, 28)).font(font_ui_label()).strong().color(self.theme.text_primary));
+                ui.label(
+                    RichText::new(crate::components::truncate_ellipsis(&active_root_name, 28))
+                        .font(font_ui_label())
+                        .strong()
+                        .color(self.theme.text_primary),
+                );
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if Button::new(self.theme)
                         .icon(Icon::X)
@@ -187,7 +206,11 @@ impl FilesSurfaceContext<'_> {
                 (Icon::ShieldAlert, self.theme.warning, "Untrusted")
             };
             ui.horizontal(|ui| {
-                ui.label(RichText::new(char::from(trust_icon).to_string()).font(font_icon(ICON_XS)).color(trust_color));
+                ui.label(
+                    RichText::new(char::from(trust_icon).to_string())
+                        .font(font_icon(ICON_XS))
+                        .color(trust_color),
+                );
                 ui.label(RichText::new(trust_label).font(font_caption()).color(trust_color));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let (toggle_label, toggle_hint) = if trusted {
@@ -216,10 +239,7 @@ impl FilesSurfaceContext<'_> {
                     .iter()
                     .map(|environment| environment.name.clone())
                     .collect();
-                let mut selected = self
-                    .workspace
-                    .active_environment
-                    .min(env_names.len().saturating_sub(1));
+                let mut selected = self.workspace.active_environment.min(env_names.len().saturating_sub(1));
                 Select::new("workspace_environment", &mut selected, &env_names)
                     .theme(self.theme)
                     .size(SelectSize::Sm)
@@ -236,7 +256,11 @@ impl FilesSurfaceContext<'_> {
                 ui.add_space(SPACE_XXS);
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = vec2(SPACE_XS, SPACE_XXS);
-                    ui.label(RichText::new("Roots:").font(font_caption()).color(self.theme.text_muted));
+                    ui.label(
+                        RichText::new("Roots:")
+                            .font(font_caption())
+                            .color(self.theme.text_muted),
+                    );
                     for (index, root) in self.workspace.roots.iter().enumerate() {
                         let label = root
                             .path
@@ -311,12 +335,7 @@ impl FilesSurfaceContext<'_> {
                     .on_hover_text(label);
                 // Custom frame: declare the tab role + name for accessibility.
                 response.widget_info(|| {
-                    egui::WidgetInfo::selected(
-                        egui::WidgetType::SelectableLabel,
-                        ui.is_enabled(),
-                        is_active,
-                        label,
-                    )
+                    egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, ui.is_enabled(), is_active, label)
                 });
                 if response.clicked() && !is_active {
                     actions.push(FilesSurfaceAction::SelectTab(tab));

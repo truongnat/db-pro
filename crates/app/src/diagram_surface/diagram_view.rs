@@ -431,7 +431,10 @@ fn draw_diagram_toolbar(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, fra
 /// Search input + neighborhood-depth toggles shown on large schemas.
 fn draw_diagram_search_controls(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui, all_table_count: usize) {
     ui.add_space(SPACE_SM);
-    let search_changed = input(ui, &mut ctx.diagram.search, "Find table or column…", 200.0, ctx.theme).changed();
+    let search_changed = Input::new(&mut ctx.diagram.search, "Find table or column…", ctx.theme)
+        .width(200.0)
+        .show(ui)
+        .changed();
     if search_changed {
         ctx.diagram.search_changed_at = Some(std::time::Instant::now());
         ctx.diagram.fitted_search.clear();

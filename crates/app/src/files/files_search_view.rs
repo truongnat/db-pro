@@ -37,21 +37,13 @@ impl FilesSearchContext<'_> {
 
     fn draw_search_controls(&mut self, ui: &mut egui::Ui) -> Vec<FilesSearchAction> {
         let mut actions = Vec::new();
-        input(
-            ui,
-            &mut self.draft.search_query,
-            "Find in files…",
-            ui.available_width(),
-            self.theme,
-        );
+        Input::new(&mut self.draft.search_query, "Find in files…", self.theme)
+            .width(ui.available_width())
+            .show(ui);
         ui.add_space(4.0);
-        input(
-            ui,
-            &mut self.draft.replace_query,
-            "Replace with…",
-            ui.available_width(),
-            self.theme,
-        );
+        Input::new(&mut self.draft.replace_query, "Replace with…", self.theme)
+            .width(ui.available_width())
+            .show(ui);
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
@@ -112,20 +104,12 @@ impl FilesSearchContext<'_> {
         let mut actions = Vec::new();
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            input(
-                ui,
-                &mut self.draft.refactor_from,
-                "Rename from",
-                90.0,
-                self.theme,
-            );
-            input(
-                ui,
-                &mut self.draft.refactor_to,
-                "to",
-                90.0,
-                self.theme,
-            );
+            Input::new(&mut self.draft.refactor_from, "Rename from", self.theme)
+                .width(90.0)
+                .show(ui);
+            Input::new(&mut self.draft.refactor_to, "to", self.theme)
+                .width(90.0)
+                .show(ui);
             if Button::new(self.theme)
                 .text("Refactor")
                 .variant(ButtonVariant::Secondary)
@@ -144,7 +128,12 @@ impl FilesSearchContext<'_> {
             return;
         }
         ui.add_space(6.0);
-        ui.label(RichText::new("REPLACE PREVIEW").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("REPLACE PREVIEW")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         for preview in self.replace_previews.iter().take(30) {
             ui.label(
                 RichText::new(format!(
@@ -163,7 +152,12 @@ impl FilesSearchContext<'_> {
         }
         let mut actions = Vec::new();
         ui.add_space(6.0);
-        ui.label(RichText::new("SEARCH RESULTS").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("SEARCH RESULTS")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(4.0);
         for hit in self.search_hits.iter().take(40) {
             let label = format!("{}:{}", hit.relative_path, hit.line);

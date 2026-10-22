@@ -16,12 +16,12 @@ use crate::{
     result_grid::{GridProjectionCache, GridProjectionKey},
 };
 use db_pro_ui::{
-    card_frame, components::*, editor::PredictionMode, editor_frame, grid_frame, icon_text, input,
-    query::SchemaSymbolIndex, section_label, sidebar_item, tokens::*, toolbar_frame, DbProTheme, RequestId, TaskBridge,
-    UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
-    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
-    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
-    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    components::*, editor::PredictionMode, editor_frame, grid_frame, icon_text, query::SchemaSymbolIndex,
+    section_label, sidebar_item, tokens::*, toolbar_frame, DbProTheme, RequestId, TaskBridge, UiCell, UiCommand,
+    UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
+    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
+    UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator,
+    UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 
 include!("app_modules.rs");

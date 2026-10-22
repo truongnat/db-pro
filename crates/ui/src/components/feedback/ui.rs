@@ -238,3 +238,42 @@ pub fn separator_with_text(ui: &mut Ui, text: &str, theme: DbProTheme) {
         );
     });
 }
+
+/// Build a tinted version of `color` with the given alpha (0..=255).
+/// Used by glow / pulse effects that need a translucent fill.
+fn tinted(color: Color32, alpha: u8) -> Color32 {
+    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha)
+}
+
+/// Small status dot with an optional pulsing outer ring. Used for connection
+/// health, agent provider readiness, etc.
+///
+/// The dot takes its colour from the caller-supplied `color`; `theme` is
+/// accepted for signature symmetry with the other status helpers.
+pub fn status_dot(
+    ui: &mut Ui,
+    color: Color32,
+    pulsing: bool,
+    reduce_motion: bool,
+    _theme: DbProTheme,
+) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(STATUS_DOT_SIZE, STATUS_DOT_SIZE), egui::Sense::hover());
+    let center = rect.center();
+
+    if pulsing {
+        let phase = if reduce_motion {
+            0.0
+        } else {
+            ui.ctx()
+                .animate_value_with_time(egui::Id::new("dbpro.status_dot.phase"), 1.0, STATUS_DOT_PULSE_SECS)
+        };
+        let pulse_r = STATUS_DOT_PULSE_MIN_RADIUS + (STATUS_DOT_PULSE_MAX_RADIUS - STATUS_DOT_PULSE_MIN_RADIUS) * phase;
+        let alpha = ((1.0 - phase) * STATUS_DOT_PULSE_MAX_ALPHA) as u8;
+        ui.painter().circle_filled(center, pulse_r, tinted(color, alpha));
+        if !reduce_motion {
+            ui.ctx().request_repaint();
+        }
+    }
+    ui.painter().circle_filled(center, STATUS_DOT_CORE_RADIUS, color);
+    response
+}

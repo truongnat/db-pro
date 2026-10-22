@@ -18,7 +18,7 @@ pub(crate) struct SettingsDiagnosticsContext<'a> {
 impl SettingsDiagnosticsContext<'_> {
     pub(crate) fn draw(&self, ui: &mut egui::Ui) -> Vec<SettingsDiagnosticsAction> {
         let mut actions = Vec::new();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             // Match the sibling settings cards: fill the pane width instead of
             // shrinking to content.
             ui.set_min_width((ui.available_width() - 4.0).max(0.0));

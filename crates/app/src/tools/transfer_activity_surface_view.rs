@@ -55,7 +55,7 @@ impl TransferActivityContext<'_> {
     }
 
     fn draw_backup_card(&self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "BACKUP / RESTORE", self.theme);
             ui.label(
                 RichText::new(
@@ -80,7 +80,7 @@ impl TransferActivityContext<'_> {
     }
 
     fn draw_synthetic_card(&mut self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "SYNTHETIC TABLE SEED", self.theme);
             ui.label(
                 RichText::new(
@@ -186,29 +186,21 @@ impl TransferActivityContext<'_> {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
                 ui.label(RichText::new("rows").small().color(self.theme.text_secondary));
-                input(
-                    ui,
+                Input::new(
                     &mut self.management.synthetic_data.synthetic_row_count,
                     "count",
-                    48.0,
                     self.theme,
-                );
+                )
+                .width(48.0)
+                .show(ui);
                 ui.label(RichText::new("seed").small().color(self.theme.text_secondary));
-                input(
-                    ui,
-                    &mut self.management.synthetic_data.synthetic_seed,
-                    "seed",
-                    64.0,
-                    self.theme,
-                );
+                Input::new(&mut self.management.synthetic_data.synthetic_seed, "seed", self.theme)
+                    .width(64.0)
+                    .show(ui);
                 ui.label(RichText::new("null%").small().color(self.theme.text_secondary));
-                input(
-                    ui,
-                    &mut self.management.synthetic_data.synthetic_null_pct,
-                    "%",
-                    36.0,
-                    self.theme,
-                );
+                Input::new(&mut self.management.synthetic_data.synthetic_null_pct, "%", self.theme)
+                    .width(36.0)
+                    .show(ui);
             });
         });
     }
@@ -257,7 +249,7 @@ impl TransferActivityContext<'_> {
     }
 
     fn draw_masking_card(&mut self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             section_label(ui, "MASKING / SAFE SAMPLE", self.theme);
             if std::mem::take(&mut self.management.transfer.capture_focus_once) {
                 ui.scroll_to_cursor(Some(egui::Align::Min));
@@ -313,13 +305,13 @@ impl TransferActivityContext<'_> {
                 egui::vec2(columns_width, crate::tokens::component::input::INPUT_HEIGHT_DEFAULT),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    input(
-                        ui,
+                    Input::new(
                         &mut self.management.masking.masking_columns_csv,
                         "cols: email,phone",
-                        columns_width,
                         self.theme,
-                    );
+                    )
+                    .width(columns_width)
+                    .show(ui);
                 },
             );
             let rule_width = f32::min(100.0, ui.max_rect().width());
@@ -545,7 +537,7 @@ impl TransferActivityContext<'_> {
             return;
         }
         for job in &self.management.transfer.transfer_jobs {
-            card_frame(self.theme).show(ui, |ui| {
+            Card::new(self.theme).frame().show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(&job.label).strong().color(self.theme.text_primary));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

@@ -56,7 +56,7 @@ fn draw_health_findings(
             db_pro_core::domain::health_advisor::HealthSeverity::Warning => theme.warning,
             db_pro_core::domain::health_advisor::HealthSeverity::Info => theme.accent,
         };
-        card_frame(theme).show(ui, |ui| {
+        Card::new(theme).frame().show(ui, |ui| {
             ui.horizontal(|ui| {
                 // Soft-tinted severity pill: the tint keeps the label readable
                 // (a solid severity fill with white text fails contrast).

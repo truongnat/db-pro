@@ -98,7 +98,7 @@ impl EventTriggerSurfaceContext<'_> {
         actions: &mut Vec<EventTriggerSurfaceAction>,
     ) {
         let trigger_name = trigger.name.clone();
-        card_frame(self.theme).show(ui, |ui| {
+        Card::new(self.theme).frame().show(ui, |ui| {
             ui.label(
                 RichText::new(format!(
                     "{} · on {} · {} · fn={}",
@@ -163,30 +163,28 @@ impl EventTriggerSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create event trigger").small().strong());
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.event_trigger_create_name, "name", 130.0, self.theme);
-            input(
-                ui,
-                &mut self.state.event_trigger_create_event,
-                "event",
-                110.0,
-                self.theme,
-            );
+            Input::new(&mut self.state.event_trigger_create_name, "name", self.theme)
+                .width(130.0)
+                .show(ui);
+            Input::new(&mut self.state.event_trigger_create_event, "event", self.theme)
+                .width(110.0)
+                .show(ui);
         });
         ui.horizontal(|ui| {
-            input(
-                ui,
+            Input::new(
                 &mut self.state.event_trigger_create_function,
                 "schema.func()",
-                160.0,
                 self.theme,
-            );
-            input(
-                ui,
+            )
+            .width(160.0)
+            .show(ui);
+            Input::new(
                 &mut self.state.event_trigger_create_tags,
                 "tags CSV optional",
-                140.0,
                 self.theme,
-            );
+            )
+            .width(140.0)
+            .show(ui);
         });
         ui.horizontal(|ui| {
             if Button::new(self.theme)
