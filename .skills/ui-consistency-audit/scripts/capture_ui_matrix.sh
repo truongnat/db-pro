@@ -6,10 +6,10 @@
 #   bash .skills/ui-consistency-audit/scripts/capture_ui_matrix.sh --all [--audit]
 #   bash .skills/ui-consistency-audit/scripts/capture_ui_matrix.sh --surface query --variant limit
 #
-# Requires a display. ALWAYS wrap the command with a private Xvfb display, even on a
-# desktop session — otherwise every capture opens a real window on the user's screen:
-#   xvfb-run -a -s "-screen 0 1920x1080x24" bash .skills/.../capture_ui_matrix.sh ...
-# The app prefers Wayland when WAYLAND_DISPLAY is inherited; this script forces X11.
+# Requires a display. The script re-execs itself under `xvfb-run` when it is not
+# already on a private display, so a capture can never flash a window over the
+# user's session. The app prefers Wayland when WAYLAND_DISPLAY is inherited; the
+# re-exec drops it and forces X11.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -36,6 +36,7 @@ usage() {
     exit 0
 }
 
+argv=("$@")
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --surface) SURFACE="${2:-}"; shift 2 ;;
@@ -49,9 +50,27 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# A capture run must never reach the session display: the window would flash over
+# whatever the user is doing. Re-exec once under a private Xvfb unless the caller
+# already put us on one, and drop WAYLAND_DISPLAY so eframe cannot pick the real
+# compositor instead.
+if [[ -z "${DB_PRO_CAPTURE_HEADLESS:-}" ]] && command -v xvfb-run >/dev/null 2>&1; then
+    export DB_PRO_CAPTURE_HEADLESS=1
+    exec env -u WAYLAND_DISPLAY xvfb-run -a -s "-screen 0 ${SIZE}x24" bash "$0" "${argv[@]}"
+fi
+
 if [[ ! -x "$BIN" ]]; then
     echo "capture binary not found: $BIN" >&2
     echo "build it with: cargo build -p db-pro-native --features capture" >&2
+    exit 1
+fi
+
+# `cargo test`/`clippy` on the workspace rebuilds the same path WITHOUT the
+# `capture` feature, which silently leaves a binary that runs the app forever
+# instead of writing a PNG. Catch it here rather than reporting 100+ "missing".
+if ! grep -aq DB_PRO_CAPTURE_TO "$BIN"; then
+    echo "$BIN was built without the capture driver" >&2
+    echo "rebuild it with: cargo build -p db-pro-native --features capture" >&2
     exit 1
 fi
 
@@ -103,7 +122,8 @@ run_one() {
     fi
     # shellcheck disable=SC2086
     env -i HOME="$HOME" PATH="$PATH" \
-        DISPLAY="${DISPLAY:-:0}" WINIT_UNIX_BACKEND=x11 \
+        DISPLAY="${DISPLAY:?no display set; the script normally re-execs under xvfb-run}" \
+        WINIT_UNIX_BACKEND=x11 \
         XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}" \
         XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}" \
         DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-}" \
