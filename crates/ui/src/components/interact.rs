@@ -30,14 +30,20 @@ pub fn update_focus_visible(ctx: &egui::Context) {
                 || input.key_pressed(egui::Key::Space),
         )
     });
-    let visible = if pointer_used {
+    let visible = next_focus_visible(pointer_used, focus_key, focus_visible(ctx));
+    ctx.data_mut(|d| d.insert_temp(Id::new(FOCUS_VISIBLE_ID), visible));
+}
+
+/// Focus-visible state transition: pointer input clears it, focus keys set
+/// it, anything else keeps the previous modality.
+fn next_focus_visible(pointer_used: bool, focus_key: bool, was_visible: bool) -> bool {
+    if pointer_used {
         false
     } else if focus_key {
         true
     } else {
-        focus_visible(ctx)
-    };
-    ctx.data_mut(|d| d.insert_temp(Id::new(FOCUS_VISIBLE_ID), visible));
+        was_visible
+    }
 }
 
 /// Whether the focus ring should render this frame (keyboard-driven focus).
@@ -80,3 +86,7 @@ pub fn text_input_info(enabled: bool, label: &str) -> WidgetInfo {
 pub fn combo_box_info(enabled: bool, label: &str) -> WidgetInfo {
     WidgetInfo::labeled(WidgetType::ComboBox, enabled, label)
 }
+
+#[cfg(test)]
+#[path = "tests/interact_tests.rs"]
+mod tests;

@@ -159,3 +159,21 @@ Live verification (orca + cliclick on the running app):
 - Deadlock note fixed: `ctx.input` closure captures flags only; `ctx.data`
   read/write happen outside it (advisory caught `input`+`data_mut` sharing
   `ctx.write`).
+
+## Focus-visible regression tests + corrected live evidence (2026-10-22)
+
+- `components/tests/interact_tests.rs`: 5 tests driving real `egui::Context`
+  input through `update_focus_visible` — default off, Tab/arrows/Enter/Space
+  on, pointer press AND release off, modality persists across idle frames.
+  720 ui tests total pass on HEAD.
+- Corrected live pass (element-index clicks, no coordinate guessing):
+  - `click --element-index 29` (Query 1 tab) → tab active, **no ring** —
+    `evidence/focus_visible_click_no_ring.png` (exact user-reported case).
+  - `cliclick kp:tab` ×3 → accent ring on sidebar icon —
+    `evidence/focus_visible_tab_ring.png`.
+  - Earlier Settings pass: Tab → ring on "Light" radio. An element-index
+    "Welcome" click kept the pre-Tab ring because AXPress does not synthesize
+    a pointer event; that is an AX limitation, not app behavior.
+- `NativeMenuApp` and `CaptureApp` both forward `logic` to `DbProApp` — the
+  update hook runs on every real launch path (verified in source, main.rs:660,
+  capture.rs:305).
