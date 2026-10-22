@@ -5,13 +5,6 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 
 ## [Unreleased]
 
-### Changed
-
-- Reorganized repository files by ownership: colocated Rust unit tests and private helper
-  families, consolidated project planning under `docs/plans/project/`, and grouped design
-  references, audit reports and retained screenshots with their owning documentation.
-  Rust module APIs and application behavior are unchanged.
-
 ### Fixed
 
 - Agent runs now count cached tool-call replays toward the existing ten-step limit, stopping
