@@ -40,13 +40,31 @@ Not yet run: fmt --check workspace, clippy, tests, captures (scheduled Wave 6).
 ## Wave 3 (config const aliases) — commit `1c2586f0`
 
 - `cargo check -p db-pro-ui` PASS; `cargo test -p db-pro-ui` 715 PASS (subagent).
-- Captures recorded (`/tmp/w3_disclosure_{dark,light}.png`, 1280×800) are
-  **PROVISIONAL**: the capture binary was built after wave 2 and before the
-  wave-3 commit; they show the pre-`RADIUS_FULL` pill geometry. Recapture on
-  the post-wave-4 build before accepting them as evidence.
+- Recaptured on the post-wave-4 binary (built at `11ff76d7`):
+  `disclosure` + `selection` sections, dark + light, 1280×800
+  (`/tmp/w34_*_{dark,light}.png`). **MD5 identical to the pre-wave-3
+  captures** — `RADIUS_FULL` vs 9/8 clamps to the same pixels on the
+  ~18px badge height, so the wave-3 pill change is a render no-op and
+  waves 3–4 introduce **zero visual regression** on these surfaces.
 - Alias-only claim verified mechanically: every old→new pair extracted from
   `git show 1c2586f0` matches the token's value (1.0→STROKE_THIN, 4→SPACE_XS,
   8→SPACE_SM/RADIUS_MD/CARD, 11→FONT_SIZE_KBD/BADGE, 12→FONT_SIZE_CAPTION,
   13→FONT_SIZE_UI_LABEL, 15→FONT_SIZE_BODY, 16→SPACE_LG/ICON_DEFAULT,
   20→SPACE_XL, 24→SPACE_2XL, 32→SPACE_3XL). Sole intentional visual change:
   `BADGE_CORNER_RADIUS` 9→RADIUS_FULL (collapsible pill 8→FULL in ui.rs).
+
+## Wave 4 (selection literals) — commit `11ff76d7`
+
+- `cargo check`/`cargo test -p db-pro-ui` 715 PASS (subagent); `selection`
+  captures above (identical renders) — semantic literals intentionally kept:
+  `CONTROL_DESC_SIZE` 11.5 proportional (aliasing to `FONT_SIZE_MONO_SM`
+  would change font family), `CONTROL_DESC_GAP` 3.0.
+## Wave 5a (legacy buttons → components::Button) — uncommitted→commit
+
+- `cargo check --workspace` PASS; `cargo test -p db-pro-app` 676/676 PASS.
+- 77 call sites migrated; 8 legacy fns deleted. Sizes intentionally moved to
+  `ButtonSize::Default` tokens (legacy 26–30px min_size dropped — intended).
+- Captures 1280×800 dark+light: tools hub (`/tmp/w5a_tools_{dark,light}.png`)
+  and schema compare (`/tmp/w5a_compare_{dark,light}.png`) — migrated
+  ghost/secondary buttons ("Take snapshot", "Diff vs snapshot", "Snapshot",
+  "Diff now") render correctly in both themes.

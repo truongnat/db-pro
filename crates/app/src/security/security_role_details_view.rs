@@ -248,7 +248,12 @@ impl SecurityRoleDetailsContext<'_> {
                 .monospace()
                 .color(self.theme.text_secondary),
             );
-            if danger_button(ui, "Revoke", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Revoke")
+                .variant(ButtonVariant::Destructive)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRoleDetailsAction::RevokePrivilege(privilege.clone()));
             }
         });

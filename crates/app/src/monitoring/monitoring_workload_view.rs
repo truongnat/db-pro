@@ -89,7 +89,12 @@ impl MonitoringWorkloadContext<'_> {
                     actions.push(MonitoringWorkloadAction::SortChanged(sort));
                 }
             }
-            if danger_button(ui, "Reset stats…", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Reset stats…")
+                .variant(ButtonVariant::Destructive)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(MonitoringWorkloadAction::ResetStatistics);
             }
         });
@@ -154,7 +159,13 @@ impl MonitoringWorkloadContext<'_> {
                     statement.query.clone()
                 };
                 ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
-                if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::FileCode2)
+                    .text("Open SQL")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(MonitoringWorkloadAction::OpenSql(statement.query.clone()));
                 }
             });

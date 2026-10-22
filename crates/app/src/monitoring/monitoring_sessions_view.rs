@@ -163,13 +163,32 @@ impl MonitoringSessionsContext<'_> {
         ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(SPACE_XS, SPACE_XXS);
-            if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FileCode2)
+                .text("Open SQL")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(MonitoringSessionsAction::OpenSql(query.to_owned()));
             }
-            if !session.is_current && secondary_button_with_icon(ui, Icon::Ban, "Cancel", self.theme).clicked() {
+            if !session.is_current
+                && Button::new(self.theme)
+                    .icon(Icon::Ban)
+                    .text("Cancel")
+                    .variant(ButtonVariant::Secondary)
+                    .show(ui)
+                    .clicked()
+            {
                 actions.push(MonitoringSessionsAction::Cancel(session.clone()));
             }
-            if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
+            if !session.is_current
+                && Button::new(self.theme)
+                    .text("Terminate")
+                    .variant(ButtonVariant::Destructive)
+                    .show(ui)
+                    .clicked()
+            {
                 actions.push(MonitoringSessionsAction::RequestTerminate(session.clone()));
             }
         });

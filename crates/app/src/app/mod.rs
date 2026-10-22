@@ -16,14 +16,12 @@ use crate::{
     result_grid::{GridProjectionCache, GridProjectionKey},
 };
 use db_pro_ui::{
-    badge, card_frame, components::*, danger_button, editor::PredictionMode, editor_frame, empty_state,
-    ghost_button_with_icon, grid_frame, icon_text, input, menu_button_with_icon, primary_button,
-    primary_button_with_icon, query::SchemaSymbolIndex, secondary_button, secondary_button_with_icon, section_label,
-    sidebar_item, tokens::*, toolbar_frame, DbProTheme, RequestId, TaskBridge, UiCell, UiCommand, UiConnectionDraft,
-    UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary,
-    UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary,
-    UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
-    UiTableSummary, UiTriggerSummary, UiViewSummary,
+    badge, card_frame, components::*, editor::PredictionMode, editor_frame, empty_state, grid_frame, icon_text, input,
+    query::SchemaSymbolIndex, section_label, sidebar_item, tokens::*, toolbar_frame, DbProTheme, RequestId, TaskBridge,
+    UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
+    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
+    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 
 include!("app_modules.rs");

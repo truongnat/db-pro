@@ -37,11 +37,15 @@ pub(super) fn draw_maintenance_activity(
             MaintenanceAction::Vacuum,
             MaintenanceAction::VacuumAnalyze,
         ] {
-            if secondary_button(ui, action.as_label(), theme).clicked() {
+            if Button::new(theme)
+                .text(action.as_label())
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 if partial_target {
-                    rejected = Some(
-                        "Maintenance needs both schema and table (or neither for the whole database)".to_owned(),
-                    );
+                    rejected =
+                        Some("Maintenance needs both schema and table (or neither for the whole database)".to_owned());
                 } else {
                     selected = Some(action);
                 }

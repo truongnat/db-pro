@@ -210,7 +210,6 @@ fn draw_schema_compare_body(
                     .small()
                     .color(context.theme.danger),
             );
-
         });
         ui.add_space(8.0);
 
@@ -282,7 +281,12 @@ fn draw_schema_compare_body(
         ui.add_space(8.0);
         section_label(ui, "MIGRATION PLAN", context.theme);
         let current_target = format!("{} · {}", context.connection_name, context.active_schema);
-        if primary_button_with_icon(ui, Icon::FileCode2, "Generate migration plan", context.theme).clicked() {
+        if Button::new(context.theme)
+            .icon(Icon::FileCode2)
+            .text("Generate migration plan")
+            .show(ui)
+            .clicked()
+        {
             context
                 .compare
                 .plan_migration(context.driver, &current_target, context.feedback);

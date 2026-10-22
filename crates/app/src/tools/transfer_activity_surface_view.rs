@@ -66,7 +66,13 @@ impl TransferActivityContext<'_> {
                 .color(self.theme.text_secondary),
             );
             ui.add_space(6.0);
-            if secondary_button_with_icon(ui, Icon::Archive, "Open Backup settings", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Archive)
+                .text("Open Backup settings")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::OpenBackupSettings);
             }
         });
@@ -179,11 +185,7 @@ impl TransferActivityContext<'_> {
             // the pair onto a second row instead of expanding.
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(SPACE_SM, SPACE_XS);
-                ui.label(
-                    RichText::new("rows")
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
+                ui.label(RichText::new("rows").small().color(self.theme.text_secondary));
                 input(
                     ui,
                     &mut self.management.synthetic_data.synthetic_row_count,
@@ -191,11 +193,7 @@ impl TransferActivityContext<'_> {
                     48.0,
                     self.theme,
                 );
-                ui.label(
-                    RichText::new("seed")
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
+                ui.label(RichText::new("seed").small().color(self.theme.text_secondary));
                 input(
                     ui,
                     &mut self.management.synthetic_data.synthetic_seed,
@@ -203,11 +201,7 @@ impl TransferActivityContext<'_> {
                     64.0,
                     self.theme,
                 );
-                ui.label(
-                    RichText::new("null%")
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
+                ui.label(RichText::new("null%").small().color(self.theme.text_secondary));
                 input(
                     ui,
                     &mut self.management.synthetic_data.synthetic_null_pct,
@@ -224,13 +218,23 @@ impl TransferActivityContext<'_> {
         // narrow sidebar horizontal_wrapped drew "Preview" over its label.
         ui.add_space(SPACE_XS);
         ui.horizontal_wrapped(|ui| {
-            if secondary_button(ui, "Preview", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Preview")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::PreviewSyntheticSeed);
             }
-            if secondary_button(ui, "Export SQL → Query", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Export SQL → Query")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::ExportSyntheticSeedSql);
             }
-            if primary_button(ui, "Apply INSERT (run)", self.theme).clicked() {
+            if Button::new(self.theme).text("Apply INSERT (run)").show(ui).clicked() {
                 *action = Some(TransferActivityAction::ApplySyntheticSeed);
             }
         });
@@ -339,7 +343,12 @@ impl TransferActivityContext<'_> {
                     Checkbox::new(&mut self.management.masking.masking_keyed, "Keyed hash", self.theme).show(ui);
                 },
             );
-            if secondary_button(ui, "Suggest cols", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Suggest cols")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 let names: Vec<String> = self
                     .table_details
                     .first()
@@ -348,10 +357,20 @@ impl TransferActivityContext<'_> {
                 self.management.masking.masking_columns_csv =
                     db_pro_core::domain::masking::suggest_sensitive_columns(&names).join(",");
             }
-            if secondary_button(ui, "Preview sample", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Preview sample")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::PreviewMasking);
             }
-            if secondary_button(ui, "Demo masked CSV export", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Demo masked CSV export")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunMaskedCsvExport);
             }
         });
@@ -438,28 +457,75 @@ impl TransferActivityContext<'_> {
 
     fn draw_harness_toolbar(&self, ui: &mut egui::Ui, action: &mut Option<TransferActivityAction>) {
         ui.horizontal_wrapped(|ui| {
-            if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Play)
+                .text("Run synthetic harness")
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunSyntheticTransfer { cancel_midway: false });
             }
-            if secondary_button_with_icon(ui, Icon::Ban, "Run then cancel", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Ban)
+                .text("Run then cancel")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunSyntheticTransfer { cancel_midway: true });
             }
-            if secondary_button_with_icon(ui, Icon::FileSpreadsheet, "CSV export harness", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FileSpreadsheet)
+                .text("CSV export harness")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunCsvExport);
             }
-            if secondary_button_with_icon(ui, Icon::Download, "CSV import preview", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Download)
+                .text("CSV import preview")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunCsvImportPreview);
             }
-            if secondary_button_with_icon(ui, Icon::Braces, "JSONL export harness", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Braces)
+                .text("JSONL export harness")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunJsonlExport);
             }
-            if secondary_button_with_icon(ui, Icon::Sheet, "Excel export harness", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Sheet)
+                .text("Excel export harness")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunExcelExport);
             }
-            if secondary_button_with_icon(ui, Icon::DatabaseBackup, "Copy tables", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::DatabaseBackup)
+                .text("Copy tables")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::RunDbToDbTransfer);
             }
-            if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Trash2)
+                .text("Clear jobs")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(TransferActivityAction::ClearJobs);
             }
         });

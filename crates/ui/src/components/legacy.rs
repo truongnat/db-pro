@@ -1,7 +1,7 @@
 use egui::{
     text::{LayoutJob, TextFormat},
-    Align, Button, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Sense, Stroke,
-    TextEdit, Ui,
+    Align, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Sense, Stroke, TextEdit,
+    Ui,
 };
 use lucide_icons::Icon;
 
@@ -375,84 +375,6 @@ pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) ->
             .font(FontId::new(10.5, FontFamily::Name("ui_medium".into())))
             .strong()
             .color(theme.text_muted),
-    )
-}
-
-pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(label.into().color(theme.accent_foreground).strong())
-            .fill(theme.accent)
-            .stroke(Stroke::new(STROKE_THIN, theme.accent))
-            .min_size(egui::vec2(0.0, 28.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
-    )
-}
-
-pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(icon_layout(icon, label, theme.accent_foreground))
-            .fill(theme.accent)
-            .stroke(Stroke::new(STROKE_THIN, theme.accent))
-            .min_size(egui::vec2(0.0, 28.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
-    )
-}
-
-pub fn secondary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(label.into().color(theme.text_primary))
-            .fill(theme.surface_hover)
-            .stroke(Stroke::NONE)
-            .min_size(egui::vec2(0.0, 28.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
-    )
-}
-
-pub fn secondary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(icon_layout(icon, label, theme.text_primary))
-            .fill(theme.surface_hover)
-            .stroke(Stroke::NONE)
-            .min_size(egui::vec2(0.0, 28.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
-    )
-}
-
-pub fn ghost_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(label.into().color(theme.text_secondary))
-            .min_size(egui::vec2(0.0, 26.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-
-pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(icon_layout(icon, label, theme.text_secondary))
-            .min_size(egui::vec2(0.0, 26.0))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-
-/// Full-width action row for compact overflow menus.
-pub fn menu_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
-    ui.add_sized(
-        [ui.available_width(), 28.0],
-        Button::new(icon_layout(icon, label, theme.text_primary))
-            .corner_radius(CornerRadius::same(crate::tokens::RADIUS_SM as u8))
-            .stroke(Stroke::NONE),
-    )
-}
-
-pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
-    ui.add(
-        Button::new(label.into().color(theme.text_inverse).strong())
-            .fill(theme.danger)
-            .stroke(Stroke::new(STROKE_THIN, theme.danger))
-            .min_size(egui::vec2(0.0, 30.0))
-            .corner_radius(CornerRadius::same(8.0 as u8)),
     )
 }
 

@@ -129,10 +129,21 @@ impl SecurityRlsContext<'_> {
             .color(self.theme.text_secondary),
         );
         ui.horizontal(|ui| {
-            if danger_button(ui, "Drop policy", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Drop policy")
+                .variant(ButtonVariant::Destructive)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRlsAction::DropPolicy(policy.name.clone()));
             }
-            if secondary_button_with_icon(ui, Icon::Pencil, "Load for edit", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Pencil)
+                .text("Load for edit")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRlsAction::LoadPolicy {
                     name: policy.name.clone(),
                     command: policy.command.clone(),
@@ -149,25 +160,33 @@ impl SecurityRlsContext<'_> {
     fn draw_policy_form(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRlsAction> {
         let mut actions = Vec::new();
         ui.add_space(SPACE_SM);
-        ui.label(RichText::new("CREATE / ALTER POLICY").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("CREATE / ALTER POLICY")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         Input::new(&mut self.state.security_rls_policy_name, "policy name", self.theme).show(ui);
         Input::new(
             &mut self.state.security_rls_command,
             "command (ALL/SELECT/INSERT/UPDATE/DELETE)",
             self.theme,
-        ).show(ui);
+        )
+        .show(ui);
         Input::new(
             &mut self.state.security_rls_roles,
             "roles (comma; empty=PUBLIC)",
             self.theme,
-        ).show(ui);
+        )
+        .show(ui);
         Checkbox::new(&mut self.state.security_rls_restrictive, "Restrictive", self.theme).show(ui);
         Input::new(&mut self.state.security_rls_using, "USING expression", self.theme).show(ui);
         Input::new(
             &mut self.state.security_rls_with_check,
             "WITH CHECK expression",
             self.theme,
-        ).show(ui);
+        )
+        .show(ui);
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .icon(Icon::Eye)
@@ -207,7 +226,12 @@ impl SecurityRlsContext<'_> {
                 self.theme,
             )
             .show(ui);
-            if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Play)
+                .text("Apply preview SQL")
+                .show(ui)
+                .clicked()
+            {
                 actions.push(SecurityRlsAction::ApplyPreview);
             }
         }

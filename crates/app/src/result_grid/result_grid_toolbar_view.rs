@@ -119,19 +119,26 @@ fn draw_copy_actions(
     .close_behavior(egui::PopupCloseBehavior::CloseOnClick)
     .open_memory(None)
     .show(|ui| {
-            ui.set_min_width(180.0);
-            for (icon, label, next) in [
-                (Icon::FileSpreadsheet, "CSV", ResultGridToolbarAction::CopyVisibleCsv),
-                (Icon::Braces, "JSON", ResultGridToolbarAction::CopyVisibleJson),
-                (Icon::FileText, "Markdown", ResultGridToolbarAction::CopyVisibleMarkdown),
-                (Icon::Database, "SQL INSERT", ResultGridToolbarAction::CopyVisibleInsert),
-            ] {
-                if menu_button_with_icon(ui, icon, label, context.theme).clicked() {
-                    *action = Some(next);
-                }
+        ui.set_min_width(180.0);
+        for (icon, label, next) in [
+            (Icon::FileSpreadsheet, "CSV", ResultGridToolbarAction::CopyVisibleCsv),
+            (Icon::Braces, "JSON", ResultGridToolbarAction::CopyVisibleJson),
+            (Icon::FileText, "Markdown", ResultGridToolbarAction::CopyVisibleMarkdown),
+            (Icon::Database, "SQL INSERT", ResultGridToolbarAction::CopyVisibleInsert),
+        ] {
+            if Button::new(context.theme)
+                .icon(icon)
+                .text(label)
+                .variant(ButtonVariant::Ghost)
+                .full_width(true)
+                .left_aligned()
+                .show(ui)
+                .clicked()
+            {
+                *action = Some(next);
             }
-        },
-    );
+        }
+    });
 }
 
 fn draw_inspect_actions(

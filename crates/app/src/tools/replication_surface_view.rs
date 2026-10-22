@@ -49,7 +49,13 @@ impl ReplicationSurfaceContext<'_> {
             .small()
             .color(self.theme.text_muted),
         );
-        if secondary_button_with_icon(ui, Icon::RefreshCw, "Load replication inventory", self.theme).clicked() {
+        if Button::new(self.theme)
+            .icon(Icon::RefreshCw)
+            .text("Load replication inventory")
+            .variant(ButtonVariant::Secondary)
+            .show(ui)
+            .clicked()
+        {
             actions.push(ReplicationSurfaceAction::Refresh);
         }
         if let Some(error) = &self.state.replication_error {
@@ -96,10 +102,21 @@ impl ReplicationSurfaceContext<'_> {
                     );
                 }
                 ui.horizontal(|ui| {
-                    if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::FileCode2)
+                        .text("Preview DROP")
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(ReplicationSurfaceAction::PreviewDropPublication(name.clone()));
                     }
-                    if danger_button(ui, "Drop…", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Drop…")
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(ReplicationSurfaceAction::RequestDropPublication(name.clone()));
                     }
                 });
@@ -135,10 +152,21 @@ impl ReplicationSurfaceContext<'_> {
                     .color(self.theme.text_muted),
                 );
                 ui.horizontal(|ui| {
-                    if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::FileCode2)
+                        .text("Preview DROP")
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(ReplicationSurfaceAction::PreviewDropSubscription(name.clone()));
                     }
-                    if danger_button(ui, "Drop…", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Drop…")
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(ReplicationSurfaceAction::RequestDropSubscription(name.clone()));
                     }
                 });
@@ -165,13 +193,30 @@ impl ReplicationSurfaceContext<'_> {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create publication (FOR ALL TABLES)").small().strong());
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.replication_create_name, "publication name", 160.0, self.theme);
-            if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
+            input(
+                ui,
+                &mut self.state.replication_create_name,
+                "publication name",
+                160.0,
+                self.theme,
+            );
+            if Button::new(self.theme)
+                .icon(Icon::FileCode2)
+                .text("Preview CREATE")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(ReplicationSurfaceAction::PreviewCreatePublication(
                     self.state.replication_create_name.clone(),
                 ));
             }
-            if secondary_button(ui, "Create (confirm)", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Create (confirm)")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 actions.push(ReplicationSurfaceAction::CreatePublication);
             }
         });
@@ -190,7 +235,12 @@ impl ReplicationSurfaceContext<'_> {
                     ui.label(RichText::new(preview).monospace());
                 });
                 frame.footer(|ui| {
-                    if secondary_button(ui, "Close", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Close")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(ReplicationSurfaceAction::ClosePreview);
                     }
                 });
@@ -205,37 +255,38 @@ impl ReplicationSurfaceContext<'_> {
             return;
         };
         let mut open = true;
-        Dialog::new(
-            &mut open,
-            format!("Create publication `{}`?", pending.name),
-            self.theme,
-        )
-        .width(560.0)
-        .id_salt("replication_create_dialog")
-        .show_framed_ctx(ui.ctx(), |frame| {
-            frame.body(|ui| {
-                ui.label(
-                    RichText::new("FOR ALL TABLES publishes every current and future table.")
-                        .small()
-                        .color(self.theme.warning),
-                );
-                ui.label(RichText::new(&pending.sql).monospace());
+        Dialog::new(&mut open, format!("Create publication `{}`?", pending.name), self.theme)
+            .width(560.0)
+            .id_salt("replication_create_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(
+                        RichText::new("FOR ALL TABLES publishes every current and future table.")
+                            .small()
+                            .color(self.theme.warning),
+                    );
+                    ui.label(RichText::new(&pending.sql).monospace());
+                });
+                frame.footer(|ui| {
+                    if Button::new(self.theme)
+                        .text("Create")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(ReplicationSurfaceAction::ConfirmCreatePublication);
+                    }
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(ReplicationSurfaceAction::CancelCreatePublication);
+                    }
+                });
             });
-            frame.footer(|ui| {
-                if Button::new(self.theme)
-                    .text("Create")
-                    .variant(ButtonVariant::Default)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    actions.push(ReplicationSurfaceAction::ConfirmCreatePublication);
-                }
-                if secondary_button(ui, "Cancel", self.theme).clicked() {
-                    actions.push(ReplicationSurfaceAction::CancelCreatePublication);
-                }
-            });
-        });
         if !open {
             actions.push(ReplicationSurfaceAction::CancelCreatePublication);
         }
@@ -252,10 +303,20 @@ impl ReplicationSurfaceContext<'_> {
                         ui.label(format!("Drop publication `{name}`?"));
                     });
                     frame.footer(|ui| {
-                        if danger_button(ui, "Drop", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("Drop")
+                            .variant(ButtonVariant::Destructive)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(ReplicationSurfaceAction::ConfirmDropPublication(name.clone()));
                         }
-                        if secondary_button(ui, "Cancel", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("Cancel")
+                            .variant(ButtonVariant::Secondary)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(ReplicationSurfaceAction::CancelDropPublication);
                         }
                     });
@@ -276,10 +337,20 @@ impl ReplicationSurfaceContext<'_> {
                         ));
                     });
                     frame.footer(|ui| {
-                        if danger_button(ui, "Drop", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("Drop")
+                            .variant(ButtonVariant::Destructive)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(ReplicationSurfaceAction::ConfirmDropSubscription(name.clone()));
                         }
-                        if secondary_button(ui, "Cancel", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("Cancel")
+                            .variant(ButtonVariant::Secondary)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(ReplicationSurfaceAction::CancelDropSubscription);
                         }
                     });

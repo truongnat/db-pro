@@ -6,9 +6,15 @@ use super::*;
 pub(super) enum MonitoringConfirmationAction {
     /// `backend_start` travels with the pid so the runtime can refuse to signal
     /// a session whose pid was recycled after the snapshot (#501).
-    ConfirmTerminate { backend_id: i64, backend_start: Option<String> },
+    ConfirmTerminate {
+        backend_id: i64,
+        backend_start: Option<String>,
+    },
     CancelTerminate,
-    ConfirmCancelBackend { backend_id: i64, backend_start: Option<String> },
+    ConfirmCancelBackend {
+        backend_id: i64,
+        backend_start: Option<String>,
+    },
     DismissCancelBackend,
     ConfirmMaintenance(db_pro_core::domain::monitoring::MaintenanceAction),
     CancelMaintenance,
@@ -46,7 +52,11 @@ impl MonitoringConfirmationContext<'_> {
         actions
     }
 
-    fn draw_terminate(&self, ctx: &egui::Context, session: &db_pro_core::domain::monitoring::MonitorSession) -> Vec<MonitoringConfirmationAction> {
+    fn draw_terminate(
+        &self,
+        ctx: &egui::Context,
+        session: &db_pro_core::domain::monitoring::MonitorSession,
+    ) -> Vec<MonitoringConfirmationAction> {
         let backend_id = session.backend_id;
         let mut actions = Vec::new();
         let mut open = true;
@@ -61,13 +71,24 @@ impl MonitoringConfirmationContext<'_> {
                     self.draw_session_context(ui, session);
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, "Terminate", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Terminate")
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::ConfirmTerminate {
                             backend_id,
                             backend_start: session.backend_start.clone(),
                         });
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::CancelTerminate);
                     }
                 });
@@ -78,7 +99,11 @@ impl MonitoringConfirmationContext<'_> {
         actions
     }
 
-    fn draw_cancel_backend(&self, ctx: &egui::Context, session: &db_pro_core::domain::monitoring::MonitorSession) -> Vec<MonitoringConfirmationAction> {
+    fn draw_cancel_backend(
+        &self,
+        ctx: &egui::Context,
+        session: &db_pro_core::domain::monitoring::MonitorSession,
+    ) -> Vec<MonitoringConfirmationAction> {
         let backend_id = session.backend_id;
         let mut actions = Vec::new();
         let mut open = true;
@@ -91,13 +116,24 @@ impl MonitoringConfirmationContext<'_> {
                     self.draw_session_context(ui, session);
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, "Cancel backend", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Cancel backend")
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::ConfirmCancelBackend {
                             backend_id,
                             backend_start: session.backend_start.clone(),
                         });
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Keep running", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Keep running")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::DismissCancelBackend);
                     }
                 });
@@ -147,7 +183,6 @@ impl MonitoringConfirmationContext<'_> {
         }
     }
 
-
     fn draw_maintenance(
         &self,
         ctx: &egui::Context,
@@ -167,10 +202,21 @@ impl MonitoringConfirmationContext<'_> {
                     ));
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, action.as_label(), self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text(action.as_label())
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::ConfirmMaintenance(action));
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::CancelMaintenance);
                     }
                 });
@@ -195,10 +241,21 @@ impl MonitoringConfirmationContext<'_> {
                     );
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, "Reset statistics", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Reset statistics")
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::ConfirmResetStatistics);
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(MonitoringConfirmationAction::CancelResetStatistics);
                     }
                 });

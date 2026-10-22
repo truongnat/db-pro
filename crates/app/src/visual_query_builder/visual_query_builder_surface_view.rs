@@ -29,13 +29,28 @@ impl VisualQueryBuilderContext<'_> {
         ui.add_space(SPACE_XS);
         let mut action = None;
         ui.horizontal(|ui| {
-            if secondary_button(ui, "Apply SQL → editor", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Apply SQL → editor")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 action = Some(VisualQueryBuilderAction::ApplySql);
             }
-            if ghost_button(ui, "Import from editor", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Import from editor")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 action = Some(VisualQueryBuilderAction::ImportFromEditor);
             }
-            if ghost_button(ui, "Clear", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Clear")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 action = Some(VisualQueryBuilderAction::Clear);
             }
         });
@@ -99,7 +114,12 @@ impl VisualQueryBuilderContext<'_> {
                     keys[table_selected - 1].clone()
                 };
             }
-            if secondary_button(ui, "Add", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Add")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.state.add_selected_table(self.dialect);
             }
         });
@@ -120,7 +140,12 @@ impl VisualQueryBuilderContext<'_> {
                 if index == 0 {
                     badge(ui, "FROM", self.theme.surface_active, self.theme.text_secondary);
                 }
-                if ghost_button(ui, "Remove", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Remove")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     self.state.remove_table(index, self.dialect);
                 }
             });
@@ -135,10 +160,20 @@ impl VisualQueryBuilderContext<'_> {
             input(ui, &mut self.state.join_table, "schema.table", 110.0, self.theme);
             input(ui, &mut self.state.join_left, "left_alias.col", 110.0, self.theme);
             input(ui, &mut self.state.join_right, "right_alias.col", 110.0, self.theme);
-            if secondary_button(ui, "Add INNER JOIN", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Add INNER JOIN")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.state.add_join(self.dialect);
             }
-            if ghost_button(ui, "FK join hint", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("FK join hint")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 self.state.suggest_fk_join(self.table_details, self.dialect);
             }
         });
@@ -158,7 +193,12 @@ impl VisualQueryBuilderContext<'_> {
                     .monospace()
                     .small(),
                 );
-                if ghost_button(ui, "×", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("×")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     self.state.remove_join(index, self.dialect);
                 }
             });
@@ -173,7 +213,12 @@ impl VisualQueryBuilderContext<'_> {
             input(ui, &mut self.state.col_ref, "alias.column", 110.0, self.theme);
             input(ui, &mut self.state.col_alias, "AS alias", 90.0, self.theme);
             input(ui, &mut self.state.col_agg, "AGG optional", 90.0, self.theme);
-            if secondary_button(ui, "Add column", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Add column")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.state.add_column(self.dialect);
             }
         });
@@ -188,7 +233,12 @@ impl VisualQueryBuilderContext<'_> {
                     label.push_str(&format!(" AS {alias}"));
                 }
                 ui.label(RichText::new(label).monospace().small());
-                if ghost_button(ui, "×", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("×")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     self.state.remove_column(index, self.dialect);
                 }
             });
@@ -202,7 +252,12 @@ impl VisualQueryBuilderContext<'_> {
             input(ui, &mut self.state.where_left, "alias.col", 110.0, self.theme);
             input(ui, &mut self.state.where_op, "=", 48.0, self.theme);
             input(ui, &mut self.state.where_value, "value", 110.0, self.theme);
-            if secondary_button(ui, "Add WHERE", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Add WHERE")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.state.add_where(self.dialect);
             }
         });
@@ -216,7 +271,12 @@ impl VisualQueryBuilderContext<'_> {
                     .monospace()
                     .small(),
                 );
-                if ghost_button(ui, "×", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("×")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     self.state.remove_predicate(index, self.dialect);
                 }
             });
@@ -224,14 +284,24 @@ impl VisualQueryBuilderContext<'_> {
         ui.horizontal(|ui| {
             input(ui, &mut self.state.order, "alias.col", 110.0, self.theme);
             Checkbox::new(&mut self.state.order_desc, "DESC", self.theme).show(ui);
-            if secondary_button(ui, "Add ORDER", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Add ORDER")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.state.add_order(self.dialect);
             }
             ui.label("LIMIT");
             input(ui, &mut self.state.limit, "limit", 60.0, self.theme);
             ui.label("OFFSET");
             input(ui, &mut self.state.offset, "offset", 60.0, self.theme);
-            if ghost_button(ui, "Apply limit", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Apply limit")
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+            {
                 self.state.apply_limit_offset();
                 self.state.refresh_preview(self.dialect);
             }

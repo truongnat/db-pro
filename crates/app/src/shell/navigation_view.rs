@@ -8,9 +8,17 @@ pub(super) fn draw_diagram_sidebar(ui: &mut egui::Ui, theme: DbProTheme, schema:
     ui.vertical(|ui| {
         section_label(ui, t!("diagram.section_navigation").as_ref(), theme);
         ui.add_space(SPACE_SM);
-        ui.label(RichText::new(t!("diagram.pan_hint")).small().color(theme.text_secondary));
+        ui.label(
+            RichText::new(t!("diagram.pan_hint"))
+                .small()
+                .color(theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
-        let back = secondary_button_with_icon(ui, Icon::Database, t!("diagram.back_to_explorer").as_ref(), theme);
+        let back = Button::new(theme)
+            .icon(Icon::Database)
+            .text(t!("diagram.back_to_explorer").as_ref())
+            .variant(ButtonVariant::Secondary)
+            .show(ui);
         back.clicked()
     })
     .inner

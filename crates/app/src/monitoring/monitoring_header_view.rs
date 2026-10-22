@@ -34,7 +34,14 @@ impl MonitoringHeaderContext<'_> {
                         Checkbox::new(self.poll, "Auto-refresh", self.theme).show(ui);
                     },
                 );
-                if self.connected && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked() {
+                if self.connected
+                    && Button::new(self.theme)
+                        .icon(Icon::RefreshCw)
+                        .text("Refresh")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                {
                     actions.push(MonitoringHeaderAction::Refresh);
                 }
             });

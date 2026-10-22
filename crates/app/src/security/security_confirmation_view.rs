@@ -61,10 +61,21 @@ impl SecurityConfirmationContext<'_> {
                     ui.label(body);
                 });
                 frame.footer(|ui| {
-                    if danger_button(ui, confirm_label, self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text(confirm_label)
+                        .variant(ButtonVariant::Destructive)
+                        .show(ui)
+                        .clicked()
+                    {
                         action = Some(confirm.clone());
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         action = Some(cancel.clone());
                     }
                 });

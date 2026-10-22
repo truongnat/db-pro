@@ -33,7 +33,6 @@ pub(super) struct EventTriggerSurfaceContext<'a> {
     pub(super) state: &'a mut EventTriggerState,
 }
 
-
 impl EventTriggerSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<EventTriggerSurfaceAction> {
         let mut actions = Vec::new();
@@ -48,7 +47,12 @@ impl EventTriggerSurfaceContext<'_> {
 
     fn draw_header(&self, ui: &mut egui::Ui, actions: &mut Vec<EventTriggerSurfaceAction>) {
         ui.add_space(SPACE_MD);
-        ui.label(RichText::new("EVENT TRIGGERS").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("EVENT TRIGGERS")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new(
@@ -111,22 +115,43 @@ impl EventTriggerSurfaceContext<'_> {
                 );
             }
             ui.horizontal(|ui| {
-                if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::FileCode2)
+                    .text("Preview DROP")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(EventTriggerSurfaceAction::PreviewDrop(trigger_name.clone()));
                 }
-                if ghost_button(ui, "Disable", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Disable")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(EventTriggerSurfaceAction::Alter {
                         name: trigger_name.clone(),
                         mode: "disable".to_owned(),
                     });
                 }
-                if ghost_button(ui, "Enable", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Enable")
+                    .variant(ButtonVariant::Ghost)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(EventTriggerSurfaceAction::Alter {
                         name: trigger_name.clone(),
                         mode: "enable".to_owned(),
                     });
                 }
-                if danger_button(ui, "Drop…", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Drop…")
+                    .variant(ButtonVariant::Destructive)
+                    .show(ui)
+                    .clicked()
+                {
                     actions.push(EventTriggerSurfaceAction::RequestDrop(trigger_name.clone()));
                 }
             });
@@ -139,11 +164,29 @@ impl EventTriggerSurfaceContext<'_> {
         ui.label(RichText::new("Create event trigger").small().strong());
         ui.horizontal(|ui| {
             input(ui, &mut self.state.event_trigger_create_name, "name", 130.0, self.theme);
-            input(ui, &mut self.state.event_trigger_create_event, "event", 110.0, self.theme);
+            input(
+                ui,
+                &mut self.state.event_trigger_create_event,
+                "event",
+                110.0,
+                self.theme,
+            );
         });
         ui.horizontal(|ui| {
-            input(ui, &mut self.state.event_trigger_create_function, "schema.func()", 160.0, self.theme);
-            input(ui, &mut self.state.event_trigger_create_tags, "tags CSV optional", 140.0, self.theme);
+            input(
+                ui,
+                &mut self.state.event_trigger_create_function,
+                "schema.func()",
+                160.0,
+                self.theme,
+            );
+            input(
+                ui,
+                &mut self.state.event_trigger_create_tags,
+                "tags CSV optional",
+                140.0,
+                self.theme,
+            );
         });
         ui.horizontal(|ui| {
             if Button::new(self.theme)
@@ -207,9 +250,7 @@ impl EventTriggerSurfaceContext<'_> {
             return;
         };
         let (title, sql) = match pending {
-            EventTriggerApply::Create { name, sql, .. } => {
-                (format!("Create event trigger `{name}`?"), sql.as_str())
-            }
+            EventTriggerApply::Create { name, sql, .. } => (format!("Create event trigger `{name}`?"), sql.as_str()),
             EventTriggerApply::Alter { name, mode, sql } => {
                 (format!("Apply ALTER EVENT TRIGGER `{name}` {mode}?"), sql.as_str())
             }

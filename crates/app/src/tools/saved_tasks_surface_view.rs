@@ -56,8 +56,15 @@ impl SavedTasksSurfaceContext<'_> {
         let Some(task_id) = self.saved_tasks.pending_destructive_task_id else {
             return;
         };
-        Checkbox::new(&mut self.saved_tasks.confirm_destructive, "Confirm destructive task run", self.theme).show(ui);
-        if self.saved_tasks.confirm_destructive && primary_button(ui, "Run destructive task", self.theme).clicked() {
+        Checkbox::new(
+            &mut self.saved_tasks.confirm_destructive,
+            "Confirm destructive task run",
+            self.theme,
+        )
+        .show(ui);
+        if self.saved_tasks.confirm_destructive
+            && Button::new(self.theme).text("Run destructive task").show(ui).clicked()
+        {
             *action = Some(SavedTasksSurfaceAction::RunTask(task_id));
         }
         ui.add_space(8.0);
@@ -69,10 +76,21 @@ impl SavedTasksSurfaceContext<'_> {
         };
         ui.label("Delete this saved task?");
         ui.horizontal(|ui| {
-            if danger_button(ui, "Delete task", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Delete task")
+                .variant(ButtonVariant::Destructive)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(SavedTasksSurfaceAction::ConfirmDelete(task_id));
             }
-            if secondary_button_with_icon(ui, Icon::X, "Keep task", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::X)
+                .text("Keep task")
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 *action = Some(SavedTasksSurfaceAction::CancelDelete);
             }
         });
@@ -304,4 +322,3 @@ impl SavedTasksSurfaceContext<'_> {
 #[cfg(test)]
 #[path = "tests/saved_tasks_surface_view_tests.rs"]
 mod tests;
-

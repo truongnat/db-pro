@@ -19,7 +19,13 @@ pub(super) struct SecurityRolesContext<'a> {
 impl SecurityRolesContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRolesAction> {
         let mut actions = Vec::new();
-        if secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh roles", self.theme).clicked() {
+        if Button::new(self.theme)
+            .icon(Icon::RefreshCw)
+            .text("Refresh roles")
+            .variant(ButtonVariant::Secondary)
+            .show(ui)
+            .clicked()
+        {
             actions.push(SecurityRolesAction::Refresh);
         }
         ui.add_space(SPACE_MD);
@@ -56,7 +62,11 @@ impl SecurityRolesContext<'_> {
         ui.horizontal(|ui| {
             if Button::new(self.theme)
                 .text(&user.name)
-                .variant(if selected { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
+                .variant(if selected {
+                    ButtonVariant::Secondary
+                } else {
+                    ButtonVariant::Ghost
+                })
                 .size(ButtonSize::Sm)
                 .show(ui)
                 .clicked()
@@ -90,7 +100,12 @@ impl SecurityRolesContext<'_> {
     }
 
     fn draw_create_role(&mut self, ui: &mut egui::Ui) -> Vec<SecurityRolesAction> {
-        ui.label(RichText::new("CREATE ROLE").font(font_caption()).strong().color(self.theme.text_secondary));
+        ui.label(
+            RichText::new("CREATE ROLE")
+                .font(font_caption())
+                .strong()
+                .color(self.theme.text_secondary),
+        );
         ui.add_space(SPACE_SM);
         Input::new(&mut self.state.security_new_role, "role name", self.theme).show(ui);
         Checkbox::new(&mut self.state.security_new_role_login, "LOGIN", self.theme).show(ui);

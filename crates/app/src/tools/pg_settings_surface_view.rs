@@ -41,7 +41,13 @@ impl PgSettingsSurfaceContext<'_> {
                 .small()
                 .color(self.theme.text_muted),
         );
-        if secondary_button_with_icon(ui, Icon::RefreshCw, "Load settings", self.theme).clicked() {
+        if Button::new(self.theme)
+            .icon(Icon::RefreshCw)
+            .text("Load settings")
+            .variant(ButtonVariant::Secondary)
+            .show(ui)
+            .clicked()
+        {
             actions.push(PgSettingsSurfaceAction::Refresh);
         }
         ui.add_space(SPACE_XS);
@@ -135,18 +141,34 @@ impl PgSettingsSurfaceContext<'_> {
                 );
                 ui.horizontal(|ui| {
                     if setting.session_mutable() && !setting.sensitive {
-                        if ghost_button_with_icon(ui, Icon::Pencil, "Edit session", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .icon(Icon::Pencil)
+                            .text("Edit session")
+                            .variant(ButtonVariant::Ghost)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(PgSettingsSurfaceAction::BeginEdit {
                                 name: name.clone(),
                                 value: value.clone(),
                             });
                         }
-                        if secondary_button(ui, "RESET", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("RESET")
+                            .variant(ButtonVariant::Secondary)
+                            .show(ui)
+                            .clicked()
+                        {
                             actions.push(PgSettingsSurfaceAction::Reset(name.clone()));
                         }
                     }
                     if !setting.sensitive
-                        && ghost_button_with_icon(ui, Icon::FileCode2, "Preview ALTER SYSTEM", self.theme).clicked()
+                        && Button::new(self.theme)
+                            .icon(Icon::FileCode2)
+                            .text("Preview ALTER SYSTEM")
+                            .variant(ButtonVariant::Ghost)
+                            .show(ui)
+                            .clicked()
                     {
                         actions.push(PgSettingsSurfaceAction::PreviewAlterSystem {
                             name: name.clone(),
@@ -196,13 +218,24 @@ impl PgSettingsSurfaceContext<'_> {
                     }
                 });
                 frame.footer(|ui| {
-                    if secondary_button(ui, "Apply SET", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Apply SET")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(PgSettingsSurfaceAction::ApplySession {
                             name: name.clone(),
                             value: self.state.pg_settings_edit_value.clone(),
                         });
                     }
-                    if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(PgSettingsSurfaceAction::CancelEdit);
                     }
                 });
@@ -226,7 +259,12 @@ impl PgSettingsSurfaceContext<'_> {
                     ui.label(RichText::new(&preview.sql).monospace());
                 });
                 frame.footer(|ui| {
-                    if secondary_button(ui, "Close", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Close")
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
                         actions.push(PgSettingsSurfaceAction::ClosePreview);
                     }
                 });
