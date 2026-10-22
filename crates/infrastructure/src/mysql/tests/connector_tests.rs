@@ -56,12 +56,34 @@ fn execute_parameterized_transaction_publishes_connection_id_before_statements()
         .find("async fn execute_parameterized_transaction(")
         .expect("execute_parameterized_transaction");
     let body = &source[param_at..];
+    let session = body
+        .find("crate::transaction_session::checkout_if_held")
+        .expect("checks open session");
     let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
     let track = body.find("self.track_guard(").expect("id is published for Stop");
     let statements = body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow the publish");
-    assert!(id < track && track < statements);
+    assert!(session < id && id < track && track < statements);
+}
+
+#[test]
+fn execute_parameterized_transaction_joined_uses_savepoint() {
+    let source = include_str!("../connector.rs");
+    let param_joined = source
+        .find("async fn execute_parameterized_transaction_joined(")
+        .expect("execute_parameterized_transaction_joined");
+    let body = &source[param_joined..];
+    let savepoint = body
+        .find("SAVEPOINT dbpro_parameterized_tx")
+        .expect("uses savepoint for joined parameterized transaction");
+    let rollback = body
+        .find("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+        .expect("rolls back to savepoint on error");
+    let release = body
+        .find("RELEASE SAVEPOINT dbpro_parameterized_tx")
+        .expect("releases savepoint on success");
+    assert!(savepoint < rollback && rollback < release);
 }
 
 #[tokio::test]
