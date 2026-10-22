@@ -11,7 +11,10 @@ use lucide_icons::Icon;
 use crate::{
     components::{
         input::{
-            config::{INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE},
+            config::{
+                CLEAR_BUTTON_HIT, INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE, MIN_EDIT_WIDTH,
+                MIN_FRAME_WIDTH,
+            },
             layout::{paint_field_chrome, resolve_field_width, FieldChromeState},
         },
         interact::{button_info, text_input_info},
@@ -162,7 +165,7 @@ impl<'a> Input<'a> {
                 ..Default::default()
             };
 
-            let frame_w = (width - SPACE_SM * 2.0).max(60.0);
+            let frame_w = (width - SPACE_SM * 2.0).max(MIN_FRAME_WIDTH);
             let frame_output = frame.show(ui, |ui| {
                 ui.set_width(frame_w);
                 ui.set_max_width(frame_w);
@@ -185,11 +188,11 @@ impl<'a> Input<'a> {
                     let has_text = !self.value.is_empty();
                     let show_clear = self.clearable && has_text && self.enabled;
                     let extra_width = if show_clear {
-                        24.0 + ui.spacing().item_spacing.x
+                        CLEAR_BUTTON_HIT + ui.spacing().item_spacing.x
                     } else {
                         0.0
                     };
-                    let edit_w = (ui.available_width() - extra_width).max(40.0);
+                    let edit_w = (ui.available_width() - extra_width).max(MIN_EDIT_WIDTH);
                     let mut text_edit = TextEdit::singleline(self.value);
                     if let Some(id_salt) = self.id_salt {
                         text_edit = text_edit.id_salt(id_salt);
@@ -210,8 +213,8 @@ impl<'a> Input<'a> {
                     );
 
                     if show_clear {
-                        let (clear_rect, clear_response) =
-                            ui.allocate_at_least(Vec2::new(24.0, ui.spacing().interact_size.y), Sense::CLICK);
+                        let (clear_rect, clear_response) = ui
+                            .allocate_at_least(Vec2::new(CLEAR_BUTTON_HIT, ui.spacing().interact_size.y), Sense::CLICK);
                         let clear_response = clear_response.on_hover_text("Clear");
                         clear_response.widget_info(|| button_info(true, "Clear"));
                         ui.painter().text(
@@ -269,7 +272,7 @@ impl<'a> Input<'a> {
                     ui.spacing_mut().item_spacing.x = SPACE_SM;
                     ui.label(
                         RichText::new(char::from(Icon::AlertCircle).to_string())
-                            .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
+                            .font(FontId::new(INPUT_LABEL_FONT_SIZE, FontFamily::Name("lucide".into())))
                             .color(self.theme.danger),
                     );
                     ui.label(

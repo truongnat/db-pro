@@ -1,11 +1,11 @@
 // Border weight that keeps transaction chrome aligned with other compact UI surfaces.
-pub(super) const BAR_STROKE_WIDTH: f32 = 1.0;
+pub(super) const BAR_STROKE_WIDTH: f32 = crate::tokens::STROKE_THIN;
 // Corner radius for the transaction status bar frame, in egui points.
-pub(super) const BAR_RADIUS: f32 = 8.0;
+pub(super) const BAR_RADIUS: f32 = crate::tokens::RADIUS_MD;
 // Horizontal inner padding for the status bar, in egui points.
-pub(super) const BAR_MARGIN_X: f32 = 12.0;
+pub(super) const BAR_MARGIN_X: f32 = crate::tokens::SPACE_MD;
 // Vertical inner padding for the status bar, in egui points.
-pub(super) const BAR_MARGIN_Y: f32 = 8.0;
+pub(super) const BAR_MARGIN_Y: f32 = crate::tokens::SPACE_SM;
 
 // Square allocation reserved for the transaction state indicator, in egui points.
 pub(super) const STATUS_DOT_SIZE: f32 = 10.0;
@@ -38,12 +38,12 @@ pub(super) const ISOLATION_GAP: f32 = 6.0;
 // Isolation-level font size, in egui points.
 pub(super) const ISOLATION_TEXT_SIZE: f32 = 11.0;
 // Space between adjacent transaction action buttons, in egui points.
-pub(super) const ACTION_GAP: f32 = 4.0;
+pub(super) const ACTION_GAP: f32 = crate::tokens::SPACE_XS;
 
 // Dialog width that keeps destructive confirmation text readable without dominating the editor.
 pub(super) const DIALOG_WIDTH: f32 = 480.0;
 // Space above the destructive warning banner, in egui points.
-pub(super) const DIALOG_TOP_SPACE: f32 = 4.0;
+pub(super) const DIALOG_TOP_SPACE: f32 = crate::tokens::SPACE_XS;
 // Corner radius of the destructive warning banner, in egui points.
 pub(super) const DIALOG_BANNER_RADIUS: f32 = 8.0;
 // Inner padding of the destructive warning banner, in egui points.
@@ -51,7 +51,7 @@ pub(super) const DIALOG_BANNER_MARGIN: f32 = 12.0;
 // Warning banner outline width, in egui points.
 pub(super) const DIALOG_BANNER_STROKE_WIDTH: f32 = 1.0;
 // Warning icon font size, in egui points.
-pub(super) const DIALOG_ICON_SIZE: f32 = 16.0;
+pub(super) const DIALOG_ICON_SIZE: f32 = crate::tokens::ICON_DEFAULT;
 // Gap between the warning icon and its explanatory text, in egui points.
 pub(super) const DIALOG_ICON_GAP: f32 = 6.0;
 // Destructive warning title font size, in egui points.
@@ -65,7 +65,7 @@ pub(super) const DIALOG_SECTION_GAP: f32 = 14.0;
 // Target and instruction label font size, in egui points.
 pub(super) const DIALOG_LABEL_SIZE: f32 = 12.5;
 // Gap between the target label and its database object, in egui points.
-pub(super) const DIALOG_TARGET_GAP: f32 = 4.0;
+pub(super) const DIALOG_TARGET_GAP: f32 = crate::tokens::SPACE_XS;
 // Gap above the confirmation input, in egui points.
 pub(super) const DIALOG_INPUT_GAP: f32 = 6.0;
 // Gap between confirmation input and action row, in egui points.

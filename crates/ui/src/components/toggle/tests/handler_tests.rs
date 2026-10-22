@@ -15,7 +15,7 @@ fn content_width_accounts_for_icon_label_gap_only_when_needed() {
     assert_eq!(content_width(true, None, 14.0), 14.0);
     assert_eq!(
         content_width(true, Some(30.0), 14.0),
-        14.0 + config::ICON_TEXT_GAP + 30.0
+        14.0 + config::TOGGLE_ICON_TEXT_GAP + 30.0
     );
 }
 

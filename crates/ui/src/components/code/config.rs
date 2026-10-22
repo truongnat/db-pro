@@ -5,8 +5,6 @@ pub const INLINE_CODE_FONT_SIZE: f32 = 12.0;
 
 /// Header bar height for the code block container.
 pub const CODE_BLOCK_HEADER_HEIGHT: f32 = 32.0;
-/// Corner radius for code block header top corners and outer frame, in egui points.
-pub const CODE_BLOCK_CORNER_RADIUS: f32 = 8.0;
 /// Language badge font size in the header bar.
 pub const CODE_BLOCK_LANG_FONT_SIZE: f32 = 11.0;
 /// Copy button size (width, height) in the header bar.

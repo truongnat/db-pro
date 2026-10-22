@@ -1,11 +1,11 @@
 /// Border width for the card container stroke, in egui points.
-pub const CARD_FRAME_STROKE_WIDTH: f32 = 1.0;
+pub const CARD_FRAME_STROKE_WIDTH: f32 = crate::tokens::STROKE_THIN;
 /// Title text size used by the reusable card header helper.
-pub const CARD_HEADER_TITLE_SIZE: f32 = 15.0;
+pub const CARD_HEADER_TITLE_SIZE: f32 = crate::tokens::FONT_SIZE_BODY;
 /// Description text size used by the reusable card header helper.
-pub const CARD_HEADER_DESCRIPTION_SIZE: f32 = 12.0;
+pub const CARD_HEADER_DESCRIPTION_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
 /// Decorative footer separator height and stroke width.
-pub const FOOTER_SEPARATOR_SIZE: f32 = 1.0;
+pub const FOOTER_SEPARATOR_SIZE: f32 = crate::tokens::STROKE_THIN;
 /// Minimum metric-card height, preserving the compact dashboard rhythm.
 pub const METRIC_CARD_MIN_HEIGHT: f32 = 96.0;
 /// Space between metric header and primary value.
@@ -17,7 +17,7 @@ pub const METRIC_TITLE_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
 /// Square size of the optional metric icon container.
 pub const METRIC_ICON_BOX_SIZE: f32 = 28.0;
 /// CornerRadius used for the optional metric icon container.
-pub const METRIC_ICON_BOX_RADIUS: f32 = 8.0;
+pub const METRIC_ICON_BOX_RADIUS: f32 = crate::tokens::RADIUS_MD;
 /// Lucide font size for metric icons and trend icons.
 pub const METRIC_ICON_FONT_SIZE: f32 = 14.0;
 /// Space above the trend row.

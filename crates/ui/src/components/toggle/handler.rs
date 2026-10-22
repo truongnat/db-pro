@@ -77,7 +77,7 @@ pub struct ToggleAppearance {
 pub fn content_width(icon_present: bool, label_width: Option<f32>, icon_size: f32) -> f32 {
     let icon_width = if icon_present { icon_size } else { 0.0 };
     let icon_label_gap = if icon_present && label_width.is_some() {
-        config::ICON_TEXT_GAP
+        config::TOGGLE_ICON_TEXT_GAP
     } else {
         0.0
     };

@@ -264,7 +264,7 @@ fn paint_contents(ui: &Ui, start_x: f32, center_y: f32, content: ContentPaint<'_
         );
         current_x += content.icon_size;
         if content.label.is_some() {
-            current_x += config::ICON_TEXT_GAP;
+            current_x += config::TOGGLE_ICON_TEXT_GAP;
         }
     }
 

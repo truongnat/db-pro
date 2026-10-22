@@ -1,9 +1,10 @@
 /// Shared radius for standalone toggles and the outer ends of grouped toggles.
-pub const TOGGLE_ROUNDING: f32 = 6.0;
-/// Gap between an icon and label when both are present.
-pub const ICON_TEXT_GAP: f32 = 6.0;
+pub const TOGGLE_ROUNDING: f32 = crate::tokens::RADIUS_BUTTON;
+/// Gap between an icon and label when both are present. Deliberately tighter
+/// than the shared `ICON_TEXT_GAP` scale value, so it keeps a local name.
+pub const TOGGLE_ICON_TEXT_GAP: f32 = 6.0;
 /// Border width used by outline and grouped toggle controls.
-pub const OUTLINE_STROKE_WIDTH: f32 = 1.0;
+pub const OUTLINE_STROKE_WIDTH: f32 = crate::tokens::STROKE_THIN;
 /// Minimum animated hover value that changes the rendered rest state.
 pub const HOVER_THRESHOLD: f32 = 0.001;
 /// Opacity multiplier used by the outline variant's hover fill.

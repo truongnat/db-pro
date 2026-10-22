@@ -66,7 +66,7 @@ fn test_calculate_separator_line_width() {
     assert_eq!(width, 22.0);
 
     let min_width = calculate_separator_line_width(60.0, 40.0);
-    assert_eq!(min_width, SEPARATOR_MIN_LINE_WIDTH);
+    assert_eq!(min_width, KBD_SEPARATOR_MIN_LINE_WIDTH);
     assert_eq!(calculate_separator_line_width(40.0, 40.0), 0.0);
     assert_eq!(calculate_separator_line_width(f32::NAN, 40.0), 0.0);
 }

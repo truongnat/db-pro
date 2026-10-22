@@ -210,23 +210,27 @@ pub fn separator_with_text(ui: &mut Ui, text: &str, theme: DbProTheme) {
     ui.horizontal(|ui| {
         let text_layout = ui.painter().layout_no_wrap(
             text.to_owned(),
-            egui::FontId::proportional(SEPARATOR_TEXT_SIZE),
+            egui::FontId::proportional(KBD_SEPARATOR_TEXT_SIZE),
             theme.text_muted,
         );
         let text_width = text_layout.size().x;
         let total_width = ui.available_width();
         let line_width = calculate_separator_line_width(total_width, text_width);
 
-        let (rect_left, _) = ui.allocate_exact_size(Vec2::new(line_width, SEPARATOR_HEIGHT), egui::Sense::hover());
+        let (rect_left, _) = ui.allocate_exact_size(Vec2::new(line_width, KBD_SEPARATOR_HEIGHT), egui::Sense::hover());
         ui.painter().hline(
             rect_left.x_range(),
             rect_left.center().y,
             Stroke::new(STROKE_THIN, theme.border_default),
         );
 
-        ui.label(RichText::new(text).size(SEPARATOR_TEXT_SIZE).color(theme.text_muted));
+        ui.label(
+            RichText::new(text)
+                .size(KBD_SEPARATOR_TEXT_SIZE)
+                .color(theme.text_muted),
+        );
 
-        let (rect_right, _) = ui.allocate_exact_size(Vec2::new(line_width, SEPARATOR_HEIGHT), egui::Sense::hover());
+        let (rect_right, _) = ui.allocate_exact_size(Vec2::new(line_width, KBD_SEPARATOR_HEIGHT), egui::Sense::hover());
         ui.painter().hline(
             rect_right.x_range(),
             rect_right.center().y,

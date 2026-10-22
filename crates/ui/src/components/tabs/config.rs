@@ -33,9 +33,9 @@ pub(super) const UNDERLINE_HOVER_INSET_Y: f32 = 4.0;
 // Corner radius of the hovered underline-tab background, in egui points.
 pub(super) const UNDERLINE_HOVER_RADIUS: f32 = 5.0;
 // Base divider thickness beneath the tab row, in egui points.
-pub(super) const UNDERLINE_BASELINE_HEIGHT: f32 = 1.0;
+pub(super) const UNDERLINE_BASELINE_HEIGHT: f32 = crate::tokens::STROKE_THIN;
 // Selected-tab indicator thickness, in egui points.
-pub(super) const UNDERLINE_INDICATOR_HEIGHT: f32 = 2.0;
+pub(super) const UNDERLINE_INDICATOR_HEIGHT: f32 = crate::tokens::STROKE_THICK;
 // Horizontal inset that aligns the indicator with its label, in egui points.
 pub(super) const UNDERLINE_INDICATOR_INSET_X: f32 = 4.0;
 // Minimum selected-indicator width for very short labels, in egui points.

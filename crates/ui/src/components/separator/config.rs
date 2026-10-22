@@ -1,7 +1,7 @@
-use crate::tokens::SPACE_XXS;
+use crate::tokens::{FONT_SIZE_BADGE, SPACE_XXS, STROKE_THIN};
 
 /// Default line thickness in points/pixels for both horizontal and vertical separators.
-pub const DEFAULT_THICKNESS: f32 = 1.0;
+pub const DEFAULT_THICKNESS: f32 = STROKE_THIN;
 
 /// Default outer margin around a vertical separator (left and right).
 pub const DEFAULT_VERTICAL_MARGIN: f32 = 6.0;
@@ -14,7 +14,7 @@ pub const MIN_HORIZONTAL_HEIGHT: f32 = 14.0;
 pub const MAX_VERTICAL_HEIGHT: f32 = 24.0;
 
 /// Font size in points used for horizontal separator labels.
-pub const LABEL_FONT_SIZE: f32 = 11.0;
+pub const LABEL_FONT_SIZE: f32 = FONT_SIZE_BADGE;
 
 /// Vertical inset in points applied from top and bottom boundaries for vertical separator lines.
 pub const VERTICAL_LINE_INSET: f32 = SPACE_XXS; // 2.0

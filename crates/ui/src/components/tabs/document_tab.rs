@@ -32,7 +32,11 @@ const TAB_TITLE_MAX_WIDTH: f32 = 160.0;
 pub const DOCUMENT_TAB_HEIGHT: f32 = 32.0;
 const TAB_PAD_X: f32 = SPACE_MD;
 const TAB_ICON_SIZE: f32 = ICON_XS;
+// Square hit box for the per-tab close button, in egui points.
 const TAB_CLOSE_SIZE: f32 = 16.0;
+// Lucide glyph size inside the close hit box; deliberately matches the tree
+// chevron size so small dismiss affordances render at a consistent weight.
+const TAB_CLOSE_ICON_SIZE: f32 = 10.5;
 const TAB_TITLE_INSET: f32 = TAB_PAD_X + TAB_ICON_SIZE + SPACE_XS;
 
 fn truncate_tab_title(
@@ -195,7 +199,7 @@ pub fn draw_document_tab(
             close_rect.center(),
             egui::Align2::CENTER_CENTER,
             char::from(Icon::X).to_string(),
-            egui::FontId::new(10.5, egui::FontFamily::Name("lucide".into())),
+            egui::FontId::new(TAB_CLOSE_ICON_SIZE, egui::FontFamily::Name("lucide".into())),
             close_color,
         );
 

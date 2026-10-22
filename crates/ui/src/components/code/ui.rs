@@ -13,9 +13,8 @@ use egui::{
 use super::{
     config::{
         CODE_BLOCK_BODY_PADDING_Y, CODE_BLOCK_CODE_FONT_SIZE, CODE_BLOCK_COPIED_FEEDBACK_SECS,
-        CODE_BLOCK_COPY_BTN_SIZE, CODE_BLOCK_COPY_ICON_SIZE, CODE_BLOCK_COPY_LABEL_SIZE, CODE_BLOCK_CORNER_RADIUS,
-        CODE_BLOCK_HEADER_HEIGHT, CODE_BLOCK_LANG_FONT_SIZE, CODE_BLOCK_LINE_HEIGHT, CODE_BLOCK_LINE_NUM_FONT_SIZE,
-        INLINE_CODE_FONT_SIZE,
+        CODE_BLOCK_COPY_BTN_SIZE, CODE_BLOCK_COPY_ICON_SIZE, CODE_BLOCK_COPY_LABEL_SIZE, CODE_BLOCK_HEADER_HEIGHT,
+        CODE_BLOCK_LANG_FONT_SIZE, CODE_BLOCK_LINE_HEIGHT, CODE_BLOCK_LINE_NUM_FONT_SIZE, INLINE_CODE_FONT_SIZE,
     },
     handler::{
         calculate_gutter_width, code_body_content_width, copy_button_rect, copy_button_state, copy_feedback_remaining,
@@ -117,7 +116,7 @@ impl<'a> CodeBlock<'a> {
         let frame = egui::Frame::NONE
             .fill(self.theme.surface_editor)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
-            .corner_radius(CornerRadius::same(CODE_BLOCK_CORNER_RADIUS as u8))
+            .corner_radius(CornerRadius::same(RADIUS_CODE_BLOCK as u8))
             .inner_margin(egui::Margin::same(0.0 as i8));
 
         let resp = frame
@@ -131,8 +130,8 @@ impl<'a> CodeBlock<'a> {
                 ui.painter().rect_filled(
                     header_rect,
                     CornerRadius {
-                        nw: (CODE_BLOCK_CORNER_RADIUS) as u8,
-                        ne: (CODE_BLOCK_CORNER_RADIUS) as u8,
+                        nw: (RADIUS_CODE_BLOCK) as u8,
+                        ne: (RADIUS_CODE_BLOCK) as u8,
                         sw: 0.0 as u8,
                         se: 0.0 as u8,
                     },

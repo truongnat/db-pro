@@ -1,9 +1,9 @@
 /// Standard badge label font size, in egui points, for dense workstation metadata.
-pub const BADGE_FONT_SIZE: f32 = 12.0;
+pub const BADGE_FONT_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
 /// Standard Lucide icon size, in egui points, used when a badge has a leading icon.
-pub const BADGE_ICON_SIZE: f32 = 12.0;
+pub const BADGE_ICON_SIZE: f32 = crate::tokens::ICON_XS;
 /// Standard horizontal content padding, in egui points.
-pub const BADGE_PAD_X: f32 = 8.0;
+pub const BADGE_PAD_X: f32 = crate::tokens::SPACE_SM;
 /// Standard vertical content padding, in egui points.
 pub const BADGE_PAD_Y: f32 = 2.0;
 /// Standard gap, in egui points, between the leading dot/icon and the label.

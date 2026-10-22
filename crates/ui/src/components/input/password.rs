@@ -11,8 +11,8 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         input::{
             config::{
-                INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE, PASSWORD_MIN_EDIT_WIDTH,
-                PASSWORD_MIN_FRAME_WIDTH,
+                INPUT_AUX_FONT_SIZE, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE, MIN_EDIT_WIDTH, MIN_FRAME_WIDTH,
+                PASSWORD_EYE_RESERVATION,
             },
             layout::{paint_field_chrome, resolve_field_width, FieldChromeState},
         },
@@ -111,7 +111,7 @@ impl<'a> PasswordInput<'a> {
             }
 
             let has_error = self.error_text.is_some();
-            let frame_w = (width - SPACE_SM * 2.0).max(PASSWORD_MIN_FRAME_WIDTH);
+            let frame_w = (width - SPACE_SM * 2.0).max(MIN_FRAME_WIDTH);
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::NONE,
@@ -134,8 +134,8 @@ impl<'a> PasswordInput<'a> {
 
                     // Reserve the eye button and the spacing egui inserts before it;
                     // omitting item_spacing lets the frame grow wider than sibling inputs.
-                    let toggle_and_gap = 26.0 + ui.spacing().item_spacing.x;
-                    let edit_w = (ui.available_width() - toggle_and_gap).max(PASSWORD_MIN_EDIT_WIDTH);
+                    let toggle_and_gap = PASSWORD_EYE_RESERVATION + ui.spacing().item_spacing.x;
+                    let edit_w = (ui.available_width() - toggle_and_gap).max(MIN_EDIT_WIDTH);
                     let mut text_edit = TextEdit::singleline(self.value).password(!*self.show_password);
                     if let Some(id_salt) = self.id_salt {
                         text_edit = text_edit.id_salt(id_salt);

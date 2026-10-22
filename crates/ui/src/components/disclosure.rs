@@ -8,16 +8,16 @@ use crate::{
         animation::{hover_t, lerp_color},
         interact::paint_focus_ring,
     },
-    tokens::{font_icon, ICON_SM, RADIUS_SM},
+    tokens::{font_icon, ICON_SM, RADIUS_SM, SPACE_3XL, SPACE_MD, SPACE_SM},
     DbProTheme,
 };
 
-pub(crate) const HEADER_HEIGHT: f32 = 32.0;
+pub(crate) const HEADER_HEIGHT: f32 = SPACE_3XL;
 pub(crate) const CONTENT_MARGIN: egui::Margin = egui::Margin {
-    left: 32.0 as i8,
-    right: 12.0 as i8,
-    top: 8.0 as i8,
-    bottom: 12.0 as i8,
+    left: SPACE_3XL as i8,
+    right: SPACE_MD as i8,
+    top: SPACE_SM as i8,
+    bottom: SPACE_MD as i8,
 };
 
 pub(crate) fn disclosure_progress(is_open: bool, reduce_motion: bool, animate: impl FnOnce() -> f32) -> f32 {

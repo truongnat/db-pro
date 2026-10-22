@@ -39,9 +39,9 @@ pub(super) const SKELETON_SHIMMER_ALPHA: f32 = 0.25;
 /// Empty state top spacer, in egui points.
 pub(super) const EMPTY_STATE_TOP_SPACE: f32 = 12.0;
 /// Empty state icon-to-title spacer, in egui points.
-pub(super) const EMPTY_STATE_ICON_GAP: f32 = 8.0;
+pub(super) const EMPTY_STATE_ICON_GAP: f32 = crate::tokens::SPACE_SM;
 /// Empty state title-to-description spacer, in egui points.
-pub(super) const EMPTY_STATE_TITLE_GAP: f32 = 4.0;
+pub(super) const EMPTY_STATE_TITLE_GAP: f32 = crate::tokens::SPACE_XS;
 /// Empty state action top spacer, in egui points.
 pub(super) const EMPTY_STATE_ACTION_GAP: f32 = 12.0;
 /// Empty state bottom spacer, in egui points.
@@ -53,8 +53,8 @@ pub(super) const EMPTY_STATE_TITLE_SIZE: f32 = 15.0;
 /// Empty state description font size, in egui points.
 pub(super) const EMPTY_STATE_DESCRIPTION_SIZE: f32 = 13.0;
 /// Toolbar horizontal inner padding, in egui points.
-pub(super) const TOOLBAR_MARGIN_X: f32 = 8.0;
+pub(super) const TOOLBAR_MARGIN_X: f32 = crate::tokens::SPACE_SM;
 /// Toolbar vertical inner padding, in egui points.
-pub(super) const TOOLBAR_MARGIN_Y: f32 = 4.0;
+pub(super) const TOOLBAR_MARGIN_Y: f32 = crate::tokens::SPACE_XS;
 /// Gap between adjacent toolbar controls, in egui points.
-pub(super) const TOOLBAR_ITEM_GAP: f32 = 4.0;
+pub(super) const TOOLBAR_ITEM_GAP: f32 = crate::tokens::SPACE_XS;

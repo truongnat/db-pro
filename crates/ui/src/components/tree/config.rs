@@ -3,7 +3,7 @@ pub(crate) const ROW_HEIGHT: f32 = 26.0;
 /// Horizontal offset added at each nested tree depth, in egui points.
 pub(crate) const INDENT_STEP: f32 = 14.0;
 /// Leading inset before tree-row controls, in egui points.
-pub(crate) const LEFT_INSET: f32 = 8.0;
+pub(crate) const LEFT_INSET: f32 = crate::tokens::SPACE_SM;
 /// Width reserved for an expand/collapse chevron, in egui points.
 pub(crate) const CHEVRON_SLOT: f32 = 14.0;
 /// Horizontal center used by chevron and node-icon slots, in egui points.
@@ -15,7 +15,7 @@ pub(crate) const ICON_SLOT: f32 = 17.0;
 /// Inset before secondary row details, in egui points.
 pub(crate) const DETAIL_INSET: f32 = 10.0;
 /// Corner radius for the selected and hovered row background, in egui points.
-pub(crate) const ROW_ROUNDING: f32 = 4.0;
+pub(crate) const ROW_ROUNDING: f32 = crate::tokens::RADIUS_XS;
 /// Width of the selected-row accent rail, in egui points.
 pub(crate) const SELECTED_ACCENT_WIDTH: f32 = 2.5;
 /// Corner radius for the selected-row accent rail, in egui points.

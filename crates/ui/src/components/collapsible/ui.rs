@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     components::disclosure,
-    tokens::{font_icon, FONT_SIZE_BADGE, ICON_SM, ICON_TEXT_GAP, RADIUS_MD},
+    tokens::{font_icon, FONT_SIZE_BADGE, ICON_SM, ICON_TEXT_GAP, RADIUS_FULL},
     DbProTheme,
 };
 
@@ -212,7 +212,7 @@ impl<'a> HeaderLayout<'a> {
     fn paint_badge(&self, ui: &mut Ui, badge_rect: egui::Rect, galley: std::sync::Arc<egui::Galley>) {
         ui.painter().with_clip_rect(self.rect).rect_filled(
             badge_rect,
-            CornerRadius::same(RADIUS_MD as u8),
+            CornerRadius::same(RADIUS_FULL as u8),
             self.theme.surface_hover,
         );
         ui.painter().with_clip_rect(badge_rect).galley(

@@ -29,11 +29,11 @@ pub(super) fn progress_indicator_info(fraction: f32, indeterminate: bool, label:
 }
 
 pub fn calculate_separator_line_width(total_width: f32, text_width: f32) -> f32 {
-    let available = total_width - text_width - SEPARATOR_PADDING_EXTRA;
+    let available = total_width - text_width - KBD_SEPARATOR_PADDING_EXTRA;
     if !available.is_finite() || available <= 0.0 {
         return 0.0;
     }
-    (available * 0.5).max(SEPARATOR_MIN_LINE_WIDTH)
+    (available * 0.5).max(KBD_SEPARATOR_MIN_LINE_WIDTH)
 }
 
 pub fn calculate_spinner_radius(size: f32) -> f32 {

@@ -82,7 +82,7 @@ pub const ICON_SMALL_SIZE: f32 = 10.0;
 pub const ICON_STATUS_SIZE: f32 = 12.0;
 pub const ICON_TOOL_CHEVRON_SIZE: f32 = 10.5;
 pub const ICON_TOOL_SIZE: f32 = 13.0;
-pub const FRAME_BORDER_WIDTH: f32 = 1.0;
+pub const FRAME_BORDER_WIDTH: f32 = crate::tokens::STROKE_THIN;
 
 #[cfg(test)]
 #[path = "tests/config_tests.rs"]

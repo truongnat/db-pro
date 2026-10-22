@@ -7,7 +7,7 @@ use egui::{
 use lucide_icons::Icon;
 
 use super::super::{
-    config::LINK_UNDERLINE_WIDTH,
+    config::{LINK_UNDERLINE_WIDTH, SPINNER_INSET, SPINNER_STROKE_WIDTH},
     handlers::{centered_content_pos, leading_content_x, ButtonPalette, ButtonSize, ButtonVariant, SizeTokens},
 };
 use crate::{
@@ -233,8 +233,8 @@ impl<'a> Button<'a> {
         animation::paint_spinner(
             ui.painter(),
             Pos2::new(start_x + tokens.icon_size * 0.5, layout.rect.center().y),
-            (tokens.icon_size - 2.0) * 0.5,
-            1.8,
+            (tokens.icon_size - SPINNER_INSET) * 0.5,
+            SPINNER_STROKE_WIDTH,
             text_color,
             text_color.linear_multiply(0.25),
             if self.theme.reduce_motion {
