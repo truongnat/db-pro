@@ -1,7 +1,9 @@
 use egui::{Area, CornerRadius, Frame, Margin, Order, Response, ScrollArea, Stroke, Ui};
 
 use super::{
-    config::{DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY, DEFAULT_WIDTH, FRAME_INNER_MARGIN, FRAME_ROUNDING},
+    config::{
+        DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY, DEFAULT_WIDTH, FRAME_INNER_MARGIN, FRAME_ROUNDING, SCROLLBAR_RESERVE,
+    },
     handler::{
         calculate_card_position, clamp_card_width, compute_open_state, escape_dismissed, sanitize_delay, timer_duration,
     },
@@ -145,7 +147,7 @@ impl<'a> HoverCard<'a> {
                     };
 
                     let response = frame.show(ui, |ui| {
-                        let content_width = (effective_width - 2.0 * FRAME_INNER_MARGIN - 2.0).max(0.0);
+                        let content_width = (effective_width - 2.0 * FRAME_INNER_MARGIN - SCROLLBAR_RESERVE).max(0.0);
                         ui.set_width(content_width);
                         ScrollArea::vertical()
                             .id_salt(id.with("scroll"))

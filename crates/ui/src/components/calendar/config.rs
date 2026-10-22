@@ -9,7 +9,7 @@ pub const POPOVER_GAP: f32 = 4.0;
 pub const POPOVER_SCREEN_MARGIN: f32 = 8.0;
 pub const CALENDAR_INNER_MARGIN: f32 = 12.0;
 /// Vertical gap between calendar sections.
-pub const SECTION_GAP: f32 = 8.0;
+pub const CALENDAR_SECTION_GAP: f32 = 8.0;
 /// Gap before the day grid.
 pub const GRID_GAP: f32 = 4.0;
 /// Corner radius shared by calendar controls and day cells.

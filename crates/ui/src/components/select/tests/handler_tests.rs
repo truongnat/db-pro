@@ -135,7 +135,7 @@ fn menu_and_trigger_geometry_helpers_compute_correct_values() {
 
     let menu_margin = menu_surface_margin(12.0);
     assert_eq!(menu_margin.left, 12);
-    assert_eq!(menu_margin.top, RADIUS_DROPDOWN as i8);
+    assert_eq!(menu_margin.top, SPACE_SM as i8);
 
     let min_content_width = menu_min_content_width(150.0);
     assert_eq!(min_content_width, 150.0 - ICON_TEXT_GAP);

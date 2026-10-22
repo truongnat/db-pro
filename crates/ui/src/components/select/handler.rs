@@ -5,8 +5,7 @@ use super::config::{
     OPTION_ICON_SIDE, TRIGGER_TEXT_RESERVED_WIDTH, VERTICAL_CENTER_FACTOR,
 };
 use crate::tokens::{
-    component::table::TABLE_ROW_HEIGHT_COMPACT, FONT_SIZE_UI_LABEL, ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM,
-    SPACE_XS,
+    component::table::TABLE_ROW_HEIGHT_COMPACT, FONT_SIZE_UI_LABEL, ICON_LG, ICON_TEXT_GAP, SPACE_SM, SPACE_XS,
 };
 
 pub fn dropdown_should_open_above(space_below: f32, space_above: f32, menu_h: f32) -> bool {
@@ -35,7 +34,7 @@ pub fn calculate_menu_geometry(
     // Count real options plus the optional action row, saturate overflow, then cap the visible row count.
     let extra = usize::from(has_more);
     let visible = option_count.saturating_add(extra).min(MAX_VISIBLE_ITEMS);
-    let menu_h = visible as f32 * TABLE_ROW_HEIGHT_COMPACT + RADIUS_DROPDOWN * DOUBLE_FACTOR;
+    let menu_h = visible as f32 * TABLE_ROW_HEIGHT_COMPACT + SPACE_SM * DOUBLE_FACTOR;
     // Measure nonnegative space from the trigger to each screen edge before choosing a direction.
     let space_below = (screen.bottom() - parent_rect.bottom()).max(0.0);
     let space_above = (parent_rect.top() - screen.top()).max(0.0);
@@ -124,7 +123,7 @@ pub fn trigger_inner_margin(padding_x: f32, padding_y: f32) -> Margin {
 }
 
 pub fn menu_surface_margin(menu_margin_left: f32) -> Margin {
-    Margin::symmetric(menu_margin_left as i8, RADIUS_DROPDOWN as i8)
+    Margin::symmetric(menu_margin_left as i8, SPACE_SM as i8)
 }
 
 pub fn menu_min_content_width(menu_width: f32) -> f32 {

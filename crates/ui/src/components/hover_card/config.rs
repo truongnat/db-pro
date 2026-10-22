@@ -21,6 +21,9 @@ pub const SCREEN_EDGE_INSET: f32 = 10.0;
 pub const FRAME_INNER_MARGIN: f32 = 14.0;
 /// Floating card corner radius in egui points.
 pub const FRAME_ROUNDING: f32 = 8.0;
+/// Horizontal slack subtracted from the card's content width so a scrollbar or
+/// the frame stroke never crowds content against the right edge.
+pub const SCROLLBAR_RESERVE: f32 = 2.0;
 /// Smallest useful visible height before the card should prefer opening upward.
 pub const MIN_VISIBLE_HEIGHT: f32 = 96.0;
 // Shadow uses the shared `DbProTheme::floating_shadow` (offset, blur, and

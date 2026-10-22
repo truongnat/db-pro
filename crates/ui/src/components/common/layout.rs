@@ -1,5 +1,7 @@
 use egui::{Pos2, Rect, Vec2};
 
+use crate::tokens::SPACE_2XL;
+
 /// Layout parameters calculated for a modal dialog.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DialogLayout {
@@ -71,7 +73,7 @@ pub fn calculate_sheet_layout(
 /// Clamps a popup or completion menu's position so it remains fully visible within the screen bounds.
 pub fn clamp_popup_to_screen(mut desired_pos: Pos2, popup_size: Vec2, screen: Rect, margin: f32) -> Pos2 {
     if desired_pos.y + popup_size.y > screen.max.y - margin {
-        desired_pos.y = (desired_pos.y - popup_size.y - 24.0).max(screen.min.y + margin);
+        desired_pos.y = (desired_pos.y - popup_size.y - SPACE_2XL).max(screen.min.y + margin);
     }
     desired_pos.x = desired_pos.x.clamp(
         screen.min.x + margin,

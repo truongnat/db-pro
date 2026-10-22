@@ -5,7 +5,10 @@ use egui::{Area, CornerRadius, FontFamily, FontId, Margin, Order, Pos2, Rect, Ri
 use lucide_icons::Icon;
 
 use super::{config, floating_surface, screen_rect};
-use crate::{tokens::STROKE_THIN, DbProTheme};
+use crate::{
+    tokens::{DURATION_TOAST_DEFAULT_SECS, ICON_TEXT_GAP, STROKE_THIN},
+    DbProTheme,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastVariant {
@@ -172,7 +175,7 @@ impl<'a> Toast<'a> {
                         .font(FontId::new(config::TOAST_ICON_SIZE, FontFamily::Name("lucide".into())))
                         .color(icon_color),
                 );
-                ui.add_space(8.0);
+                ui.add_space(ICON_TEXT_GAP);
                 ui.label(
                     RichText::new(self.message)
                         .size(config::TOAST_MESSAGE_SIZE)
@@ -180,7 +183,7 @@ impl<'a> Toast<'a> {
                 );
 
                 if let Some(label) = self.action_label {
-                    ui.add_space(10.0);
+                    ui.add_space(config::TOAST_ACTION_GAP);
                     let action_btn = egui::Button::new(
                         RichText::new(label)
                             .size(config::TOAST_ACTION_SIZE)
@@ -189,7 +192,7 @@ impl<'a> Toast<'a> {
                     )
                     .fill(self.theme.surface_hover)
                     .stroke(Stroke::new(STROKE_THIN, self.theme.border_subtle))
-                    .corner_radius(CornerRadius::same(5.0 as u8));
+                    .corner_radius(CornerRadius::same(config::TOAST_ACTION_RADIUS as u8));
 
                     if ui.add(action_btn).clicked() {
                         toast_resp.action_clicked = true;
@@ -197,7 +200,7 @@ impl<'a> Toast<'a> {
                 }
 
                 if self.closable {
-                    ui.add_space(6.0);
+                    ui.add_space(config::TOAST_CLOSE_GAP);
                     let close_btn = egui::Button::new(
                         RichText::new(char::from(Icon::X).to_string())
                             .font(FontId::new(config::TOAST_CLOSE_SIZE, FontFamily::Name("lucide".into())))
@@ -322,7 +325,7 @@ impl ToastManager {
             variant,
             position,
             action_label: None,
-            duration_secs: 5.0,
+            duration_secs: DURATION_TOAST_DEFAULT_SECS,
             elapsed_secs: 0.0,
         })
     }
@@ -341,7 +344,7 @@ impl ToastManager {
             variant,
             position,
             action_label: Some(action.into()),
-            duration_secs: 8.0,
+            duration_secs: config::TOAST_ACTION_DURATION_SECS,
             elapsed_secs: 0.0,
         })
     }

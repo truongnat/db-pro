@@ -20,7 +20,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         common::dialog_body_cap,
     },
-    tokens::STROKE_THIN,
+    tokens::{font_subheading, SPACE_XXS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -312,18 +312,14 @@ fn draw_dialog_header(
                 ui.vertical(|ui| {
                     if let Some(title) = title {
                         ui.add(
-                            egui::Label::new(
-                                RichText::new(title)
-                                    .font(DbProTheme::ui_medium_font(16.0))
-                                    .color(theme.text_primary),
-                            )
-                            .truncate(),
+                            egui::Label::new(RichText::new(title).font(font_subheading()).color(theme.text_primary))
+                                .truncate(),
                         )
                         .on_hover_text(title);
                     }
                     if let Some(description) = description {
                         if title.is_some() {
-                            ui.add_space(2.0);
+                            ui.add_space(SPACE_XXS);
                         }
                         ui.label(
                             RichText::new(description)

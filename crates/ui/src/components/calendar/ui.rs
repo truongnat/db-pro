@@ -306,7 +306,7 @@ impl<'a> Calendar<'a> {
                             },
                         );
 
-                        ui.add_space(config::SECTION_GAP);
+                        ui.add_space(config::CALENDAR_SECTION_GAP);
 
                         // Day of week headers
                         ui.horizontal(|ui| {
@@ -507,7 +507,7 @@ impl<'a> Calendar<'a> {
                         }
 
                         if self.show_today {
-                            ui.add_space(config::SECTION_GAP);
+                            ui.add_space(config::CALENDAR_SECTION_GAP);
                             let today = Local::now().date_naive();
                             let today = SimpleDate::new(today.year(), today.month(), today.day());
                             if ui
@@ -541,13 +541,13 @@ fn calendar_frame_size(show_today: bool) -> Vec2 {
         calendar_content_width() + (config::CALENDAR_INNER_MARGIN * 2.0),
         config::CALENDAR_INNER_MARGIN * 2.0
             + config::HEADER_BUTTON_SIZE
-            + config::SECTION_GAP
+            + config::CALENDAR_SECTION_GAP
             + config::DAY_ROW_HEIGHT
             + config::GRID_GAP
             + (config::CELL_SIZE * 6.0)
             + (config::CELL_GAP * 5.0)
             + if show_today {
-                config::SECTION_GAP + config::DAY_ROW_HEIGHT
+                config::CALENDAR_SECTION_GAP + config::DAY_ROW_HEIGHT
             } else {
                 0.0
             },

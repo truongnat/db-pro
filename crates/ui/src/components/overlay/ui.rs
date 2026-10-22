@@ -14,7 +14,7 @@ use crate::{
         feedback::kbd_badge,
         interact::paint_focus_ring,
     },
-    tokens::STROKE_THIN,
+    tokens::{SPACE_XS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -65,7 +65,7 @@ impl FloatingPopup {
             fill: theme.surface_floating,
             stroke: Stroke::new(STROKE_THIN, theme.border_subtle),
             radius: config::POPOVER_RADIUS,
-            margin: Margin::same(10.0 as i8),
+            margin: config::POPOVER_MARGIN,
             shadow: true,
             frameless: false,
         }
@@ -175,15 +175,15 @@ impl<'a> Popover<'a> {
             return None;
         }
 
-        let pos =
-            trigger.rect.left_bottom() + Vec2::new(0.0, 4.0 + small_translate(progress, config::OPEN_TRANSLATE_PX));
+        let pos = trigger.rect.left_bottom()
+            + Vec2::new(0.0, SPACE_XS + small_translate(progress, config::OPEN_TRANSLATE_PX));
         let popup = Area::new(id)
             .order(Order::Foreground)
             .fixed_pos(pos)
             .constrain_to(screen_rect(ui).shrink(config::CONTEXT_MENU_SCREEN_INSET))
             .show(ui.ctx(), |ui| {
                 ui.set_opacity(fade_alpha(progress));
-                floating_surface(self.theme, config::POPOVER_RADIUS, Margin::same(10.0 as i8))
+                floating_surface(self.theme, config::POPOVER_RADIUS, config::POPOVER_MARGIN)
                     .show(ui, add_contents)
                     .inner
             });
@@ -263,29 +263,25 @@ impl<'a> DropdownMenu<'a> {
             return None;
         }
 
-        let pos =
-            trigger.rect.left_bottom() + Vec2::new(0.0, 4.0 + small_translate(progress, config::OPEN_TRANSLATE_PX));
+        let pos = trigger.rect.left_bottom()
+            + Vec2::new(0.0, SPACE_XS + small_translate(progress, config::OPEN_TRANSLATE_PX));
         let mut chosen = None;
         let popup = Area::new(id)
             .order(Order::Foreground)
             .fixed_pos(pos)
             .show(ui.ctx(), |ui| {
                 ui.set_opacity(fade_alpha(progress));
-                ui.set_min_width(trigger.rect.width().max(180.0));
-                floating_surface(
-                    self.theme,
-                    config::DROPDOWN_RADIUS,
-                    Margin::symmetric(4.0 as i8, 6.0 as i8),
-                )
-                .show(ui, |ui| {
-                    for (index, item) in self.items.iter().enumerate() {
-                        let response = draw_dropdown_item(ui, item, self.theme);
-                        if item.enabled && response.clicked() {
-                            chosen = Some(index);
+                ui.set_min_width(trigger.rect.width().max(config::DROPDOWN_MIN_WIDTH));
+                floating_surface(self.theme, config::DROPDOWN_RADIUS, config::DROPDOWN_ITEM_MARGIN)
+                    .show(ui, |ui| {
+                        for (index, item) in self.items.iter().enumerate() {
+                            let response = draw_dropdown_item(ui, item, self.theme);
+                            if item.enabled && response.clicked() {
+                                chosen = Some(index);
+                            }
                         }
-                    }
-                })
-                .inner
+                    })
+                    .inner
             });
 
         if let Some(index) = chosen {
@@ -328,7 +324,7 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
         theme.text_primary
     };
 
-    let mut cursor = rect.left() + 8.0;
+    let mut cursor = rect.left() + config::DROPDOWN_ITEM_HORIZONTAL_PADDING;
     if let Some(icon) = item.icon {
         ui.painter().text(
             Pos2::new(cursor, rect.center().y),
@@ -337,7 +333,7 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
             FontId::new(config::DROPDOWN_ICON_SIZE, FontFamily::Name("lucide".into())),
             text_color,
         );
-        cursor += 22.0;
+        cursor += config::DROPDOWN_ITEM_ICON_OFFSET;
     }
 
     ui.painter().text(
@@ -349,7 +345,10 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
     );
 
     if let Some(shortcut) = item.shortcut {
-        let badge_rect = Rect::from_min_max(Pos2::new(rect.right() - 64.0, rect.top()), rect.right_bottom());
+        let badge_rect = Rect::from_min_max(
+            Pos2::new(rect.right() - config::DROPDOWN_ITEM_TRAILING_RESERVE, rect.top()),
+            rect.right_bottom(),
+        );
         let mut badge_ui = ui.new_child(
             egui::UiBuilder::new()
                 .max_rect(badge_rect)
@@ -357,7 +356,7 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
         );
         badge_ui.set_clip_rect(badge_ui.clip_rect().intersect(badge_rect));
         kbd_badge(&mut badge_ui, shortcut, theme);
-        badge_ui.add_space(6.0);
+        badge_ui.add_space(config::DROPDOWN_SHORTCUT_TRAILING_GAP);
     }
 
     if !item.enabled {
@@ -531,7 +530,7 @@ pub fn ctx_menu_item(
     color: Color32,
     theme: DbProTheme,
 ) -> egui::Response {
-    let width = ui.available_width().max(200.0);
+    let width = ui.available_width().max(config::CONTEXT_MENU_MIN_WIDTH);
     let (rect, response) = ui.allocate_exact_size(Vec2::new(width, config::CONTEXT_MENU_ITEM_HEIGHT), Sense::click());
     let hovered = response.hovered();
     if hovered {
@@ -561,7 +560,10 @@ pub fn ctx_menu_item(
     );
     if let Some(sc) = shortcut {
         ui.painter().text(
-            Pos2::new(rect.right() - 8.0, rect.center().y),
+            Pos2::new(
+                rect.right() - config::CONTEXT_MENU_ITEM_HORIZONTAL_PADDING,
+                rect.center().y,
+            ),
             Align2::RIGHT_CENTER,
             sc,
             FontId::monospace(config::CONTEXT_MENU_SHORTCUT_SIZE),
