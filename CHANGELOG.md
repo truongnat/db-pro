@@ -5,6 +5,13 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 
 ## [Unreleased]
 
+### Changed
+
+- Reorganized repository files by ownership: colocated Rust unit tests and private helper
+  families, consolidated project planning under `docs/plans/project/`, and grouped design
+  references, audit reports and retained screenshots with their owning documentation.
+  Rust module APIs and application behavior are unchanged.
+
 ### Fixed
 
 - Agent runs now count cached tool-call replays toward the existing ten-step limit, stopping
@@ -286,7 +293,7 @@ is frozen at `fbf9fdab9100f08f12e29434983f32c18f14ac2f`.
 - staged row edits no longer use stale full-row snapshots
 - platform-specific Rollup native binary removed from root dependencies; lockfile regenerated
 
-See `plans/07-current-status.md`, `docs/release/0.1.0-readiness.md` and
+See `docs/plans/project/07-current-status.md`, `docs/release/0.1.0-readiness.md` and
 `docs/release/0.1.0-handoff.md` for current status.
 
 ## [0.1.0] — historical placeholder

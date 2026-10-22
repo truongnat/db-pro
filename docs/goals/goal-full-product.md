@@ -81,7 +81,7 @@ supports it, with previews and confirmations where the operation mutates data or
    inside a view.
 6. **No new database drivers** in v0.2–v0.4 (PostgreSQL + SQLite only, `LIM-002`).
 7. **No WebView/React reintroduction** and no second state model
-   (`docs/08-technology-decisions.md` §4, `docs/07-fe-architecture.md`).
+   (`docs/architecture/08-technology-decisions.md` §4, `docs/architecture/07-fe-architecture.md`).
 8. **No ER design/edit mode, no job scheduler, no MCP, no telemetry-by-default** before
    their listed milestone, and never as a placeholder icon (§7 rule).
 9. **No "fake support."** A capability that a provider cannot express must be hidden or
@@ -327,7 +327,7 @@ Forbidden, and to be checked in review:
   a `RuntimeEvent` variant, and a `UiEvent` variant, plus the translation in
   `crates/native-app/src/translate.rs`.
 - Long operations are `RequestId`-scoped, cancellable, and must emit a terminal event even
-  on failure (`docs/07-fe-architecture.md` state rules).
+  on failure (`docs/architecture/07-fe-architecture.md` state rules).
 - Dead variants found in this audit (`RuntimeCommand::CancelOperation`,
   `UiEvent::QueryQueued`, `UiCommand::OpenQuery`) must be removed or wired, not copied.
 
@@ -1584,7 +1584,7 @@ milestone that changes a rail surface must record the placeholder-removal eviden
 
 Existing: `crates/ui/benches/result_grid_benchmarks.rs` (criterion), diagram tests at
 20/100/500/1000 tables, `crates/infrastructure/benches/sqlite_benchmarks.rs`,
-`docs/architecture/performance-baseline.md`, `docs/plans/performance-baseline-audit-2026-08-13.md`.
+`docs/architecture/performance-baseline.md`, `docs/plans/archived/performance-baseline-audit-2026-08-13.md`.
 
 Targets to add with the milestones that create the risk:
 

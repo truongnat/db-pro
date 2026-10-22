@@ -315,7 +315,7 @@ code.
 
 ## Acceptance for Wave 17
 
-- The active Glow and inactive WGPU paths are distinguished in `docs/rendering-analysis.md`.
-- `docs/rendering-history.md` records the upstream history and version boundary.
+- The active Glow and inactive WGPU paths are distinguished in `docs/architecture/rendering-analysis.md`.
+- `docs/architecture/rendering-history.md` records the upstream history and version boundary.
 - The Gallery page shows alpha, physical-pixel strokes, DPI, text and overlay samples.
 - No production linear-rendering claim is made without a fork-level before/after test.

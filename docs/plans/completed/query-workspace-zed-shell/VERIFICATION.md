@@ -15,7 +15,7 @@ Capture at 1280×800 and 1440×900 (dark required; light sanity). One 1920×1080
 
 | Shot | State | Captured |
 |---|---|---|
-| A | New untitled query | CAPTURED · light `A-untitled-1280x800.png`, `A-untitled-1440x900.png`; dark `A-untitled-dark-1280x800.png` |
+| A | New untitled query | CAPTURED · light `screenshots/A-untitled-1280x800.png`, `screenshots/A-untitled-1440x900.png`; dark `screenshots/A-untitled-dark-1280x800.png` |
 | B | File-backed SQL | pending |
 | C | Completion open | pending |
 | D | Find open | pending |

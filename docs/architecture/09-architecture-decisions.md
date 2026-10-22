@@ -5,7 +5,7 @@ Status: ratified before implementation; decisions 1 and 7 superseded by the nati
 > **Amendment (2026-09-11) — native UI direction.** Decisions 1 and 7 below described the
 > React/Tauri-webview presentation layer. That layer was retired: the React frontend is
 > archived under `_archive/frontend/` and the UI is now native `eframe`/`egui`. Decision 1
-> is replaced by the native UI architecture in `docs/07-fe-architecture.md`; decision 7's
+> is replaced by the native UI architecture in `docs/architecture/07-fe-architecture.md`; decision 7's
 > `Channel<T>` streaming is replaced by the typed `UiCommand`/`UiEvent` task bridge. All
 > other decisions (2–6, 8, 9) remain in force unchanged. `crates/tauri-app` is kept only as
 > a legacy transitional host and is scheduled for removal at cutover.
@@ -16,7 +16,7 @@ This document closes the nine architecture decisions required before Phase 0 imp
 
 | # | Decision | Status |
 |---:|---|---|
-| 1 | ~~Frontend UI uses source-owned shadcn/ui-style components, Radix primitives, Tailwind, and CSS variables; MUI is removed from the baseline~~ — **superseded**: the UI is native `eframe`/`egui` with `DbProTheme` tokens (`docs/07-fe-architecture.md`) | Superseded |
+| 1 | ~~Frontend UI uses source-owned shadcn/ui-style components, Radix primitives, Tailwind, and CSS variables; MUI is removed from the baseline~~ — **superseded**: the UI is native `eframe`/`egui` with `DbProTheme` tokens (`docs/architecture/07-fe-architecture.md`) | Superseded |
 | 2 | PostgreSQL uses `sqlx::PgPool` directly; no `tokio-postgres`, `bb8`, ORM, or second pool abstraction | Ratified |
 | 3 | Dynamic query parameters use a serializable `QueryParam` enum mapped by each adapter | Ratified |
 | 4 | SQLite uses a dedicated actor/worker owning its `rusqlite::Connection`; async callers communicate through commands | Ratified |
@@ -43,7 +43,7 @@ native SQL editor + native virtualized grid
 ```
 
 All UI code lives in `crates/ui` and is owned by the product. Widgets read semantic tokens
-from `DbProTheme` instead of hard-coding colors. See `docs/07-fe-architecture.md`.
+from `DbProTheme` instead of hard-coding colors. See `docs/architecture/07-fe-architecture.md`.
 
 ## 2. PostgreSQL driver
 

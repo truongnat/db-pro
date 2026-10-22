@@ -1,13 +1,13 @@
 # DB Client — Technology Decisions & Technical Strategy
 
-Status: ratified baseline, amended for the native UI cutover; detailed architecture decisions are recorded in `docs/09-architecture-decisions.md`
+Status: ratified baseline, amended for the native UI cutover; detailed architecture decisions are recorded in `docs/architecture/09-architecture-decisions.md`
 
 > **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite presentation
 > layer and the Tauri WebView that hosted it were retired. The product UI is now native
 > `eframe`/`egui` (`crates/ui` + `crates/native-app`), and the React frontend is archived
 > under `_archive/frontend/`. Rows and comparisons below that describe the React stack are
 > kept as the historical record of that decision, but they no longer describe the current
-> or planned UI. The authoritative current direction is `docs/07-fe-architecture.md` and
+> or planned UI. The authoritative current direction is `docs/architecture/07-fe-architecture.md` and
 > `docs/10-egui-native-migration-plan.md`.
 
 This document records the technology choices and implementation constraints that must be agreed before production code is added. It is intentionally explicit: a task plan is not complete until its dependencies, runtime model, security policy, and test strategy are implementable.
@@ -87,7 +87,7 @@ Each adapter maps this enum to its native bind API. Unsupported values fail with
 ### Statement execution
 
 - SQL parsing must be performed with a PostgreSQL-aware tokenizer/parser where possible; splitting on `;` is not sufficient because of strings, dollar quoting, comments, and procedural blocks.
-- ~~Multi-statement execution is disabled by default for the first slice and enabled only with an explicit transaction policy.~~ **Superseded (2026-09-15, #147/#129):** multi-statement scripts execute — a script is reduced to its **most dangerous** statement, and a batch containing any mutation runs as **one transaction** through `Connector::execute_transaction`, while a read-only batch runs sequentially without one. Documented contract and matrix: `docs/09-architecture-decisions.md` §5 and `docs/release/audit-execution-safety.md`. See the note on explicit transaction control in that matrix before adding `BEGIN`/`COMMIT`/`ROLLBACK` to a batch.
+- ~~Multi-statement execution is disabled by default for the first slice and enabled only with an explicit transaction policy.~~ **Superseded (2026-09-15, #147/#129):** multi-statement scripts execute — a script is reduced to its **most dangerous** statement, and a batch containing any mutation runs as **one transaction** through `Connector::execute_transaction`, while a read-only batch runs sequentially without one. Documented contract and matrix: `docs/architecture/09-architecture-decisions.md` §5 and `docs/release/audit-execution-safety.md`. See the note on explicit transaction control in that matrix before adding `BEGIN`/`COMMIT`/`ROLLBACK` to a batch.
 - `SELECT`, explain, and metadata queries are read-only by default.
 - `INSERT`, `UPDATE`, `DELETE`, DDL, and transaction commands are classified and shown clearly in the UI.
 - `EXPLAIN ANALYZE` is opt-in because it executes the query. Plain `EXPLAIN` is the safe default.
@@ -138,7 +138,7 @@ Required gates before M1/M2:
 
 ## 9. Plan corrections completed
 
-The task files were updated to follow this baseline. The ratified implementation details are maintained in `docs/09-architecture-decisions.md`:
+The task files were updated to follow this baseline. The ratified implementation details are maintained in `docs/architecture/09-architecture-decisions.md`:
 
 1. UI tasks use native egui views and shared widgets in `crates/ui`.
 2. PostgreSQL uses `sqlx::PgPool` only.

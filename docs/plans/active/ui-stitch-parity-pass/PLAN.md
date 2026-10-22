@@ -6,7 +6,7 @@ Branch: `main` (owner override — no worktree)
 ## Goal
 
 Bring the remaining native egui surfaces to parity with the canonical Stitch
-references under `docs/stitch_screens/`, continuing the polish work already done
+references under `docs/design/stitch_screens/`, continuing the polish work already done
 on the result grid, cell editors, and query editor. The session is time-boxed to
 one continuous ~5-hour run; tasks are ordered by user-facing impact and each
 lands as an independently revertable commit.

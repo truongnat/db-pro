@@ -85,7 +85,7 @@ State: REVIEW (regression matrix complete; gap-filling tests added; CI green; al
 | 14 | CR5 | P2 | ci.yml | REJECTED | `--include-ignored` is by design — PG tests must run in CI with service container |
 | 15 | CR5 | P3 | ci.yml | FIXED | `sudo apt-get update` added before `apt-get install` in `314dcfe` |
 | 16 | CR6 | P2 | pg_integration.rs | FIXED | Pre-cleanup `DROP INDEX IF EXISTS` added in `f4ff701` |
-| 17 | CR6 | P3 | plans/07-current-status.md | FIXED | P2.11 row corrected to "1319 FE + 39 Rust" |
+| 17 | CR6 | P3 | docs/plans/project/07-current-status.md | FIXED | P2.11 row corrected to "1319 FE + 39 Rust" |
 | 18 | CR6 | P3 | VERIFICATION.md | FIXED | integration.rs count corrected 18 → 24 |
 | 19 | CR7 | P2 | 0.1.0-readiness.md | FIXED | S4 line corrected — enable/disable not exercised in live PG |
 | 20 | CR7 | P3 | VERIFICATION.md | FIXED | "3 consecutive green runs" → "consecutive green runs on latest HEAD" |

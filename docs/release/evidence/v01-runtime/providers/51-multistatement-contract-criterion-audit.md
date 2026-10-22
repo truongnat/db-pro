@@ -12,7 +12,7 @@
 
 | #147 criterion | State | Where |
 |---|---|---|
-| Choose **exactly one** RC1 contract (A sequential partial-write / B atomic write-batch) | **met — B chosen and recorded** | `docs/09-architecture-decisions.md` §5 "Multi-statement policy — **Implemented (updated 2026-09-15, #147/#129)**": a batch containing any mutation runs as **one transaction** through `Connector::execute_transaction` (failing statement rolls the whole batch back); a read-only batch runs statement by statement |
+| Choose **exactly one** RC1 contract (A sequential partial-write / B atomic write-batch) | **met — B chosen and recorded** | `docs/architecture/09-architecture-decisions.md` §5 "Multi-statement policy — **Implemented (updated 2026-09-15, #147/#129)**": a batch containing any mutation runs as **one transaction** through `Connector::execute_transaction` (failing statement rolls the whole batch back); a read-only batch runs statement by statement |
 | Option A's UI-wording items (completed count, "earlier writes may be committed") | **not applicable under B** — and stated as such in §5 rather than left implicit | same §5; `docs/release/audit-execution-safety.md` §2 rows 6-8 |
 | two reads | **met** | `execute_multi` sequential path; matrix row 6 |
 | read → write | **met** | `execute_multi_routes_select_then_update` (`crates/core/src/application/query_service.rs:1034`) |

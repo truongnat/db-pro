@@ -149,8 +149,8 @@ Baseline for comparison: **815 passed / 0 failed / 19 ignored** (no `DATABASE_UR
 This change closes the classification gap; it does not close either issue on its own.
 
 - **#147** still needs the recorded multi-statement contract (transaction/rollback wording in
-  `docs/release/known-limitations.md`, plus the `docs/08-technology-decisions.md:90` /
-  `docs/09-architecture-decisions.md:89-101` statements that still say multi-statement is disabled)
+  `docs/release/known-limitations.md`, plus the `docs/architecture/08-technology-decisions.md:90` /
+  `docs/architecture/09-architecture-decisions.md:89-101` statements that still say multi-statement is disabled)
   and the `BEGIN`/`COMMIT`/`ROLLBACK`-inside-a-batch edge case.
 - **#129** still needs the execution-safety matrix as a document.
 - Neither issue has a packaged-runtime leg that this environment can run; both stay open with these

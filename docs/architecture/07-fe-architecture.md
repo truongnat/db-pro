@@ -1,7 +1,7 @@
 # DB Pro — Native UI Architecture
 
 Status: ratified; supersedes the archived React/Vite frontend architecture
-Aligned with `docs/08-technology-decisions.md`, `docs/09-architecture-decisions.md`, and
+Aligned with `docs/architecture/08-technology-decisions.md`, `docs/architecture/09-architecture-decisions.md`, and
 `docs/10-egui-native-migration-plan.md`.
 
 ## Direction

@@ -363,7 +363,7 @@ Công việc:
 
 - React frontend chuyển vào `_archive/frontend/` thay vì xoá hẳn, để còn đối chiếu parity.
 - CI bỏ job frontend; release pipeline build `db-pro-native` thay vì Tauri bundler.
-- README, AGENTS.md, docs kiến trúc, release docs và `plans/` đã cập nhật sang hướng native.
+- README, AGENTS.md, docs kiến trúc, release docs và `docs/plans/project/` đã cập nhật sang hướng native.
 - `tauri.conf.json` trỏ về frontend đã archive và `crates/tauri-app` được đánh dấu legacy.
 
 **Còn lại:**

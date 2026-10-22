@@ -36,7 +36,7 @@ output path that does not auto-open on query complete.
 - SQL syntax palette restrained (Zed-like) instead of raw UI accent clones.
 - Completion: panel fill contrasts editor; selected row uses `accent_soft`; kind badges in soft pills.
 - Context chip: outline, no heavy hover fill.
-- Evidence: `screenshots/query-workspace-zed-shell/theme-dark-1280x800.png`, `theme-light-1280x800.png`.
+- Evidence: `docs/plans/completed/query-workspace-zed-shell/screenshots/theme-dark-1280x800.png`, `docs/plans/completed/query-workspace-zed-shell/screenshots/theme-light-1280x800.png`.
 
 ## Perf / lag (P0)
 

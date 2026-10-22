@@ -22,7 +22,7 @@ Evidence commit on `main`: `a4ff898c0a92db54574328b409425e8e534bd31b`.
 
 ## Docs updated
 
-- `docs/introspection-audit-2026-08-13.md` — RC1 reconciliation + CHECK KEEP
+- `docs/quality/introspection-audit-2026-08-13.md` — RC1 reconciliation + CHECK KEEP
 - Capability / LIM docs already updated under #68–#70
 
 ## Workstream

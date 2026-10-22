@@ -17,8 +17,8 @@ Mở rộng audit trước đó, tập trung vào:
 References:
 - `docs/10-egui-native-migration-plan.md`
 - `docs/architecture/performance-baseline.md`
-- `docs/plans/performance-baseline-audit-2026-08-13.md`
-- `docs/plans/performance-optimization-report-2026-08-13.md`
+- `docs/plans/archived/performance-baseline-audit-2026-08-13.md`
+- `docs/plans/archived/performance-optimization-report-2026-08-13.md`
 - `crates/ui/benches/result_grid_benchmarks.rs`
 - `crates/infrastructure/benches/sqlite_benchmarks.rs`
 
@@ -185,7 +185,7 @@ References:
 ## Verification status
 
 - Code paths read: `app.rs`, `app_state.rs`, `result_grid_view.rs`, `table_view.rs`, `query_view.rs`, `editor/renderer.rs`, `table_metadata_view.rs`, `component_gallery_view.rs`, `component_gallery_surfaces.rs`, `sidebar_view.rs`, `theme.rs`, `tokens.rs`, `components/button.rs`, `components/overlay.rs`, `components/input.rs`, `result_grid_header.rs`, `result_grid_clipboard.rs`, `result_grid_edit.rs`, `result_grid_cell.rs`, `grid_layout.rs`, `feedback.rs`, `result_grid_benchmarks.rs`, `sqlite_benchmarks.rs`.
-- Documentation read: `docs/10-egui-native-migration-plan.md`, `docs/architecture/performance-baseline.md`, `docs/plans/performance-baseline-audit-2026-08-13.md`, `docs/plans/performance-optimization-report-2026-08-13.md`.
+- Documentation read: `docs/10-egui-native-migration-plan.md`, `docs/architecture/performance-baseline.md`, `docs/plans/archived/performance-baseline-audit-2026-08-13.md`, `docs/plans/archived/performance-optimization-report-2026-08-13.md`.
 - Runtime verification: **chưa làm** — cần build + run db-pro-native để thu thập performance evidence và screenshot.
 
 ---

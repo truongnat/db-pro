@@ -33,7 +33,7 @@ See:
 - [`docs/release/0.1.0-release-notes.md`](docs/release/0.1.0-release-notes.md)
 - [`docs/release/0.1.0-readiness.md`](docs/release/0.1.0-readiness.md)
 - [`docs/release/0.1.0-handoff.md`](docs/release/0.1.0-handoff.md)
-- [`plans/07-current-status.md`](plans/07-current-status.md)
+- [`docs/plans/project/07-current-status.md`](docs/plans/project/07-current-status.md)
 
 ## Available now (0.1.0)
 
@@ -125,7 +125,8 @@ applies.
 | `db-pro-core` | `crates/core` | Domain types, application services, port traits |
 | `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata, secrets, SSH plumbing |
 | `db-pro-runtime` | `crates/runtime` | Bootstrap, service wiring, worker/event bridge, cancellation |
-| `db-pro-ui` | `crates/ui` | egui shell, views, `DbProApp`, feature state, reducer, theme |
+| `db-pro-ui` | `crates/ui` | Reusable egui components, editor, query/grid primitives, theme and typed UI protocol |
+| `db-pro-app` | `crates/app` | Product shell, feature views, `DbProApp` composition root and application state |
 | `db-pro-native` | `crates/native-app` | The shipped native desktop binary |
 
 **Tech stack:** Pure Rust, `eframe`/`egui`, native GL rendering, `sqlx`/PostgreSQL,
@@ -257,12 +258,28 @@ Steps, rollback and install-smoke procedure: [`docs/release/0.1.0-handoff.md`](d
 crates/                     Rust workspace
   core/                     Domain, application services, ports
   infrastructure/           Database drivers, secrets, metadata
-  runtime/                  Bootstrap, service wiring, worker/event bridge
-  ui/                       Native egui UI: shell, views, state, theme
-  native-app/               db-pro-native binary (shipped)
-docs/                       Architecture and release documentation
-plans/                      Implementation plans + current status
+  runtime/                  Bootstrap, worker/event bridge, agent execution
+  ui/                       Reusable egui components, editor, grid, theme
+  app/                      Product shell, feature views and application state
+  native-app/               db-pro-native binary and UI/runtime translation
+docs/
+  architecture/             System contracts, decisions and rendering research
+  design/                   Design references, HTML mockups and Stitch exports
+  plans/
+    project/                Project/release planning and retained task records
+    active/                 In-progress feature plans and their evidence
+    completed/              Completed feature plans and their evidence
+    archived/               Historical frontend-era plans and audit reports
+    STATUS.md               Canonical feature lifecycle registry
+  quality/                  Code-quality standards and audit reports
+  ui-audit/                 Native UI audit tooling and review guides
+  release/                  Release qualification, evidence and limitations
+  user-guide/               Product usage documentation
 scripts/release/            Release packaging scripts
+tools/                      Repository quality and audit tools
 .github/workflows/          CI and release pipelines
 fixtures/                   Database test fixtures
 ```
+
+The [file-to-folder mapping](docs/plans/completed/repository-folder-mapping/MAPPING.md)
+records relocated paths; historical revision-pinned source citations retain their original paths.

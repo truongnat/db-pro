@@ -31,7 +31,7 @@
 |---|---|
 | Exact SHA | filled after the commit lands (this table is updated in the same push) |
 | Commit list | `fix(core): refuse a multi-statement batch that carries its own transaction control (#147)` |
-| File / surface inventory | `crates/core/src/domain/safety.rs` — `transaction_control_verb()` + unit tests; `crates/core/src/application/query_service.rs` — dispatch guard in `execute_multi` + `transaction_control_rejection()` + tests; `crates/infrastructure/tests/multistatement_transaction_control.rs` — new, 4 live SQLite tests; `crates/infrastructure/tests/pg_integration.rs` — `pg_password()` helper + `product_path`/`count_cell` + 3 live PG tests; `docs/09-architecture-decisions.md` §5 — "what a batch may contain"; `docs/release/audit-execution-safety.md` — matrix row resolved; plan directory `docs/plans/active/multi-statement-transaction-control/` |
+| File / surface inventory | `crates/core/src/domain/safety.rs` — `transaction_control_verb()` + unit tests; `crates/core/src/application/query_service.rs` — dispatch guard in `execute_multi` + `transaction_control_rejection()` + tests; `crates/infrastructure/tests/multistatement_transaction_control.rs` — new, 4 live SQLite tests; `crates/infrastructure/tests/pg_integration.rs` — `pg_password()` helper + `product_path`/`count_cell` + 3 live PG tests; `docs/architecture/09-architecture-decisions.md` §5 — "what a batch may contain"; `docs/release/audit-execution-safety.md` — matrix row resolved; plan directory `docs/plans/active/multi-statement-transaction-control/` |
 | Acceptance mapping | "earlier writes survive a reported rollback" → `pg_connector_alone_reports_rolled_back_for_a_batch_that_committed` (pins the defect) + `pg_multi_statement_batch_with_commit_is_refused_and_writes_nothing` (proves the refusal); SQLite equivalents in `multistatement_transaction_control.rs`; classification unit tests in `safety.rs` |
 | Commands and counts | the four test commands in §2 plus the gate commands recorded in VERIFICATION.md as they actually run |
 | CI run IDs / status | not run |
@@ -44,7 +44,7 @@
 ## 5. Research / audit handoff
 
 - Source date: 2026-09-15
-- References: issue #147; `docs/release/evidence/v01-runtime/providers/51-multistatement-contract-criterion-audit.md`; `docs/09-architecture-decisions.md` §5; `docs/release/audit-execution-safety.md` §2 row 12 / §3; `crates/core/src/ports/db_connector.rs` (`execute_transaction` contract); measured probes on both providers (tables in PLAN.md)
+- References: issue #147; `docs/release/evidence/v01-runtime/providers/51-multistatement-contract-criterion-audit.md`; `docs/architecture/09-architecture-decisions.md` §5; `docs/release/audit-execution-safety.md` §2 row 12 / §3; `crates/core/src/ports/db_connector.rs` (`execute_transaction` contract); measured probes on both providers (tables in PLAN.md)
 - Factual findings: F1–F4 in FINDINGS.md, each with a live measurement behind it
 - Inference: the dispatch refusal is the smallest place that restores the contract for both providers without inventing connector-level rollback semantics (F4)
 - Decision / recommendation: option (1) from the issue — implemented

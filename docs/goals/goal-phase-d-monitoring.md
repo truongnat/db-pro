@@ -360,7 +360,7 @@ Implementations:
   file, `database_size`/page stats via `PRAGMA page_count`/`page_size`/`freelist_count`,
   `maintenance` for `VACUUM`/`ANALYZE`/`PRAGMA optimize`). The actor owns the connection, so all
   of this runs through `SqliteCommand` variants — **no direct connection access from the async
-  side** (ADR 4 in `docs/09-architecture-decisions.md`).
+  side** (ADR 4 in `docs/architecture/09-architecture-decisions.md`).
 
 ### 8.2 Service
 

@@ -79,7 +79,7 @@
 
 | Doc | Path |
 |---|---|
-| Current Status | `plans/07-current-status.md` |
+| Current Status | `docs/plans/project/07-current-status.md` |
 | Release Readiness | `docs/release/0.1.0-readiness.md` |
 | Release Checklist | `docs/release/0.1.0-release-checklist.md` |
 | Verification | `docs/release/0.1.0-verification.md` |
@@ -90,6 +90,6 @@
 | System Design | `docs/04-system-design.md` |
 | BE Architecture | `docs/05-be-architecture.md` |
 | DB Architecture | `docs/06-db-architecture.md` |
-| FE Architecture | `docs/07-fe-architecture.md` |
-| Technology Decisions | `docs/08-technology-decisions.md` |
-| Architecture Decisions | `docs/09-architecture-decisions.md` |
+| FE Architecture | `docs/architecture/07-fe-architecture.md` |
+| Technology Decisions | `docs/architecture/08-technology-decisions.md` |
+| Architecture Decisions | `docs/architecture/09-architecture-decisions.md` |

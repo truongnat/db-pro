@@ -4,7 +4,7 @@
 - Issue: **#147** ([P1][RC1][Query] Decide and enforce multi-statement partial-write semantics)
 - Fix commit: **`9d5bebaa`** (`fix(query): refuse multi-statement batches with transaction control
   (#147)`), merged into `main` as `f66d800d`; contract recorded in
-  `docs/09-architecture-decisions.md` §5
+  `docs/architecture/09-architecture-decisions.md` §5
 - **Re-measurement base head:** `main @ d4df6373` (worktree clean)
 - **Outcome:** the P1 truth-gap measured by pass 4 is closed on `main`. The exact batch that reported
   `RolledBack` while one row survived is now **refused before dispatch, with nothing written**. The

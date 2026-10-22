@@ -37,7 +37,7 @@
 - `cargo build -p db-pro-native --offline` PASS; the native binary stayed alive for an 8-second launch smoke with no stdout/stderr or crash.
 - `cargo test --workspace --offline` PASS; all default workspace tests passed, with PostgreSQL fixture coverage recorded separately above.
 - `cargo clippy --workspace --offline --all-targets -- -D warnings` PASS.
-- Clean-code diff scan: no frontend production findings and no blocking translation-function finding; remaining warnings are existing egui render boundaries/Tauri bootstrap and intentionally documented in `CLEAN_CODE_AUDIT_REPORT.md`.
+- Clean-code diff scan: no frontend production findings and no blocking translation-function finding; remaining warnings are existing egui render boundaries/Tauri bootstrap and intentionally documented in `docs/quality/CLEAN_CODE_AUDIT_REPORT.md`.
 
 ## Automated
 

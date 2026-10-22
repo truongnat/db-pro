@@ -39,7 +39,7 @@ The gallery header and section headings use hard-coded font sizes and several of
 
 ### P2-4 — Badge primitive diverges from the Stitch operational-status specimen
 
-At the baseline, `Badge` uses fully rounded pills and most semantic variants have no border. The canonical component screen (`docs/stitch_screens/19_db_pro_component_library.html:878-897`) specifies compact 4px status badges with a visible boundary and the operational sequence Ready / Running / Succeeded / Failed.
+At the baseline, `Badge` uses fully rounded pills and most semantic variants have no border. The canonical component screen (`docs/design/stitch_screens/19_db_pro_component_library.html:878-897`) specifies compact 4px status badges with a visible boundary and the operational sequence Ready / Running / Succeeded / Failed.
 
 **Decision:** use `RADIUS_BADGE`, a 1px semantic boundary, 6px leading dot, 12px icon, and the canonical execution-status composition. Remove the unrelated avatar demonstration from this section.
 
