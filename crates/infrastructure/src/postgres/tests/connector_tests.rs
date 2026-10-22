@@ -160,6 +160,9 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
     let rest = &source[start..];
     let end = rest.find("\n    async fn introspect(").expect("introspect follows");
     let body = &rest[..end];
+    let session = body
+        .find("crate::transaction_session::checkout_if_held")
+        .expect("checks open session");
     let hold = body
         .find("let _active_backend")
         .expect("guard is held for the parameterized transaction");
@@ -173,7 +176,26 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
     let statements = body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow search path setup");
-    assert!(hold < pid && pid < track && track < search_path && search_path < statements);
+    assert!(session < hold && hold < pid && pid < track && track < search_path && search_path < statements);
+}
+
+#[test]
+fn execute_parameterized_transaction_joined_uses_savepoint() {
+    let source = include_str!("../connector.rs");
+    let start = source
+        .find("async fn execute_parameterized_transaction_joined(")
+        .expect("owned execute_parameterized_transaction_joined");
+    let body = &source[start..];
+    let savepoint = body
+        .find("SAVEPOINT dbpro_parameterized_tx")
+        .expect("uses savepoint for joined parameterized transaction");
+    let rollback = body
+        .find("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+        .expect("rolls back to savepoint on error");
+    let release = body
+        .find("RELEASE SAVEPOINT dbpro_parameterized_tx")
+        .expect("releases savepoint on success");
+    assert!(savepoint < rollback && rollback < release);
 }
 
 #[tokio::test]

@@ -129,6 +129,158 @@ impl PostgresConnector {
         }
     }
 
+    async fn execute_parameterized_transaction_joined(
+        &self,
+        handle: &ConnectionHandle,
+        mut lease: crate::transaction_session::SessionLease<sqlx::pool::PoolConnection<sqlx::Postgres>>,
+        timeout: Duration,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let deadline = std::time::Instant::now() + timeout;
+        let conn = std::ops::DerefMut::deref_mut(lease.conn());
+        let _active_backend = match sqlx::query_scalar::<_, i32>("SELECT pg_backend_pid()")
+            .fetch_one(&mut *conn)
+            .await
+        {
+            Ok(pid) => self.track_backend(handle.0, pid),
+            Err(_) => None,
+        };
+
+        if let Err(error) = super::search_path::set_local_search_path(conn).await {
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::LeftOpen,
+                results: Vec::new(),
+                error,
+            });
+        }
+
+        if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx")
+            .execute(&mut *conn)
+            .await
+            .map_err(crate::error::from_sqlx)
+        {
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::LeftOpen,
+                results: Vec::new(),
+                error,
+            });
+        }
+
+        let mut results = Vec::with_capacity(statements.len());
+        for (index, statement) in statements.iter().enumerate() {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            let execution = tokio::time::timeout(remaining, async {
+                let mut args = sqlx::postgres::PgArguments::default();
+                super::query_mapper::bind_params(&statement.params, &mut args)?;
+                let affected = sqlx::query_with(&statement.sql, args)
+                    .execute(&mut *conn)
+                    .await
+                    .map_err(crate::error::from_sqlx)?
+                    .rows_affected();
+                Ok::<u64, DbError>(affected)
+            })
+            .await;
+
+            let affected = match execution {
+                Ok(Ok(affected)) => affected,
+                Ok(Err(error)) => {
+                    let rollback_res = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                        .execute(&mut *conn)
+                        .await;
+                    let outcome = if rollback_res.is_ok() {
+                        lease.succeed();
+                        TransactionFailureOutcome::RolledBack
+                    } else {
+                        TransactionFailureOutcome::Unknown
+                    };
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome,
+                        results,
+                        error,
+                    });
+                }
+                Err(_) => {
+                    let rollback_res = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                        .execute(&mut *conn)
+                        .await;
+                    let outcome = if rollback_res.is_ok() {
+                        lease.succeed();
+                        TransactionFailureOutcome::RolledBack
+                    } else {
+                        TransactionFailureOutcome::Unknown
+                    };
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome,
+                        results,
+                        error: DbError::QueryTimeout {
+                            timeout_ms: timeout.as_millis() as u64,
+                        },
+                    });
+                }
+            };
+
+            if statement.expect_affected_rows && affected == 0 {
+                let rollback_res = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                    .execute(&mut *conn)
+                    .await;
+                let outcome = if rollback_res.is_ok() {
+                    lease.succeed();
+                    TransactionFailureOutcome::RolledBack
+                } else {
+                    TransactionFailureOutcome::Unknown
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error: DbError::Conflict("table mutation affected no rows".into()),
+                });
+            }
+
+            if statement.max_affected_rows.is_some_and(|maximum| affected > maximum) {
+                let rollback_res = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                    .execute(&mut *conn)
+                    .await;
+                let outcome = if rollback_res.is_ok() {
+                    lease.succeed();
+                    TransactionFailureOutcome::RolledBack
+                } else {
+                    TransactionFailureOutcome::Unknown
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error: DbError::Internal(format!(
+                        "table mutation affected {affected} rows; expected at most {}",
+                        statement.max_affected_rows.unwrap_or_default()
+                    )),
+                });
+            }
+
+            results.push(TransactionStatementResult::Affected {
+                row_count: affected,
+                duration_ms: 0,
+            });
+        }
+
+        let _ = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx")
+            .execute(&mut *conn)
+            .await;
+        lease.succeed();
+        Ok(results)
+    }
+
     pub async fn get_pool(&self, handle: &ConnectionHandle) -> Option<PgPool> {
         let pools = self.pools.read().await;
         pools.get(&handle.0).map(|entry| entry.pool.clone())
@@ -813,7 +965,30 @@ impl DbConnector for PostgresConnector {
         })?;
         let timeout = entry.query_timeout;
         let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
         drop(pools);
+
+        let joined = match crate::transaction_session::checkout_if_held(session, || async {
+            pool.acquire().await.map_err(crate::error::from_sqlx)
+        })
+        .await
+        {
+            Ok(joined) => joined,
+            Err(error) => {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                });
+            }
+        };
+        if let Some(lease) = joined {
+            return self
+                .execute_parameterized_transaction_joined(handle, lease, timeout, statements)
+                .await;
+        }
 
         let deadline = std::time::Instant::now() + timeout;
         let mut tx =
