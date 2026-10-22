@@ -23,6 +23,13 @@ fn calculate_dialog_layout_handles_small_screens() {
 }
 
 #[test]
+fn dialog_body_cap_keeps_a_body_a_short_viewport_can_still_show() {
+    assert_eq!(dialog_body_cap(1080.0, 24.0, 220.0), 1080.0 - 48.0 - 220.0);
+    // Below the floor the card would have no usable body at all.
+    assert_eq!(dialog_body_cap(300.0, 24.0, 220.0), 120.0);
+}
+
+#[test]
 fn calculate_sheet_layout() {
     let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
     let (width, x) = super::calculate_sheet_layout(screen, 360.0, 1.0, 16.0, 16.0);

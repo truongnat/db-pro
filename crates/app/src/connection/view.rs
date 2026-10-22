@@ -6,6 +6,7 @@ use super::layout::*;
 use super::logic::*;
 use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::dialog::config::DIALOG_FORM_BODY_HEIGHT;
 use crate::components::dialog::Dialog;
 use crate::components::input::Input;
 
@@ -164,6 +165,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         Dialog::new(&mut open, title, self.theme)
             .description(desc)
             .width(820.0)
+            .body_height(DIALOG_FORM_BODY_HEIGHT)
             .id_salt("connection_form_dialog")
             .show_framed_ctx(ctx, |frame| {
                 frame.body(|ui| {

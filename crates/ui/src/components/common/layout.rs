@@ -23,7 +23,7 @@ pub fn calculate_dialog_layout(
 ) -> DialogLayout {
     let horizontal_padding = horizontal_margin * 2.0;
     let width = requested_width.min((screen.width() - horizontal_padding).max(80.0));
-    let max_body_height = (screen.height() - vertical_margin * 2.0 - chrome_height).max(120.0);
+    let max_body_height = dialog_body_cap(screen.height(), vertical_margin, chrome_height);
 
     let target_x = (screen.center().x - width * 0.5).clamp(
         screen.left() + horizontal_margin,
@@ -48,6 +48,11 @@ pub fn calculate_dialog_layout(
         max_body_height,
         target_pos: Pos2::new(target_x, target_y),
     }
+}
+
+/// Tallest scrollable body a dialog can claim without leaving its margins.
+pub fn dialog_body_cap(screen_height: f32, vertical_margin: f32, chrome_height: f32) -> f32 {
+    (screen_height - vertical_margin * 2.0 - chrome_height).max(120.0)
 }
 
 /// Calculates the layout dimensions and horizontal slide-in position for a drawer sheet.

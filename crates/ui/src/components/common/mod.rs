@@ -11,4 +11,6 @@ pub use format::{
     format_bytes, format_count_with_suffix, format_duration_millis, format_page_range, format_percentage,
     truncate_ellipsis,
 };
-pub use layout::{calculate_dialog_layout, calculate_sheet_layout, clamp_popup_to_screen, DialogLayout};
+pub use layout::{
+    calculate_dialog_layout, calculate_sheet_layout, clamp_popup_to_screen, dialog_body_cap, DialogLayout,
+};

@@ -11,13 +11,14 @@ use super::{
         DIALOG_VERTICAL_MARGIN, DIALOG_WIDTH,
     },
     frame::DialogFrame,
-    handler::{modal_dismissal, ModalDismissal},
+    handler::{dialog_centering_height, modal_dismissal, pinned_body_height, ModalDismissal},
     layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayPaint},
 };
 use crate::{
     components::{
         animation::{fade_alpha, overlay_t, small_translate},
         button::{Button, ButtonSize, ButtonVariant},
+        common::dialog_body_cap,
     },
     DbProTheme,
 };
@@ -27,6 +28,7 @@ pub struct Dialog<'a> {
     title: Option<Cow<'a, str>>,
     description: Option<Cow<'a, str>>,
     width: f32,
+    body_height: Option<f32>,
     id_salt: Option<Id>,
     theme: DbProTheme,
 }
@@ -38,6 +40,7 @@ impl<'a> Dialog<'a> {
             title: Some(title.into()),
             description: None,
             width: DIALOG_WIDTH,
+            body_height: None,
             id_salt: None,
             theme,
         }
@@ -55,6 +58,17 @@ impl<'a> Dialog<'a> {
 
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Pins the scrollable body to `height` points instead of sizing it to content.
+    ///
+    /// Content-driven dialogs resize every time asynchronous data arrives (a
+    /// catalog filling in, a validation line appearing), and because the card
+    /// re-centers on its measured height, each resize also slides the whole
+    /// dialog upward. Forms should pin a height and let the body scroll.
+    pub fn body_height(mut self, height: f32) -> Self {
+        self.body_height = Some(height);
         self
     }
 
@@ -124,10 +138,14 @@ impl<'a> Dialog<'a> {
         let open = self.open;
 
         let prev_height = ctx.data(|d| d.get_temp::<f32>(id.with("prev_height")));
+        let pinned_body = pinned_body_height(
+            self.body_height,
+            dialog_body_cap(screen.height(), DIALOG_VERTICAL_MARGIN, DIALOG_CHROME_HEIGHT),
+        );
         let layout = crate::components::common::calculate_dialog_layout(
             screen,
             self.width,
-            prev_height,
+            dialog_centering_height(pinned_body, prev_height, DIALOG_CHROME_HEIGHT),
             DIALOG_HORIZONTAL_MARGIN,
             DIALOG_VERTICAL_MARGIN,
             DIALOG_CHROME_HEIGHT,
@@ -178,6 +196,7 @@ impl<'a> Dialog<'a> {
                         description: description.as_deref(),
                         width: layout.width,
                         max_body_height: layout.max_body_height,
+                        body_height: pinned_body,
                         theme,
                         anchor_id,
                     },
@@ -215,6 +234,7 @@ struct DialogCardPaint<'a> {
     description: Option<&'a str>,
     width: f32,
     max_body_height: f32,
+    body_height: Option<f32>,
     theme: DbProTheme,
     anchor_id: Id,
 }
@@ -230,6 +250,7 @@ fn paint_dialog_card<R>(
         description,
         width,
         max_body_height,
+        body_height,
         theme,
         anchor_id,
     } = card;
@@ -266,6 +287,7 @@ fn paint_dialog_card<R>(
         let mut frame = DialogFrame {
             ui,
             max_body_height,
+            body_height,
             inner_width: inner_w,
         };
         add_frame(&mut frame)

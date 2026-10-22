@@ -30,6 +30,27 @@ pub(super) fn modal_dismissal(
     (!click_is_inside_card).then_some(ModalDismissal::Backdrop)
 }
 
+/// Body height when the caller pinned the dialog box, clamped to what the
+/// viewport can show. `None` keeps the content-driven (shrink-to-fit) body.
+pub(super) fn pinned_body_height(declared: Option<f32>, body_cap: f32) -> Option<f32> {
+    declared.map(|height| height.min(body_cap))
+}
+
+/// Height the card centers on.
+///
+/// Once the card has been measured, that measurement is the only honest center.
+/// Before the first measurement a pinned dialog centers on its own box (body +
+/// reserved chrome) and a content-sized one on the viewport estimate. The pin
+/// matters because a pinned card cannot grow, so the measured center is stable
+/// from frame two instead of sliding upward as asynchronous rows arrive.
+pub(super) fn dialog_centering_height(
+    pinned_body: Option<f32>,
+    prev_height: Option<f32>,
+    chrome_height: f32,
+) -> Option<f32> {
+    prev_height.or_else(|| pinned_body.map(|body| body + chrome_height))
+}
+
 #[cfg(test)]
 #[path = "tests/handler_tests.rs"]
 mod tests;

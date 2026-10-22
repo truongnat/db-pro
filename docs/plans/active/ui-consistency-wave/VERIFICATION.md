@@ -150,3 +150,46 @@ The capture script header now tells callers to use Xvfb regardless.
 - `widest_label_width` is bounded by a per-frame `cap` early-exit, but there is no
   frame-time measurement for a Select with hundreds of options (schema picker).
 
+
+## Wave 5 — dialog size policy (UI-32)
+
+### Measurement (before)
+
+`DB_PRO_CAPTURE_SETTLE_FRAMES` probe on the New Connection dialog at 1920×1080, card
+vertical extent read off the PNG:
+
+| frames | card y | height |
+|---|---|---|
+| 4 | 281–714 | 434 |
+| 6 | 263–868 | 606 |
+| 8 | 211–920 | 710 |
+| 12 | 107–1005 | 899 |
+| 20+ | 91–989 | 899 |
+
+The card grew 434 → 899 px while its top slid 281 → 91. Cause: `DialogFrame::body` is
+`auto_shrink([false, true])` (height follows content) and `calculate_dialog_layout`
+centers on `prev_height`, so every late-arriving row (catalog, validation line, expanded
+section) resizes the card and drags it upward. Steady state was 83 % of viewport height.
+
+A one-line experiment (`form_row` reserving `0.0` instead of `ui.available_height()`)
+moved the steady state to 972 px, i.e. it was not the cause; reverted.
+
+### Measurement (after)
+
+Same probe with `.body_height(DIALOG_FORM_BODY_HEIGHT)` on the connection form:
+
+| frames | observation |
+|---|---|
+| 6 / 8 / 12 / 20 / 60 | card bottom edge identical (y=863–864) |
+| 12 vs 60 | 0.13 % of pixels differ, inside the focused input row (caret) |
+
+1280×800: card 57–745, footer pinned, overflow below the fold scrolls. 1920×1080: card
+150–866 with the same scroll behaviour. Quick Open (palette) was pinned then reverted:
+with 9 results the box showed ~200 px of dead space, so the palette stays content-sized.
+
+### Evidence status
+
+Runtime-verified: connection form (2 sizes), palette (rejected with evidence).
+Pinned without a runtime capture — no fixture opens them yet: insert row, pending table
+changes, row conflict, cell inspector. The pin path is one shared implementation, so the
+mechanism is covered; the per-dialog *value* (560) is not screenshot-verified.

@@ -4,6 +4,7 @@ use super::*;
 use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
+use crate::components::dialog::config::DIALOG_FORM_BODY_HEIGHT;
 use crate::UiTableColumn;
 use egui::{Frame, Margin, CornerRadius, Stroke};
 use lucide_icons::Icon;
@@ -38,6 +39,7 @@ pub(super) fn draw_dialog(
     Dialog::new(&mut open, &title, context.theme)
         .description(&description)
         .width(620.0)
+        .body_height(DIALOG_FORM_BODY_HEIGHT)
         .id_salt("insert_row_modal_dialog")
         .show_ctx(egui_context, |ui| {
             context.draw_quick_actions(ui);

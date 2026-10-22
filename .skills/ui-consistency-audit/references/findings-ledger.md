@@ -69,3 +69,4 @@ of `f984385a`; re-verified over 108 PNG + 102 inspector dumps in `/tmp/ui-audit/
 - No screen-reader session for the new accessible names; plumbing only.
 - Residual designer-form width literals (120/140/180/220/260) are a P3 follow-up, not
   shared-component drift.
+| UI-32 | P2 | Dialog height follows content and centers on last frame's measurement, so a form grows and slides upward every time async content arrives (connection form crept 434 → 899 px, top 281 → 91) | `dialog/frame.rs` (`auto_shrink([false, true])`), `common/layout.rs` (`measured_height`), `dialog/ui.rs` (`prev_height`) | `DB_PRO_CAPTURE_SETTLE_FRAMES` 4/6/8/12/20 PNG series at 1920×1080; after `Dialog::body_height`: card bottom identical at frames 6/8/12/20/60, 1280×800 fits with the footer pinned | fixed (uncommitted) |

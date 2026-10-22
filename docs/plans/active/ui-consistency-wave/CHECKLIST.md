@@ -64,3 +64,13 @@
 - [x] Capture mode no longer opens a visible X11 window (`with_visible(!linux)`) +
       Xvfb documented in the script header
 - [x] Gates re-run after the final edit (fmt/check/clippy/test/release/architecture/clean-code)
+
+## Wave 5 — dialog size policy
+- [x] UI-32 measured: connection dialog creeps 434 → 899 px and slides 190 px upward
+- [x] `Dialog::body_height(f32)` — pinned box, viewport-clamped, body scrolls
+- [x] `dialog_body_cap` extracted so the cap is not duplicated between layout and dialog
+- [x] Applied to connection form (verified 1920 + 1280), insert row, pending changes,
+      row conflict, cell inspector (mechanism verified, per-dialog value not captured)
+- [x] Palette pinned then reverted on evidence (dead space with few results)
+- [x] 3 new unit tests (clamp, centering precedence, body cap floor)
+- [ ] Sweep the remaining long dialogs with capture fixtures for insert row / inspector

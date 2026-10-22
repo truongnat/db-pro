@@ -23,6 +23,14 @@ pub const SHEET_TRANSLATE_PX: f32 = 16.0;
 /// dialog look top-aligned instead of centered.
 pub const DIALOG_CHROME_HEIGHT: f32 = 220.0;
 
+/// Pinned body box for long forms, in egui points.
+///
+/// A form dialog left content-sized grows every time a validation line or an
+/// asynchronously loaded section appears, and the card slides upward each time
+/// it re-centers. Pinning the box gives the dialog one stable size and lets the
+/// body scroll instead.
+pub const DIALOG_FORM_BODY_HEIGHT: f32 = 560.0;
+
 // Shared dialog content spacing, in egui points.
 pub const DIALOG_CONTENT_HORIZONTAL_PADDING: f32 = 24.0;
 pub const DIALOG_CONTENT_VERTICAL_PADDING: f32 = 20.0;

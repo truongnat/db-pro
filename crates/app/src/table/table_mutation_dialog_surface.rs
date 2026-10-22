@@ -7,6 +7,7 @@ use super::change_set::ChangeCounts;
 use super::*;
 use crate::components::button::{Button, ButtonVariant};
 use crate::components::dialog::Dialog;
+use crate::components::dialog::config::DIALOG_FORM_BODY_HEIGHT;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum DiscardChangesAction {
@@ -88,6 +89,7 @@ impl PendingChangesContext<'_> {
         let mut open = true;
         Dialog::new(&mut open, "Pending changes", self.theme)
             .width(680.0)
+            .body_height(DIALOG_FORM_BODY_HEIGHT)
             .id_salt("pending_table_changes_dialog")
             .show_framed_ctx(ui.ctx(), |frame| {
                 frame.body(|ui| {

@@ -1,6 +1,7 @@
 //! Advanced result-cell inspector presentation and typed effects.
 use super::super::*;
 use crate::components::{Button, ButtonSize, ButtonVariant, Dialog, SegmentedTabs};
+use crate::components::dialog::config::DIALOG_FORM_BODY_HEIGHT;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ValueInspectorAction {
@@ -36,6 +37,7 @@ pub(super) fn draw(
     let title = format!("Value inspector · {}", context.column_name);
     Dialog::new(&mut open, title, context.theme)
         .width(620.0)
+        .body_height(DIALOG_FORM_BODY_HEIGHT)
         .id_salt(("advanced-cell-inspector", context.row_index, context.column_index))
         .show_framed_ctx(egui_context, |frame| {
             frame.body(|ui| {

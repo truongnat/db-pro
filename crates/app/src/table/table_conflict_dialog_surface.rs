@@ -4,6 +4,7 @@ use super::change_set::{ChangeSet, MutationTarget, StagedChange};
 use super::*;
 use crate::components::button::{Button, ButtonVariant};
 use crate::components::dialog::Dialog;
+use crate::components::dialog::config::DIALOG_FORM_BODY_HEIGHT;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ConflictDialogAction {
@@ -28,6 +29,7 @@ impl ConflictDialogContext<'_> {
         let mut action = None;
         Dialog::new(&mut open, t!("table.conflict_title"), self.theme)
             .width(740.0)
+            .body_height(DIALOG_FORM_BODY_HEIGHT)
             .id_salt("row_conflict_resolution_dialog")
             .show_framed_ctx(ui.ctx(), |frame| {
                 frame.body(|ui| {
