@@ -7,5 +7,5 @@
 - [x] Wave 4: `selection/ui.rs` literals → config/tokens — `11ff76d7`
 - [x] Wave 5: 77 button sites + 39 helper sites migrated; `legacy.rs` deleted entirely — `a67107a6`, `fef890eb`, `da4c7bfa`
 - [x] Wave 6 gates: fmt ✓ clippy 0 ✓ tests 2257/0 ✓ ui-architecture PASS ✓ release build PASS ✓ cc-ratchet 0 fail ✓
-- [x] Focus-ring per-site visual check — manual Tab pass via orca/cliclick on live app: accent ring verified on topbar icon + Welcome action card (`/tmp/focus_ring_topbar.png`, `/tmp/focus_ring_card.png`)
+- [x] Focus-ring per-site visual check — manual Tab pass (orca/cliclick): ring verified on topbar icon (`nav/ui.rs:81`) + Welcome card (`welcome_surface_view.rs:204`) — `evidence/focus_ring_{topbar,card}.png`
 - [ ] Pending (RUNTIME_VERIFY): open-popover radius visual check (Quick Open capture hook hangs — pre-existing infra), 1440×900/1920×1080 captures

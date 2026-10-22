@@ -124,11 +124,17 @@ Drove the running `/tmp/DB Pro.app` binary via `orca computer` + `cliclick kp:ta
 detached binary launch never gets — known trap).
 
 - Tab #1 (after canvas click): accent ring around top-right topbar icon
-  → `/tmp/focus_ring_topbar.png`
+  → `evidence/focus_ring_topbar.png`
 - Tab #2: accent ring around "AI Copilot Assistant" Welcome action card
-  → `/tmp/focus_ring_card.png`
-- Both rings use the unified `paint_focus_ring` recipe (accent stroke, widget
-  radius + expand margin, no fill) — confirms per-site unification renders
-  correctly, not just the recipe in isolation.
-- Coverage: 2 of 6 migrated sites exercised live; remaining sites share the
-  identical `paint_focus_ring` call, source-verified.
+  → `evidence/focus_ring_card.png`
+- Control→site mapping (both are migrated `paint_focus_ring` callers,
+  verified in source):
+  - topbar icon → `nav::page_icon_button` → `nav/ui.rs:81`
+  - Welcome action card → `draw_card_item` →
+    `app/src/shell/welcome/welcome_surface_view.rs:204-205`
+- Both rings render accent `border_focus` at `STROKE_THICK` expanded —
+  the unified recipe.
+- Coverage: 2 migrated sites exercised live on the current binary; the
+  remaining sites (tree rows, workspace items, dropdown items, agent
+  chips/disclosure headers, radio, slider) share the identical helper
+  call and are source-verified.
