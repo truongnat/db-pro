@@ -615,5 +615,5 @@ fn map_session_error(error: AgentSessionError) -> AgentToolError {
 }
 
 #[cfg(test)]
-#[path = "agent_workflow/tests.rs"]
+#[path = "tests/agent_workflow_tests.rs"]
 mod tests;

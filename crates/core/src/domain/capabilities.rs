@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-#[path = "capability_limitations.rs"]
+#[path = "capabilities/capability_limitations.rs"]
 mod capability_limitations;
-#[path = "capability_presets.rs"]
+#[path = "capabilities/capability_presets.rs"]
 mod capability_presets;
 
 use super::connection::DriverType;

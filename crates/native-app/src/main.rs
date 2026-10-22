@@ -24,6 +24,7 @@ mod capture;
 mod table_copy_port;
 mod translate;
 #[cfg(test)]
+#[path = "tests/translate_tests.rs"]
 mod translate_tests;
 
 #[cfg(test)]

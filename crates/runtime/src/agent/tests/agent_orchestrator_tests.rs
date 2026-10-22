@@ -1,4 +1,4 @@
-//! Tests for `../agent_orchestrator.rs` (moved out of the source file).
+//! Tests for `../orchestrator.rs` (moved out of the source file).
 use std::collections::VecDeque;
 use std::sync::Mutex;
 

@@ -12,6 +12,7 @@ pub mod state;
 pub mod view;
 
 #[cfg(test)]
+#[path = "tests/mod_tests.rs"]
 mod tests;
 
 use crate::{UiConnectionDraft, UiConnectionSummary, UiDriver};

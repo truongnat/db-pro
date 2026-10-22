@@ -129,12 +129,12 @@ fn locale_catalogs_have_matching_keys_and_placeholders() {
         catalog
     }
 
-    let english = parse_catalog(include_str!("../../../ui/locales/en.yml"));
+    let english = parse_catalog(include_str!("../../../../ui/locales/en.yml"));
     for (locale, source) in [
-        ("vi", include_str!("../../../ui/locales/vi.yml")),
-        ("zh", include_str!("../../../ui/locales/zh.yml")),
-        ("ja", include_str!("../../../ui/locales/ja.yml")),
-        ("ko", include_str!("../../../ui/locales/ko.yml")),
+        ("vi", include_str!("../../../../ui/locales/vi.yml")),
+        ("zh", include_str!("../../../../ui/locales/zh.yml")),
+        ("ja", include_str!("../../../../ui/locales/ja.yml")),
+        ("ko", include_str!("../../../../ui/locales/ko.yml")),
     ] {
         let translated = parse_catalog(source);
         assert_eq!(

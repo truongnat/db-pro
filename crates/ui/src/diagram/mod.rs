@@ -8,6 +8,7 @@ pub mod spatial;
 pub mod viewport;
 
 #[cfg(test)]
+#[path = "tests/mod_tests.rs"]
 mod tests;
 
 pub use layout::{ErLayoutRequest, ErLayoutResult, ErLayoutState, ErLayoutWorker};

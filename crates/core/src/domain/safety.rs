@@ -7,12 +7,12 @@ use safety_lexer::{
 };
 pub use safety_policy::{validate_against_policy, ConnectionSafetyPolicy};
 
-#[path = "safety_cte.rs"]
+#[path = "safety/safety_cte.rs"]
 mod safety_cte;
-#[path = "safety_lexer.rs"]
+#[path = "safety/safety_lexer.rs"]
 mod safety_lexer;
 
-#[path = "safety_policy.rs"]
+#[path = "safety/safety_policy.rs"]
 mod safety_policy;
 
 /// Classification of a SQL statement for safety enforcement.
@@ -505,5 +505,5 @@ fn strip_leading_comments(sql: &str) -> &str {
 }
 
 #[cfg(test)]
-#[path = "safety/tests.rs"]
+#[path = "tests/safety_tests.rs"]
 mod tests;

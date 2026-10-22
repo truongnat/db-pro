@@ -4,6 +4,7 @@ pub mod layout;
 mod ui;
 
 #[cfg(test)]
+#[path = "tests/mod_tests.rs"]
 mod tests;
 
 pub use config::INPUT_MIN_WIDTH;

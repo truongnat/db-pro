@@ -1,4 +1,4 @@
-//! Tests for `../agent_executor.rs` (moved out of the source file).
+//! Tests for `../executor.rs` (moved out of the source file).
 use super::*;
 use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentRun, AgentRunId, AgentSession, AgentSessionId};
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};

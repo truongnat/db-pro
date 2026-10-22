@@ -1,4 +1,4 @@
-//! Tests for `../agent.rs` (moved out of the source file).
+//! Tests for `../mod.rs` (moved out of the source file).
 use super::*;
 use db_pro_core::domain::agent_context::AgentContext as StructuredAgentContext;
 

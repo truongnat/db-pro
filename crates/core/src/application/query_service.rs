@@ -18,9 +18,9 @@ use super::sql_policy::{reject_multi_statement, split_statements_for_driver};
 use multi_query_execution::MultiQueryExecution;
 use query_classification::{classify_statement, StatementClass};
 
-#[path = "multi_query_execution.rs"]
+#[path = "query_service/multi_query_execution.rs"]
 mod multi_query_execution;
-#[path = "query_classification.rs"]
+#[path = "query_service/query_classification.rs"]
 mod query_classification;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -470,5 +470,5 @@ fn transaction_result_to_query_result(
 }
 
 #[cfg(test)]
-#[path = "query_service/tests.rs"]
+#[path = "tests/query_service_tests.rs"]
 mod tests;

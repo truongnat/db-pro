@@ -6,6 +6,7 @@ pub mod state;
 mod ui;
 
 #[cfg(test)]
+#[path = "tests/mod_tests.rs"]
 mod tests;
 
 pub use field::{FormField, Label};

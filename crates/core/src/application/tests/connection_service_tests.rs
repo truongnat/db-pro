@@ -59,13 +59,13 @@ fn build_service(
     )
 }
 
-#[path = "tests/connection_service_security_tests.rs"]
+#[path = "connection_service_security_tests.rs"]
 mod security_tests;
 
-#[path = "tests/connection_service_provider_tests.rs"]
+#[path = "connection_service_provider_tests.rs"]
 mod provider_tests;
 
-#[path = "tests/connection_service_lifecycle_tests.rs"]
+#[path = "connection_service_lifecycle_tests.rs"]
 mod lifecycle_tests;
 
 #[tokio::test]

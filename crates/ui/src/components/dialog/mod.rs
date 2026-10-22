@@ -7,6 +7,7 @@ pub mod sheet;
 mod ui;
 
 #[cfg(test)]
+#[path = "tests/mod_tests.rs"]
 mod tests;
 
 /// Compatibility path for the pre-layered modal API.

@@ -12,9 +12,9 @@ use super::sql_policy::{placeholder_remains, split_statements_for_driver};
 use schema_ddl::{build_create_table_ddl, format_trigger_ddl};
 use schema_table_info::build_table_info;
 
-#[path = "schema_ddl.rs"]
+#[path = "schema_service/schema_ddl.rs"]
 mod schema_ddl;
-#[path = "schema_table_info.rs"]
+#[path = "schema_service/schema_table_info.rs"]
 mod schema_table_info;
 
 pub struct SchemaService {
@@ -329,5 +329,5 @@ fn sqlite_file_matches_cached_schema(database: &str, cached: &IntrospectResult) 
 }
 
 #[cfg(test)]
-#[path = "schema_service_tests.rs"]
+#[path = "tests/schema_service_tests.rs"]
 mod tests;

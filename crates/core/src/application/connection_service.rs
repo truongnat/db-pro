@@ -377,5 +377,5 @@ fn validate_config(config: &ConnectionConfig) -> Result<(), DbError> {
 }
 
 #[cfg(test)]
-#[path = "connection_service/tests.rs"]
+#[path = "tests/connection_service_tests.rs"]
 mod tests;

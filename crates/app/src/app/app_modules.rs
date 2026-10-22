@@ -316,7 +316,7 @@ mod palette_view;
 #[path = "../tools/search_service.rs"]
 mod search_service;
 pub(crate) use search_service::{SearchFingerprintParts, SearchIndex, SearchService};
-#[path = "../tools/problems_view.rs"]
+#[path = "../shell/sidebar/problems_view.rs"]
 mod problems_view;
 #[path = "../query_workbench/query_actions_view.rs"]
 mod query_actions_view;

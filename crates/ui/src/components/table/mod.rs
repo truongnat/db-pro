@@ -3,6 +3,7 @@ mod handler;
 mod ui;
 
 #[cfg(test)]
+#[path = "tests/mod_tests.rs"]
 mod tests;
 
 use egui::{Color32, Pos2, Stroke};

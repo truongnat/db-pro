@@ -1,5 +1,7 @@
 pub mod agent;
+#[path = "agent/executor.rs"]
 mod agent_executor;
+#[path = "agent/orchestrator.rs"]
 mod agent_orchestrator;
 mod api;
 mod worker;
