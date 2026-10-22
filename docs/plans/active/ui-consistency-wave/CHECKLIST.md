@@ -49,3 +49,18 @@
 - [x] Runtime captures: 42 PNG, 10 surfaces × 3 sizes, dark; light for query/results/
       new-connection/error; menu open captured. Light-hook gaps recorded.
 - [x] Ledger statuses + evidence paths updated
+
+## Wave 4 — Select width + spacing rhythm
+- [x] UI-26 Select trigger content-hugging; popup measured from the widest option and
+      pinned with `set_width` (598×156 px → 145×158 px)
+- [x] UI-27 Shell `item_spacing` = theme rhythm; redundant per-view compensations removed
+- [x] UI-28 Six icon+label rows → `ICON_TEXT_GAP`
+- [x] UI-29 Gallery separator stub removed
+- [x] UI-30 / UI-31 filed as open, not silently expanded into this wave
+- [x] `widest_label_width` bounded by a `cap` early-exit + 2 new unit tests
+- [x] New scanner `fusion_scan.py` (painted geometry, container edges counted separately)
+- [x] Full re-verify: 108 PNG (17 surfaces × 3 sizes × dark+light, 8 with light hooks)
+      + 102 inspector dumps; 0 confirmed fusions after pixel cross-check
+- [x] Capture mode no longer opens a visible X11 window (`with_visible(!linux)`) +
+      Xvfb documented in the script header
+- [x] Gates re-run after the final edit (fmt/check/clippy/test/release/architecture/clean-code)

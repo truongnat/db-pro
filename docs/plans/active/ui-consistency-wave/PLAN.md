@@ -36,3 +36,32 @@ concrete report-1 layout/state findings that share the same components.
 - `FINDINGS.md` — severity and root-cause summary
 - `VERIFICATION.md` — commands, counts, captures
 - `REPORT.md` — consolidated audit report
+
+## Wave 4 (2026-10-22) — Select width contract + workspace spacing rhythm
+
+State: RUNTIME_VERIFY. Baseline SHA: `f984385a`.
+
+Owner request: Selects whose content is tiny render absurdly wide and then fail to show
+that content fully; re-measure how many places actually render UI fused together.
+
+Scope:
+
+- `Select` trigger width becomes content-hugging unless `.width()` pins it; the popup
+  sizes from the measured widest option and pins itself with `ui.set_width`.
+- `shell_frame_view.rs` stops zeroing `item_spacing` and carries the theme rhythm
+  (`SPACE_SM × SPACE_XS`) so a view cannot silently render flush.
+- Six icon-glyph + caption-label rows move from 0–2 px to `ICON_TEXT_GAP`.
+- The audit skill gains a `ZERO-SPACING` static rule, a measured `fusion_scan.py`
+  runtime scanner, two heuristics, and a variant-safe capture filename.
+
+Out of scope: the pre-existing Schema Compare clipped diff list (UI-30) and the shared
+`ScrollArea`'s always-hidden scroll bar (UI-31) are filed, not fixed.
+
+Acceptance:
+
+- Row-limit popup measures ≈ option width, not screen width, with no ellipsized option.
+- Full re-verify matrix: 17 surfaces × 3 sizes (1280×800, 1440×900, 1920×1080) ×
+  dark + light, checked for over-spaced regressions after the shell flip.
+- Fusion counts come from painted geometry with a pixel crop behind every claim.
+- Captures never open a window on the owner's desktop (Xvfb, and capture mode now
+  creates an unmapped X11 window).

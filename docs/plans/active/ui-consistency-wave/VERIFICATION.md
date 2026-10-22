@@ -82,3 +82,71 @@ Binary: `db-pro-native --features capture`, X11 under `xvfb-run`, 180 settle fra
 - **UI-22** — full i18n sweep (~417 strings), including chart config labels.
 - **P3 note** — residual literal widths in designer-form columns (120/140/180/220/260) are
   stable per-field widths, not shared-component drift; promote only with a form layout token.
+
+---
+
+# Wave 4 — Select width contract + workspace spacing rhythm
+
+Baseline SHA: `f984385a`. Owner-approved scope: fix the root cause (shell spacing) and
+re-verify the full surface matrix.
+
+## Commands (actually executed)
+
+| Command | Result |
+|---|---|
+| `cargo +nightly fmt --all -- --check` | 1 diff (the `main.rs` viewport match arm) → fixed with `cargo +nightly fmt --all`, re-checked clean (exit 0) |
+| `cargo check --workspace` | pass, exit 0 (27.4 s) |
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass, exit 0 (`Finished dev` in 19.8 s) |
+| `cargo test --workspace` | pass — every suite `ok`, 0 failed; largest suite 712 passed (Select cap tests included), 64 ignored across provider suites |
+| `cargo build --release --locked -p db-pro-native` | pass — `Finished release profile [optimized] target(s) in 4m 41s` |
+| `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | `✓ pass: 11 ⚠ warn: 5 ✗ fail: 0` (same pre-existing size/clone debt as wave 3) |
+| `python3 tools/cc-scan.py . --fail-on error` | exit 1 — 21 legacy errors / 125 warnings, **none in a file this wave touched** (grep of the report for `select/`, `shell_frame_view`, `component_gallery_view`, `tools_hub_surface_view`, `schema_compare_view` returns nothing). Baseline not regenerated. |
+| `python3 .skills/ui-consistency-audit/scripts/fusion_scan.py /tmp/ui-audit/final/audit --gap 2.5` | `surfaces: 102  fused pairs: 12  (excluded adjacent-panel edge pairs: 130)` |
+| `python3 .skills/ui-consistency-audit/scripts/ui_consistency_scan.py` | 148 advisory `ZERO-SPACING` candidates (was 142 pre-fix), 0 contract findings; every candidate that reaches screen was cleared by the runtime scan above |
+
+## Runtime captures (full re-verify)
+
+`/tmp/ui-audit/png/` — **108 PNG, all `captured`, 0 missing**; `/tmp/ui-audit/final/` —
+102 `DB_PRO_INSPECTOR_DUMP` logs + audit JSON. Binary `db-pro-native --features capture`,
+180 settle frames.
+
+| Axis | Coverage |
+|---|---|
+| Surfaces | 17 (welcome, query, results, table, new/edit/error connection, settings, quick-open, explorer-filter, diagram, history, compare, agent, gallery, files, tools) |
+| Sizes | 1280×800, 1440×900, 1920×1080 |
+| Themes | dark for all 17; light for the 8 that have a `_LIGHT` fixture hook (welcome, query, results, quick-open, new-connection, connection-error, files, tools) |
+| States | row-limit popup open at all 3 sizes × both themes |
+
+Light-mode files for the other 9 surfaces are byte-identical duplicates of the dark
+capture (no fixture hook exists) — recorded as an evidence gap, not as light coverage.
+
+## Finding verification
+
+| ID | Status | Evidence |
+|---|---|---|
+| UI-26 | fixed | Popup for a 108 px trigger: **598×156 px before → 145×158 px after** (dark 1440); `query-1920x1080-light-limit.png` shows all four options, including `100,000 rows`, fully legible with the check column reserved. |
+| UI-27 | fixed | Shell `item_spacing` now `SPACE_SM × SPACE_XS`. Re-measured over 102 dumps: 142 raw pairs → 130 adjacent-panel edges + 12 × one tree-row pair that pixel measurement clears (see false positives). **0 confirmed fusions.** No view became over-spaced: welcome/query/results light at 1920 and 1280 reviewed. |
+| UI-28 | fixed | Six icon+label rows at `ICON_TEXT_GAP`; `tools-1440x900-dark.png` ("⤓ Schema & Migration"), `agent-1440x900-dark.png` ("⚡ Agent", connection chips). |
+| UI-29 | fixed | `gallery-1440x900-dark.png` — stray 13×24 separator stub gone, nav column separated by `SPACE_MD`. |
+| UI-30 | open (pre-existing) | A/B rebuild at `f984385a` minus the shell change (`/tmp/c0.png`) clips identically → not a wave-4 regression. |
+| UI-31 | open | Source-level: shared `ScrollArea` sets `ScrollBarVisibility::AlwaysHidden`. |
+
+## Harness change
+
+`crates/native-app/src/main.rs` — capture mode (`DB_PRO_WINDOW_SIZE` pinned) now creates
+an **unmapped X11 window** (`.with_visible(!cfg!(target_os = "linux"))`). Verified by
+capturing `query-1440x900-dark.png` on the desktop display with no window appearing; it
+differs from the Xvfb capture in 13 554/1 296 000 pixels (1 %, caret/AA). macOS keeps
+`visible: true` — a hidden window there never receives `drawRect` and the capture stalls.
+The capture script header now tells callers to use Xvfb regardless.
+
+## Wave-4 evidence gaps
+
+- Light theme only for 8/17 surfaces (fixture hooks); no light hook for settings,
+  compare, history, diagram, explorer, agent, gallery, files-dark, table.
+- No empty/loading state re-capture beyond quick-open and connection error.
+- No vi/ja locale, no 800×600, no 125/150 % scale factor.
+- `widest_label_width` is bounded by a per-frame `cap` early-exit, but there is no
+  frame-time measurement for a Select with hundreds of options (schema picker).
+

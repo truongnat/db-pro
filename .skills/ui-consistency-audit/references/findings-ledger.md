@@ -35,6 +35,12 @@ re-captured in `/tmp/ui-audit/wave2/`.
 | UI-23 | P2 | Type scale drift: `font_page_title` (24) unused; 16/18/hardcoded titles | `primitive.rs:67-114`, `dialog/ui.rs:294` | source; fix: token removed, font helpers in sheet/empty state | fixed 0e370498 |
 | UI-24 | P2 | Dark `text_muted` on `surface_floating` = 4.09:1 (< 4.5 AA) | `semantic.rs:182-290` | computed; fix: #999999 + WCAG test | fixed 0e370498 |
 | UI-25 | P2 | Diagram zoom % label, canvas and minimap lack accessible names | `diagram_view.rs:1171`, `diagram_canvas_view.rs:97,552` | `diagram.json`; fix: `WidgetInfo` names, `wave2/png/diagram-*` | fixed 0e370498 |
+| UI-26 | P1 | Select popup renders 598 px wide for a ~90 px option list and ellipsizes its own options | `select/ui/select.rs` (`show_menu`), `select/config.rs` (`MENU_MIN_WIDTH`) | baseline 598×156 px; after: `/tmp/space-matrix2/png/query-1440x900-dark.png` measures 145×158 px | fixed wave-4 |
+| UI-27 | P1 | Workspace shell zeroed `item_spacing`, so every view that forgot an explicit gap renders fused | `crates/app/src/shell/chrome/shell_frame_view.rs:24` | `ZERO-SPACING` scanner rule: 142 suspect containers; wave-4 re-capture: 102 dumps (17 surfaces × 3 sizes × 2 themes) → `fusion_scan.py` reports 12 row-level pairs (all one false positive, see below) + 130 adjacent-panel pairs | fixed wave-4 |
+| UI-28 | P2 | Icon glyph + caption label at 2 px in six places; "⚡Agent" and "⤓Schema & Migration" paint touching | `tools_hub_surface_view.rs:186`, `agent_header_view.rs:37`, `agent_thread_surface_view.rs:146`, `agent_settings_view.rs:50`, `table_data_toolbar_surface_view.rs:238`, `card/ui.rs:235` | before `/tmp/t3.png`, `/tmp/a1.png`; after `/tmp/n1.png`, `/tmp/n2.png` (8 px = `ICON_TEXT_GAP`) | fixed wave-4 |
+| UI-29 | P2 | Gallery paints a stray 13×24 vertical stub: `Separator::vertical` after a full-height column gets no height | `component_gallery_view.rs:235` | before `/tmp/g1.png`; after `/tmp/g2.png` | fixed wave-4 |
+| UI-30 | P1 | Schema Compare diff list unreachable: the body `ScrollArea` viewport collapses to ~17 px, so everything below the first card header is laid out but never painted | `schema_compare_view.rs:175` | `/tmp/c1.png` (wave-4 build) and `/tmp/c0.png` (A/B rebuild at `f984385a` minus the shell change → pre-existing); WID dump shows content at y=215-762 | open (pre-existing, out of wave-4 scope) |
+| UI-31 | P2 | Shared `ScrollArea` always hides its scroll bar, so any overflowing area is unreachable without a wheel | `crates/ui/src/components/scroll_area/ui.rs:77` | source; is the mechanism behind UI-30 | open |
 
 ## Rejected / false positives
 
@@ -44,6 +50,9 @@ re-captured in `/tmp/ui-audit/wave2/`.
 | Zero-size nodes in dialogs | intentional hidden focus anchors (`dialog/ui.rs:247-272`) |
 | Broken fixture screenshots | deliberate scanner fixtures |
 | Common Select has no keyboard support | it handles Arrow/Enter/Escape (`select.rs:323-342`); only the bespoke schema picker lacks it |
+| Result grid row 4 renders overlapping digits ("4045") | ink-profile measurement of the cell shows four evenly spaced 7.8 px glyph cells; it is the mono font's slashed zero, not a collision |
+| Adjacent icon-rail / sidebar / editor panels count as fused controls | shared panel edges are the intended SidePanel contract; `fusion_scan.py` drops pairs whose rects are full-height containers |
+| Saved-queries tree row "Unfiled" (12 dumps, `DC36 x 33BF` at 0 px) | `DC36` is the disclosure caret (ink 59–64) and `33BF` is the row label that already contains the folder glyph (ink 68–81) plus the text (ink 90–132); measured ink gaps are 4 px and 9 px, so nothing touches (`/tmp/crop_tree.png`) |
 
 ## Evidence gaps (round 1 + 2)
 

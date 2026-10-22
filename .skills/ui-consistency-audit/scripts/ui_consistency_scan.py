@@ -242,6 +242,69 @@ def component_contract() -> list[dict]:
     return findings
 
 
+CONTAINER_RE = re.compile(r"ui\.(horizontal|vertical|horizontal_wrapped|vertical_wrapped)\(")
+CHILD_RE = re.compile(
+    r"ui\.(?:label|add|add_sized|add_enabled|image|separator)\(|::new\(|\.show\(|\.show_icon\("
+)
+SPACING_RE = re.compile(r"item_spacing|add_space|with_spacing|with_layout|allocate_ui_with_layout|vertical_centered")
+
+
+def _closure_body(text: str, brace_pos: int) -> tuple[str, int]:
+    """Return the `{...}` body starting at brace_pos and its end offset."""
+    depth = 0
+    i = brace_pos
+    while i < len(text):
+        ch = text[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[brace_pos + 1 : i], i
+        i += 1
+    return text[brace_pos + 1 :], len(text)
+
+
+def zero_spacing_findings() -> list[dict]:
+    """Flag containers that may render their children flush.
+
+    egui propagates `item_spacing` into every `Frame`/`ScrollArea`/
+    `ui.horizontal` child and only top-level panels reset it, so one container
+    that zeroes it silently fuses every descendant that forgot an explicit gap.
+    That was the workspace shell's behaviour until wave 4 fixed it at the source
+    (`shell_frame_view.rs` now carries the theme rhythm), which is why this rule
+    is a candidate list rather than a defect list: most hits are containers that
+    simply do not need a gap. Confirm a hit with the painted geometry of
+    `fusion_scan.py` before filing it. Heuristic: leaf container with >=2
+    painted children and no spacing call. Advisory only (`strict: False`) —
+    rect-positioned content and helper calls are indistinguishable from text.
+    """
+    findings: list[dict] = []
+    for path in sorted(APP_SRC.rglob("*.rs")):
+        rel = "/" + str(path.relative_to(ROOT))
+        if any(part in rel for part in SKIP_PARTS) or path.name in SKIP_NAMES:
+            continue
+        text = read(path)
+        for m in CONTAINER_RE.finditer(text):
+            brace = text.find("{", m.end())
+            if brace == -1:
+                continue
+            body, _ = _closure_body(text, brace)
+            if CONTAINER_RE.search(body):
+                continue  # report only the innermost container
+            children = len(CHILD_RE.findall(body))
+            if children >= 2 and not SPACING_RE.search(body):
+                findings.append(
+                    {
+                        "rule": "ZERO-SPACING",
+                        "strict": False,
+                        "file": f"{path.relative_to(ROOT)}:{line_of(text, m.start())}",
+                        "detail": f"{children} children, no item_spacing/add_space — verify painted gap with fusion_scan.py",
+                    }
+                )
+    return findings
+
+
 def capture_hook_findings(sites: list[CallSite]) -> list[dict]:
     if not CAPTURE_RS.exists():
         return []
@@ -300,6 +363,14 @@ def render_md(sites: list[CallSite], contract: list[dict]) -> str:
     lines.append("")
     for key in sorted(counts):
         lines.append(f"- {key}: {counts[key]}")
+    rules: dict[str, int] = {}
+    for c in contract:
+        rules[c["rule"]] = rules.get(c["rule"], 0) + 1
+    lines.append("")
+    lines.append("## Rule counts")
+    lines.append("")
+    for key in sorted(rules):
+        lines.append(f"- {key}: {rules[key]}")
     return "\n".join(lines) + "\n"
 
 
@@ -311,7 +382,7 @@ def main() -> int:
     args = parser.parse_args()
 
     sites = scan_call_sites(args.include_tests)
-    contract = component_contract() + capture_hook_findings(sites)
+    contract = component_contract() + capture_hook_findings(sites) + zero_spacing_findings()
 
     if args.format == "json":
         payload = {
@@ -336,7 +407,7 @@ def main() -> int:
     else:
         print(render_md(sites, contract))
 
-    if args.strict and contract:
+    if args.strict and any(c.get("strict", True) for c in contract):
         return 1
     return 0
 

@@ -146,6 +146,56 @@ Tell: a token is "obviously readable" until the relative luminance is computed o
 actual surface it is painted on. Add the computation as a unit test in
 `crates/ui/src/theme/tokens/tests/` so a palette edit cannot silently drop below 4.5:1.
 
+## SPACING-INHERITS-ZERO
+
+**`ui.spacing_mut().item_spacing = ZERO` on a panel poisons every descendant container.**
+
+Tell: text and controls rendered flush against each other ("dính sát") in one view while a
+neighbouring view looks correctly spaced. egui propagates `item_spacing` into `Frame`,
+`ScrollArea`, `ui.horizontal`/`vertical` children; only top-level `Panel`/`Area`/`Window`
+reset it. `shell_frame_view.rs` used to zero the whole workspace CentralPanel, so every
+view that forgot an explicit `add_space` fused its siblings — 142 candidate containers.
+Fix at the root (theme rhythm `SPACE_SM × SPACE_XS`) and let views override locally to be
+*tighter*, never rely on each view remembering to re-space. Scanner rule: `ZERO-SPACING`
+(advisory; rect-positioned children are indistinguishable statically).
+
+## POPUP-WIDTH-PINS
+
+**A popup whose rows allocate `available_width()` must pin its width, not set a minimum.**
+
+Tell: a Select menu measured 598 px wide for a 90 px option list, and no `auto_shrink`
+setting changed it. Inside an `Area`, `available_width()` is the distance to the *screen*,
+so `set_min_width` is ignored by content that self-reports that wide, and
+`ScrollArea::auto_shrink([false, _])` happily fills it. Use `ui.set_width(...)` on the
+surface and on the scroll content, and size the popup from the measured widest row
+(`menu_row_width`) instead of a magic floor like `MENU_MIN_WIDTH = 152`.
+
+## ICON-TEXT-GAP-COLLAPSES
+
+**An icon glyph and its caption label need `ICON_TEXT_GAP`, not `SPACE_XXS`.**
+
+Tell: "⚡Agent" or "⤓Schema & Migration" rendering with the glyph's descender
+crossing the first letter. A lucide glyph is painted as a `ui.label` whose rect is
+the em box, so `item_spacing.x` of 0–2 px puts the *next* label's ink inside the
+glyph's visible strokes. The house value is `tokens::ICON_TEXT_GAP` (8 px) — the
+same gap the agent suggestion rows and the Select trigger already use; measure a
+correct row before inventing a new one. Grep for
+`item_spacing.x = (SPACE_XXS|0.0|2.0)` and read the two widgets that follow.
+
+## RUNTIME-FUSION-SCAN-BEATS-GREP
+
+**Count collisions from painted geometry, not from `add_space` call sites.**
+
+Tell: a grep audit reporting 74 "spacing collisions" of which most are fine, while
+a real 598 px popup and six fused icon+label rows go unreported. Static scans can
+only produce candidates (`ZERO-SPACING`). For measured counts, capture with
+`capture_ui_matrix.sh --audit` (it sets `DB_PRO_INSPECTOR_DUMP`) and run
+`scripts/fusion_scan.py <audit-dir>`: it parses the `WID` geometry lines and reports
+same-parent sibling pairs with a sub-2.5 px horizontal gap. Two filters are
+mandatory — full-height panel pairs (shared SidePanel edges are the contract) and
+rect-gap-as-ink-gap (glyph rects include side bearings, so a 0 px rect gap can
+still read fine; confirm with a pixel crop before filing).
+
 ## FALSE POSITIVES (do not re-report)
 
 - Hidden focus anchors in dialogs (`dialog/ui.rs`): intentional, not zero-size bugs.

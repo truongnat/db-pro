@@ -6,7 +6,8 @@
 #   bash .skills/ui-consistency-audit/scripts/capture_ui_matrix.sh --all [--audit]
 #   bash .skills/ui-consistency-audit/scripts/capture_ui_matrix.sh --surface query --variant limit
 #
-# Requires a display. Under a headless host, wrap the command with:
+# Requires a display. ALWAYS wrap the command with a private Xvfb display, even on a
+# desktop session — otherwise every capture opens a real window on the user's screen:
 #   xvfb-run -a -s "-screen 0 1920x1080x24" bash .skills/.../capture_ui_matrix.sh ...
 # The app prefers Wayland when WAYLAND_DISPLAY is inherited; this script forces X11.
 set -uo pipefail
@@ -92,11 +93,13 @@ variant_env() {
 
 run_one() {
     local name="$1" envs="$2" dark="$3"
-    local png="$OUT/png/${name}-${SIZE}-${dark}.png"
-    local log="$OUT/audit/${name}-${SIZE}-${dark}.log"
+    local suffix=""
+    [[ -n "$VARIANT" ]] && suffix="-$VARIANT"
+    local png="$OUT/png/${name}-${SIZE}-${dark}${suffix}.png"
+    local log="$OUT/audit/${name}-${SIZE}-${dark}${suffix}.log"
     local audit_flag=""
     if [[ "$AUDIT" -eq 1 ]]; then
-        audit_flag="DB_PRO_AUDIT_JSON=$OUT/audit/${name}-${SIZE}-${dark}.json DB_PRO_INSPECTOR_DUMP=1"
+        audit_flag="DB_PRO_AUDIT_JSON=$OUT/audit/${name}-${SIZE}-${dark}${suffix}.json DB_PRO_INSPECTOR_DUMP=1"
     fi
     # shellcheck disable=SC2086
     env -i HOME="$HOME" PATH="$PATH" \
@@ -106,7 +109,7 @@ run_one() {
         DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-}" \
         DB_PRO_CAPTURE_TO="$png" DB_PRO_WINDOW_SIZE="$SIZE" \
         DB_PRO_CAPTURE_SETTLE_FRAMES="$SETTLE" $audit_flag $envs \
-        timeout 120 "$BIN" >"$log" 2>&1
+        timeout 120 "$BIN" </dev/null >"$log" 2>&1
     local code=$?
     local status=missing
     [[ -s "$png" ]] && status=captured
