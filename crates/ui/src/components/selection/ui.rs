@@ -9,7 +9,7 @@ use crate::{
         animation::{hover_t, lerp_color},
         interact::{checkbox_info, paint_focus_ring, radio_info},
     },
-    tokens::{STROKE_FOCUS, STROKE_THIN},
+    tokens::{FONT_SIZE_CAPTION, FONT_SIZE_MONO_SM, RADIUS_XS, SPACE_XS, STROKE_FOCUS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -51,11 +51,11 @@ impl<'a> Checkbox<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
-        let size = 16.0;
-        let spacing = 8.0;
+        let size = config::CONTROL_SIZE;
+        let spacing = config::CONTROL_SPACING;
 
         ui.horizontal(|ui| {
-            let text_width = (ui.available_width() - size - spacing).max(60.0);
+            let text_width = (ui.available_width() - size - spacing).max(config::MIN_CONTROL_TEXT_WIDTH);
             // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate
             let text_color = if self.enabled {
                 self.theme.text_primary
@@ -65,22 +65,26 @@ impl<'a> Checkbox<'a> {
             // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate
             let text_galley = ui.painter().layout(
                 self.label.to_owned(),
-                FontId::proportional(13.0),
+                FontId::proportional(config::CONTROL_LABEL_SIZE),
                 text_color,
                 text_width,
             );
             let description_galley = self.description.map(|description| {
                 ui.painter().layout(
                     description.to_owned(),
-                    FontId::proportional(11.5),
+                    FontId::proportional(config::CONTROL_DESC_SIZE),
                     self.theme.text_muted,
                     text_width,
                 )
             });
-            let content_height =
-                text_galley.size().y + description_galley.as_ref().map_or(0.0, |galley| 3.0 + galley.size().y);
+            let content_height = text_galley.size().y
+                + description_galley
+                    .as_ref()
+                    .map_or(0.0, |galley| config::CONTROL_DESC_GAP + galley.size().y);
             let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
-            let row_width = ui.available_width().max(size + spacing + 60.0);
+            let row_width = ui
+                .available_width()
+                .max(size + spacing + config::MIN_CONTROL_TEXT_WIDTH);
 
             let sense = if self.focusable {
                 Sense::CLICK | Sense::FOCUSABLE
@@ -96,12 +100,12 @@ impl<'a> Checkbox<'a> {
             }
 
             let box_y = if self.description.is_some() {
-                rect.top() + 2.0
+                rect.top() + config::CONTROL_LABEL_TOP_INSET
             } else {
                 rect.center().y - (size * 0.5)
             };
             let box_rect = Rect::from_min_size(Pos2::new(rect.left(), box_y), Vec2::splat(size));
-            let rounding = CornerRadius::same(4.0 as u8);
+            let rounding = CornerRadius::same(RADIUS_XS as u8);
 
             let hover = hover_t(
                 ui.ctx(),
@@ -127,7 +131,7 @@ impl<'a> Checkbox<'a> {
             }
 
             if response.has_focus() {
-                paint_focus_ring(ui, box_rect, 4.0, self.theme);
+                paint_focus_ring(ui, box_rect, RADIUS_XS, self.theme);
             }
 
             // Text and description use the cell width so narrow grids wrap instead of overflowing.
@@ -136,7 +140,10 @@ impl<'a> Checkbox<'a> {
             ui.painter().galley(text_pos, text_galley, Color32::PLACEHOLDER);
 
             if let Some(description_galley) = description_galley {
-                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + text_height + 3.0);
+                let desc_pos = Pos2::new(
+                    rect.left() + size + spacing,
+                    text_pos.y + text_height + config::CONTROL_DESC_GAP,
+                );
                 ui.painter().galley(desc_pos, description_galley, Color32::PLACEHOLDER);
             }
 
@@ -188,26 +195,32 @@ impl<'a> Switch<'a> {
         let width = config::SWITCH_WIDTH;
         let height = config::SWITCH_HEIGHT;
         let spacing = config::CONTROL_SPACING;
-        let text_width = (ui.available_width() - width - spacing).max(32.0);
+        let text_width = (ui.available_width() - width - spacing).max(config::SWITCH_MIN_TEXT_WIDTH);
         let text_color = if self.enabled {
             self.theme.text_primary
         } else {
             self.theme.text_muted
         };
         let label_galley = self.label.map(|label| {
-            ui.painter()
-                .layout(label.to_owned(), FontId::proportional(13.0), text_color, text_width)
+            ui.painter().layout(
+                label.to_owned(),
+                FontId::proportional(config::CONTROL_LABEL_SIZE),
+                text_color,
+                text_width,
+            )
         });
         let description_galley = self.description.map(|description| {
             ui.painter().layout(
                 description.to_owned(),
-                FontId::proportional(11.5),
+                FontId::proportional(config::CONTROL_DESC_SIZE),
                 self.theme.text_muted,
                 text_width,
             )
         });
         let text_height = label_galley.as_ref().map_or(0.0, |galley| galley.size().y)
-            + description_galley.as_ref().map_or(0.0, |galley| 3.0 + galley.size().y);
+            + description_galley
+                .as_ref()
+                .map_or(0.0, |galley| config::CONTROL_DESC_GAP + galley.size().y);
         let total_height = height.max(text_height);
         let row_width = ui.available_width().max(width);
 
@@ -239,9 +252,9 @@ impl<'a> Switch<'a> {
             paint_focus_ring(ui, switch_rect, height * 0.5, self.theme);
         }
 
-        let knob_radius = (height - 4.0) * 0.5;
-        let knob_x_left = switch_rect.left() + 2.0 + knob_radius;
-        let knob_x_right = switch_rect.right() - 2.0 - knob_radius;
+        let knob_radius = (height - 2.0 * config::SWITCH_KNOB_INSET) * 0.5;
+        let knob_x_left = switch_rect.left() + config::SWITCH_KNOB_INSET + knob_radius;
+        let knob_x_right = switch_rect.right() - config::SWITCH_KNOB_INSET - knob_radius;
         let knob_x = egui::lerp(knob_x_left..=knob_x_right, anim_t);
         let knob_center = Pos2::new(knob_x, switch_rect.center().y);
         // accent_foreground reads on the accent track in both themes (white on
@@ -255,7 +268,7 @@ impl<'a> Switch<'a> {
 
         let text_pos = Pos2::new(row_rect.left() + width + spacing, row_rect.top());
         if let Some(label_galley) = label_galley {
-            let description_y = text_pos.y + label_galley.size().y + 3.0;
+            let description_y = text_pos.y + label_galley.size().y + config::CONTROL_DESC_GAP;
             ui.painter().galley(text_pos, label_galley, Color32::PLACEHOLDER);
             if let Some(description_galley) = description_galley {
                 ui.painter().galley(
@@ -306,11 +319,11 @@ impl<'a> Radio<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let size = 16.0;
-        let spacing = 8.0;
+        let size = config::CONTROL_SIZE;
+        let spacing = config::CONTROL_SPACING;
 
         ui.horizontal(|ui| {
-            let text_width = (ui.available_width() - size - spacing).max(60.0);
+            let text_width = (ui.available_width() - size - spacing).max(config::MIN_CONTROL_TEXT_WIDTH);
             let text_color = if self.enabled {
                 self.theme.text_primary
             } else {
@@ -318,28 +331,32 @@ impl<'a> Radio<'a> {
             };
             let text_galley = ui.painter().layout(
                 self.label.to_owned(),
-                FontId::proportional(13.0),
+                FontId::proportional(config::CONTROL_LABEL_SIZE),
                 text_color,
                 text_width,
             );
             let description_galley = self.description.map(|description| {
                 ui.painter().layout(
                     description.to_owned(),
-                    FontId::proportional(11.5),
+                    FontId::proportional(config::CONTROL_DESC_SIZE),
                     self.theme.text_muted,
                     text_width,
                 )
             });
-            let content_height =
-                text_galley.size().y + description_galley.as_ref().map_or(0.0, |galley| 3.0 + galley.size().y);
+            let content_height = text_galley.size().y
+                + description_galley
+                    .as_ref()
+                    .map_or(0.0, |galley| config::CONTROL_DESC_GAP + galley.size().y);
             let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
-            let row_width = ui.available_width().max(size + spacing + 60.0);
+            let row_width = ui
+                .available_width()
+                .max(size + spacing + config::MIN_CONTROL_TEXT_WIDTH);
 
             let (rect, response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
             response.widget_info(|| radio_info(self.enabled, self.selected, self.label));
 
             let center_y = if self.description.is_some() {
-                rect.top() + (size * 0.5) + 2.0
+                rect.top() + (size * 0.5) + config::CONTROL_LABEL_TOP_INSET
             } else {
                 rect.center().y
             };
@@ -355,13 +372,13 @@ impl<'a> Radio<'a> {
                 ui.painter()
                     .circle_stroke(circle_center, radius, Stroke::new(STROKE_FOCUS, self.theme.accent));
                 ui.painter()
-                    .circle_filled(circle_center, radius - 4.0, self.theme.accent);
+                    .circle_filled(circle_center, radius - config::RADIO_DOT_INSET, self.theme.accent);
             } else {
                 let stroke_color = lerp_color(self.theme.border_default, self.theme.border_strong, hover);
                 ui.painter()
                     .circle_stroke(circle_center, radius, Stroke::new(STROKE_THIN, stroke_color));
                 ui.painter()
-                    .circle_filled(circle_center, radius - 1.0, self.theme.surface_editor);
+                    .circle_filled(circle_center, radius - STROKE_THIN, self.theme.surface_editor);
             }
 
             if response.has_focus() {
@@ -379,7 +396,10 @@ impl<'a> Radio<'a> {
             ui.painter().galley(text_pos, text_galley, Color32::PLACEHOLDER);
 
             if let Some(description_galley) = description_galley {
-                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + text_height + 3.0);
+                let desc_pos = Pos2::new(
+                    rect.left() + size + spacing,
+                    text_pos.y + text_height + config::CONTROL_DESC_GAP,
+                );
                 ui.painter().galley(desc_pos, description_galley, Color32::PLACEHOLDER);
             }
 
@@ -437,21 +457,26 @@ impl<'a> Slider<'a> {
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                         if let Some(lbl) = self.label {
-                            ui.label(RichText::new(lbl).size(12.0).strong().color(self.theme.text_secondary));
+                            ui.label(
+                                RichText::new(lbl)
+                                    .size(FONT_SIZE_CAPTION)
+                                    .strong()
+                                    .color(self.theme.text_secondary),
+                            );
                         }
                     });
                     if self.show_value {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(
                                 RichText::new(format!("{:.0}", *self.value))
-                                    .size(11.5)
+                                    .size(FONT_SIZE_MONO_SM)
                                     .strong()
                                     .color(self.theme.accent),
                             );
                         });
                     }
                 });
-                ui.add_space(4.0);
+                ui.add_space(SPACE_XS);
             }
 
             let height = config::SLIDER_HEIGHT;
@@ -486,19 +511,28 @@ impl<'a> Slider<'a> {
 
             // Track background
             let track_rect = Rect::from_min_max(
-                Pos2::new(rect.left(), rect.center().y - 2.5),
-                Pos2::new(rect.right(), rect.center().y + 2.5),
+                Pos2::new(rect.left(), rect.center().y - config::TRACK_HALF_HEIGHT),
+                Pos2::new(rect.right(), rect.center().y + config::TRACK_HALF_HEIGHT),
             );
-            ui.painter()
-                .rect_filled(track_rect, CornerRadius::same(2.5 as u8), self.theme.border_default);
+            ui.painter().rect_filled(
+                track_rect,
+                CornerRadius::same(config::TRACK_HALF_HEIGHT as u8),
+                self.theme.border_default,
+            );
 
             // Active track
             let active_rect = Rect::from_min_max(
-                Pos2::new(rect.left(), rect.center().y - 2.5),
-                Pos2::new(rect.left() + normalized * rect.width(), rect.center().y + 2.5),
+                Pos2::new(rect.left(), rect.center().y - config::TRACK_HALF_HEIGHT),
+                Pos2::new(
+                    rect.left() + normalized * rect.width(),
+                    rect.center().y + config::TRACK_HALF_HEIGHT,
+                ),
             );
-            ui.painter()
-                .rect_filled(active_rect, CornerRadius::same(2.5 as u8), self.theme.accent);
+            ui.painter().rect_filled(
+                active_rect,
+                CornerRadius::same(config::TRACK_HALF_HEIGHT as u8),
+                self.theme.accent,
+            );
 
             // Thumb
             let thumb_x = rect.left() + normalized * rect.width();
@@ -510,8 +544,11 @@ impl<'a> Slider<'a> {
             };
             ui.painter()
                 .circle_filled(thumb_center, config::SLIDER_THUMB_RADIUS, thumb_color);
-            ui.painter()
-                .circle_stroke(thumb_center, 7.0, Stroke::new(STROKE_FOCUS, self.theme.accent));
+            ui.painter().circle_stroke(
+                thumb_center,
+                config::SLIDER_THUMB_RADIUS,
+                Stroke::new(STROKE_FOCUS, self.theme.accent),
+            );
 
             // Focus ring around thumb
             if response.has_focus() {

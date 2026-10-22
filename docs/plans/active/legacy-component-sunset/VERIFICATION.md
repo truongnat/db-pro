@@ -36,3 +36,17 @@ Not yet run: fmt --check workspace, clippy, tests, captures (scheduled Wave 6).
 - **Gap:** open popover/dropdown/toast surfaces (radius 12→8, 10→8) are
   interaction-triggered; static gallery captures show triggers only. Visual check
   of an open popover remains pending.
+
+## Wave 3 (config const aliases) — commit `1c2586f0`
+
+- `cargo check -p db-pro-ui` PASS; `cargo test -p db-pro-ui` 715 PASS (subagent).
+- Captures recorded (`/tmp/w3_disclosure_{dark,light}.png`, 1280×800) are
+  **PROVISIONAL**: the capture binary was built after wave 2 and before the
+  wave-3 commit; they show the pre-`RADIUS_FULL` pill geometry. Recapture on
+  the post-wave-4 build before accepting them as evidence.
+- Alias-only claim verified mechanically: every old→new pair extracted from
+  `git show 1c2586f0` matches the token's value (1.0→STROKE_THIN, 4→SPACE_XS,
+  8→SPACE_SM/RADIUS_MD/CARD, 11→FONT_SIZE_KBD/BADGE, 12→FONT_SIZE_CAPTION,
+  13→FONT_SIZE_UI_LABEL, 15→FONT_SIZE_BODY, 16→SPACE_LG/ICON_DEFAULT,
+  20→SPACE_XL, 24→SPACE_2XL, 32→SPACE_3XL). Sole intentional visual change:
+  `BADGE_CORNER_RADIUS` 9→RADIUS_FULL (collapsible pill 8→FULL in ui.rs).
