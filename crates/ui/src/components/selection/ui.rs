@@ -9,6 +9,7 @@ use crate::{
         animation::{hover_t, lerp_color},
         interact::{checkbox_info, paint_focus_ring, radio_info},
     },
+    tokens::{STROKE_FOCUS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -117,7 +118,7 @@ impl<'a> Checkbox<'a> {
             } else {
                 let fill = lerp_color(self.theme.surface_editor, self.theme.surface_hover, hover);
                 let stroke = Stroke::new(
-                    1.0,
+                    STROKE_THIN,
                     lerp_color(self.theme.border_default, self.theme.border_strong, hover),
                 );
                 ui.painter().rect_filled(box_rect, rounding, fill);
@@ -352,20 +353,24 @@ impl<'a> Radio<'a> {
             );
             if self.selected {
                 ui.painter()
-                    .circle_stroke(circle_center, radius, Stroke::new(1.5, self.theme.accent));
+                    .circle_stroke(circle_center, radius, Stroke::new(STROKE_FOCUS, self.theme.accent));
                 ui.painter()
                     .circle_filled(circle_center, radius - 4.0, self.theme.accent);
             } else {
                 let stroke_color = lerp_color(self.theme.border_default, self.theme.border_strong, hover);
                 ui.painter()
-                    .circle_stroke(circle_center, radius, Stroke::new(1.0, stroke_color));
+                    .circle_stroke(circle_center, radius, Stroke::new(STROKE_THIN, stroke_color));
                 ui.painter()
                     .circle_filled(circle_center, radius - 1.0, self.theme.surface_editor);
             }
 
             if response.has_focus() {
-                ui.painter()
-                    .circle_stroke(circle_center, radius + 2.0, Stroke::new(2.0, self.theme.accent));
+                paint_focus_ring(
+                    ui,
+                    Rect::from_center_size(circle_center, Vec2::new(radius * 2.0, radius * 2.0)),
+                    radius,
+                    self.theme,
+                );
             }
 
             // Text and description use the cell width so narrow grids wrap instead of overflowing.
@@ -506,14 +511,18 @@ impl<'a> Slider<'a> {
             ui.painter()
                 .circle_filled(thumb_center, config::SLIDER_THUMB_RADIUS, thumb_color);
             ui.painter()
-                .circle_stroke(thumb_center, 7.0, Stroke::new(1.5, self.theme.accent));
+                .circle_stroke(thumb_center, 7.0, Stroke::new(STROKE_FOCUS, self.theme.accent));
 
             // Focus ring around thumb
             if response.has_focus() {
-                ui.painter().circle_stroke(
-                    thumb_center,
+                paint_focus_ring(
+                    ui,
+                    Rect::from_center_size(
+                        thumb_center,
+                        Vec2::new(config::SLIDER_THUMB_RADIUS * 2.0, config::SLIDER_THUMB_RADIUS * 2.0),
+                    ),
                     config::SLIDER_FOCUS_RADIUS,
-                    Stroke::new(2.0, self.theme.accent),
+                    self.theme,
                 );
             }
 

@@ -12,14 +12,16 @@ use crate::{
     components::{
         animation::{fade_alpha, overlay_t, small_translate},
         feedback::kbd_badge,
+        interact::paint_focus_ring,
     },
+    tokens::STROKE_THIN,
     DbProTheme,
 };
 
 pub fn floating_surface(theme: DbProTheme, corner_radius: f32, margin: Margin) -> Frame {
     Frame {
         fill: theme.surface_floating,
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        stroke: Stroke::new(STROKE_THIN, theme.border_subtle),
         inner_margin: margin,
         corner_radius: CornerRadius::same(corner_radius as u8),
         shadow: theme.floating_shadow(),
@@ -61,7 +63,7 @@ impl FloatingPopup {
             interactable: true,
             theme,
             fill: theme.surface_floating,
-            stroke: Stroke::new(1.0, theme.border_subtle),
+            stroke: Stroke::new(STROKE_THIN, theme.border_subtle),
             radius: config::POPOVER_RADIUS,
             margin: Margin::same(10.0 as i8),
             shadow: true,
@@ -87,14 +89,14 @@ impl FloatingPopup {
     /// `surface_panel` fill with a `border_default` outline.
     pub fn surface_panel(mut self) -> Self {
         self.fill = self.theme.surface_panel;
-        self.stroke = Stroke::new(1.0, self.theme.border_default);
+        self.stroke = Stroke::new(STROKE_THIN, self.theme.border_default);
         self
     }
 
     /// `surface_elevated` fill with a `border_subtle` outline.
     pub fn surface_elevated(mut self) -> Self {
         self.fill = self.theme.surface_elevated;
-        self.stroke = Stroke::new(1.0, self.theme.border_subtle);
+        self.stroke = Stroke::new(STROKE_THIN, self.theme.border_subtle);
         self
     }
 
@@ -315,12 +317,7 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
     }
 
     if response.has_focus() {
-        ui.painter().rect_stroke(
-            rect.expand(1.0),
-            CornerRadius::same(config::DROPDOWN_ITEM_RADIUS as u8),
-            Stroke::new(1.5, theme.accent),
-            egui::StrokeKind::Inside,
-        );
+        paint_focus_ring(ui, rect, config::DROPDOWN_ITEM_RADIUS, theme);
     }
 
     let text_color = if !item.enabled {

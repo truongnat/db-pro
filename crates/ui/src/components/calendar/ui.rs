@@ -16,6 +16,7 @@ use super::{
 };
 use crate::{
     components::{animation::hover_t, clamp_popup_to_screen},
+    tokens::STROKE_THIN,
     DbProTheme,
 };
 
@@ -183,7 +184,7 @@ impl<'a> Calendar<'a> {
 
         let frame = Frame {
             fill: self.theme.surface_floating,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
+            stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
             inner_margin: Margin::same(config::CALENDAR_INNER_MARGIN as i8),
             corner_radius: CornerRadius::same(config::SURFACE_RADIUS as u8),
             shadow: self.theme.floating_shadow(),
@@ -676,7 +677,7 @@ impl<'a> DatePicker<'a> {
             rect,
             CornerRadius::same(config::CONTROL_RADIUS as u8),
             Stroke::new(
-                1.0,
+                STROKE_THIN,
                 if is_open {
                     self.theme.accent
                 } else if hover > 0.001 {

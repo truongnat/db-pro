@@ -212,12 +212,7 @@ impl ActivityBar {
                 );
             }
             if has_focus {
-                ui.painter().rect_stroke(
-                    item_rect,
-                    CornerRadius::same(RADIUS_SM as u8),
-                    Stroke::new(STROKE_THIN, self.theme.border_focus),
-                    egui::StrokeKind::Inside,
-                );
+                crate::components::interact::paint_focus_ring(ui, item_rect, RADIUS_SM, self.theme);
             }
 
             let icon_color = if is_selected {

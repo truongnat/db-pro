@@ -5,7 +5,7 @@ use egui::{Area, CornerRadius, FontFamily, FontId, Margin, Order, Pos2, Rect, Ri
 use lucide_icons::Icon;
 
 use super::{config, floating_surface, screen_rect};
-use crate::DbProTheme;
+use crate::{tokens::STROKE_THIN, DbProTheme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastVariant {
@@ -188,7 +188,7 @@ impl<'a> Toast<'a> {
                             .color(self.theme.accent),
                     )
                     .fill(self.theme.surface_hover)
-                    .stroke(Stroke::new(1.0, self.theme.border_subtle))
+                    .stroke(Stroke::new(STROKE_THIN, self.theme.border_subtle))
                     .corner_radius(CornerRadius::same(5.0 as u8));
 
                     if ui.add(action_btn).clicked() {

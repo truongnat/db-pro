@@ -70,9 +70,9 @@ impl<'a> ContextChip<'a> {
             self.theme.surface_editor
         };
         let stroke = if is_hovered {
-            Stroke::new(1.0, self.theme.border_strong)
+            Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_strong)
         } else {
-            Stroke::new(1.0, self.theme.border_default)
+            Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_default)
         };
 
         ui.painter()
@@ -160,7 +160,7 @@ impl<'a> StatusBadge<'a> {
         ui.painter().rect_stroke(
             rect,
             CornerRadius::same((rect.height() * 0.5) as u8),
-            Stroke::new(1.0, palette.dot.linear_multiply(0.35)),
+            Stroke::new(config::FRAME_BORDER_WIDTH, palette.dot.linear_multiply(0.35)),
             egui::StrokeKind::Inside,
         );
         ui.painter().circle_filled(
@@ -249,12 +249,7 @@ impl<'a> ToolCall<'a> {
                     WidgetInfo::selected(WidgetType::CollapsingHeader, true, is_expanded, self.tool_name)
                 });
                 if header_resp.has_focus() {
-                    ui.painter().rect_stroke(
-                        header_rect,
-                        CornerRadius::same(RADIUS_MD as u8),
-                        Stroke::new(1.5, self.theme.border_strong),
-                        egui::StrokeKind::Inside,
-                    );
+                    crate::components::interact::paint_focus_ring(ui, header_rect, RADIUS_MD, self.theme);
                 }
                 if header_resp.hovered() {
                     ui.painter().rect_filled(

@@ -123,7 +123,7 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
             se: 0.0 as u8,
         },
         stroke: if active {
-            Stroke::new(1.0, theme.border_subtle)
+            Stroke::new(STROKE_THIN, theme.border_subtle)
         } else {
             Stroke::NONE
         },
@@ -382,7 +382,7 @@ pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
     ui.add(
         Button::new(label.into().color(theme.accent_foreground).strong())
             .fill(theme.accent)
-            .stroke(Stroke::new(1.0, theme.accent))
+            .stroke(Stroke::new(STROKE_THIN, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
             .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
     )
@@ -392,7 +392,7 @@ pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     ui.add(
         Button::new(icon_layout(icon, label, theme.accent_foreground))
             .fill(theme.accent)
-            .stroke(Stroke::new(1.0, theme.accent))
+            .stroke(Stroke::new(STROKE_THIN, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
             .corner_radius(CornerRadius::same(crate::tokens::RADIUS_BUTTON as u8)),
     )
@@ -450,7 +450,7 @@ pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme)
     ui.add(
         Button::new(label.into().color(theme.text_inverse).strong())
             .fill(theme.danger)
-            .stroke(Stroke::new(1.0, theme.danger))
+            .stroke(Stroke::new(STROKE_THIN, theme.danger))
             .min_size(egui::vec2(0.0, 30.0))
             .corner_radius(CornerRadius::same(8.0 as u8)),
     )

@@ -12,7 +12,7 @@ use crate::{
             layout::{paint_field_chrome, resolve_field_width, FieldChromeState},
         },
     },
-    tokens::{FONT_SIZE_KBD, RADIUS_INPUT, SPACE_SM, SPACE_XS},
+    tokens::{FONT_SIZE_KBD, RADIUS_INPUT, SPACE_SM, SPACE_XS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -134,7 +134,7 @@ impl<'a> SearchInput<'a> {
                     if let Some(sc) = self.shortcut {
                         Frame {
                             fill: self.theme.surface_panel,
-                            stroke: Stroke::new(1.0, self.theme.border_subtle),
+                            stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
                             inner_margin: Margin::symmetric(4.0 as i8, 1.0 as i8),
                             corner_radius: CornerRadius::same(4.0 as u8),
                             ..Default::default()

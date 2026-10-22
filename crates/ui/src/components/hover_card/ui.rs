@@ -6,7 +6,7 @@ use super::{
         calculate_card_position, clamp_card_width, compute_open_state, escape_dismissed, sanitize_delay, timer_duration,
     },
 };
-use crate::DbProTheme;
+use crate::{tokens::STROKE_THIN, DbProTheme};
 
 pub struct HoverCard<'a> {
     id: &'a str,
@@ -137,7 +137,7 @@ impl<'a> HoverCard<'a> {
                 .show(ui.ctx(), |ui| {
                     let frame = Frame {
                         fill: self.theme.surface_floating,
-                        stroke: Stroke::new(1.0, self.theme.border_subtle),
+                        stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
                         inner_margin: Margin::same(FRAME_INNER_MARGIN as i8),
                         corner_radius: CornerRadius::same(FRAME_ROUNDING as u8),
                         shadow: self.theme.floating_shadow(),

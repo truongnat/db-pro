@@ -76,11 +76,11 @@ impl<'a> AgentThinking<'a> {
                 WidgetInfo::selected(WidgetType::CollapsingHeader, true, *self.expanded, &header.title)
             });
             if header_resp.has_focus() {
-                ui.painter().rect_stroke(
+                crate::components::interact::paint_focus_ring(
+                    ui,
                     header_rect,
-                    CornerRadius::same(config::THINKING_HEADER_RADIUS as u8),
-                    Stroke::new(1.5, self.theme.border_strong),
-                    egui::StrokeKind::Inside,
+                    config::THINKING_HEADER_RADIUS,
+                    self.theme,
                 );
             }
             if header_resp.hovered() {

@@ -293,7 +293,7 @@ impl<'a> Table<'a> {
                         ui.painter().vline(
                             boundary_x,
                             table_min.y..=header_divider_y,
-                            Stroke::new(DIVIDER_STROKE_WIDTH + 1.0, self.theme.accent),
+                            Stroke::new(crate::tokens::STROKE_THICK, self.theme.accent),
                         );
                     }
                     if resp.dragged() {

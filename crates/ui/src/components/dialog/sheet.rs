@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     components::{animation::overlay_t, overlay::screen_rect},
-    tokens::font_subheading,
+    tokens::{font_subheading, STROKE_THIN},
     DbProTheme,
 };
 
@@ -113,7 +113,7 @@ impl<'a> Sheet<'a> {
                 ui.set_min_height(screen.height());
                 Frame {
                     fill: theme.surface_floating,
-                    stroke: Stroke::new(1.0, theme.border_subtle),
+                    stroke: Stroke::new(STROKE_THIN, theme.border_subtle),
                     inner_margin: Margin::same(SHEET_PADDING as i8),
                     corner_radius: CornerRadius {
                         nw: (SHEET_CORNER_RADIUS) as u8,

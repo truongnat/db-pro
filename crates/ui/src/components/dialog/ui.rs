@@ -20,6 +20,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         common::dialog_body_cap,
     },
+    tokens::STROKE_THIN,
     DbProTheme,
 };
 
@@ -256,7 +257,7 @@ fn paint_dialog_card<R>(
     } = card;
     Frame {
         fill: theme.surface_floating,
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        stroke: Stroke::new(STROKE_THIN, theme.border_subtle),
         inner_margin: Margin::symmetric(
             DIALOG_CONTENT_HORIZONTAL_PADDING as i8,
             DIALOG_CONTENT_VERTICAL_PADDING as i8,

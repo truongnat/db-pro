@@ -12,7 +12,7 @@ use super::super::{
     style::{TabItemStyle, TabKind},
     track::TabTrackerAnimation,
 };
-use crate::{components::interact::radio_info, DbProTheme};
+use crate::{components::interact::radio_info, tokens::STROKE_THIN, DbProTheme};
 
 pub struct SegmentedTabs<'a> {
     selected: &'a mut usize,
@@ -40,7 +40,7 @@ impl<'a> SegmentedTabs<'a> {
         let first_tab = self.tabs.first().copied().unwrap_or("");
         Frame {
             fill: self.theme.surface_hover,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
+            stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
             inner_margin: Margin::same(SEGMENTED_TRACK_PAD as i8),
             corner_radius: CornerRadius::same(SEGMENTED_TRACK_RADIUS as u8),
             ..Default::default()
@@ -126,7 +126,7 @@ impl<'a> SegmentedTabs<'a> {
             egui::Shape::rect_stroke(
                 pill,
                 CornerRadius::same(SEGMENTED_PILL_RADIUS as u8),
-                Stroke::new(1.0, self.theme.border_subtle),
+                Stroke::new(STROKE_THIN, self.theme.border_subtle),
                 egui::StrokeKind::Inside,
             ),
         ];

@@ -93,12 +93,7 @@ impl<'a> DatabaseTreeNode<'a> {
             RowBackground::None => {}
         }
         if response.has_focus() {
-            ui.painter().rect_stroke(
-                rect,
-                CornerRadius::same(ROW_ROUNDING as u8),
-                egui::Stroke::new(1.0, self.theme.border_focus),
-                egui::StrokeKind::Inside,
-            );
+            crate::components::interact::paint_focus_ring(ui, rect, ROW_ROUNDING, self.theme);
         }
 
         let layout = row_layout(rect, self.depth);
