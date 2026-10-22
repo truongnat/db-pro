@@ -153,6 +153,52 @@ impl PostgresConnector {
         })
     }
 
+    /// Install this run's search path and publish its backend for cancel.
+    /// An autocommit run arms the lease: a dropped future must close the
+    /// connection instead of pooling the session-wide path.
+    async fn begin_scoped_run<'a>(
+        &'a self,
+        handle_id: u64,
+        lease: &mut crate::transaction_session::SessionLease<sqlx::pool::PoolConnection<sqlx::Postgres>>,
+        in_transaction: bool,
+    ) -> Result<(Option<String>, Option<ActiveBackend<'a>>), DbError> {
+        let (backend_pid, previous) = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            let backend_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(crate::error::from_sqlx)?;
+            let previous = super::search_path::push_session_search_path(conn, in_transaction).await?;
+            (backend_pid, previous)
+        };
+        let active = self.track_backend(handle_id, backend_pid);
+        if previous.is_some() && !in_transaction {
+            lease.discard_if_abandoned();
+        }
+        Ok((previous, active))
+    }
+
+    /// Restore the previous search path, then combine it with the run's outcome.
+    async fn finish_scoped_run<T>(
+        lease: &mut crate::transaction_session::SessionLease<sqlx::pool::PoolConnection<sqlx::Postgres>>,
+        previous: Option<String>,
+        in_transaction: bool,
+        result: Result<T, DbError>,
+    ) -> Result<T, DbError> {
+        let restored = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            super::search_path::pop_session_search_path(conn, previous, in_transaction).await
+        };
+        if restored.is_ok() {
+            lease.allow_reuse();
+        }
+        let combined = super::search_path::combine(result, restored);
+        if combined.is_ok() {
+            lease.succeed();
+        }
+        combined
+    }
+
     async fn execute_batch_joined(
         &self,
         handle: &ConnectionHandle,
@@ -160,6 +206,7 @@ impl PostgresConnector {
         timeout: Duration,
         statements: &[String],
     ) -> Result<u64, DbError> {
+        let in_transaction = lease.was_held();
         let result = {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
             let backend_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
@@ -167,7 +214,7 @@ impl PostgresConnector {
                 .await
                 .map_err(crate::error::from_sqlx)?;
             let _active = self.track_backend(handle.0, backend_pid);
-            let previous = super::search_path::push_session_search_path(conn).await?;
+            let previous = super::search_path::push_session_search_path(conn, in_transaction).await?;
             let deadline = std::time::Instant::now() + timeout;
             let mut total_affected: u64 = 0;
             let mut ran = Ok(());
@@ -199,7 +246,7 @@ impl PostgresConnector {
                     }
                 }
             }
-            let restored = super::search_path::pop_session_search_path(conn, previous).await;
+            let restored = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
             match ran {
                 Ok(()) => super::search_path::combine(Ok(total_affected), restored),
                 Err(error) => Err(error),
@@ -219,6 +266,7 @@ impl PostgresConnector {
         statements: &[String],
         read_statements: &[bool],
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let in_transaction = lease.was_held();
         let result = {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
             let backend_pid = match sqlx::query_scalar::<_, i32>("SELECT pg_backend_pid()")
@@ -229,7 +277,7 @@ impl PostgresConnector {
                 Err(error) => return Err(left_open(0, Vec::new(), crate::error::from_sqlx(error))),
             };
             let _active = self.track_backend(handle.0, backend_pid);
-            let previous = match super::search_path::push_session_search_path(conn).await {
+            let previous = match super::search_path::push_session_search_path(conn, in_transaction).await {
                 Ok(previous) => previous,
                 Err(error) => return Err(left_open(0, Vec::new(), error)),
             };
@@ -297,7 +345,7 @@ impl PostgresConnector {
                     }
                 }
             }
-            let restored = super::search_path::pop_session_search_path(conn, previous).await;
+            let restored = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
             match (ran, restored) {
                 (Ok(()), Ok(())) => Ok(results),
                 (Err(failure), _) => Err(failure),
@@ -400,21 +448,13 @@ impl DbConnector for PostgresConnector {
                 control,
             )
             .await?;
-            let conn = std::ops::DerefMut::deref_mut(lease.conn());
-            let backend_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
-                .fetch_one(&mut *conn)
-                .await
-                .map_err(crate::error::from_sqlx)?;
-            let _active = self.track_backend(handle.0, backend_pid);
-            let previous = super::search_path::push_session_search_path(conn).await?;
-
-            let queried = fetch_typed_query(conn, sql, pg_args, &param_types, max_rows).await;
-            let restored = super::search_path::pop_session_search_path(conn, previous).await;
-            let result = super::search_path::combine(queried, restored);
-            if result.is_ok() {
-                lease.succeed();
-            }
-            result
+            let in_transaction = lease.was_held();
+            let (previous, _active) = self.begin_scoped_run(handle.0, &mut lease, in_transaction).await?;
+            let queried = {
+                let conn = std::ops::DerefMut::deref_mut(lease.conn());
+                fetch_typed_query(conn, sql, pg_args, &param_types, max_rows).await
+            };
+            Self::finish_scoped_run(&mut lease, previous, in_transaction, queried).await
         };
 
         with_query_timeout(timeout, future).await
@@ -444,35 +484,17 @@ impl DbConnector for PostgresConnector {
                 control,
             )
             .await?;
-            let result = {
+            let in_transaction = lease.was_held();
+            let (previous, _active) = self.begin_scoped_run(handle.0, &mut lease, in_transaction).await?;
+            let executed = {
                 let conn = std::ops::DerefMut::deref_mut(lease.conn());
-                let backend_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
-                    .fetch_one(&mut *conn)
+                sqlx::query_with(sql, pg_args)
+                    .execute(&mut *conn)
                     .await
-                    .map_err(crate::error::from_sqlx)?;
-                let _active = self.track_backend(handle.0, backend_pid);
-
-                if super::search_path::requested_schema().is_none() {
-                    sqlx::query_with(sql, pg_args)
-                        .execute(&mut *conn)
-                        .await
-                        .map(|result| result.rows_affected())
-                        .map_err(crate::error::from_sqlx)
-                } else {
-                    let previous = super::search_path::push_session_search_path(conn).await?;
-                    let executed = sqlx::query_with(sql, pg_args)
-                        .execute(&mut *conn)
-                        .await
-                        .map(|result| result.rows_affected())
-                        .map_err(crate::error::from_sqlx);
-                    let restored = super::search_path::pop_session_search_path(conn, previous).await;
-                    super::search_path::combine(executed, restored)
-                }
+                    .map(|result| result.rows_affected())
+                    .map_err(crate::error::from_sqlx)
             };
-            if result.is_ok() {
-                lease.succeed();
-            }
-            result
+            Self::finish_scoped_run(&mut lease, previous, in_transaction, executed).await
         };
 
         with_query_timeout(timeout, future).await
@@ -979,19 +1001,32 @@ impl DbConnector for PostgresConnector {
                 None,
             )
             .await?;
-            let result = {
+            let in_transaction = lease.was_held();
+            let mut pg_args = sqlx::postgres::PgArguments::default();
+            super::query_mapper::bind_params(params, &mut pg_args)?;
+            let previous = {
                 let conn = std::ops::DerefMut::deref_mut(lease.conn());
-                let mut pg_args = sqlx::postgres::PgArguments::default();
-                super::query_mapper::bind_params(params, &mut pg_args)?;
-                let previous = super::search_path::push_session_search_path(conn).await?;
+                super::search_path::push_session_search_path(conn, in_transaction).await?
+            };
+            // An autocommit run installs a session-wide path. A dropped future
+            // must close this connection instead of pooling the leftover path.
+            if previous.is_some() && !in_transaction {
+                lease.discard_if_abandoned();
+            }
+            let (explained, restored) = {
+                let conn = std::ops::DerefMut::deref_mut(lease.conn());
                 let explained = sqlx::query_as_with(&explain_sql, pg_args)
                     .fetch_one(&mut *conn)
                     .await
                     .map(|(row,): (serde_json::Value,)| row)
                     .map_err(crate::error::from_sqlx);
-                let restored = super::search_path::pop_session_search_path(conn, previous).await;
-                super::search_path::combine(explained, restored)
+                let restored = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
+                (explained, restored)
             };
+            if restored.is_ok() {
+                lease.allow_reuse();
+            }
+            let result = super::search_path::combine(explained, restored);
             if result.is_ok() {
                 lease.succeed();
             }

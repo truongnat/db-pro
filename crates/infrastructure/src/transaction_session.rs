@@ -15,6 +15,19 @@ pub(crate) struct SessionSlot<C> {
     inner: Arc<Mutex<HashMap<String, C>>>,
 }
 
+/// A pooled connection that can be kept out of the pool when a run is
+/// abandoned. A session-wide setting (for example the editor `search_path`)
+/// must never reach the next user of the connection (#456).
+pub(crate) trait DiscardOnDrop {
+    fn discard_on_drop(&mut self);
+}
+
+impl<DB: sqlx::Database> DiscardOnDrop for sqlx::pool::PoolConnection<DB> {
+    fn discard_on_drop(&mut self) {
+        self.close_on_drop();
+    }
+}
+
 impl<C> Default for SessionSlot<C> {
     fn default() -> Self {
         Self {
@@ -60,16 +73,19 @@ impl<C> SessionSlot<C> {
     }
 }
 
-pub(crate) struct SessionLease<C> {
+pub(crate) struct SessionLease<C: DiscardOnDrop> {
     slot: SessionSlot<C>,
     key: String,
     conn: Option<C>,
     was_held: bool,
     control: Option<TransactionControl>,
     ok: bool,
+    /// Session-wide state is live on the connection; dropping the lease without
+    /// a completed restore must close it instead of returning it to the pool.
+    discard_on_abandon: bool,
 }
 
-impl<C> SessionLease<C> {
+impl<C: DiscardOnDrop> SessionLease<C> {
     pub(crate) fn conn(&mut self) -> &mut C {
         self.conn.as_mut().expect("session lease still holds its connection")
     }
@@ -81,13 +97,25 @@ impl<C> SessionLease<C> {
     pub(crate) fn succeed(&mut self) {
         self.ok = true;
     }
+
+    pub(crate) fn discard_if_abandoned(&mut self) {
+        self.discard_on_abandon = true;
+    }
+
+    pub(crate) fn allow_reuse(&mut self) {
+        self.discard_on_abandon = false;
+    }
 }
 
-impl<C> Drop for SessionLease<C> {
+impl<C: DiscardOnDrop> Drop for SessionLease<C> {
     fn drop(&mut self) {
-        let Some(conn) = self.conn.take() else {
+        let Some(mut conn) = self.conn.take() else {
             return;
         };
+        if self.discard_on_abandon {
+            conn.discard_on_drop();
+            return;
+        }
         let keep = match (self.control, self.ok) {
             (Some(TransactionControl::Begin), true) => true,
             (Some(TransactionControl::Commit | TransactionControl::Rollback), true) => false,
@@ -105,6 +133,7 @@ pub(crate) async fn checkout<C, F, Fut>(
     control: Option<TransactionControl>,
 ) -> Result<SessionLease<C>, DbError>
 where
+    C: DiscardOnDrop,
     F: FnOnce() -> Fut,
     Fut: Future<Output = Result<C, DbError>>,
 {
@@ -121,6 +150,7 @@ where
         was_held,
         control,
         ok: false,
+        discard_on_abandon: false,
     })
 }
 
@@ -131,6 +161,7 @@ pub(crate) async fn checkout_if_held<C, F, Fut>(
     acquire: F,
 ) -> Result<Option<SessionLease<C>>, DbError>
 where
+    C: DiscardOnDrop,
     F: FnOnce() -> Fut,
     Fut: Future<Output = Result<C, DbError>>,
 {

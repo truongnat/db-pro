@@ -719,6 +719,182 @@ async fn pg_parameterized_transaction_respects_active_query_schema() {
     connector.disconnect(&handle).await.unwrap();
 }
 
+/// Core query contract: a schema selected for the editor applies to an autocommit
+/// run, not just to the statement that installs it. Regression: an unqualified
+/// tenant table failed with "relation does not exist" because `search_path` was
+/// scoped with `is_local = true`, which dies with the `set_config` statement
+/// outside an explicit transaction.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_autocommit_run_resolves_unqualified_tables_in_active_query_schema() {
+    let (connector, handle) = setup().await;
+
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS tenant_autocommit_schema CASCADE", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, "CREATE SCHEMA tenant_autocommit_schema", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE tenant_autocommit_schema.scoped_values (id INT PRIMARY KEY, label TEXT)",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    db_pro_core::application::with_query_schema(Some("tenant_autocommit_schema"), async {
+        connector
+            .execute(
+                &handle,
+                "INSERT INTO scoped_values (id, label) VALUES (1, 'tenant')",
+                &[],
+            )
+            .await
+            .expect("unqualified INSERT must resolve inside the editor schema");
+        let result = connector
+            .query(&handle, "SELECT label FROM scoped_values", &[])
+            .await
+            .expect("unqualified SELECT must resolve inside the editor schema");
+        assert_eq!(result.row_count, 1);
+        assert!(matches!(
+            result.rows[0].0[0],
+            db_pro_core::domain::query::CellValue::Text(ref label) if label == "tenant"
+        ));
+    })
+    .await;
+
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS tenant_autocommit_schema CASCADE", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// Core transaction contract: a schema-scoped run inside an open transaction
+/// resolves unqualified names, and the transaction-local setting disappears when
+/// the transaction ends (#456).
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_transaction_run_resolves_unqualified_tables_in_active_query_schema() {
+    let (connector, handle) = setup().await;
+
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS tenant_tx_schema CASCADE", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, "CREATE SCHEMA tenant_tx_schema", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE tenant_tx_schema.scoped_values (id INT PRIMARY KEY, label TEXT)",
+            &[],
+        )
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "INSERT INTO tenant_tx_schema.scoped_values (id, label) VALUES (1, 'tenant')",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    connector.execute(&handle, "BEGIN", &[]).await.unwrap();
+    db_pro_core::application::with_query_schema(Some("tenant_tx_schema"), async {
+        let result = connector
+            .query(&handle, "SELECT label FROM scoped_values", &[])
+            .await
+            .expect("unqualified SELECT must resolve inside the tab transaction");
+        assert_eq!(result.row_count, 1);
+    })
+    .await;
+    connector.execute(&handle, "ROLLBACK", &[]).await.unwrap();
+
+    let leaked = connector.query(&handle, "SELECT label FROM scoped_values", &[]).await;
+    assert!(
+        leaked.is_err(),
+        "the transaction-local search_path must not survive the rollback"
+    );
+
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS tenant_tx_schema CASCADE", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// #456 contract: an autocommit run that times out must not hand its
+/// session-wide `search_path` to the next query from the pool.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_autocommit_timeout_discards_the_schema_scoped_connection() {
+    let mut config = pg_config().expect("DATABASE_URL must be set for PG integration tests");
+    config.query_timeout_ms = 1_000;
+    let connector = PostgresConnector::new();
+    let handle = connector
+        .connect(&config, &pg_password())
+        .await
+        .expect("PG connect failed");
+
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS tenant_timeout_schema CASCADE", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, "CREATE SCHEMA tenant_timeout_schema", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE tenant_timeout_schema.scoped_values (id INT PRIMARY KEY, label TEXT)",
+            &[],
+        )
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "INSERT INTO tenant_timeout_schema.scoped_values (id, label) VALUES (1, 'tenant')",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let timed_out = db_pro_core::application::with_query_schema(
+        Some("tenant_timeout_schema"),
+        connector.query(&handle, "SELECT pg_sleep(2) FROM scoped_values", &[]),
+    )
+    .await;
+    assert!(matches!(
+        timed_out,
+        Err(db_pro_core::domain::error::DbError::QueryTimeout { timeout_ms: 1_000 })
+    ));
+
+    let leaked = connector.query(&handle, "SELECT label FROM scoped_values", &[]).await;
+    assert!(
+        leaked.is_err(),
+        "the timed-out run must not leak its search_path into the pool"
+    );
+
+    // The timed-out backend keeps its share lock until the sleep wakes and the
+    // socket close is noticed; let it terminate before the exclusive DROP.
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    connector
+        .execute(&handle, "DROP SCHEMA IF EXISTS tenant_timeout_schema CASCADE", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
 /// Core transaction contract: timeout after a mutation must roll back before
 /// the connector returns and leave the pool usable for a subsequent query.
 #[tokio::test]

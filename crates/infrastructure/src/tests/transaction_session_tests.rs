@@ -1,10 +1,66 @@
 //! Tests for `../transaction_session.rs` (moved out of the source file).
 use super::*;
 use db_pro_core::application::with_query_session;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::Arc;
+
+impl DiscardOnDrop for i32 {
+    fn discard_on_drop(&mut self) {}
+}
+
+struct DiscardProbe {
+    dropped: Arc<AtomicBool>,
+}
+
+impl DiscardOnDrop for DiscardProbe {
+    fn discard_on_drop(&mut self) {
+        self.dropped.store(true, Ordering::SeqCst);
+    }
+}
+
+fn probe() -> (DiscardProbe, Arc<AtomicBool>) {
+    let dropped = Arc::new(AtomicBool::new(false));
+    (
+        DiscardProbe {
+            dropped: Arc::clone(&dropped),
+        },
+        dropped,
+    )
+}
 
 async fn lease(slot: SessionSlot<i32>, control: Option<TransactionControl>) -> SessionLease<i32> {
     checkout(slot, || async { Ok(1) }, control).await.expect("checkout")
+}
+
+#[tokio::test]
+async fn abandoned_session_scoped_run_discards_the_connection() {
+    let slot = SessionSlot::default();
+    let (probe, dropped) = probe();
+    let mut lease = checkout(slot, || async move { Ok(probe) }, None)
+        .await
+        .expect("checkout");
+    lease.discard_if_abandoned();
+    drop(lease);
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "a run abandoned before restoring its session state must close the connection"
+    );
+}
+
+#[tokio::test]
+async fn completed_session_scoped_run_keeps_the_connection() {
+    let slot = SessionSlot::default();
+    let (probe, dropped) = probe();
+    let mut lease = checkout(slot, || async move { Ok(probe) }, None)
+        .await
+        .expect("checkout");
+    lease.discard_if_abandoned();
+    lease.allow_reuse();
+    drop(lease);
+    assert!(
+        !dropped.load(Ordering::SeqCst),
+        "a restored run must return its connection to the pool"
+    );
 }
 
 fn next_value(next: &AtomicI32) -> i32 {

@@ -2,7 +2,10 @@
 //!
 //! `quote_ident` keeps a mixed-case or spaced name as one identifier. Session
 //! changes are restored before the connection returns to the pool. Inside a
-//! transaction, `is_local` drops the setting on commit or rollback.
+//! transaction, `is_local` drops the setting on commit or rollback; outside one
+//! it would drop at the end of the `set_config` statement itself, so autocommit
+//! runs install a session-wide path instead and the caller must disable pool
+//! reuse if that run is abandoned before the restore.
 
 use db_pro_core::application::active_query_schema;
 use db_pro_core::domain::error::DbError;
@@ -12,7 +15,10 @@ pub(super) fn requested_schema() -> Option<String> {
     active_query_schema().filter(|schema| !schema.is_empty())
 }
 
-pub(super) async fn push_session_search_path(conn: &mut PgConnection) -> Result<Option<String>, DbError> {
+pub(super) async fn push_session_search_path(
+    conn: &mut PgConnection,
+    in_transaction: bool,
+) -> Result<Option<String>, DbError> {
     let Some(schema) = requested_schema() else {
         return Ok(None);
     };
@@ -28,23 +34,33 @@ pub(super) async fn push_session_search_path(conn: &mut PgConnection) -> Result<
         .map_err(crate::error::from_sqlx)?;
     // Keep `public` reachable: extension objects and shared helpers must not
     // vanish when the picker selects a tenant schema.
-    // is_local = true scopes this setting to the current transaction (or statement
-    // if not in an explicit transaction), preventing search_path leakage when a future
-    // times out or gets dropped before pop_session_search_path can run (#456).
-    sqlx::query("SELECT set_config('search_path', quote_ident($1) || ', public', true)")
+    // `is_local` must follow the connection state: inside an explicit transaction
+    // it keeps #456's timeout/cancel guarantee, while in autocommit PostgreSQL
+    // drops a local setting at the end of this statement — the run itself would
+    // still resolve names against the old path. There the caller closes the
+    // connection if it is dropped before the matching pop.
+    sqlx::query("SELECT set_config('search_path', quote_ident($1) || ', public', $2)")
         .bind(&schema)
+        .bind(in_transaction)
         .execute(&mut *conn)
         .await
         .map_err(crate::error::from_sqlx)?;
     Ok(Some(previous))
 }
 
-pub(super) async fn pop_session_search_path(conn: &mut PgConnection, previous: Option<String>) -> Result<(), DbError> {
+pub(super) async fn pop_session_search_path(
+    conn: &mut PgConnection,
+    previous: Option<String>,
+    in_transaction: bool,
+) -> Result<(), DbError> {
     let Some(previous) = previous else {
         return Ok(());
     };
-    sqlx::query("SELECT set_config('search_path', $1, false)")
+    // Mirror the push scope so a transaction-local restore never overwrites the
+    // session default that the connection will fall back to on commit.
+    sqlx::query("SELECT set_config('search_path', $1, $2)")
         .bind(previous)
+        .bind(in_transaction)
         .execute(&mut *conn)
         .await
         .map_err(crate::error::from_sqlx)?;
