@@ -7,7 +7,7 @@
 | Agent identity | omp · audit lane — 9 per-surface `scout` agents (pass 1) + 5 `scout` scorers (pass 2) |
 | Issue(s) | Owner request for an aesthetics/design evaluation + "audit kỹ hơn, mỗi feature một sub agent"; owner follow-ups on the Explorer popover and cursor behaviour |
 | Task state | `Review` — all planned steps executed; two-pass scoring reconciled; 8 findings recorded (F9–F15), no P0 |
-| Baseline SHA | `493e3b9b`; current HEAD: see `git log -1` (docs commits follow the matrix) |
+| Baseline SHA | `493e3b9b` · code under test `65fad16d` · docs trail `65fad16d..6f4b7255` |
 | Branch / PR | `main` (direct edit per owner override) · no PR |
 | Scope interpretation | Score every primary surface against the eight-dimension rubric using per-surface agents, fix owner-reported defects as routed findings, and report the recurring design problems with owners. |
 | Out of scope | Redesign proposals without a finding; provider work; motion recording; scoring cells that do not exist. |
