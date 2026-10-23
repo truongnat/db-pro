@@ -6,7 +6,7 @@
 |---|---|
 | Agent identity | omp · audit lane, nine per-surface `scout` agents (one per feature) |
 | Issue(s) | Owner request for an aesthetics/design evaluation + "audit kỹ hơn, mỗi feature một sub agent"; owner follow-ups on the Explorer popover and cursor behaviour |
-| Task state | `Review` — report written, four defects fixed, independent pass **partial** |
+| Task state | `Review` — all planned steps executed; two-pass scoring reconciled; 8 new findings (F9–F15) recorded, no P0 |
 | Baseline SHA | `493e3b9b`; fixes landed at `1b94044e` and `bc99ad10` |
 | Branch / PR | `main` (direct edit per owner override) · no PR |
 | Scope interpretation | Score every primary surface against the eight-dimension rubric using per-surface agents, fix owner-reported defects as routed findings, and report the recurring design problems with owners. |
@@ -14,18 +14,21 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `faab6466`; code under test `a87da3e6` + the chevron fix in `faab6466`
+- Current HEAD: `348414d7`; evidence matrix at `65fad16d` (60 cells, manifest with per-cell sha256)
 - Completed rows:
   - [x] `RUBRIC.md` — eight dimensions, 0–4 anchors, per-dimension measurement list
   - [x] 60-cell matrix captured with `DB_PRO_CAPTURE_REASSERT_SURFACE=1` and inspected by nine agents
   - [x] Per-surface scores published in `REPORT.md`
   - [x] Explorer popover inset fixed (F7a) and selected-nav visibility fixed (F7b)
   - [x] Cursor inventory recorded as source-derived (C1–C6)
-- Remaining rows: Query + 1920 independent re-score; F8 confirmation (footer bounds);
-  runtime hover confirmation for the cursor list (blocked: shared desktop)
-- Live Orca pass (2026-10-23): Table data, Table structure, Settings→Appearance and the connection
-  error state captured from the running app and inspected; empty-form submit did not persist
-  (`meta.db` still holds two connections)
+- Independent pass done: 5 scorers × 12 cells, no access to REPORT.md; pass-2 mean 23.4/32 vs
+  pass-1 17.4/32 — every delta ≥2 adjudicated in REPORT.md.
+- F8 resolved (not a defect): dialog body is a ScrollArea with a scrollbar (a11y element present);
+  live Orca scroll revealed the clipped section fully. Recorded as P3 affordance nit.
+- F15 recorded: `on_hover_cursor(PointingHand)` observed as OS arrow on live hover — winit/egui
+  cursor not reaching macOS. Unit test green; runtime glyph wrong → open defect, needs winit fix.
+- F9 recorded: shared `ScrollArea` wrapper hardcodes `AlwaysHidden` → grid right-edge clip and the
+  dialog's half-clipped row are both the same affordance gap. Planned fix is in the plan, not in tree.
 - Findings / risks: F7a/F7b fixed (P2/P1); C1–C6 open; the five recurring design problems in
   `REPORT.md` are routed, not implemented
 - Tests already run: `cargo test -p db-pro-ui -p db-pro-app` → 725 + 681 passed / 0 failed; workspace
