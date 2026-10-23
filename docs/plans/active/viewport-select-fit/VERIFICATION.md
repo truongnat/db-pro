@@ -3,7 +3,7 @@
 **Source reference (committed):**
 
 ```text
-code under test  8a8f1749334065b656f6c08a06c6c520f12737d9  fix(ui): give light chrome its own step …
+code under test  457cd6457480ff5f23f8a3e5000e9efcc771ad0b  fix(ui): keep a distinct hover step above the new light chrome
 preceding fix    9e72de50fa821926a3874949e2ebc65289885d0a  fix(ui): cap horizontal selection controls …
 baseline         9b50e7a27b4d92de5b126e6ecaf3a518448ad97b  (pre-fix tree)
 ```
