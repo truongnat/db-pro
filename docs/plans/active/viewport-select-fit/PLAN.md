@@ -42,9 +42,10 @@ Resolve horizontal overflow caused by unconditional full-width allocation in hor
 
 ## Acceptance Criteria
 
-- [ ] `Radio` and `Checkbox` in horizontal parents allocate content-derived width, allowing siblings to sit adjacent without wrapping or clipping.
-- [ ] Vertical descriptive choices maintain full clickable row width when in vertical containers.
-- [ ] Query context picker popup width is bounded and hugs the trigger; height shrinks to fit items when lists are short.
-- [ ] No duplicate `ScrollArea` ID warning banners appear in the context picker.
-- [ ] All unit regression tests pass.
-- [ ] 12-cell matrix captures (2 surfaces × 3 viewports × 2 themes) executed and visually verified.
+- [x] `Radio` and `Checkbox` in horizontal parents allocate content-derived width, allowing siblings to sit adjacent without wrapping or clipping.
+- [x] Vertical descriptive choices maintain full clickable row width when in vertical containers.
+- [x] Query context picker popup width is bounded and hugs the trigger; each list region is sized to its rows and capped, so short lists stay compact and long lists scroll in a bounded window.
+- [x] No duplicate `ScrollArea` ID warning banners appear in the context picker.
+- [x] All unit regression tests pass (8 new tests).
+- [x] 17-cell matrix captures (2 surfaces × 3 viewports × 2 themes + dense list + short list + Explorer popover) executed and visually verified.
+- [x] Light chrome reads as its own region without collapsing hover/selected states (owner-reported F7).

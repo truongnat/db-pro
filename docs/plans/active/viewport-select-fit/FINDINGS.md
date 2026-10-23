@@ -21,8 +21,11 @@
   `max_available = (content_rect.width() - VIEWPORT_GUTTER - SURFACE_INSET).max(1.0)`. The
   `VIEWPORT_GUTTER` (16) and `SURFACE_INSET` (18 = frame margin 8×2 + border 1×2) are named
   constants, so the popup's outer width never exceeds the viewport even when it is narrower than
-  the 300 pt preference. Applied `auto_shrink([true, true])` to both scroll areas so heights shrink
-  to content. Added clean fallback empty state labels when lists are empty.
+  the 300 pt preference. Each list is an **allocated region** whose height is
+  `rows × (row height + gap)`, capped at 180 pt, and the scroller fills that region. `auto_shrink`
+  alone was not enough: inside an auto-sized `Area` the child `Ui` only offers the height the
+  previous frame produced, so a shrinking scroller converged to two visible rows and left the rest of
+  a long list unreachable — a 24-schema capture now shows five rows in the bounded window.
 
 ### F3: Duplicate ScrollArea ID Collision (P2)
 - **File / Line:** `crates/app/src/query_workbench/query_context_picker_view.rs:43,78`
