@@ -154,7 +154,10 @@ fn grid_columns(avail_width: f32) -> usize {
 fn grid_width(avail_width: f32, columns: usize) -> f32 {
     let columns = columns.max(1);
     let capped = columns as f32 * CARD_MAX_WIDTH + (columns as f32 - 1.0) * SPACE_MD;
-    avail_width.max(0.0).min(capped)
+    // Cap the block as well as the cards: four max-width cards would otherwise
+    // run edge to edge on a wide window, with the hero centred above a
+    // full-bleed grid.
+    avail_width.max(0.0).min(capped).min(GRID_MAX_WIDTH)
 }
 
 /// One row per `columns` cards; a trailing partial row keeps the same card

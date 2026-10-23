@@ -87,8 +87,9 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
                 action = Some(tool);
             }
         }
-        draw_row_limit_picker(context, ui);
-
+        // Result settings sit with the overflow action on the trailing edge, so a
+        // wide strip reads as "actions left, view settings right" instead of one
+        // control cluster followed by a ~60 % empty run.
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let more_response = Button::new(context.theme)
                 .icon(Icon::MoreHorizontal)
@@ -101,6 +102,8 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
                 context.editor.query_tools_open = !context.editor.query_tools_open;
             }
             anchors.more_anchor = Some(more_response.rect);
+            // Right-to-left: drawing after the overflow places the cap to its left.
+            draw_row_limit_picker(context, ui);
         });
     });
     let (rule, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());

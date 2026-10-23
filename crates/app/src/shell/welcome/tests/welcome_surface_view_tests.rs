@@ -33,7 +33,10 @@ fn quick_action_grid_spends_wide_workspaces_instead_of_a_fixed_island() {
     let columns = grid_columns(1612.0);
     assert_eq!(columns, 4);
     let grid = grid_width(1612.0, columns);
-    assert!(grid > 1600.0, "the grid must spend the workspace width, got {grid}");
+    // The grid spends the width but keeps side air: it is capped, not full-bleed,
+    // so four max-width cards do not run edge to edge under a centred hero.
+    assert!(grid >= 1132.0, "the grid must spend the workspace width, got {grid}");
+    assert!(grid <= GRID_MAX_WIDTH, "grid {grid} exceeded its cap");
     let card = (grid - 3.0 * SPACE_MD) / 4.0;
     assert!(card <= CARD_MAX_WIDTH, "card {card} exceeded the reading measure");
 
@@ -44,6 +47,7 @@ fn quick_action_grid_spends_wide_workspaces_instead_of_a_fixed_island() {
     let two_column_measure = 2.0 * CARD_MAX_WIDTH + SPACE_MD;
     assert!((grid - two_column_measure).abs() < 0.5, "grid {grid} != {two_column_measure}");
     assert!(grid / 1132.0 >= 0.75, "grid used {grid} of 1132pt");
+    assert!(grid <= GRID_MAX_WIDTH, "grid {grid} exceeded its cap");
 
     // 1280-wide shell → ~972 pt keeps the two-column composition, widened.
     assert_eq!(grid_columns(972.0), 2);

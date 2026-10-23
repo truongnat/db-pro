@@ -25,6 +25,11 @@ pub(super) const WIDE_GRID_MIN_WIDTH: f32 = 2.0 * MIN_CARD_WIDTH + crate::tokens
 /// dropping below its minimum readable width.
 pub(super) const QUAD_GRID_MIN_WIDTH: f32 = 4.0 * MIN_CARD_WIDTH + 3.0 * crate::tokens::SPACE_MD;
 
+/// Widest the quick-action grid grows before it is centred with gutters. Four
+/// cards at their maximum measure plus the gaps is ~1716 pt, which on a wide
+/// window would run edge to edge; this keeps a readable block with side air.
+pub(super) const GRID_MAX_WIDTH: f32 = 1280.0;
+
 /// Quick-action intents the welcome cards emit; the workspace shell maps each
 /// to a navigation/mutation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
