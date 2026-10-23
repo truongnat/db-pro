@@ -1,6 +1,7 @@
 use egui::Ui;
 
 use super::config::DIALOG_FOOTER_SPACING;
+use crate::{components::Separator, DbProTheme};
 
 pub struct DialogFrame<'a> {
     pub ui: &'a mut Ui,
@@ -8,6 +9,7 @@ pub struct DialogFrame<'a> {
     /// Pinned body box from [`super::Dialog::body_height`]; `None` shrinks to content.
     pub body_height: Option<f32>,
     pub inner_width: f32,
+    pub theme: DbProTheme,
 }
 
 impl<'a> DialogFrame<'a> {
@@ -35,6 +37,9 @@ impl<'a> DialogFrame<'a> {
     /// Renders a fixed sticky footer at the bottom of the card, outside the scroll area.
     pub fn footer<F>(&mut self, add_footer: impl FnOnce(&mut Ui) -> F) -> F {
         self.ui.add_space(DIALOG_FOOTER_SPACING);
+        // A hairline above the footer splits the scrollable body from the fixed
+        // actions — without it the card reads as one undifferentiated column.
+        Separator::horizontal(self.theme).margin(0.0).show(self.ui);
         self.ui.add_space(DIALOG_FOOTER_SPACING);
         add_footer(self.ui)
     }

@@ -283,6 +283,9 @@ fn paint_dialog_card<R>(
         draw_dialog_header(ui, title, description, open, theme, inner_w);
 
         ui.add_space(DIALOG_SECTION_SPACING);
+        // Header/body boundary: same hairline the footer gets, so the card reads
+        // as three zones instead of one undifferentiated column.
+        crate::components::Separator::horizontal(theme).margin(0.0).show(ui);
         ui.add_space(DIALOG_SECTION_SPACING);
 
         let mut frame = DialogFrame {
@@ -290,6 +293,7 @@ fn paint_dialog_card<R>(
             max_body_height,
             body_height,
             inner_width: inner_w,
+            theme,
         };
         add_frame(&mut frame)
     })
