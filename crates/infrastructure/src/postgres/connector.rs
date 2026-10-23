@@ -356,6 +356,115 @@ impl PostgresConnector {
         result
     }
 
+    async fn execute_parameterized_transaction_joined(
+        &self,
+        handle: &ConnectionHandle,
+        mut lease: crate::transaction_session::SessionLease<sqlx::pool::PoolConnection<sqlx::Postgres>>,
+        timeout: Duration,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let in_transaction = lease.was_held();
+        let result = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            let backend_pid = match sqlx::query_scalar::<_, i32>("SELECT pg_backend_pid()")
+                .fetch_one(&mut *conn)
+                .await
+            {
+                Ok(pid) => pid,
+                Err(error) => return Err(left_open(0, Vec::new(), crate::error::from_sqlx(error))),
+            };
+            let _active = self.track_backend(handle.0, backend_pid);
+            let previous = match super::search_path::push_session_search_path(conn, in_transaction).await {
+                Ok(previous) => previous,
+                Err(error) => return Err(left_open(0, Vec::new(), error)),
+            };
+
+            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx")
+                .execute(&mut *conn)
+                .await
+            {
+                let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
+                return Err(left_open(0, Vec::new(), crate::error::from_sqlx(error)));
+            }
+
+            let deadline = std::time::Instant::now() + timeout;
+            let mut results = Vec::with_capacity(statements.len());
+            let mut failure = None;
+
+            for (index, statement) in statements.iter().enumerate() {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                let execution = tokio::time::timeout(remaining, async {
+                    let mut args = sqlx::postgres::PgArguments::default();
+                    super::query_mapper::bind_params(&statement.params, &mut args)?;
+                    let affected = sqlx::query_with(&statement.sql, args)
+                        .execute(&mut *conn)
+                        .await
+                        .map_err(crate::error::from_sqlx)?
+                        .rows_affected();
+                    Ok::<u64, DbError>(affected)
+                })
+                .await;
+
+                let affected = match execution {
+                    Ok(Ok(affected)) => affected,
+                    Ok(Err(error)) => {
+                        failure = Some((index, error));
+                        break;
+                    }
+                    Err(_) => {
+                        failure = Some((
+                            index,
+                            DbError::QueryTimeout {
+                                timeout_ms: timeout.as_millis() as u64,
+                            },
+                        ));
+                        break;
+                    }
+                };
+
+                if statement.expect_affected_rows && affected == 0 {
+                    failure = Some((index, DbError::Conflict("table mutation affected no rows".into())));
+                    break;
+                }
+
+                if statement.max_affected_rows.is_some_and(|maximum| affected > maximum) {
+                    failure = Some((
+                        index,
+                        DbError::Internal(format!(
+                            "table mutation affected {affected} rows; expected at most {}",
+                            statement.max_affected_rows.unwrap_or_default()
+                        )),
+                    ));
+                    break;
+                }
+
+                results.push(TransactionStatementResult::Affected {
+                    row_count: affected,
+                    duration_ms: 0,
+                });
+            }
+
+            if let Some((index, error)) = failure {
+                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                    .execute(&mut *conn)
+                    .await;
+                let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
+                Err(left_open(index, results, error))
+            } else {
+                let _ = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx")
+                    .execute(&mut *conn)
+                    .await;
+                let restored = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
+                match restored {
+                    Ok(()) => Ok(results),
+                    Err(error) => Err(left_open(statements.len(), results, error)),
+                }
+            }
+        };
+        lease.succeed();
+        result
+    }
+
     pub async fn query_timeout(&self, handle: &ConnectionHandle) -> Result<Duration, DbError> {
         let pools = self.pools.read().await;
         pools
@@ -813,7 +922,30 @@ impl DbConnector for PostgresConnector {
         })?;
         let timeout = entry.query_timeout;
         let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
         drop(pools);
+
+        let joined = match crate::transaction_session::checkout_if_held(session, || async {
+            pool.acquire().await.map_err(crate::error::from_sqlx)
+        })
+        .await
+        {
+            Ok(joined) => joined,
+            Err(error) => {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                });
+            }
+        };
+        if let Some(lease) = joined {
+            return self
+                .execute_parameterized_transaction_joined(handle, lease, timeout, statements)
+                .await;
+        }
 
         let deadline = std::time::Instant::now() + timeout;
         let mut tx =

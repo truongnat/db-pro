@@ -160,6 +160,12 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
     let rest = &source[start..];
     let end = rest.find("\n    async fn introspect(").expect("introspect follows");
     let body = &rest[..end];
+    let checkout = body
+        .find("crate::transaction_session::checkout_if_held(")
+        .expect("checkout_if_held checks open session");
+    let joined = body
+        .find("execute_parameterized_transaction_joined(")
+        .expect("delegates to joined implementation");
     let hold = body
         .find("let _active_backend")
         .expect("guard is held for the parameterized transaction");
@@ -173,7 +179,14 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
     let statements = body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow search path setup");
-    assert!(hold < pid && pid < track && track < search_path && search_path < statements);
+    assert!(
+        checkout < joined
+            && joined < hold
+            && hold < pid
+            && pid < track
+            && track < search_path
+            && search_path < statements
+    );
 }
 
 #[tokio::test]

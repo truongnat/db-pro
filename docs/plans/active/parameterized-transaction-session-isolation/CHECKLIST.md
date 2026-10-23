@@ -1,0 +1,6 @@
+- [x] Implement `checkout_if_held` in `MySqlConnector::execute_parameterized_transaction`
+- [x] Implement `checkout_if_held` in `PostgresConnector::execute_parameterized_transaction`
+- [x] Add unit contract tests for both connectors
+- [x] Verify compilation, quality gates, and unit tests
+- [x] Execute Rust quality gates (fmt, check, clippy, test)
+- [x] Complete pre-commit steps and code review

@@ -56,12 +56,18 @@ fn execute_parameterized_transaction_publishes_connection_id_before_statements()
         .find("async fn execute_parameterized_transaction(")
         .expect("execute_parameterized_transaction");
     let body = &source[param_at..];
+    let checkout = body
+        .find("crate::transaction_session::checkout_if_held(")
+        .expect("checkout_if_held checks open session");
+    let joined = body
+        .find("execute_parameterized_transaction_joined(")
+        .expect("delegates to joined implementation");
     let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
     let track = body.find("self.track_guard(").expect("id is published for Stop");
     let statements = body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow the publish");
-    assert!(id < track && track < statements);
+    assert!(checkout < joined && joined < id && id < track && track < statements);
 }
 
 #[tokio::test]
