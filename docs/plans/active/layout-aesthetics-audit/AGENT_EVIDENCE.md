@@ -4,48 +4,56 @@
 
 | Field | Value |
 |---|---|
-| Agent identity | omp · audit lane, nine per-surface `scout` agents (one per feature) |
+| Agent identity | omp · audit lane — 9 per-surface `scout` agents (pass 1) + 5 `scout` scorers (pass 2) |
 | Issue(s) | Owner request for an aesthetics/design evaluation + "audit kỹ hơn, mỗi feature một sub agent"; owner follow-ups on the Explorer popover and cursor behaviour |
-| Task state | `Review` — all planned steps executed; two-pass scoring reconciled; 8 new findings (F9–F15) recorded, no P0 |
-| Baseline SHA | `493e3b9b`; fixes landed at `1b94044e` and `bc99ad10` |
+| Task state | `Review` — all planned steps executed; two-pass scoring reconciled; 8 findings recorded (F9–F15), no P0 |
+| Baseline SHA | `493e3b9b`; current HEAD `fede8872` |
 | Branch / PR | `main` (direct edit per owner override) · no PR |
 | Scope interpretation | Score every primary surface against the eight-dimension rubric using per-surface agents, fix owner-reported defects as routed findings, and report the recurring design problems with owners. |
 | Out of scope | Redesign proposals without a finding; provider work; motion recording; scoring cells that do not exist. |
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `348414d7`; evidence matrix at `65fad16d` (60 cells, manifest with per-cell sha256)
-- Completed rows:
-  - [x] `RUBRIC.md` — eight dimensions, 0–4 anchors, per-dimension measurement list
-  - [x] 60-cell matrix captured with `DB_PRO_CAPTURE_REASSERT_SURFACE=1` and inspected by nine agents
-  - [x] Per-surface scores published in `REPORT.md`
-  - [x] Explorer popover inset fixed (F7a) and selected-nav visibility fixed (F7b)
-  - [x] Cursor inventory recorded as source-derived (C1–C6)
-- Independent pass done: 5 scorers × 12 cells, no access to REPORT.md; pass-2 mean 23.4/32 vs
-  pass-1 17.4/32 — every delta ≥2 adjudicated in REPORT.md.
-- F8 resolved (not a defect): dialog body is a ScrollArea with a scrollbar (a11y element present);
-  live Orca scroll revealed the clipped section fully. Recorded as P3 affordance nit.
-- F15 recorded: `on_hover_cursor(PointingHand)` observed as OS arrow on live hover — winit/egui
-  cursor not reaching macOS. Unit test green; runtime glyph wrong → open defect, needs winit fix.
-- F9 recorded: shared `ScrollArea` wrapper hardcodes `AlwaysHidden` → grid right-edge clip and the
-  dialog's half-clipped row are both the same affordance gap. Planned fix is in the plan, not in tree.
-- Findings / risks: F7a/F7b fixed (P2/P1); C1–C6 open; the five recurring design problems in
-  `REPORT.md` are routed, not implemented
-- Tests already run: `cargo test -p db-pro-ui -p db-pro-app` → 725 + 681 passed / 0 failed; workspace
-  fmt and clippy exit 0; locked release build exit 0
-- Dependency / blocker changes: none
+- Current HEAD: `fede8872`; evidence matrix at `65fad16d` (60 cells, `evidence/manifest.json` with per-cell sha256).
+- Completed:
+  - [x] `RUBRIC.md` — 8 dimensions, 0–4 anchors.
+  - [x] Pass 1: 9 agents scored the first matrix (pre-ladder theme).
+  - [x] Fixes landed during pass 1: F7a popover inset (`1b94044e`), F7b nav selection pill (`bc99ad10`),
+        light-theme elevation ladder (`c735211d`), input field boundary, chevron order (`faab6466`).
+  - [x] Matrix re-captured at `65fad16d` with `DB_PRO_CAPTURE_REASSERT_SURFACE=1`; 60/60 PNGs,
+        sha256-verified.
+  - [x] Pass 2: 5 independent scorers × 12 cells each, no access to REPORT.md.
+  - [x] Live Orca verification: Table data, Table structure, Settings→Appearance, Connection error,
+        dialog scroll (F8), hover-cursor (F15).
+- Independent pass — **partial**: all surfaces have two numbers **except Table** (pass-1 capture
+  leaked Welcome, so Table carries only the pass-2 score of 21/22 light, 22/32 dark — the gap is
+  admitted in REPORT.md, not filled retroactively).
+- F8 — **resolved, not a defect**: `DialogFrame::body` wraps the form in `egui::ScrollArea` with
+  `VisibleWhenNeeded`; live Orca scroll revealed the clipped section fully. Downgraded to P3
+  affordance note.
+- F15 — **recorded**: `on_hover_cursor(PointingHand)` observed as OS arrow on live hover across
+  status bar + tab; `screencapture -C` proven working via Terminal I-beam. Unit test green; runtime
+  glyph wrong → open winit/egui defect.
+- F9 — **recorded**: shared `components::scroll_area::ScrollArea` hardcodes `AlwaysHidden` → grid
+  right-edge clip invisible. **Separate cause** from the dialog's `VisibleWhenNeeded` (which fades
+  but exists) — two distinct code paths, do not merge.
+- Findings / risks: F9–F14 routed; F8 P3; F15 open defect; cursor list is a runtime-visual defect,
+  not a test gap.
+- Tests executed: `cargo test -p db-pro-ui -p db-pro-app` → 725 + 681 passed / 0 failed; fmt, clippy
+  workspace, locked release build all 0.
+- Dependency / blocker changes: none.
 
 ## 3. Implementation handoff / review request
 
 | Field | Value |
 |---|---|
-| Exact SHA | `faab6466` (docs + chevron fix) · `a87da3e6` (wide-layout) · `8ba71006` (cursor/type/diagram) · `c735211d` (light ladder) |
-| Commit list | `1b94044e` popover inset · `c245183e` honest manifest + runner · `c90d7426` inset moved to the component layer · `36eb1155` + `523bd9db` cursor inventory · `ec2d69ce` lib.rs named re-export · `bc99ad10` selected-nav pill + report |
-| File / surface inventory | `docs/plans/active/layout-aesthetics-audit/{PLAN,RUBRIC,CHECKLIST,FINDINGS,VERIFICATION,REPORT,AGENT_EVIDENCE}.md` · `evidence/{manifest.json,capture_matrix.py,6 Explorer PNGs}` · `crates/app/src/explorer/explorer_toolbar_view.rs` · `crates/app/src/component_gallery/component_gallery_view.rs` · `crates/app/src/settings/settings_navigation_view.rs` · `crates/ui/src/components/common/frames.rs` · `crates/ui/src/components/nav/{ui,mod}.rs` · `crates/ui/src/lib.rs` |
-| Acceptance mapping | rubric → `RUBRIC.md`; matrix → manifest 60/60 valid; scores → `REPORT.md`; findings routed → `FINDINGS.md`; independent pass → **open** |
-| Commands and counts | fmt 0 · clippy workspace 0 · `db-pro-ui` 725 / `db-pro-app` 681 passed · locked release build 0 |
+| Exact SHA | `fede8872` (HEAD) · evidence matrix `65fad16d` · pass-1 fixes `1b94044e` `bc99ad10` `c735211d` `a87da3e6` `8ba71006` `faab6466` |
+| Commit list | full history on `main` since `493e3b9b`; see `git log 493e3b9b..HEAD` |
+| File / surface inventory | `docs/plans/active/layout-aesthetics-audit/{PLAN,RUBRIC,CHECKLIST,FINDINGS,VERIFICATION,REPORT,AGENT_EVIDENCE}.md` · `evidence/{manifest.json,capture_matrix.py,60 matrix PNGs,6 live PNGs}` · `crates/app/src/{explorer,settings,query_workbench,connection}` · `crates/ui/src/components/{common,nav,scroll_area,dialog}` |
+| Acceptance mapping | rubric → `RUBRIC.md`; matrix → manifest 60/60 sha256-verified; two-pass scores → `REPORT.md`; findings → `FINDINGS.md` (F1–F15); independent pass → **partial (Table single number)** |
+| Commands and counts | fmt 0 · clippy 0 · `db-pro-ui` 725 / `db-pro-app` 681 passed · release build 0 · 60/60 cells captured + 6 live |
 | CI run IDs / status | not run (no PR) |
-| Known limitations | 1440/1920 render at 838 logical height; the table grid was captured only after the reassert fix and has not been re-scored; the first matrix run silently produced Welcome for table cells and is superseded |
+| Known limitations | 1440/1920 render at 838 logical height (host clamp); Table pass-1 number missing (gap admitted); cursor hover verified on 3 targets only; real-state cells (loading/error) not in matrix |
 | Migrations / config implications | none; capture env vars are opt-in fixtures |
 | Out-of-scope changes | `none` |
 
@@ -53,46 +61,41 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | n/a — the audit's own independent pass has not run |
-| Verdict | n/a |
-| P0 / P1 / P2 counts | fixed: 0 / 1 / 1 · open findings: 5 recurring + C1–C6 |
-| Findings | `FINDINGS.md` + `REPORT.md` |
+| Reviewed SHA | pass 2 at `65fad16d`; live verification at `faab6466`+ |
+| Verdict | `ACCEPT WITH P2` — no P0/P1 open |
+| P0 / P1 / P2 counts | fixed: 0 / 1 / 2 (F7a P2, F7b P1, light-ladder P2 class) · open: F9 F10 F11 F12 F13 F15 (all P2) + F8 F14 (P3/P3-cluster) |
+| Findings | `FINDINGS.md` (F1–F15) + `REPORT.md` (two-pass table + adjudication) |
 | CI disposition | not executed |
-| Next task(s) unblocked | light-theme elevation ladder (`native-visual-redesign`), input boundary (`core-component-style-system`), diagram LOD + edge routing (new issue) |
+| Next task(s) unblocked | F9 fix (scrollbar visibility wrapper) → own plan; F15 (winit cursor) → own plan; `native-visual-redesign` for F10–F12 |
 
 ## 5. Research / audit handoff
 
 - **Source date:** 2026-10-23
-- **References:** nine agent reports (`agent://Audit*`), `RUBRIC.md`, `evidence/manifest.json`, the six
-  retained Explorer PNGs, `REPORT.md`.
-- **Factual findings (measured, per surface):** light `canvas = elevated = editor = floating = #ffffff`
-  with `panel #f6f6f6`, so cards separate by 1.08:1 and inputs by 0; `surface_2` = `subtle` = `panel`
-  = `#f6f6f6`, so a selected row is invisible in light; type scales run 4–7 sizes per surface with
-  off-token literals; icon sizes run 2–5 per surface; wide layouts do not distribute (query toolbar
-  62 % empty at 1920, welcome grid fixed at 620 pt).
-- **Inference:** [INFERENCE] most light-theme weaknesses trace to a single missing elevation step
-  rather than to per-surface mistakes; fixing the role ladder should move dimension 5 on six surfaces
-  at once.
-- **Decision / recommendation:** route to `native-visual-redesign` (ladder, composition) and
-  `core-component-style-system` (input boundary, type/icon scales); the diagram LOD and edge-routing
-  defects need their own issue.
-- **Unresolved questions:** independent reviewer identity; whether the light ladder should add a step
-  or shift the panel role.
-- **Downstream tasks activated:** none yet (routing table only).
+- **References:** 9 pass-1 reports + 5 pass-2 reports (`agent://Audit*`, `agent://Score*`), `RUBRIC.md`,
+  `evidence/manifest.json` (60 cells, sha256 each), 6 live Orca PNGs, `REPORT.md`.
+- **Factual findings (measured):** light `canvas = elevated = editor = floating = #ffffff` with
+  `panel #f6f6f6` before the ladder; `surface_2 = subtle = panel = #f6f6f6` made a selected row
+  invisible in light; type scales 4–7 sizes per surface; wide layouts did not distribute (toolbar
+  62% empty at 1920, welcome grid fixed 620 pt).
+- **Pass-2 measurements (new, distinct):** Settings ~60% dead space; connection grid uses three
+  column splits (~200px drift); 10 decorative accent headers on the diagram; active-tab light
+  contrast below threshold; shared `ScrollArea` wrapper `AlwaysHidden` on every consumer.
+- **Inference:** [INFERENCE] most light-theme weaknesses traced to the missing elevation step (fixed
+  at `c735211d`); the remaining weakness cluster is affordance (F9) + consistency (F11–F13).
+- **Decision / recommendation:** route F9+F15 to their own fixes (component wrapper + winit layer);
+  F10–F13 to `native-visual-redesign`; F14 batch as polish.
+- **Unresolved questions:** whether the light ladder should gain a 4th step; whether F15 is winit or
+  egui (needs a minimal repro outside the app); whether the Table pass-1 number should be
+  regenerated at the baseline SHA or accepted as missing.
+- **Downstream tasks activated:** none yet — routing table only.
 
 ## 6. Tổng kết (Vietnamese summary)
 
-Đã chạy 9 sub-agent, mỗi feature một agent, chấm theo rubric 8 chiều × 0–4 trên 60 ô ảnh (10 surface ×
-3 kích thước × 2 theme). Điểm trung bình ≈17,4/32; **chiều "colour & surface" yếu nhất** — 7/9 surface
-chỉ 1–2 điểm.
+Hai vòng chấm: 9 agent (pass 1, pre-fix, mean 17.4/32) → sửa light ladder + selection pill + input
+boundary → 5 agent độc lập (pass 2, mean 23.4/32). Mọi delta ≥2 đã phán xử trong REPORT.
 
-Nguyên nhân gốc lặp lại: theme sáng không có bậc nâng (canvas = elevated = editor = floating = trắng,
-panel #f6f6f6) nên card chỉ hơn 1,08:1 và input **không có viền**; `surface_2` = `subtle` = `panel` =
-#f6f6f6 nên hàng đang chọn trong light gần như vô hình.
+Live Orca xác nhận 4 sub-surface + dialog scroll (F8 không phải defect) + hover cursor (F15:
+`on_hover_cursor` không tới OS — defect winit/egui, unit test xanh nhưng runtime sai).
 
-Đã sửa 2 lỗi trong lúc audit: popover Explorer thụt nội dung 8pt (`1b94044e`), và hàng nav đang chọn
-được đánh dấu bằng pill accent dùng chung (`bc99ad10`). Phát hiện thêm lỗi capture: lần chạy matrix đầu
-tiên chụp nhầm Welcome cho cả 6 ô Table — runner giờ bắt buộc `DB_PRO_CAPTURE_REASSERT_SURFACE`.
-
-Còn mở: chấm lại ô Table trên ảnh mới, 3 sub-surface đã khai báo, state thật, và vòng chấm độc lập.
-Danh sách cursor (C1–C6) mới ở mức đọc source, chưa hover thật.
+Còn lại: Table chỉ có 1 con số (pass-1 leak Welcome, ghi gap rõ), F9–F15 chưa sửa (routing, không
+trong scope audit). Không P0/P1 mở.
