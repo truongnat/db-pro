@@ -1,38 +1,97 @@
 # Layout Aesthetics Audit — Checklist
 
-## 1. Preparation
-- [x] Confirm the surface inventory (10 surfaces, one representative each).
-- [x] Write the eight-dimension rubric with 0–4 anchors (`RUBRIC.md`).
-- [x] Fix the measurement list per screen (panel widths, gutters, type sizes, contrast, distinct
-      radii/spacing steps, competing emphasis count).
-- [x] Build the capture binary: `cargo build -p db-pro-native --features capture`.
+Detailed execution plan for the four open items. Each step names the command or the artifact it
+produces, so a different agent can run it without re-deriving the context.
 
-## 2. Evidence capture
-- [x] Capture the 60-cell matrix (10 surfaces × 1280×800/1440×900/1920×1080 × light/dark).
-- [x] Record requested vs rendered size and process exit for every cell in `evidence/manifest.json`.
-- [ ] Capture the declared sub-surfaces: Table **structure**, Settings → **Appearance**, New
-      Connection **error** state (each × 3 widths × 2 themes).
-- [ ] Capture one real state per surface where it exists (empty / loading / error).
-- [ ] Inspect every retained image; record per-cell `inspected: true` in the manifest.
-      Progress: 6 of 60 (Explorer, both themes × 3 widths).
+**Operational traps to respect in every item** (learned the hard way in this audit):
 
-## 3. Measurement
-- [ ] Extract panel width ratios and gutter values per scored screen.
-- [ ] Record the type scale actually in use (sizes + weights) per screen.
-- [ ] Compute contrast ratios for the text/surface pairs that appear in the captures.
-- [ ] Count distinct corner radii, spacing steps and emphasis levels per screen.
+- Any `cargo test` / plain `cargo build` replaces `target/debug/db-pro-native` with a build that has
+  **no** `capture` feature. Always `cargo build -p db-pro-native --features capture` immediately
+  before a capture run, or `DB_PRO_CAPTURE_TO` is inert and the process runs to timeout.
+- Capture every surface with `DB_PRO_CAPTURE_REASSERT_SURFACE=1`; without it the opener runs once and
+  a late schema-load event restores Welcome (this silently produced six wrong Table cells).
+- One capture generation per manifest. Record `code_sha`, `captured_at` and the SHA-256 per cell;
+  never mix files from different trees under one `inspected` flag.
+- `exit=-6` / `exit=134` with a PNG present is the macOS TouchBar teardown crash **after** the write.
+  It is not a UI failure and not a clean pass either — record it as crashed.
 
-## 4. Judgement
-- [ ] Score all eight dimensions per surface with anchors; attach the numbers to each score.
-- [ ] Re-judge the surfaces fixed during the audit (viewport/picker/chrome, Explorer popover) and
-      state before/after using the retained pre-fix capture where one exists.
-- [x] Write the first findings with severity, dimension, evidence pointer and owning plan
-      (`FINDINGS.md`: F7a fixed, A1–A6 open).
-- [ ] Route every remaining finding to `native-visual-redesign`, `ui-spacing-consistency`,
-      `core-component-style-system`, or a new issue.
+---
 
-## 5. Review
-- [ ] Independent reviewer repeats the scoring pass on the same evidence.
-- [ ] Record agreements and disagreements; do not average them away.
-- [ ] Write `REPORT.md` with the score table and the routed finding list.
-- [ ] Update `STATUS.md` only when the report exists; the audit stays `PLANNING` until then.
+## A. Independent scoring pass — Query and the 1920 cells
+
+Goal: a second number for every surface, produced by someone who has not seen the first pass's
+scores, on evidence that cannot be mistaken for an older generation.
+
+- [ ] **A1 — Freeze one evidence generation.** Rebuild the capture binary (see traps), re-run
+      `evidence/capture_matrix.py` unchanged so all 60 cells come from the current tree, then write
+      the manifest with `code_sha`, `captured_at`, per-cell `sha256`, `retained`, `inspected: false`.
+      Delete any file in the directory that the manifest does not list.
+- [ ] **A2 — Verify the generation.** For each of the 60 rows assert the PNG exists, its SHA matches
+      the manifest, and its logical size matches the requested width. Fail the step on any mismatch.
+- [ ] **A3 — Two disjoint scorers.** Spawn two fresh `scout` agents that never read `REPORT.md`:
+      scorer 1 → Welcome+shell, Query, Table, Explorer, Settings; scorer 2 → Connection, Gallery,
+      ER diagram, Agent, Palette. Same rubric, same output shape, numbers required per score.
+- [ ] **A4 — Reconcile, do not average.** Compare against the first pass; record per dimension
+      `first | second | delta | reason`. Any dimension with a delta ≥ 2 gets a written adjudication.
+- [ ] **A5 — Update `REPORT.md`** with both columns and the disagreement table; keep the "partial"
+      label off only if all ten surfaces have two numbers.
+- **Done when:** every surface carries two independent numbers and the deltas are explained.
+
+## B. F8 — connection dialog clips its last section
+
+- [ ] **B1 — Measure before deciding.** Capture `DB_PRO_CAPTURE_NEW_CONNECTION=1` at 1280×800,
+      1440×900 and 1920×1080 in both themes (6 cells). For each, record: dialog rect, body content
+      bottom, footer top, and whether the `Cloud Presets & URI Importer` row intersects the footer.
+- [ ] **B2 — Read the body layout.** `crates/app/src/connection/view.rs` and
+      `crates/ui/src/components/common/layout.rs` already expose `calculate_dialog_layout` /
+      `dialog_body_cap`; establish whether the cap exists but is unused, or is missing entirely.
+- [ ] **B3 — Fix with the existing primitives.** Wrap the dialog body in
+      `components::scroll_area::ScrollArea` bounded by `dialog_body_cap`, footer stays pinned. No new
+      frame literals in the view; no hard-coded heights.
+- [ ] **B4 — Geometry test.** Assert at 838 logical height that the last body row's bottom ≤ body
+      bottom ≤ footer top, and that the disclosure is reachable by keyboard (Tab) after the fix.
+- [ ] **B5 — Re-capture and inspect** the 6 cells; confirm no row is occluded and the scroll affordance
+      is either visible or documented as the component's hidden-bar contract.
+- **Done when:** no body row intersects the footer at any tested height, proven by a rect test and by
+      the six inspected captures. F8's provisional tag is removed only then.
+
+## C. Cursor — real-hover verification
+
+- [ ] **C1 — Get a genuinely frontmost window.** Launch with `open -a "/tmp/DB Pro.app"` (LaunchServices)
+      instead of a detached spawn, then confirm with a full-screen `screencapture -C` that the app
+      window is visible and frontmost.
+- [ ] **C2 — Calibrate the pointer mapping.** `cliclick m:<x>,<y>` to a known point, `screencapture -C -x`,
+      and confirm the cursor glyph appears at that point. Without this, a hover capture proves nothing
+      (an earlier crop showed a table fragment and no pointer).
+- [ ] **C3 — Observe each target.** For the grid row gutter, explorer tree row, query status-bar
+      transaction label, tools-hub card, table `Alter` link and the active grid-cell editor: move the
+      pointer, capture the region with `-C`, and read the glyph.
+- [ ] **C4 — Record `element → expected → observed`** with the image path per row.
+- [ ] **C5 — If focus cannot be held** (shared desktop), stop and record the item as **blocked**, with
+      the calibration capture that demonstrates why. Do not infer cursors from `on_hover_cursor` source;
+      that is already covered by `stale_cursor_is_cleared_before_widgets_draw`.
+- **Done when:** six observed cursors exist with images, or a blocked record with calibration proof.
+
+## D. Re-inspect the remaining matrix cells
+
+- [ ] **D1 — Define the set.** The 60-cell matrix at the final code SHA; currently 16 inspected plus
+      5 live captures. Re-open the other 44 in ten surface batches of 6.
+- [ ] **D2 — Per batch record:** image paths, the rubric dimension each observation hits, and any new
+      defect with severity. Batch order: Welcome, Query, Table, Explorer, Settings, Connection,
+      Gallery, Diagram, Agent, Palette.
+- [ ] **D3 — Update the manifest** (`inspected: true`) only for cells actually opened in this pass, and
+      `REPORT.md` with anything new.
+- [ ] **D4 — Close the loop.** When all 60 are inspected at one SHA, move the plan to `RUNTIME_VERIFY`
+      with the coverage table; `COMPLETED` still needs A and B done.
+- **Done when:** 60/60 inspected at a single SHA, or an explicit list of what could not be inspected
+      and why.
+
+---
+
+## Order and cost
+
+`A1 → A2` (one matrix run, ~6 min) unblocks both A and D. B is independent and small (6 captures +
+one layout fix + one test). C is environment-bound and may end blocked.
+
+Suggested order: **A1/A2 → D → B → A3–A5 → C**. D before A3 so the scorers see a settled tree;
+C last because it is the most likely to be blocked by the machine, not by the code.
