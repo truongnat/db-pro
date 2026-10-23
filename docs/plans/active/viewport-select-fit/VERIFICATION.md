@@ -3,8 +3,8 @@
 **Source reference (committed):**
 
 ```text
-code under test  9e72de50fa821926a3874949e2ebc65289885d0a  fix(ui): cap horizontal selection controls …
-evidence/plan    1e39b606 (docs HEAD when these results were re-run)
+code under test  8a8f1749334065b656f6c08a06c6c520f12737d9  fix(ui): give light chrome its own step …
+preceding fix    9e72de50fa821926a3874949e2ebc65289885d0a  fix(ui): cap horizontal selection controls …
 baseline         9b50e7a27b4d92de5b126e6ecaf3a518448ad97b  (pre-fix tree)
 ```
 
@@ -92,8 +92,8 @@ floating surface actually laid out, including the shrink-to-content height for a
 | UI architecture | `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
 | Capture build | `cargo build -p db-pro-native --features capture` | exit 0 (rebuilt after the narrow-viewport fixes) |
 | **Native release gate** | `cargo build --release --locked -p db-pro-native` | exit 0 — `Finished release profile [optimized]` |
-| **Workspace tests** | `cargo test --workspace` | exit 0 — **2,271 passed / 0 failed / 65 ignored** |
-| Unit tests (touched crates) | `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — `db-pro-app` 679 passed / 0 failed / 0 ignored; `db-pro-ui` 724 passed / 0 failed / 0 ignored |
+| **Workspace tests** | `cargo test --workspace` | exit 0 — **2,272 passed / 0 failed / 65 ignored** |
+| Unit tests (touched crates) | `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — `db-pro-app` 681 passed / 0 failed / 0 ignored; `db-pro-ui` 725 passed / 0 failed / 0 ignored |
 | Clean-code diff ratchet | `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | exit 0 — 11 pass / 5 warn / 0 fail (warnings are pre-existing long-file/clone heuristics in untouched files) |
 
 The 65 ignored tests are the pre-existing `#[ignore]`d provider suites that need live
@@ -233,15 +233,21 @@ slightly above the canvas.
 
 | Change | Before | After |
 |---|---|---|
-| Light `background.panel` (sidebar, topbar, status bar) | `#f9f9f9` | `#f1f1f1` |
-| Light `tertiary` / `muted` text | `#707070` (4.38:1 on the new panel — fails AA) | `#6b6b6b` (4.72:1) |
+| Light `background.panel` (sidebar, topbar, status bar) | `#f9f9f9` | `#f6f6f6` |
+| Light `tertiary` / `muted` text | `#707070` | `#6b6b6b` (4.93:1 on the new panel) |
 | Transient popups (completion, hover, signature help, column suggestions) | `surface_panel` | `surface_elevated` (documented role) |
 | Dark tokens | — | unchanged |
 
+The panel value stops one step short of `hover` (`#f1f1f1`) on purpose: `#f1f1f1` would have made a
+hovered sidebar row identical to the base fill. The light ladder is now
+canvas `#ffffff` → panel `#f6f6f6` → hover `#f1f1f1` → selected `#eeeeee`, and a new test
+(`light_surface_ladder_keeps_hover_and_selected_distinct_from_chrome`) asserts both the inequality
+and the descending luminance order so a future palette edit cannot silently collapse a state.
+
 `crates/ui/src/theme/tests` keeps enforcing 4.5:1 for primary/secondary/tertiary on both the canvas
-and the panel, and `light_tokens_follow_codex_surface_contract` now pins `#f1f1f1`. The two light
-ramp steps the change orphaned (`NEUTRAL_50`, `NEUTRAL_500`) were deleted — Clippy's `dead_code`
-caught them, which is why the workspace Clippy gate is reported as exit 0 only after that deletion.
+and the panel, and `light_tokens_follow_codex_surface_contract` now pins `#f6f6f6`. The light ramp
+steps the change orphaned (`NEUTRAL_50`, `NEUTRAL_500`) were deleted — Clippy's `dead_code` caught
+them, which is why the workspace Clippy gate is reported as exit 0 only after that deletion.
 
 Observed in the re-captured evidence: in every light cell the sidebar/topbar is a distinct step
 below the white editor, cards and the picker popup read as raised, and no text lost legibility. Dark

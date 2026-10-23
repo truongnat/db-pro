@@ -12,8 +12,8 @@
       1280.0,
       800.0
     ],
-    "sha256": "03726ba620967c247e35ca7c9cb0f231f17056d2bc030a6ca4e2cbaf31916773",
-    "file_size_bytes": 366866
+    "sha256": "c1f12ac0f9da6a418d33d089d699177f1d67efe53efdfc986cf85c5facf141e5",
+    "file_size_bytes": 376476
   },
   {
     "name": "query-picker-light-1280x800",
@@ -28,8 +28,8 @@
       1280.0,
       800.0
     ],
-    "sha256": "3b2a1aa3c14ba063c5ae610d58a3d4d86c5678209e076675d7450bc77886b172",
-    "file_size_bytes": 391069
+    "sha256": "180232975a51b999efc2067da358724df9344d4b56f3e244e072a473a1c7ce29",
+    "file_size_bytes": 392803
   },
   {
     "name": "appearance-dark-1280x800",
@@ -76,13 +76,13 @@
       1440.0,
       838.0
     ],
-    "sha256": "88e9448eb59bceb54d48c2a2516c148609ab0ab9634decded5f84042d9125cf5",
-    "file_size_bytes": 381109
+    "sha256": "28a5dc4e6194277259b74d9f2779d9bb9536997b6da0cd837faf25806b76b429",
+    "file_size_bytes": 390622
   },
   {
     "name": "query-picker-light-1440x900",
     "requested_viewport": "1440x900",
-    "exit_code": 0,
+    "exit_code": -6,
     "screenshot_exists": true,
     "framebuffer_pixels": [
       2880,
@@ -92,8 +92,8 @@
       1440.0,
       838.0
     ],
-    "sha256": "faf527ad216e54be506f4d648b4cb32be50a46f8eef477a6b12d6dae55c94c4e",
-    "file_size_bytes": 405480
+    "sha256": "6fdebff532a895ac889a9dae2ae4de43be3188bc3be3f347c5c9264385084672",
+    "file_size_bytes": 406930
   },
   {
     "name": "appearance-dark-1440x900",
@@ -140,8 +140,8 @@
       1920.0,
       838.0
     ],
-    "sha256": "14583f807ebe192794827a3eaee4a43b25569e22fb9c1647f3cfd2b1bd31a509",
-    "file_size_bytes": 412538
+    "sha256": "55ca3fc4322bdd0bd9e802db192b0146b7363c8f41429856f9676f640b820f1d",
+    "file_size_bytes": 421961
   },
   {
     "name": "query-picker-light-1920x1080",
@@ -156,8 +156,8 @@
       1920.0,
       838.0
     ],
-    "sha256": "dcdf56049ac9aa212700f6d25917c4d45dadb1370508f319ab2164ec28b7aec2",
-    "file_size_bytes": 436746
+    "sha256": "e20afbf7c80f587f94162df7cc5f23c157c916a184b6a24576a9cf84e6c6a771",
+    "file_size_bytes": 438211
   },
   {
     "name": "appearance-dark-1920x1080",
@@ -204,8 +204,8 @@
       1280.0,
       800.0
     ],
-    "sha256": "d333747f83055b4e789d23ee794e67f29308fa3fe2d3511fa2d101856b6df759",
-    "file_size_bytes": 476978
+    "sha256": "7e7770ec34bfed2eaf10bef0a4fb3a7ac6a057c5c5dce63b815338c4714de1c1",
+    "file_size_bytes": 478839
   },
   {
     "name": "picker-dense-dark-1280x800",
@@ -236,13 +236,13 @@
       1280.0,
       800.0
     ],
-    "sha256": "3b2a1aa3c14ba063c5ae610d58a3d4d86c5678209e076675d7450bc77886b172",
-    "file_size_bytes": 391069
+    "sha256": "ec3dedc83551324f66942ed15b43838d92c89703a3a20956b8ba45bc21803265",
+    "file_size_bytes": 392611
   },
   {
     "name": "explorer-filter-popover-light-1280x800",
     "requested_viewport": "1280x800",
-    "exit_code": 0,
+    "exit_code": -6,
     "screenshot_exists": true,
     "framebuffer_pixels": [
       2560,
@@ -252,8 +252,8 @@
       1280.0,
       800.0
     ],
-    "sha256": "2a3895bc409cc326283c7412430236253686643f18be9ec271182630e4ceb08f",
-    "file_size_bytes": 411864
+    "sha256": "d9bee81ee4a796603c7bc5c1147562913cc41681534eb36430d01b5f1ee3fb1a",
+    "file_size_bytes": 445121
   },
   {
     "name": "explorer-filter-popover-dark-1280x800",

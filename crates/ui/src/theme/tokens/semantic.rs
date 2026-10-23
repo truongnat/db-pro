@@ -183,10 +183,10 @@ impl SemanticTokens {
         Self {
             background: Background {
                 canvas: light::NEUTRAL_0,
-                // Chrome sits one visible step below the white canvas: #f9f9f9 was
-                // indistinguishable from the canvas, so the sidebar read as the same
-                // region as the editor.
-                panel: light::NEUTRAL_100,
+                // Chrome sits one visible step below the white canvas. `NEUTRAL_100`
+                // would collide with `hover`, leaving hovered sidebar rows identical
+                // to the base fill, so the ladder stays canvas → panel → hover → selected.
+                panel: light::NEUTRAL_75,
                 elevated: light::NEUTRAL_0,
                 floating: light::NEUTRAL_0,
                 editor: light::NEUTRAL_0,

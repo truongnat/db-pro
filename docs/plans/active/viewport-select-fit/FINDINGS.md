@@ -41,12 +41,15 @@
   editor: `panel` was `#f9f9f9` against a `#ffffff` canvas — a 6/255 step that read as one region, so
   panels did not look like separate areas.
 - **Root Cause:** the chrome role carried a step too small to be perceived on large flat areas.
-- **Resolution:** light `panel` → `NEUTRAL_100` (`#f1f1f1`), one visible step below the canvas, while
+- **Resolution:** light `panel` → `NEUTRAL_75` (`#f6f6f6`), one visible step below the canvas, while
   `elevated`/`floating` stay `#ffffff` so cards and popovers read as raised above the chrome. Dark
-  tokens are unchanged (its `panel` already sits below `canvas`).
-- **Accessibility consequence:** `#707070` tertiary text dropped to 4.38:1 on the new panel, so light
-  `tertiary`/`muted` moved to a new `NEUTRAL_525` (`#6b6b6b`, 4.72:1) and the theme contrast test
-  keeps enforcing 4.5:1. The two now-unused light steps (`NEUTRAL_50`, `NEUTRAL_500`) were deleted.
+  tokens are unchanged (its `panel` already sits below `canvas`). The step deliberately stops short
+  of `NEUTRAL_100` (`#f1f1f1`) because that equals light `hover` and would make a hovered sidebar row
+  identical to its base fill; the ladder is canvas → panel `#f6f6f6` → hover `#f1f1f1` → selected
+  `#eeeeee`, now pinned by a regression test.
+- **Accessibility consequence:** light `tertiary`/`muted` moved to a new `NEUTRAL_525` (`#6b6b6b`,
+  4.93:1 on the new panel) so the theme contrast test keeps enforcing 4.5:1. The two now-unused light
+  steps (`NEUTRAL_50`, `NEUTRAL_500`) were deleted.
 - **Related role fix:** four transient popups (SQL completion, rich hover, signature help, table
   column suggestions) painted `surface_panel`; with chrome now darker they would read as sunken, so
   they use `surface_elevated`, the documented role for transient surfaces.

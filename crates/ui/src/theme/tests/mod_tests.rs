@@ -38,7 +38,7 @@ fn light_tokens_follow_codex_surface_contract() {
     let theme = DbProTheme::light();
 
     assert_eq!(theme.surface_app, egui::Color32::from_rgb(255, 255, 255));
-    assert_eq!(theme.surface_panel, egui::Color32::from_rgb(241, 241, 241));
+    assert_eq!(theme.surface_panel, egui::Color32::from_rgb(246, 246, 246));
     assert_eq!(theme.surface_active, egui::Color32::from_rgb(238, 238, 238));
     assert_eq!(theme.text_primary, egui::Color32::from_rgb(26, 28, 31));
     assert_eq!(theme.accent, egui::Color32::from_rgb(0, 111, 204));
@@ -55,6 +55,34 @@ fn dark_tokens_follow_codex_surface_contract() {
     assert_eq!(theme.text_primary, egui::Color32::from_rgb(236, 236, 236));
     assert_eq!(theme.accent, egui::Color32::from_rgb(236, 236, 236));
     assert_eq!(theme.accent_foreground, egui::Color32::from_rgb(13, 13, 13));
+}
+
+#[test]
+fn light_surface_ladder_keeps_hover_and_selected_distinct_from_chrome() {
+    let theme = DbProTheme::light();
+
+    // A hovered row must not look like the base fill it sits on, and a selected row
+    // must be stronger than a hover — otherwise the states are indistinguishable.
+    assert_ne!(theme.surface_hover, theme.surface_panel);
+    assert_ne!(theme.surface_hover, theme.surface_app);
+    assert_ne!(theme.surface_active, theme.surface_hover);
+    assert_ne!(theme.surface_active, theme.surface_panel);
+
+    let luminance = |color: egui::Color32| {
+        let linear = |channel: u8| {
+            let value = f32::from(channel) / 255.0;
+            if value <= 0.039_28 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * linear(color.r()) + 0.7152 * linear(color.g()) + 0.0722 * linear(color.b())
+    };
+    // Darker in this ladder means a stronger state.
+    assert!(luminance(theme.surface_panel) < luminance(theme.surface_app));
+    assert!(luminance(theme.surface_hover) < luminance(theme.surface_panel));
+    assert!(luminance(theme.surface_active) < luminance(theme.surface_hover));
 }
 
 #[test]
