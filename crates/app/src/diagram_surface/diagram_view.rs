@@ -578,6 +578,9 @@ fn reset_diagram_layout(ctx: &mut DiagramViewContext<'_>) {
     ctx.diagram.drag_node = None;
     ctx.diagram.selected_node = None;
     ctx.diagram.auto_fit_done = false;
+    // A reset is a fresh start: let the next fit choose its own zoom instead of
+    // holding the previous one through the LOD guard.
+    ctx.diagram.auto_fit_viewport = None;
 }
 
 /// World-space grid: lines live in world coordinates so they pan and zoom with
@@ -637,36 +640,158 @@ pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> Str
     }
 }
 
-/// Screen-space x of the vertical segment of an FK edge polyline (#512).
-/// Normal edges bend midway between endpoints (plus a deterministic lane that
-/// fans parallel edges out). Self-referencing edges (`source == target`) loop
-/// out to the right of the node instead: the offset is always positive so the
-/// route never crosses the card body, and it fans out per `edge_id` so several
-/// self-FKs on one table do not draw on top of each other.
-/// Inputs for [`edge_route_bend_x`] — grouped into one value so the helper
-/// stays a pure function of a single spec (#512).
+/// Inputs for [`edge_route`] — grouped into one value so the helper stays a
+/// pure function of a single spec (#512).
 #[derive(Debug, Clone, Copy)]
-struct EdgeBendSpec {
-    from_x: f32,
-    to_x: f32,
+struct EdgeRouteSpec {
+    from: egui::Pos2,
+    to: egui::Pos2,
+    /// Screen rects of the two endpoint cards. The route never runs through
+    /// either of them.
+    from_rect: egui::Rect,
+    to_rect: egui::Rect,
+    /// Whether each end leaves its card on the right edge.
+    from_right: bool,
+    to_right: bool,
     self_edge: bool,
     edge_id: usize,
     zoom: f32,
 }
 
-fn edge_route_bend_x(spec: EdgeBendSpec) -> f32 {
-    if spec.self_edge {
-        spec.from_x.max(spec.to_x) + (12.0 + (spec.edge_id % 5) as f32 * 8.0) * spec.zoom
-    } else {
-        let lane = ((spec.edge_id % 7) as f32 - 3.0) * 9.0 * spec.zoom;
-        (spec.from_x + spec.to_x) / 2.0 + lane
+/// One FK edge's polyline in screen space. Six points cover the row-gap
+/// detour; shorter routes leave the tail unused.
+#[derive(Debug, Clone, Copy)]
+struct EdgeRoute {
+    points: [egui::Pos2; 6],
+    len: usize,
+}
+
+impl EdgeRoute {
+    fn new(points: &[egui::Pos2]) -> Self {
+        let mut route = Self {
+            points: [egui::Pos2::ZERO; 6],
+            len: points.len().min(6),
+        };
+        route.points[..route.len].copy_from_slice(&points[..route.len]);
+        route
+    }
+
+    /// Segments of the route, skipping the collinear step an adjacent-column
+    /// pair collapses into (its exit and entry channels are the same gap).
+    fn segments(&self) -> impl Iterator<Item = (egui::Pos2, egui::Pos2)> + '_ {
+        self.points[..self.len]
+            .windows(2)
+            .map(|pair| (pair[0], pair[1]))
+            .filter(|(start, end)| start != end)
+    }
+
+    /// x of the vertical run nearest the target — the lane an FK label sits
+    /// beside.
+    fn label_x(&self) -> f32 {
+        self.points[self.len.saturating_sub(2)].x
+    }
+
+    /// Vertical midpoint of that same run.
+    fn label_y(&self) -> f32 {
+        (self.points[self.len.saturating_sub(3)].y + self.points[self.len.saturating_sub(2)].y) / 2.0
     }
 }
 
-/// Orthogonal three-segment edges. Parallel edges between the same column pair
-/// used to share one `bend_x` and stack their labels — each edge now gets a
-/// small deterministic lane offset so they fan out. When `highlight` names a
-/// node (drag/hover/selection), only its incident edges keep full opacity.
+/// Which side each end of an FK edge leaves its card on. The two cards' centers
+/// decide it — except when they share a grid column, where the centers are equal
+/// and the comparison reads "left" for both ends. Those pairs attach both ends
+/// on the right so the route can leave past the pair instead of through it. A
+/// self-FK passes its own rect twice and lands in the same case.
+fn edge_anchor_sides(from_rect: egui::Rect, to_rect: egui::Rect) -> (bool, bool) {
+    let source_on_right = from_rect.center().x < to_rect.center().x;
+    let same_column = from_rect.left() < to_rect.right() && to_rect.left() < from_rect.right();
+    (same_column || source_on_right, same_column || !source_on_right)
+}
+
+/// Self-referencing edges (`source == target`) loop out to the right of the
+/// node: the offset is always positive so the loop never crosses the card body,
+/// and it fans out per `edge_id` so several self-FKs on one table do not draw
+/// on top of each other.
+fn self_edge_loop_offset(edge_id: usize, zoom: f32) -> f32 {
+    (12.0 + (edge_id % 5) as f32 * 8.0) * zoom
+}
+
+/// Orthogonal route for one FK edge, in screen space.
+///
+/// The vertical runs sit in the column gaps beside the cards they leave, so a
+/// segment can never cut through a card body. Cards in one grid column share
+/// their anchor midpoint — that midpoint is inside both rects, which is why
+/// stacked parents and children used to draw their edge through the pair — so
+/// they route past the right edge of the pair instead. Pairs more than one
+/// column apart detour through the row gap on the target's side instead of
+/// running a horizontal segment along an anchor row, where it would cross
+/// whatever cards sit between the two endpoints.
+fn edge_route(spec: EdgeRouteSpec) -> EdgeRoute {
+    if spec.self_edge {
+        let bend = spec.from.x.max(spec.to.x) + self_edge_loop_offset(spec.edge_id, spec.zoom);
+        return EdgeRoute::new(&[
+            spec.from,
+            egui::pos2(bend, spec.from.y),
+            egui::pos2(bend, spec.to.y),
+            spec.to,
+        ]);
+    }
+    // Deterministic lane that fans parallel edges apart. It stays inside the
+    // column gap: |lane| <= 27 * zoom against a 42 * zoom half-gap.
+    let lane = ((spec.edge_id % 7) as f32 - 3.0) * 9.0 * spec.zoom;
+    let half_gap = ER_GAP_X * spec.zoom / 2.0;
+    let exit_x = spec.from.x + if spec.from_right { half_gap } else { -half_gap } + lane;
+    let entry_x = spec.to.x + if spec.to_right { half_gap } else { -half_gap } + lane;
+    let gap_y = edge_route_gap_y(spec.from_rect, spec.to_rect, spec.zoom);
+    EdgeRoute::new(&[
+        spec.from,
+        egui::pos2(exit_x, spec.from.y),
+        egui::pos2(exit_x, gap_y),
+        egui::pos2(entry_x, gap_y),
+        egui::pos2(entry_x, spec.to.y),
+        spec.to,
+    ])
+}
+
+/// y of the horizontal run that carries an edge between columns: the row gap on
+/// the side of the target that faces the source, so the run never lands inside a
+/// row of cards sitting between the two endpoints.
+fn edge_route_gap_y(from_rect: egui::Rect, to_rect: egui::Rect, zoom: f32) -> f32 {
+    let half_gap = ER_GAP_Y * zoom / 2.0;
+    if from_rect.top() >= to_rect.bottom() {
+        to_rect.bottom() + half_gap
+    } else if from_rect.bottom() <= to_rect.top() {
+        to_rect.top() - half_gap
+    } else {
+        // Same row band: there is no gap between them, so step out below it.
+        from_rect.union(to_rect).bottom() + half_gap
+    }
+}
+
+/// Whether an orthogonal segment crosses the interior of `rect` — the
+/// acceptance check for edge routing. Routes are always axis-aligned, so two
+/// band tests replace a general segment/rect clip; segments that run along a
+/// card edge or stop at an anchor do not count as crossing it.
+#[cfg(test)]
+fn segment_crosses_rect(start: egui::Pos2, end: egui::Pos2, rect: egui::Rect) -> bool {
+    const GRAZE: f32 = 0.5;
+    if (start.y - end.y).abs() < f32::EPSILON {
+        rect.top() + GRAZE < start.y
+            && start.y < rect.bottom() - GRAZE
+            && start.x.max(end.x) > rect.left() + GRAZE
+            && start.x.min(end.x) < rect.right() - GRAZE
+    } else {
+        rect.left() + GRAZE < start.x
+            && start.x < rect.right() - GRAZE
+            && start.y.max(end.y) > rect.top() + GRAZE
+            && start.y.min(end.y) < rect.bottom() - GRAZE
+    }
+}
+
+/// Orthogonal channel-routed edges. Parallel edges between the same column pair
+/// used to share one bend and stack their labels — each edge now gets a small
+/// deterministic lane offset so they fan out. When `highlight` names a node
+/// (drag/hover/selection), only its incident edges keep full opacity.
 pub(super) fn paint_scene_edges(
     painter: &egui::Painter,
     graph: &ErGraph,
@@ -687,39 +812,38 @@ pub(super) fn paint_scene_edges(
             continue;
         };
 
-        let source_on_right = source_node.world_rect.center().x < target_node.world_rect.center().x;
-        // Self-referencing FK (#512): the center comparison is always false for
-        // `source == target`, which used to anchor opposite sides with a bend
-        // inside the card. Both ends attach to the right edge instead so the
-        // edge loops outside the node.
+        // Self-FKs (#512) and cards that share a grid column attach both ends on
+        // the right, so the route leaves past the card instead of through it.
         let self_edge = edge.source == edge.target;
+        let (from_right, to_right) = edge_anchor_sides(source_node.world_rect, target_node.world_rect);
         let from_world = source_node.column_anchor(
             edge.foreign_key.from_columns.first().map(String::as_str),
             ErAnchorSpec {
-                right_side: self_edge || source_on_right,
+                right_side: from_right,
                 max_columns: scene.lod.max_columns(),
             },
         );
         let to_world = target_node.column_anchor(
             edge.foreign_key.to_columns.first().map(String::as_str),
             ErAnchorSpec {
-                right_side: self_edge || !source_on_right,
+                right_side: to_right,
                 max_columns: scene.lod.max_columns(),
             },
         );
 
         let from = viewport.world_to_screen_pos(from_world);
         let to = viewport.world_to_screen_pos(to_world);
-
-        let bend_x = edge_route_bend_x(EdgeBendSpec {
-            from_x: from.x,
-            to_x: to.x,
+        let route = edge_route(EdgeRouteSpec {
+            from,
+            to,
+            from_rect: viewport.world_to_screen_rect(source_node.world_rect),
+            to_rect: viewport.world_to_screen_rect(target_node.world_rect),
+            from_right,
+            to_right,
             self_edge,
             edge_id: edge.id,
             zoom,
         });
-        let bend_a = egui::pos2(bend_x, from.y);
-        let bend_b = egui::pos2(bend_x, to.y);
         let emphasized = highlight.is_none_or(|id| edge.source == id || edge.target == id);
         // Edges stay readable at rest; dimming kicks in only while a node is
         // actively highlighted so unrelated routes fall back.
@@ -731,16 +855,16 @@ pub(super) fn paint_scene_edges(
             (theme.accent.linear_multiply(0.7), (1.1 * zoom).clamp(0.8, 1.5))
         };
         let stroke = egui::Stroke::new(width, edge_color);
-        painter.line_segment([from, bend_a], stroke);
-        painter.line_segment([bend_a, bend_b], stroke);
-        painter.line_segment([bend_b, to], stroke);
+        for (start, end) in route.segments() {
+            painter.line_segment([start, end], stroke);
+        }
 
         // Crow's-foot notation: the FK (source, "many") side fans out into
         // three prongs; the referenced PK (target, "one") side gets a bar.
         // Both endpoints leave their nodes horizontally so `dir` is ±x.
         // A self-edge leaves from the right edge, so its crow's foot points
         // outward (+x) instead of into the card (#512).
-        let dir = if self_edge || source_on_right { 1.0 } else { -1.0 };
+        let dir = if from_right { 1.0 } else { -1.0 };
         let foot_len = (9.0 * zoom).clamp(4.5, 11.0);
         let foot_spread = foot_len * 0.8;
         let apex = egui::pos2(from.x + dir * foot_len, from.y);
@@ -769,8 +893,8 @@ pub(super) fn paint_scene_edges(
                 theme.text_muted.linear_multiply(0.7)
             };
             let label_galley = painter.layout_no_wrap(display_label.clone(), FontId::proportional(10.0), label_color);
-            // Right of the vertical segment so the text never sits on the line.
-            let label_position = egui::pos2(bend_x + label_galley.size().x / 2.0 + 7.0, (from.y + to.y) / 2.0);
+            // Right of the vertical run so the text never sits on the line.
+            let label_position = egui::pos2(route.label_x() + label_galley.size().x / 2.0 + 7.0, route.label_y());
             let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(10.0, 6.0));
             painter.rect_filled(label_rect, egui::CornerRadius::same(4.0 as u8), theme.surface_panel);
             painter.rect_stroke(
@@ -1273,6 +1397,10 @@ mod design_apply_tests;
 #[cfg(test)]
 #[path = "tests/diagram_view_self_edge_tests.rs"]
 mod self_edge_tests;
+
+#[cfg(test)]
+#[path = "tests/diagram_view_edge_route_tests.rs"]
+mod edge_route_tests;
 
 #[cfg(test)]
 #[path = "tests/diagram_view_search_cache_tests.rs"]

@@ -17,7 +17,7 @@ impl DbProApp {
         Card::new(theme).show(ui, |ui| {
             ui.label(
                 RichText::new("Tooltips (Positions & Shortcuts):")
-                    .size(12.5)
+                    .size(FONT_SIZE_CAPTION)
                     .strong()
                     .color(theme.text_secondary),
             );
@@ -78,7 +78,7 @@ impl DbProApp {
             ui.add_space(16.0);
             ui.label(
                 RichText::new("Popovers, Menus & Overlays:")
-                    .size(12.5)
+                    .size(FONT_SIZE_CAPTION)
                     .strong()
                     .color(theme.text_secondary),
             );
@@ -92,20 +92,20 @@ impl DbProApp {
                     ui.set_min_width(220.0);
                     ui.label(
                         RichText::new("Pinned Schema Context")
-                            .size(13.0)
+                            .size(FONT_SIZE_UI_LABEL)
                             .strong()
                             .color(theme.text_primary),
                     );
                     ui.add_space(4.0);
                     ui.label(
                         RichText::new("public.users · 24 columns · 1.8M rows")
-                            .size(12.0)
+                            .size(FONT_SIZE_CAPTION)
                             .color(theme.text_secondary),
                     );
                     ui.add_space(8.0);
                     ui.label(
                         RichText::new("Click outside anywhere to dismiss.")
-                            .size(11.0)
+                            .size(FONT_SIZE_CAPTION)
                             .color(theme.text_muted),
                     );
                 });
@@ -161,14 +161,14 @@ impl DbProApp {
                     |ui| {
                         ui.label(
                             RichText::new("db-pro-core crate")
-                                .font(DbProTheme::ui_medium_font(13.0))
+                                .font(DbProTheme::ui_medium_font(FONT_SIZE_UI_LABEL))
                                 .color(theme.text_primary),
                         );
                         ui.add_space(4.0);
                         ui.label(
                             // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                             RichText::new("Pure Rust database client and engine abstractions for PostgreSQL, MySQL, and SQLite.")
-                                .size(11.5)
+                                .size(FONT_SIZE_CAPTION)
                                 .color(theme.text_secondary),
                         );
                     },
@@ -225,7 +225,7 @@ impl DbProApp {
             .show(ui, |ui| {
                 ui.label(
                     RichText::new("public.users will be removed from the catalog.")
-                        .size(13.0)
+                        .size(FONT_SIZE_UI_LABEL)
                         .color(theme.text_secondary),
                 );
                 ui.add_space(16.0);
@@ -249,18 +249,18 @@ impl DbProApp {
         Sheet::new(&mut sheet_open, "Object inspector", theme)
             .id_salt("gallery_object_inspector_sheet")
             .show(ui, |ui| {
-                ui.label(RichText::new("users").size(14.0).strong().color(theme.text_primary));
+                ui.label(RichText::new("users").size(FONT_SIZE_BODY_SM).strong().color(theme.text_primary));
                 ui.add_space(6.0);
                 ui.label(
                     RichText::new("BASE TABLE · 128,490 rows")
-                        .size(12.0)
+                        .size(FONT_SIZE_CAPTION)
                         .color(theme.text_secondary),
                 );
                 ui.add_space(12.0);
                 SectionHeader::new("Columns", theme).show(ui);
                 ui.add_space(6.0);
-                ui.label(RichText::new("id · uuid").size(12.5).color(theme.text_primary));
-                ui.label(RichText::new("email · text").size(12.5).color(theme.text_primary));
+                ui.label(RichText::new("id · uuid").size(FONT_SIZE_CAPTION).color(theme.text_primary));
+                ui.label(RichText::new("email · text").size(FONT_SIZE_CAPTION).color(theme.text_primary));
             });
         self.gallery_state.sheet_open = sheet_open;
 
@@ -501,21 +501,30 @@ impl DbProApp {
                             ui.horizontal(|ui| {
                                 ui.label(
                                     RichText::new(char::from(row.8).to_string())
-                                        .font(egui::FontId::new(13.0, egui::FontFamily::Name("lucide".into())))
+                                        .font(font_icon(ICON_XS))
                                         .color(theme.accent),
                                 );
                                 ui.add_space(6.0);
-                                ui.label(RichText::new(row.0).strong().size(12.5).color(theme.text_primary));
+                                ui.label(
+                                    RichText::new(row.0)
+                                        .strong()
+                                        .size(FONT_SIZE_CAPTION)
+                                        .color(theme.text_primary),
+                                );
                             });
                         }
                         1 => {
                             Badge::new(row.1, theme).variant(BadgeVariant::Outline).show(ui);
                         }
                         2 => {
-                            ui.label(RichText::new(row.2).monospace().size(12.0).color(theme.text_primary));
+                            ui.label(
+                                RichText::new(row.2).monospace().size(FONT_SIZE_MONO_SM).color(theme.text_primary),
+                            );
                         }
                         3 => {
-                            ui.label(RichText::new(row.4).monospace().size(12.0).color(theme.text_secondary));
+                            ui.label(
+                                RichText::new(row.4).monospace().size(FONT_SIZE_MONO_SM).color(theme.text_secondary),
+                            );
                         }
                         4 => {
                             Badge::new(row.7, theme).variant(row.6).dot(true).compact(true).show(ui);
@@ -582,7 +591,7 @@ impl DbProApp {
             let selected_count = self.gallery_state.table_selected_rows.len();
             ui.label(
                 RichText::new(format!("{selected_count} of {} row(s) selected", all_rows.len()))
-                    .size(12.0)
+                    .size(FONT_SIZE_CAPTION)
                     .color(theme.text_secondary),
             );
 
@@ -618,7 +627,7 @@ impl DbProApp {
                     .show(ui);
 
                 ui.add_space(8.0);
-                ui.label(RichText::new("Page 1 of 1").size(12.0).color(theme.text_muted));
+                ui.label(RichText::new("Page 1 of 1").size(FONT_SIZE_CAPTION).color(theme.text_muted));
             });
         });
     }

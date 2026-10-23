@@ -45,6 +45,9 @@ impl DbProApp {
                 .as_ref()
                 .is_some_and(|failure| failure.code == "CONFLICT");
 
+        // Idle cells are click-for-selection only — the separate editor widget
+        // owns text entry — so the cell keeps the default arrow instead of an
+        // I-beam. The active editor advertises the I-beam over its own rect.
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
         cell_resp.widget_info(|| {
             let column_name = result

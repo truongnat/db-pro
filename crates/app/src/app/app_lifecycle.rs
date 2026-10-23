@@ -21,9 +21,14 @@ impl eframe::App for DbProApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // egui keeps `PlatformOutput::cursor_icon` sticky between frames, so a
+        // hover cursor outlives the pointer leaving its widget unless it is
+        // cleared every pass. Clear it *before* drawing: widgets set their own
+        // cursor while they are drawn, and a reset afterwards would overwrite
+        // every one of them.
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
         self.draw_shell(ui);
         self.draw_overlays(ui.ctx());
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
         if cfg!(target_os = "linux") {
             shell_topbar_view::draw_window_resize_handles(ui.ctx());
         }

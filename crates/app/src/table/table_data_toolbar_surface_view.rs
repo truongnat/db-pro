@@ -210,6 +210,13 @@ impl TableDataToolbarContext<'_> {
                 t!("table.edit_where_condition").into_owned(),
             )
         });
+        // The field chrome is a click-to-focus target; the text input drawn on
+        // top of it overrides this with the I-beam while hovering the text.
+        let editor_response = if ui.is_enabled() {
+            editor_response.on_hover_cursor(egui::CursorIcon::PointingHand)
+        } else {
+            editor_response
+        };
         ui.painter().rect(
             editor_rect,
             egui::CornerRadius::same(4.0 as u8),
@@ -577,6 +584,11 @@ fn draw_column_suggestion_popup(
                                 column.name.as_str(),
                             )
                         });
+                        let row_response = if ui.is_enabled() {
+                            row_response.on_hover_cursor(egui::CursorIcon::PointingHand)
+                        } else {
+                            row_response
+                        };
                         if row_response.clicked() {
                             clicked = Some(index);
                         }

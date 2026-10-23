@@ -141,6 +141,16 @@ pub(crate) struct DiagramState {
     /// `true` once the initial fit-to-viewport (or a restored snapshot) ran for
     /// the current graph; reset whenever the graph is rebuilt.
     pub(super) auto_fit_done: bool,
+    /// The zoom/pan the auto-fit produced. A rebuilt graph refits the viewport
+    /// only while it still equals this value: once the user zooms or pans, the
+    /// cards can change height (the LOD follows the zoom) without stealing
+    /// their view.
+    pub(super) auto_fit_viewport: Option<(f32, egui::Vec2)>,
+    /// `true` once this session has written the live viewport back into the
+    /// connection's snapshot, i.e. the stored zoom/pan is no longer the value
+    /// loaded from storage. Only the loaded value may be refitted for being a
+    /// name-strip view — an in-session viewport is the user's.
+    pub(super) snapshot_live: bool,
     /// Capture-only knob (`DB_PRO_CAPTURE_DIAGRAM_ZOOM`): after the initial fit,
     /// re-center on the world at this zoom so evidence shots can document the
     /// Standard/Detailed levels of detail deterministically.
@@ -186,6 +196,8 @@ impl Default for DiagramState {
             hovered_node: None,
             selected_node: None,
             auto_fit_done: false,
+            auto_fit_viewport: None,
+            snapshot_live: false,
             capture_zoom_override: None,
             search_changed_at: None,
             fitted_search: String::new(),

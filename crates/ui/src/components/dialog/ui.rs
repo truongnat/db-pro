@@ -1,6 +1,6 @@
 use std::{borrow::Cow, hash::Hash};
 
-use egui::{Area, CornerRadius, FontId, Frame, Id, Margin, Order, Pos2, Response, RichText, Stroke, Ui};
+use egui::{Area, CornerRadius, Frame, Id, Margin, Order, Pos2, Response, RichText, Stroke, Ui};
 use lucide_icons::Icon;
 
 use super::{
@@ -20,7 +20,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         common::dialog_body_cap,
     },
-    tokens::{font_subheading, SPACE_XXS, STROKE_THIN},
+    tokens::{font_caption, font_subheading, SPACE_XXS, STROKE_THIN},
     DbProTheme,
 };
 
@@ -321,11 +321,7 @@ fn draw_dialog_header(
                         if title.is_some() {
                             ui.add_space(SPACE_XXS);
                         }
-                        ui.label(
-                            RichText::new(description)
-                                .font(FontId::proportional(12.5))
-                                .color(theme.text_muted),
-                        );
+                        ui.label(RichText::new(description).font(font_caption()).color(theme.text_muted));
                     }
                 });
             }

@@ -10,14 +10,14 @@ use crate::components::tabs::SegmentedTabs;
 use crate::components::Label;
 use crate::tokens::*;
 use crate::DbProTheme;
-use egui::{FontFamily, FontId, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
 
 /// Muted section header used above each field group ("GENERAL", "SERVER & …").
 fn section_label(ui: &mut egui::Ui, text: &str, theme: DbProTheme) {
     ui.label(
         RichText::new(text)
-            .font(DbProTheme::ui_medium_font(10.5))
+            .font(DbProTheme::ui_medium_font(FONT_SIZE_BADGE))
             .color(theme.text_muted),
     );
     ui.add_space(SPACE_XXS);
@@ -310,7 +310,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                         // `add_sized` + wrap (renders centered/offset).
                         let galley = ui.painter().layout(
                             guidance.to_string(),
-                            egui::FontId::proportional(10.0),
+                            font_caption(),
                             guidance_color,
                             guidance_width,
                         );
@@ -331,12 +331,12 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(Icon::ShieldCheck).to_string())
-                        .font(FontId::new(11.0, FontFamily::Name("lucide".into())))
+                        .font(font_icon(ICON_XS))
                         .color(self.theme.accent),
                 );
                 ui.label(
                     RichText::new(t!("connection.credentials_encrypted_hint"))
-                        .size(11.0)
+                        .size(FONT_SIZE_CAPTION)
                         .color(self.theme.text_muted),
                 );
             });

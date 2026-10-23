@@ -309,6 +309,14 @@ fn highlight_node(ctx: &DiagramViewContext<'_>, scene: &ErRenderScene) -> Option
 /// Fits the viewport once per graph — either restoring the persisted snapshot
 /// for this connection or fitting the whole world. Runs before the first paint
 /// so the diagram never flashes at 100% then jumps.
+///
+/// Card height follows the zoom's LOD, so a committed layout can change the
+/// world bounds *after* the fit that produced this zoom: a first fit at 100%
+/// lays out six column rows, the fitted zoom then lands below the Compact
+/// threshold, the shorter cards rebuild, and the old fit no longer matches. The
+/// viewport is refitted against the committed bounds — but only while it is
+/// still the one the fit produced, so a zoom or pan the user chose survives a
+/// rebuild.
 fn apply_initial_viewport(
     ctx: &mut DiagramViewContext<'_>,
     viewport_rect: egui::Rect,
@@ -325,35 +333,75 @@ fn apply_initial_viewport(
         Some(filter) => ctx.diagram.graph.active_subset_bounds(filter),
         None => ctx.diagram.graph.world_bounds,
     };
-    if let Some(snapshot) = ctx
+    let fit = super::diagram_view::fit_diagram_viewport(target_bounds, viewport_rect);
+    if ctx.diagram.auto_fit_viewport == Some((ctx.diagram.zoom, ctx.diagram.pan)) {
+        if let Some((zoom, pan)) = fit {
+            if refit_keeps_detail(ctx.diagram.zoom, zoom) {
+                apply_fitted_viewport(ctx, viewport_rect, target_bounds, zoom, pan);
+            }
+        }
+        return;
+    }
+    if restore_saved_viewport(ctx, viewport_rect, target_bounds, fit) {
+        return;
+    }
+    if let Some((zoom, pan)) = fit {
+        apply_fitted_viewport(ctx, viewport_rect, target_bounds, zoom, pan);
+    }
+}
+
+/// Restores the persisted zoom/pan for this connection. Returns `false` when
+/// there is nothing worth restoring: no snapshot, a viewport the graph no longer
+/// intersects, or a name-strip zoom the current bounds can improve on.
+fn restore_saved_viewport(
+    ctx: &mut DiagramViewContext<'_>,
+    viewport_rect: egui::Rect,
+    target_bounds: egui::Rect,
+    fit: Option<(f32, egui::Vec2)>,
+) -> bool {
+    let (saved_zoom, saved_pan) = match ctx
         .connection_id
         .as_deref()
         .and_then(|id| ctx.diagram.saved_layouts.get(id))
     {
-        let mut applied = false;
-        if let Some(zoom) = snapshot.zoom {
-            ctx.diagram.zoom = zoom.clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
-            applied = true;
-        }
-        if let Some([x, y]) = snapshot.pan {
-            ctx.diagram.pan = egui::vec2(x, y);
-            applied = true;
-        }
-        if applied {
-            // A stale snapshot can shove the whole graph outside the viewport
-            // (window resized, schema rebuilt with different bounds). Only keep
-            // it when the world still intersects the screen; otherwise refit.
-            let viewport = ErViewport::new(ctx.diagram.pan, ctx.diagram.zoom, viewport_rect.min);
-            let visible = viewport.world_to_screen_rect(target_bounds);
-            if visible.intersects(viewport_rect) {
-                return;
-            }
-        }
+        Some(snapshot) => (snapshot.zoom, snapshot.pan),
+        None => return false,
+    };
+    let mut applied = false;
+    if let Some(zoom) = saved_zoom {
+        ctx.diagram.zoom = zoom.clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
+        applied = true;
     }
-    if let Some((zoom, pan)) = super::diagram_view::fit_diagram_viewport(target_bounds, viewport_rect) {
-        ctx.diagram.zoom = zoom;
-        ctx.diagram.pan = pan;
+    if let Some([x, y]) = saved_pan {
+        ctx.diagram.pan = egui::vec2(x, y);
+        applied = true;
     }
+    if !applied {
+        return false;
+    }
+    // A stale snapshot can shove the whole graph outside the viewport (window
+    // resized, schema rebuilt with different bounds). Only keep it when the
+    // world still intersects the screen; otherwise refit.
+    let viewport = ErViewport::new(ctx.diagram.pan, ctx.diagram.zoom, viewport_rect.min);
+    let visible = viewport.world_to_screen_rect(target_bounds);
+    // Only the viewport loaded from storage may be refitted for being a
+    // name-strip view: once this session wrote the snapshot it holds a viewport
+    // the user chose.
+    let strip = !ctx.diagram.snapshot_live && fit.is_some_and(|(zoom, _)| strip_zoom_is_stale(ctx.diagram.zoom, zoom));
+    visible.intersects(viewport_rect) && !strip
+}
+
+/// Applies an auto-fit and remembers it, so a later layout commit can tell the
+/// fit's own output apart from a viewport the user chose.
+fn apply_fitted_viewport(
+    ctx: &mut DiagramViewContext<'_>,
+    viewport_rect: egui::Rect,
+    target_bounds: egui::Rect,
+    zoom: f32,
+    pan: egui::Vec2,
+) {
+    ctx.diagram.zoom = zoom;
+    ctx.diagram.pan = pan;
     if let Some(capture_zoom) = ctx.diagram.capture_zoom_override {
         let zoom = capture_zoom.clamp(ER_MIN_ZOOM, ER_MAX_ZOOM);
         ctx.diagram.zoom = zoom;
@@ -361,6 +409,22 @@ fn apply_initial_viewport(
             - viewport_rect.min.to_vec2()
             - target_bounds.center().to_vec2() * zoom;
     }
+    ctx.diagram.auto_fit_viewport = Some((ctx.diagram.zoom, ctx.diagram.pan));
+}
+
+/// An automatic refit must not walk the view down a level of detail. Dropping a
+/// band shortens the cards, which shrinks the bounds, which fits to a larger
+/// zoom, which rebuilds taller cards again — the two bands would refit each
+/// other forever. Staying in the band or climbing is safe.
+fn refit_keeps_detail(current_zoom: f32, fit_zoom: f32) -> bool {
+    fit_zoom >= current_zoom || ErLod::from_zoom(fit_zoom) == ErLod::from_zoom(current_zoom)
+}
+
+/// A stored viewport below the column threshold is a name-strip view, saved
+/// before the cards were fitted to the viewport. Refit it whenever the current
+/// bounds can show columns at all.
+fn strip_zoom_is_stale(stored_zoom: f32, fit_zoom: f32) -> bool {
+    ErLod::from_zoom(stored_zoom) == ErLod::Compact && ErLod::from_zoom(fit_zoom) != ErLod::Compact
 }
 
 /// After typing pauses, re-fit the viewport to the search-neighborhood subset
@@ -520,6 +584,9 @@ fn sync_layout_snapshot(ctx: &mut DiagramViewContext<'_>) {
         snapshot.zoom = Some(zoom);
         snapshot.pan = Some(pan);
     }
+    // From here on the stored viewport is this session's, not the one loaded
+    // from storage — see `DiagramState::snapshot_live`.
+    ctx.diagram.snapshot_live = true;
 }
 
 /// Screen rect of the minimap overlay (bottom-right corner).

@@ -9,7 +9,7 @@
 //! (see the `allocate_exact_size` + `interact` note in `components.rs`).
 
 use super::*;
-use egui::{pos2, vec2, Align2, Color32, FontFamily, FontId, Rect, CornerRadius};
+use egui::{pos2, vec2, Align2, Color32, FontId, Rect, CornerRadius};
 use lucide_icons::Icon;
 
 /// Row height in pixels. Also the height of the chevron hit-box.
@@ -27,7 +27,7 @@ const CODEX_TRAILING_GAP: f32 = 4.0;
 /// text or reserves a phantom gap that shoves the cluster out of the row.
 const CODEX_BADGE_HEIGHT: f32 = 16.0;
 pub(super) const CODEX_BADGE_PAD_X: f32 = 4.0;
-const CODEX_BADGE_FONT_SIZE: f32 = 9.5;
+const CODEX_BADGE_FONT_SIZE: f32 = FONT_SIZE_BADGE;
 const CODEX_BADGE_ROUNDING: f32 = 3.0;
 
 /// Shortens verbose database types into clean, compact identifiers (e.g. DBeaver style).
@@ -99,6 +99,13 @@ pub(crate) fn draw_codex_tree_row(
     response.widget_info(|| {
         egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, ui.is_enabled(), row.is_selected, row.label)
     });
+    // Rows activate or expand on click — including dimmed hint/connection rows,
+    // which stay clickable — so only a disabled ui drops the hand.
+    let response = if ui.is_enabled() {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    };
     let is_hovered = response.hovered();
 
     let painter = ui.painter().with_clip_rect(rect);
@@ -124,7 +131,7 @@ pub(crate) fn draw_codex_tree_row(
         pos2(curr_x + 7.0, center_y),
         Align2::CENTER_CENTER,
         char::from(row.icon).to_string(),
-        FontId::new(13.0, FontFamily::Name("lucide".into())),
+        font_icon(ICON_XS),
         row.icon_color,
     );
     curr_x += 17.0;
@@ -183,7 +190,7 @@ fn paint_chevron_slot(
         chevron_rect.center(),
         Align2::CENTER_CENTER,
         char::from(chevron_icon).to_string(),
-        FontId::new(10.5, FontFamily::Name("lucide".into())),
+        font_icon(ICON_XS),
         chevron_color,
     );
 }
@@ -210,7 +217,7 @@ fn paint_row_trailing_items(
             pos2(right_x, center_y),
             Align2::RIGHT_CENTER,
             count,
-            FontId::proportional(11.0),
+            FontId::proportional(FONT_SIZE_BADGE),
             theme.text_muted,
         );
         right_x -= count_rect.width() + CODEX_TRAILING_GAP;
@@ -274,7 +281,7 @@ fn paint_row_label(
 
     let clip_max_x = (right_x - 4.0).max(curr_x);
     let available = (clip_max_x - curr_x).max(0.0);
-    let font = FontId::proportional(12.5);
+    let font = FontId::proportional(FONT_SIZE_UI_LABEL);
     let label_galley = layout_truncated_label(painter, row.label, font, label_color, available);
     let label_w = label_galley.size().x;
     painter.galley(
@@ -288,7 +295,7 @@ fn paint_row_label(
         let detail_avail = (clip_max_x - detail_x).max(0.0);
         if detail_avail > 8.0 {
             let detail_galley =
-                layout_truncated_label(painter, detail, FontId::monospace(10.5), theme.text_muted, detail_avail);
+                layout_truncated_label(painter, detail, font_mono_sm(), theme.text_muted, detail_avail);
             painter.galley(
                 pos2(detail_x, center_y - detail_galley.size().y * 0.5),
                 detail_galley,

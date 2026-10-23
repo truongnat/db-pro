@@ -61,7 +61,7 @@ impl DbProApp {
         ui.horizontal_wrapped(|ui| {
             ui.label(
                 RichText::new("Active Context:")
-                    .size(12.0)
+                    .size(FONT_SIZE_CAPTION)
                     .strong()
                     .color(theme.text_muted),
             );
@@ -261,7 +261,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.label(
                 RichText::new("Destructive Action Protection:")
-                    .size(12.0)
+                    .size(FONT_SIZE_CAPTION)
                     .color(theme.text_secondary),
             );
             ui.add_space(6.0);
@@ -339,7 +339,7 @@ impl DbProApp {
 
     fn draw_gallery_label(&self, ui: &mut Ui, text: &str) {
         ui.add_space(16.0);
-        ui.label(RichText::new(text).size(13.0).strong().color(self.theme.text_secondary));
+        ui.label(RichText::new(text).size(FONT_SIZE_UI_LABEL).strong().color(self.theme.text_secondary));
         ui.add_space(6.0);
     }
 }

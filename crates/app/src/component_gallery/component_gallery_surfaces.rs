@@ -17,7 +17,7 @@ impl DbProApp {
         Card::new(theme).show(ui, |ui| {
             ui.label(
                 RichText::new("Variants")
-                    .size(13.0)
+                    .size(FONT_SIZE_UI_LABEL)
                     .strong()
                     .color(theme.text_secondary),
             );
@@ -53,7 +53,7 @@ impl DbProApp {
             });
 
             ui.add_space(16.0);
-            ui.label(RichText::new("Sizes").size(13.0).strong().color(theme.text_secondary));
+            ui.label(RichText::new("Sizes").size(FONT_SIZE_UI_LABEL).strong().color(theme.text_secondary));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 Button::new(theme).text("Small (Sm)").size(ButtonSize::Sm).show(ui);
@@ -83,7 +83,7 @@ impl DbProApp {
             ui.add_space(16.0);
             ui.label(
                 RichText::new("Interactive States & Loading")
-                    .size(13.0)
+                    .size(FONT_SIZE_UI_LABEL)
                     .strong()
                     .color(theme.text_secondary),
             );
@@ -242,12 +242,21 @@ impl DbProApp {
 
         Card::new(theme).show(ui, |ui| {
             // Row 1: InlineCode & CodeBlock
-            ui.label(RichText::new("Inline Code & CodeBlock").size(13.0).strong().color(theme.text_secondary));
+            ui.label(
+                RichText::new("Inline Code & CodeBlock")
+                    .size(FONT_SIZE_UI_LABEL)
+                    .strong()
+                    .color(theme.text_secondary),
+            );
             ui.add_space(6.0);
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Execute query with safe limit:").size(13.0).color(theme.text_primary));
+                ui.label(
+                    RichText::new("Execute query with safe limit:")
+                        .size(FONT_SIZE_UI_LABEL)
+                        .color(theme.text_primary),
+                );
                 InlineCode::new("SELECT * FROM users WHERE status = 'active' LIMIT 50;", theme).show(ui);
-                ui.label(RichText::new("or connect via").size(13.0).color(theme.text_primary));
+                ui.label(RichText::new("or connect via").size(FONT_SIZE_UI_LABEL).color(theme.text_primary));
                 InlineCode::new("postgresql://localhost:5432/main", theme).show(ui);
             });
 
@@ -267,7 +276,12 @@ impl DbProApp {
             ui.columns(2, |cols| {
                 // Col 1: DiffViewer
                 let ui = &mut cols[0];
-                ui.label(RichText::new("Schema & SQL Diff Proposal").size(13.0).strong().color(theme.text_secondary));
+                ui.label(
+                    RichText::new("Schema & SQL Diff Proposal")
+                        .size(FONT_SIZE_UI_LABEL)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
                 ui.add_space(SPACE_SM);
 
                 let diff_lines = [
@@ -283,7 +297,12 @@ impl DbProApp {
 
                 // Col 2: Schema Tree
                 let ui = &mut cols[1];
-                ui.label(RichText::new("Hierarchical Database Tree").size(13.0).strong().color(theme.text_secondary));
+                ui.label(
+                    RichText::new("Hierarchical Database Tree")
+                        .size(FONT_SIZE_UI_LABEL)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
                 ui.add_space(SPACE_SM);
 
                 Card::new(theme).show(ui, |ui| {
@@ -352,7 +371,12 @@ impl DbProApp {
             ui.add_space(20.0);
 
             // Row 3: SQL Editor Toolbar & Action Bar
-            ui.label(RichText::new("SQL Editor Toolbar & Diagnostics").size(13.0).strong().color(theme.text_secondary));
+            ui.label(
+                RichText::new("SQL Editor Toolbar & Diagnostics")
+                    .size(FONT_SIZE_UI_LABEL)
+                    .strong()
+                    .color(theme.text_secondary),
+            );
             ui.add_space(6.0);
 
             let sql_action = SqlEditorToolbar::new(false, true, theme).show(ui);
@@ -406,7 +430,12 @@ impl DbProApp {
 
                 // Col 2: Execution Log Viewer
                 let ui = &mut cols[1];
-                ui.label(RichText::new("Query Execution Log").size(13.0).strong().color(theme.text_secondary));
+                ui.label(
+                    RichText::new("Query Execution Log")
+                        .size(FONT_SIZE_UI_LABEL)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
                 ui.add_space(6.0);
 
                 let log_entries = [
@@ -425,7 +454,12 @@ impl DbProApp {
             ui.columns(2, |cols| {
                 // Col 1: TerminalBlock
                 let ui = &mut cols[0];
-                ui.label(RichText::new("Terminal / CLI Output").size(13.0).strong().color(theme.text_secondary));
+                ui.label(
+                    RichText::new("Terminal / CLI Output")
+                        .size(FONT_SIZE_UI_LABEL)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
                 ui.add_space(6.0);
                 // cc-scan:allow LINE_TOO_LONG — literal must not wrap
                 TerminalBlock::new("psql -h localhost -U postgres -d production_db\npsql (16.2)\nType \"help\" for help.\n\nproduction_db=# VACUUM ANALYZE users;\nVACUUM", theme)
@@ -434,15 +468,28 @@ impl DbProApp {
 
                 // Col 2: ProgressRing
                 let ui = &mut cols[1];
-                ui.label(RichText::new("Progress Ring Indicator").size(13.0).strong().color(theme.text_secondary));
+                ui.label(
+                    RichText::new("Progress Ring Indicator")
+                        .size(FONT_SIZE_UI_LABEL)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
                     ProgressRing::new(0.75, 20.0, theme).show(ui);
                     ui.add_space(12.0);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("75% Schema Indexing").size(12.5).strong().color(theme.text_primary));
-                        // cc-scan:allow LINE_TOO_LONG — literal must not wrap
-                        ui.label(RichText::new("Building idx_users_email concurrently...").size(11.5).color(theme.text_secondary));
+                        ui.label(
+                            RichText::new("75% Schema Indexing")
+                                .size(FONT_SIZE_CAPTION)
+                                .strong()
+                                .color(theme.text_primary),
+                        );
+                        ui.label(
+                            RichText::new("Building idx_users_email concurrently...")
+                                .size(FONT_SIZE_CAPTION)
+                                .color(theme.text_secondary),
+                        );
                     });
                 });
             });
@@ -461,7 +508,7 @@ impl DbProApp {
             // Row 1: Connection Cards & Badges
             ui.label(
                 RichText::new("Connection Cards & Database Driver Badges")
-                    .size(13.0)
+                    .size(FONT_SIZE_UI_LABEL)
                     .strong()
                     .color(theme.text_secondary),
             );
@@ -520,7 +567,7 @@ impl DbProApp {
                 let ui = &mut cols[1];
                 ui.label(
                     RichText::new("Connection Health & Latency Monitors")
-                        .size(12.5)
+                        .size(FONT_SIZE_CAPTION)
                         .strong()
                         .color(theme.text_secondary),
                 );
@@ -552,7 +599,7 @@ impl DbProApp {
             // Row 2: Status Bar Demo
             ui.label(
                 RichText::new("Application Status Bar (Editor & Database Meta)")
-                    .size(13.0)
+                    .size(FONT_SIZE_UI_LABEL)
                     .strong()
                     .color(theme.text_secondary),
             );

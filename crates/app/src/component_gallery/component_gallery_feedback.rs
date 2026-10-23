@@ -53,7 +53,7 @@ impl DbProApp {
             } else {
                 ui.label(
                     RichText::new("Warning dismissed — reset the gallery to see it again.")
-                        .size(12.0)
+                        .size(FONT_SIZE_CAPTION)
                         .color(theme.text_muted),
                 );
             }
@@ -79,7 +79,7 @@ impl DbProApp {
             } else {
                 ui.label(
                     RichText::new("Error dismissed — reset the gallery to see it again.")
-                        .size(12.0)
+                        .size(FONT_SIZE_CAPTION)
                         .color(theme.text_muted),
                 );
             }
@@ -124,7 +124,7 @@ impl DbProApp {
                     let pct = (self.gallery_state.progress_val * 100.0).round() as i32; // safe: progress is clamped to finite [0, 1].
                     ui.label(
                         RichText::new(format!("Smooth Progress ({}%)", pct))
-                            .size(12.5)
+                            .size(FONT_SIZE_CAPTION)
                             .strong()
                             .color(theme.text_secondary),
                     );
@@ -157,7 +157,7 @@ impl DbProApp {
                 1 => {
                     ui.label(
                         RichText::new("Indeterminate Animated Beam")
-                            .size(12.5)
+                            .size(FONT_SIZE_CAPTION)
                             .strong()
                             .color(theme.text_secondary),
                     );
@@ -167,7 +167,7 @@ impl DbProApp {
                 _ => {
                     ui.label(
                         RichText::new("Animated Vector Spinner")
-                            .size(12.5)
+                            .size(FONT_SIZE_CAPTION)
                             .strong()
                             .color(theme.text_secondary),
                     );
@@ -177,7 +177,7 @@ impl DbProApp {
                         ui.add_space(8.0);
                         ui.label(
                             RichText::new("Syncing schema metadata...")
-                                .size(12.0)
+                                .size(FONT_SIZE_CAPTION)
                                 .color(theme.text_muted),
                         );
                     });
@@ -211,7 +211,7 @@ impl DbProApp {
             .max_columns(4)
             .show(ui, shortcuts, |ui, (label, keys)| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(label).size(12.0).color(theme.text_secondary));
+                    ui.label(RichText::new(label).size(FONT_SIZE_CAPTION).color(theme.text_secondary));
                     kbd_combo(ui, keys, theme);
                 });
             });
@@ -275,12 +275,12 @@ impl DbProApp {
 
                 for (group_title, items) in shortcut_groups {
                     ui.add_space(10.0);
-                    ui.label(RichText::new(group_title).size(12.5).strong().color(theme.text_primary));
+                    ui.label(RichText::new(group_title).size(FONT_SIZE_CAPTION).strong().color(theme.text_primary));
                     ui.add_space(6.0);
 
                     for (action_name, keys) in items {
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new(*action_name).size(12.0).color(theme.text_secondary));
+                            ui.label(RichText::new(*action_name).size(FONT_SIZE_CAPTION).color(theme.text_secondary));
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 kbd_combo(ui, keys, theme);
                             });
@@ -311,7 +311,7 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("Floating Toasts (Multi-Stack & Positions):")
-                        .size(12.0)
+                        .size(FONT_SIZE_CAPTION)
                         .strong()
                         .color(theme.text_secondary),
                 );
@@ -477,7 +477,7 @@ impl DbProApp {
         Card::new(theme).show(ui, |ui| {
             ui.label(
                 RichText::new("Segmented Pill Tabs")
-                    .size(13.0)
+                    .size(FONT_SIZE_UI_LABEL)
                     .strong()
                     .color(theme.text_secondary),
             );
@@ -493,7 +493,7 @@ impl DbProApp {
 
             ui.label(
                 RichText::new("Underline Tabs")
-                    .size(13.0)
+                    .size(FONT_SIZE_UI_LABEL)
                     .strong()
                     .color(theme.text_secondary),
             );

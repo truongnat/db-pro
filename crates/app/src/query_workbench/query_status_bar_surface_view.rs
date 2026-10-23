@@ -133,7 +133,10 @@ fn draw_transaction_label(context: &QueryStatusBarContext<'_>, ui: &mut egui::Ui
         .sense(egui::Sense::click()),
     );
     let clicked = response.clicked();
-    response.on_hover_text("Toggle transaction controls");
+    let response = response.on_hover_text("Toggle transaction controls");
+    if ui.is_enabled() {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    }
     clicked.then_some(QueryStatusBarAction::ToggleTransaction)
 }
 
@@ -148,7 +151,10 @@ fn draw_parameter_label(context: &QueryStatusBarContext<'_>, ui: &mut egui::Ui) 
             .sense(egui::Sense::click()),
     );
     let clicked = response.clicked();
-    response.on_hover_text("Edit bind parameters");
+    let response = response.on_hover_text("Edit bind parameters");
+    if ui.is_enabled() {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    }
     clicked.then_some(QueryStatusBarAction::ToggleParameters)
 }
 
@@ -161,5 +167,10 @@ fn draw_diagnostic_label(context: &QueryStatusBarContext<'_>, ui: &mut egui::Ui)
         )
         .sense(egui::Sense::click()),
     );
+    let response = if ui.is_enabled() {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    };
     response.clicked().then_some(QueryStatusBarAction::ShowDiagnostics)
 }

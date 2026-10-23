@@ -12,7 +12,7 @@ use crate::components::input::Input;
 
 use crate::tokens::*;
 use crate::{DbProTheme, UiCommand, UiDriver, UiSslMode};
-use egui::{FontFamily, FontId, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
 
 use super::super::FeedbackState;
@@ -358,7 +358,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
                 ui.add_space(SPACE_XS);
                 ui.label(
                     RichText::new(char::from(Icon::Check).to_string())
-                        .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                        .font(font_icon(ICON_XS))
                         .color(self.theme.success),
                 );
                 ui.label(
@@ -421,7 +421,7 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
         // Database File Path
         ui.label(
             RichText::new(t!("connection.database_file"))
-                .font(DbProTheme::ui_medium_font(10.5))
+                .font(DbProTheme::ui_medium_font(FONT_SIZE_BADGE))
                 .color(self.theme.text_muted),
         );
         ui.add_space(SPACE_XXS);

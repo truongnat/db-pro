@@ -90,13 +90,20 @@ fn draw_input(context: &mut CellEditorContext<'_>, ui: &mut egui::Ui, cell_rect:
 }
 
 fn draw_text_input(ui: &mut egui::Ui, theme: DbProTheme, value: &mut String, size: egui::Vec2) -> egui::Response {
-    ui.add_sized(
+    let response = ui.add_sized(
         size,
         egui::TextEdit::singleline(value) // ui-rules: in-cell grid editor must stay chromeless (Frame::NONE, add_sized); Input owns label/field chrome
             .frame(egui::Frame::NONE)
             .margin(egui::Margin::symmetric(6.0 as i8, 2.0 as i8))
             .text_color(theme.text_primary),
-    )
+    );
+    // The active editor is the only text-entry surface in the grid, so it is
+    // the only place that shows an I-beam.
+    if ui.is_enabled() {
+        response.on_hover_cursor(egui::CursorIcon::Text)
+    } else {
+        response
+    }
 }
 
 /// `(stored_value, label)` pairs for the boolean select. `NULL` is only

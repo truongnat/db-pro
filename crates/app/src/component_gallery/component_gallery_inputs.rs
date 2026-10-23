@@ -355,7 +355,7 @@ impl DbProApp {
                 let ui = &mut columns[0];
                 ui.label(
                     RichText::new("Checkboxes")
-                        .size(13.0)
+                        .size(FONT_SIZE_UI_LABEL)
                         .strong()
                         .color(theme.text_secondary),
                 );
@@ -378,7 +378,7 @@ impl DbProApp {
                 let ui = &mut columns[1];
                 ui.label(
                     RichText::new("Switches & Radios")
-                        .size(13.0)
+                        .size(FONT_SIZE_UI_LABEL)
                         .strong()
                         .color(theme.text_secondary),
                 );
@@ -406,13 +406,13 @@ impl DbProApp {
                 let ui = &mut columns[2];
                 ui.label(
                     RichText::new("Dropdown Select & Slider")
-                        .font(DbProTheme::ui_medium_font(13.0))
+                        .font(DbProTheme::ui_medium_font(FONT_SIZE_UI_LABEL))
                         .color(theme.text_secondary),
                 );
                 ui.add_space(8.0);
                 ui.label(
                     RichText::new("36 clusters, 8-row max height, Load more, opens upward if clipped.")
-                        .size(11.5)
+                        .size(FONT_SIZE_CAPTION)
                         .color(theme.text_muted),
                 );
                 ui.add_space(8.0);
@@ -596,7 +596,7 @@ fn gallery_panel<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(&m
 fn gallery_panel_heading(ui: &mut Ui, theme: DbProTheme, (title, description): (&str, &str)) {
     ui.label(
         RichText::new(title)
-            .font(DbProTheme::ui_medium_font(13.0))
+            .font(DbProTheme::ui_medium_font(FONT_SIZE_UI_LABEL))
             .color(theme.text_primary),
     );
     ui.add_space(SPACE_XXS);

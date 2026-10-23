@@ -17,6 +17,12 @@ pub(super) fn draw_row_gutter(ui: &mut egui::Ui, context: GridRowGutterContext) 
             format!("Row {}", context.row_number),
         )
     });
+    // Clicking the gutter selects the row.
+    let response = if ui.is_enabled() {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    };
     let gutter_fill = if context.selected {
         // selected-row gutter matches the quiet row wash; the number carries
         // the accent cue per the spec

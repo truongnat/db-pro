@@ -244,6 +244,12 @@ impl ToolsHubContext<'_> {
         // The card is painted by a custom frame — egui can't infer the role, so
         // declare it as a named button for accessibility tools.
         response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), title));
+        // The whole card is one click target.
+        let response = if ui.is_enabled() {
+            response.on_hover_cursor(egui::CursorIcon::PointingHand)
+        } else {
+            response
+        };
         if response.clicked() {
             actions.push(action);
         }
