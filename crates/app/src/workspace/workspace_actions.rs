@@ -458,7 +458,20 @@ impl DbProApp {
     }
 
     /// Capture helper: open the query context picker popup (connection/schema selector).
+    ///
+    /// `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER` selects the state: `dense` seeds many
+    /// long-named schemas to exercise the bounded scroll, `empty` clears the schema list
+    /// to document the empty section; any other value keeps the live fixture data.
     pub fn open_query_context_picker_for_capture(&mut self) {
+        match std::env::var("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").as_deref() {
+            Ok("dense") => {
+                self.schema.explorer.schema.schemas = (0..24)
+                    .map(|index| format!("tenant_{index:02}_customer_analytics_reporting"))
+                    .collect();
+            }
+            Ok("empty") => self.schema.explorer.schema.schemas.clear(),
+            _ => {}
+        }
         self.query.editor.query_context_picker_open = true;
     }
 
@@ -959,8 +972,9 @@ impl DbProApp {
     /// Capture/evidence helper: Explorer with a non-default object filter so the
     /// active-filter indicator and hidden kinds can be documented.
     pub fn open_explorer_filter_for_capture(&mut self) {
-        self.preferences.dark_mode = true;
-        self.theme = DbProTheme::dark();
+        let light = std::env::var_os("DB_PRO_CAPTURE_EXPLORER_FILTER_LIGHT").is_some();
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.workspace.activity = Activity::Explorer;
         self.schema.explorer.explorer_filter.views = false;
         self.schema.explorer.explorer_filter.mode = ExplorerMatchMode::Prefix;

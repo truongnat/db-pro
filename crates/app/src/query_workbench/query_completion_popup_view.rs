@@ -75,7 +75,7 @@ pub(super) fn draw_floating_completion_popup(
 
     let area_resp = FloatingPopup::new(egui::Id::new("floating_completion_popup"), theme, popup_pos)
         .order(egui::Order::Foreground)
-        .surface_panel()
+        .surface_elevated()
         .radius(10.0)
         .margin(egui::Margin::symmetric(4.0 as i8, 4.0 as i8))
         .show(ctx, |ui| {

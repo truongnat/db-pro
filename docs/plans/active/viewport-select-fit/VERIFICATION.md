@@ -92,7 +92,7 @@ floating surface actually laid out, including the shrink-to-content height for a
 | UI architecture | `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
 | Capture build | `cargo build -p db-pro-native --features capture` | exit 0 (rebuilt after the narrow-viewport fixes) |
 | **Native release gate** | `cargo build --release --locked -p db-pro-native` | exit 0 — `Finished release profile [optimized]` |
-| **Workspace tests** | `cargo test --workspace` | exit 0 — **2,269 passed / 0 failed / 65 ignored** |
+| **Workspace tests** | `cargo test --workspace` | exit 0 — **2,271 passed / 0 failed / 65 ignored** |
 | Unit tests (touched crates) | `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — `db-pro-app` 679 passed / 0 failed / 0 ignored; `db-pro-ui` 724 passed / 0 failed / 0 ignored |
 | Clean-code diff ratchet | `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | exit 0 — 11 pass / 5 warn / 0 fail (warnings are pre-existing long-file/clone heuristics in untouched files) |
 
@@ -125,23 +125,30 @@ SHA-256 per image).
 
 | Scenario | Requested | Rendered (logical) | PNG | Process exit |
 |---|---|---|---|---|
-| appearance-light-1280x800 | 1280×800 | 1280×800 | yes | 0 |
-| appearance-dark-1280x800 | 1280×800 | 1280×800 | yes | 0 |
-| appearance-light-1440x900 | 1440×900 | 1440×838 | yes | −6 |
-| appearance-dark-1440x900 | 1440×900 | 1440×838 | yes | 0 |
-| appearance-light-1920x1080 | 1920×1080 | 1920×838 | yes | 0 |
-| appearance-dark-1920x1080 | 1920×1080 | 1920×838 | yes | 0 |
+| appearance-light-1280x800 | 1280×800 | 1280×800 | yes | −6 |
 | query-picker-light-1280x800 | 1280×800 | 1280×800 | yes | −6 |
+| appearance-dark-1280x800 | 1280×800 | 1280×800 | yes | −6 |
 | query-picker-dark-1280x800 | 1280×800 | 1280×800 | yes | −6 |
-| query-picker-light-1440x900 | 1440×900 | 1440×838 | yes | −6 |
+| appearance-light-1440x900 | 1440×900 | 1440×838 | yes | −6 |
+| query-picker-light-1440x900 | 1440×900 | 1440×838 | yes | 0 |
+| appearance-dark-1440x900 | 1440×900 | 1440×838 | yes | −6 |
 | query-picker-dark-1440x900 | 1440×900 | 1440×838 | yes | −6 |
+| appearance-light-1920x1080 | 1920×1080 | 1920×838 | yes | −6 |
 | query-picker-light-1920x1080 | 1920×1080 | 1920×838 | yes | −6 |
+| appearance-dark-1920x1080 | 1920×1080 | 1920×838 | yes | −6 |
 | query-picker-dark-1920x1080 | 1920×1080 | 1920×838 | yes | −6 |
+| picker-dense-light-1280x800 (24 long schemas) | 1280×800 | 1280×800 | yes | −6 |
+| picker-dense-dark-1280x800 (24 long schemas) | 1280×800 | 1280×800 | yes | 0 |
+| picker-short-light-1280x800 (2 conn + 1 schema) | 1280×800 | 1280×800 | yes | 0 |
+| explorer-filter-popover-light-1280x800 | 1280×800 | 1280×800 | yes | 0 |
+| explorer-filter-popover-dark-1280x800 | 1280×800 | 1280×800 | yes | 0 |
 
-This matrix is the **final** run: it was re-executed after the F5/F6 narrow-viewport fixes so the
-images match the tree described at the top of this file, not the earlier intermediate build.
+This matrix is the **final** run: it was re-executed after the F5/F6 narrow-viewport fixes and again
+after the F7 light-palette change, so the images match the tree described at the top of this file.
+It now covers 17 cells: the 12 size × theme cells plus dense-list, short-list and the Explorer
+filter popover.
 
-All 12 PNGs were opened and inspected, not inferred from file size.
+All 17 PNGs were opened and inspected, not inferred from file size.
 
 Exit-code notes:
 
@@ -219,17 +226,44 @@ Operational note: `cargo test --workspace` rebuilds `target/debug/db-pro-native`
 `cargo build -p db-pro-native --features capture`. Skipping that makes `DB_PRO_CAPTURE_TO` inert and
 the process run until timeout (observed as exit 124 with no PNG).
 
-## 6. Honest limitations
+## 6. Theme chrome separation (F7)
+
+Owner feedback: in light mode the regions read as one flat surface, and the sidebar should sit
+slightly above the canvas.
+
+| Change | Before | After |
+|---|---|---|
+| Light `background.panel` (sidebar, topbar, status bar) | `#f9f9f9` | `#f1f1f1` |
+| Light `tertiary` / `muted` text | `#707070` (4.38:1 on the new panel — fails AA) | `#6b6b6b` (4.72:1) |
+| Transient popups (completion, hover, signature help, column suggestions) | `surface_panel` | `surface_elevated` (documented role) |
+| Dark tokens | — | unchanged |
+
+`crates/ui/src/theme/tests` keeps enforcing 4.5:1 for primary/secondary/tertiary on both the canvas
+and the panel, and `light_tokens_follow_codex_surface_contract` now pins `#f1f1f1`. The two light
+ramp steps the change orphaned (`NEUTRAL_50`, `NEUTRAL_500`) were deleted — Clippy's `dead_code`
+caught them, which is why the workspace Clippy gate is reported as exit 0 only after that deletion.
+
+Observed in the re-captured evidence: in every light cell the sidebar/topbar is a distinct step
+below the white editor, cards and the picker popup read as raised, and no text lost legibility. Dark
+cells are pixel-comparable to the previous run because none of their tokens changed.
+
+## 7. Honest limitations
 
 - Matrix heights above 838 logical px are unavailable on this host; the requested 900/1080 cells are
   recorded as clamped, not as verified at those heights.
-- Only the short-list state (2 connections, 1 schema) was captured. Dense PostgreSQL schema lists
-  beyond the 180 px bound and long connection names were exercised only by the unit test's bounds
-  assertion, not by a screenshot.
-- Loading/error/empty states of the picker were not captured. The empty-list labels added in the
-  picker are covered by reading, not by a screenshot.
-- Keyboard journey inside the open picker (arrow movement, Enter/Escape) is covered for Escape only.
-- Pointer-driven dismissal (`clicked_outside`) was not re-tested here.
+- Picker keyboard coverage is Escape-only (arrow/Enter navigation inside the popup is not
+  implemented by `paint_option`, so there is nothing to drive); pointer-outside dismissal is covered
+  by a unit test.
+- The picker's "empty" state is unreachable by design: the caller always yields at least one entry
+  (`main` for engines without schemas, `public` otherwise), so no empty-state branch is shipped.
+- Light-palette separation was judged from the captured surfaces (workspace, Appearance, picker,
+  Explorer popover). Dense data views and the ER canvas were not re-inspected for the new step.
+- Dense schema lists are captured with 24 long-named entries (5 visible rows inside the bounded
+  window); scrolling deeper than the first rows and the full 24-row traversal were not driven.
+- The picker has no empty state to capture: the caller always supplies at least one schema, and the
+  defensive empty branches were removed rather than shipped untested.
+- Keyboard journey inside the open picker is Escape-only; `paint_option` exposes no arrow/Enter
+  handling, so the popup is pointer-select plus Escape. Pointer-outside dismissal has a unit test.
 - No PostgreSQL or SQLite database behavior changed; the picker is a pure UI surface fed by
   already-loaded catalog/schema state. Provider matrix: PostgreSQL `N/A`, SQLite `N/A` (layout-only).
 - `cargo test --workspace` passes, but its 65 `#[ignore]`d provider tests did not run; the CI review

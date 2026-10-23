@@ -101,7 +101,7 @@ pub(super) fn draw_rich_hover_popup(
     FloatingPopup::new(egui::Id::new(("sql_rich_hover", token_range)), *theme, position)
         .order(egui::Order::Tooltip)
         .interactable(true) // Allow text selection / copy
-        .surface_panel()
+        .surface_elevated()
         .radius(8.0)
         .margin(egui::Margin::same(10.0 as i8))
         .show(ctx, |ui| {
@@ -379,7 +379,7 @@ pub(super) fn draw_signature_help(
     FloatingPopup::new(egui::Id::new("sql_signature_help"), *theme, position)
         .order(egui::Order::Foreground)
         .interactable(false)
-        .surface_panel()
+        .surface_elevated()
         .radius(7.0)
         .margin(egui::Margin::same(8.0 as i8))
         .show(ctx, |ui| {

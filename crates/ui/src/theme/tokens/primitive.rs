@@ -159,14 +159,14 @@ pub mod light {
 
     // Neutrals.
     pub const NEUTRAL_0: Color32 = Color32::from_rgb(255, 255, 255); // #ffffff
-    pub const NEUTRAL_50: Color32 = Color32::from_rgb(249, 249, 249); // #f9f9f9
     pub const NEUTRAL_75: Color32 = Color32::from_rgb(246, 246, 246); // #f6f6f6
     pub const NEUTRAL_100: Color32 = Color32::from_rgb(241, 241, 241); // #f1f1f1
     pub const NEUTRAL_125: Color32 = Color32::from_rgb(238, 238, 238); // #eeeeee
     pub const NEUTRAL_150: Color32 = Color32::from_rgb(229, 229, 229); // #e5e5e5
     pub const NEUTRAL_175: Color32 = Color32::from_rgb(212, 212, 212); // #d4d4d4
     pub const NEUTRAL_450: Color32 = Color32::from_rgb(138, 138, 138); // #8a8a8a
-    pub const NEUTRAL_500: Color32 = Color32::from_rgb(112, 112, 112); // #707070
+    /// Tertiary/muted text that still clears 4.5:1 on the `#f1f1f1` chrome panel.
+    pub const NEUTRAL_525: Color32 = Color32::from_rgb(107, 107, 107); // #6b6b6b
     pub const NEUTRAL_550: Color32 = Color32::from_rgb(110, 110, 110); // #6e6e6e
     pub const NEUTRAL_575: Color32 = Color32::from_rgb(100, 100, 110); // #64646e
     pub const NEUTRAL_600: Color32 = Color32::from_rgb(95, 95, 95); // #5f5f5f

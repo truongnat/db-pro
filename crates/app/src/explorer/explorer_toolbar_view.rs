@@ -65,7 +65,9 @@ impl ExplorerToolbarContext<'_> {
     /// the name-match mode and per-kind visibility toggles.
     // cc-scan:allow LONG_FUNCTION — linear pipeline — one cohesive pass
     fn draw_filter_workbench(&mut self, ui: &mut egui::Ui) {
-        let popup_id = ui.make_persistent_id("explorer_object_filter_workbench");
+        // Stable id (not `ui.make_persistent_id`) so deterministic captures can open the
+        // popover by id without reproducing egui's internal id derivation.
+        let popup_id = egui::Id::new("explorer_object_filter_workbench");
         let filter_active = !self.filter.is_default();
         let button = Button::new(self.theme)
             .icon(Icon::ListFilter)

@@ -106,6 +106,118 @@ fn query_context_picker_caps_to_a_narrow_viewport() {
 }
 
 #[test]
+fn query_context_picker_closes_on_click_outside() {
+    let ctx = Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let screen_rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+    let anchor = Rect::from_min_size(Pos2::new(100.0, 50.0), Vec2::new(180.0, 24.0));
+
+    let connections = vec![("sqlite-1".to_string(), "Sample".to_string(), "".to_string())];
+    let schemas = vec!["main".to_string()];
+
+    let context = QueryContextPickerContext {
+        theme: DbProTheme::dark(),
+        current_connection_id: Some("sqlite-1"),
+        current_schema: "main",
+        available_schemas: &schemas,
+        connections: &connections,
+    };
+
+    // Settle the popup first so its rect is known, then click far below it.
+    let _ = crate::test_frame::frame(
+        &ctx,
+        RawInput {
+            screen_rect: Some(screen_rect),
+            ..Default::default()
+        },
+        |ctx| {
+            let _ = draw_picker(&context, ctx, anchor);
+        },
+    );
+
+    let mut action = None;
+    let _ = crate::test_frame::frame(
+        &ctx,
+        RawInput {
+            screen_rect: Some(screen_rect),
+            events: vec![
+                egui::Event::PointerButton {
+                    pos: Pos2::new(900.0, 700.0),
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                },
+                egui::Event::PointerButton {
+                    pos: Pos2::new(900.0, 700.0),
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            ..Default::default()
+        },
+        |ctx| {
+            action = draw_picker(&context, ctx, anchor);
+        },
+    );
+
+    assert_eq!(action, Some(QueryContextPickerAction::Close));
+}
+
+#[test]
+fn query_context_picker_expands_its_scroll_window_for_long_lists() {
+    let ctx = Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let screen_rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+    let anchor = Rect::from_min_size(Pos2::new(100.0, 50.0), Vec2::new(180.0, 24.0));
+
+    let connections = vec![("sqlite-1".to_string(), "Sample".to_string(), "".to_string())];
+    let dense_schemas: Vec<String> = (0..24)
+        .map(|index| format!("tenant_{index:02}_customer_analytics_reporting"))
+        .collect();
+    let short_schemas = vec!["main".to_string()];
+
+    let measure = |schemas: &[String]| {
+        let context = QueryContextPickerContext {
+            theme: DbProTheme::dark(),
+            current_connection_id: Some("sqlite-1"),
+            current_schema: "main",
+            available_schemas: schemas,
+            connections: &connections,
+        };
+        let ctx = Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let _ = crate::test_frame::frame(
+            &ctx,
+            RawInput {
+                screen_rect: Some(screen_rect),
+                ..Default::default()
+            },
+            |ctx| {
+                let _ = draw_picker(&context, ctx, anchor);
+            },
+        );
+        ctx.memory(|mem| mem.area_rect(egui::Id::new("query_context_picker")))
+            .expect("popup area rect should be recorded")
+    };
+
+    let short = measure(&short_schemas);
+    let dense = measure(&dense_schemas);
+
+    assert!(
+        dense.height() >= short.height() + 100.0,
+        "dense popup height {} did not expand the bounded scroll window over the short height {}",
+        dense.height(),
+        short.height()
+    );
+    assert!(
+        dense.height() <= 480.0,
+        "dense popup height {} exceeded the viewport budget",
+        dense.height()
+    );
+}
+
+#[test]
 fn query_context_picker_action_on_escape_closes() {
     let ctx = Context::default();
     DbProTheme::install_fonts(&ctx);

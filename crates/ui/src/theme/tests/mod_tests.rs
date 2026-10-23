@@ -38,7 +38,7 @@ fn light_tokens_follow_codex_surface_contract() {
     let theme = DbProTheme::light();
 
     assert_eq!(theme.surface_app, egui::Color32::from_rgb(255, 255, 255));
-    assert_eq!(theme.surface_panel, egui::Color32::from_rgb(249, 249, 249));
+    assert_eq!(theme.surface_panel, egui::Color32::from_rgb(241, 241, 241));
     assert_eq!(theme.surface_active, egui::Color32::from_rgb(238, 238, 238));
     assert_eq!(theme.text_primary, egui::Color32::from_rgb(26, 28, 31));
     assert_eq!(theme.accent, egui::Color32::from_rgb(0, 111, 204));

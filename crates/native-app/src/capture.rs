@@ -304,6 +304,12 @@ fn take_screenshot(ctx: &egui::Context) -> Option<std::sync::Arc<egui::ColorImag
 impl eframe::App for CaptureApp {
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         eframe::App::logic(&mut self.inner, ctx, frame);
+        // The picker fixture seeds/clears catalog data, so it must land *after* the
+        // inner logic applied this frame's runtime events but *before* the frame
+        // draws — otherwise a live introspection event refills a cleared list.
+        if std::env::var_os("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").is_some() {
+            self.inner.open_query_context_picker_for_capture();
+        }
     }
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
@@ -312,8 +318,8 @@ impl eframe::App for CaptureApp {
         self.prepare_loading();
         eframe::App::ui(&mut self.inner, ui, frame);
         self.open_requested_surface(&ctx);
-        if std::env::var_os("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").is_some() {
-            self.inner.open_query_context_picker_for_capture();
+        if std::env::var_os("DB_PRO_CAPTURE_EXPLORER_FILTER_POPOVER").is_some() {
+            egui::Popup::open_id(&ctx, egui::Id::new("explorer_object_filter_workbench"));
         }
         self.pin_viewport(&ctx);
         #[cfg(debug_assertions)]

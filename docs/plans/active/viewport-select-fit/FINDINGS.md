@@ -35,6 +35,22 @@
 - **Symptom:** Direct invocation of raw `ui.checkbox` instead of `crates::components::Checkbox`.
 - **Resolution:** Migrated to `crate::components::Checkbox::new(&mut self.preferences.reduce_motion, "Reduce motion", *self.theme)`.
 
+### F7: Light chrome was indistinguishable from the canvas (P2, owner-reported)
+- **File / Line:** `crates/ui/src/theme/tokens/semantic.rs` (light `background.panel`), `primitive.rs` (light ramp)
+- **Symptom:** In light mode the sidebar, topbar and status bar shared almost the same fill as the white
+  editor: `panel` was `#f9f9f9` against a `#ffffff` canvas — a 6/255 step that read as one region, so
+  panels did not look like separate areas.
+- **Root Cause:** the chrome role carried a step too small to be perceived on large flat areas.
+- **Resolution:** light `panel` → `NEUTRAL_100` (`#f1f1f1`), one visible step below the canvas, while
+  `elevated`/`floating` stay `#ffffff` so cards and popovers read as raised above the chrome. Dark
+  tokens are unchanged (its `panel` already sits below `canvas`).
+- **Accessibility consequence:** `#707070` tertiary text dropped to 4.38:1 on the new panel, so light
+  `tertiary`/`muted` moved to a new `NEUTRAL_525` (`#6b6b6b`, 4.72:1) and the theme contrast test
+  keeps enforcing 4.5:1. The two now-unused light steps (`NEUTRAL_50`, `NEUTRAL_500`) were deleted.
+- **Related role fix:** four transient popups (SQL completion, rich hover, signature help, table
+  column suggestions) painted `surface_panel`; with chrome now darker they would read as sunken, so
+  they use `surface_elevated`, the documented role for transient surfaces.
+
 ### F5: Compact Row Cap Read the Wrong Width (P2, caught by the new narrow test)
 - **File / Line:** `crates/ui/src/components/selection/ui.rs` (`Checkbox::show`, `Radio::show`)
 - **Symptom:** The first compact implementation capped `row_width` with the width reported *inside*

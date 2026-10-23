@@ -539,7 +539,7 @@ fn draw_column_suggestion_popup(
     );
     let mut clicked = None;
     FloatingPopup::new(egui::Id::new("table_data_column_suggestions"), theme, position)
-        .surface_panel()
+        .surface_elevated()
         .radius(RADIUS_SM)
         .margin(egui::Margin::same(SPACE_XS as i8))
         .show(ctx, |ui| {

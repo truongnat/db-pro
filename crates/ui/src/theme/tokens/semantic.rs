@@ -183,7 +183,10 @@ impl SemanticTokens {
         Self {
             background: Background {
                 canvas: light::NEUTRAL_0,
-                panel: light::NEUTRAL_50,
+                // Chrome sits one visible step below the white canvas: #f9f9f9 was
+                // indistinguishable from the canvas, so the sidebar read as the same
+                // region as the editor.
+                panel: light::NEUTRAL_100,
                 elevated: light::NEUTRAL_0,
                 floating: light::NEUTRAL_0,
                 editor: light::NEUTRAL_0,
@@ -195,8 +198,8 @@ impl SemanticTokens {
             foreground: Foreground {
                 primary: light::NEUTRAL_950,
                 secondary: light::NEUTRAL_600,
-                tertiary: light::NEUTRAL_500,
-                muted: light::NEUTRAL_500,
+                tertiary: light::NEUTRAL_525,
+                muted: light::NEUTRAL_525,
                 disabled: light::NEUTRAL_450,
                 inverse: light::NEUTRAL_0,
                 on_accent: light::NEUTRAL_0,
