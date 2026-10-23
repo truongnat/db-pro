@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `f7669b93746e01f365424f7e1ba1e5aa67237f55`
+- Current HEAD: `1e39b606` (docs) — code under test is `9e72de50fa821926a3874949e2ebc65289885d0a`
 - Completed acceptance rows:
   - [x] Horizontal `Radio`/`Checkbox` allocate content width and stay inside the parent
   - [x] Vertical descriptive choices keep the full-row click target
@@ -22,25 +22,27 @@
   - [x] Red→green regression tests measuring rendered geometry
   - [x] 12-cell runtime matrix for the two changed surfaces, every PNG inspected
   - [x] Required Rust gates + locked native release build
+  - [x] `cargo test --workspace` → 2,269 passed / 0 failed / 65 ignored
 - Remaining acceptance rows:
-  - [ ] `cargo test --workspace` (provider fixtures not provisioned in this session)
+  - [ ] The 65 `#[ignore]`d provider integration tests (need live PG/MySQL/SQL Server/SSH fixtures)
   - [ ] CI "Rust checks" + independent review (no PR opened)
   - [ ] Explorer toolbar capture (hook opens Welcome instead of the filter popover)
   - [ ] Dense schema list and picker loading/error/empty captures
   - [ ] 900/1080-height verification (host clamps to 838 logical)
 - Findings / risks: F1–F6 in `FINDINGS.md`, all P2, all resolved. No P0/P1.
-- Tests already run: `cargo test -p db-pro-ui -p db-pro-app` → 679 + 724 passed / 0 failed / 0 ignored, exit 0.
+- Tests already run: `cargo test --workspace` exit 0 → 2,269 passed / 0 failed / 65 ignored; the
+  touched-crate subset is `db-pro-ui` 724 + `db-pro-app` 679 passed / 0 failed.
 - Dependency / blocker changes: two subagents could not start (`usage_limit_reached`); no scope change.
 
 ## 3. Implementation handoff / review request
 
 | Field | Value |
 |---|---|
-| Exact SHA | `9e72de50fa821926a3874949e2ebc65289885d0a` (code) · `f7669b93746e01f365424f7e1ba1e5aa67237f55` (docs + evidence) |
-| Commit list | `9e72de50` fix(ui): cap horizontal selection controls and compact the context picker · `f7669b93` docs(ui-audit): record viewport/select findings, plan and 12-cell evidence |
+| Exact SHA | `9e72de50fa821926a3874949e2ebc65289885d0a` (code) · docs HEAD `1e39b606` |
+| Commit list | `9e72de50` fix(ui): cap horizontal selection controls and compact the context picker · `f7669b93` docs(ui-audit): record findings, plan and 12-cell evidence · `f17a1d4b` docs(viewport-select-fit): coding-lane agent evidence handoff · `1e39b606` docs(viewport-select-fit): record workspace gates and re-verification |
 | File / surface inventory | `crates/ui/src/components/selection/ui.rs` (`.compact(bool)` + parent-derived cap) · `selection/API.md` (width contract) · `selection/tests/layout_bounds_tests.rs` (new, 4 tests) · `radio_group/ui.rs` (propagate compact) · `radio_group/API.md` · `app/.../query_context_picker_view.rs` (width constants, `auto_shrink`, distinct `id_salt`, empty states) · `app/.../tests/query_context_picker_view_tests.rs` (new, 3 tests) · `app/.../settings_appearance_view.rs` (raw `ui.checkbox` → `components::Checkbox`) · `app/.../workspace_actions.rs` + `native-app/src/capture.rs` (`DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER` hook) · `docs/plans/STATUS.md` · `docs/plans/active/viewport-select-fit/**` · `docs/ui-audit/viewport-select-review/**` |
 | Acceptance mapping | Overflow → `horizontal_radios_do_not_consume_entire_row_width`, `horizontal_checkboxes_do_not_consume_entire_row_width` · narrow parent → `compact_rows_honour_a_parent_wider_than_the_glyph_floor`, `compact_rows_keep_the_glyph_floor_in_a_sliver_parent` · picker geometry → `query_context_picker_has_compact_bounds_for_short_lists`, `query_context_picker_caps_to_a_narrow_viewport` · dismissal → `query_context_picker_action_on_escape_closes` |
-| Commands and counts | `cargo +nightly fmt --all -- --check` exit 0 · `cargo clippy -p db-pro-ui -p db-pro-app -p db-pro-native --all-targets -- -D warnings` exit 0 / 0 errors · `cargo check` same crates exit 0 · `cargo build --release --locked -p db-pro-native` exit 0 (1m23s) · `cargo test -p db-pro-ui -p db-pro-app` exit 0, 679 + 724 passed / 0 failed / 0 ignored · `scripts/check-ui-architecture.sh` PASS · clean-code ratchet exit 0 (11 pass / 5 warn / 0 fail) |
+| Commands and counts | `cargo +nightly fmt --all -- --check` exit 0 · `cargo clippy --workspace --all-targets -- -D warnings` exit 0 / 0 diagnostics · `cargo check --workspace` exit 0 · `cargo build --release --locked -p db-pro-native` exit 0 · `cargo test --workspace` exit 0, **2,269 passed / 0 failed / 65 ignored** · `scripts/check-ui-architecture.sh` PASS · clean-code ratchet exit 0 (11 pass / 5 warn / 0 fail) |
 | CI run IDs / status | not run — pushed directly to `main`; GitHub reported bypassed rules ("Changes must be made through a pull request", required check "Rust checks" expected) |
 | Known limitations | See §2 remaining rows; plus picker keyboard coverage is Escape-only and pointer-outside dismissal was not re-tested. |
 | Migrations / config implications | None. New opt-in capture env var `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER`; `.compact(bool)` is additive API. |
@@ -57,7 +59,7 @@ Verification detail, matrix table and per-cell observations live in `VERIFICATIO
 | P0 / P1 / P2 counts | introduced: 0 / 0 / 0 · inherited-and-fixed in scope: 0 / 0 / 6 |
 | Findings | F1–F6 in `FINDINGS.md`; F5/F6 were found by the new narrow-width tests failing against the first implementation |
 | CI disposition | not executed |
-| Next task(s) unblocked | Provision provider fixtures and run `cargo test --workspace`; add the Explorer-filter capture hook; seed a dense schema list for a long-list capture |
+| Next task(s) unblocked | Provision provider fixtures and run the 65 ignored integration tests; add the Explorer-filter capture hook; seed a dense schema list for a long-list capture |
 
 ## 5. Research / audit handoff
 
@@ -75,13 +77,17 @@ viewport (trừ cả inset của surface), hai vùng co theo nội dung và có 
 Test biên hẹp do reviewer yêu cầu đã **fail với implementation đầu tiên** và phát hiện hai lỗi thật
 (F5: cap đọc sai nguồn width; F6: thiếu inset surface) trước khi xanh.
 
-Gate đã chạy thật: fmt, clippy 0, check 0, ui-architecture PASS, **release build locked PASS**,
-679 + 724 test pass / 0 fail. Matrix 12 ô được capture lại từ cây cuối và đọc từng ảnh; 1440/1920 bị
-host clamp còn 838 logical, các ô `exit=-6` là crash TouchBar macOS **sau khi** ghi ảnh — không phải
-lỗi UI.
+Gate đã chạy thật: fmt, `cargo check --workspace` 0, `cargo clippy --workspace --all-targets -D
+warnings` 0 chẩn đoán, ui-architecture PASS, **release build locked PASS**, và `cargo test
+--workspace` **2.269 pass / 0 fail / 65 ignored**. Matrix 12 ô được capture lại từ cây cuối và đọc
+từng ảnh; 1440/1920 bị host clamp còn 838 logical, các ô `exit=-6` là crash TouchBar macOS **sau
+khi** ghi ảnh — không phải lỗi UI. Smoke lại trên cây đã push: ô Appearance tái tạo **byte-identical**
+(trùng SHA-256 manifest) nên fix deterministic; ô picker khác hash chỉ vì status bar in đường dẫn
+data dir.
 
-Còn thiếu: `cargo test --workspace` (cần fixture provider), CI/review độc lập, ảnh toolbar Explorer,
-danh sách schema dày và state loading/error/empty của picker, và chiều cao 900/1080 thật. Vì vậy
-plan giữ `RUNTIME_VERIFY`, chưa `COMPLETED`. Push trực tiếp lên `main` theo owner override, đồng thời
-đẩy luôn 3 commit local có sẵn (`a1730a3e`, `6c8b5fc8`, `9b50e7a2` — docs + colocation đã ghi trong
-STATUS.md), không có commit lạ nào khác.
+Còn thiếu: 65 integration test provider đang `#[ignore]` (cần fixture live), CI/review độc lập, ảnh
+toolbar Explorer, danh sách schema dày và state loading/error/empty của picker, và chiều cao
+900/1080 thật. Vì vậy plan giữ `RUNTIME_VERIFY`, chưa `COMPLETED`. Code đã commit và push
+(`9e72de50`, docs tới `1e39b606`) trực tiếp lên `main` theo owner override, đồng thời đẩy luôn 3
+commit local có sẵn (`a1730a3e`, `6c8b5fc8`, `9b50e7a2` — docs + colocation đã ghi trong STATUS.md),
+không có commit lạ nào khác.

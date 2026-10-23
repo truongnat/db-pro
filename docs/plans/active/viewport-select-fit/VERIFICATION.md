@@ -1,17 +1,15 @@
 # Viewport Select and Radio Allocation Fit — Verification
 
-**Source reference:** `HEAD = 9b50e7a27b4d92de5b126e6ecaf3a518448ad97b` **plus uncommitted
-working-tree changes** (this fix was not committed). The baseline SHA alone does not identify the
-fixed tree. Working-tree reference at the time of the runs below:
+**Source reference (committed):**
 
 ```text
-git rev-parse HEAD  -> 9b50e7a27b4d92de5b126e6ecaf3a518448ad97b
-git diff --stat     -> 9 files changed, 181 insertions(+), 53 deletions(-)
-sha256 crates/ui/src/components/selection/ui.rs
-  -> 35eff9da323074c830f607cd93d3c83d0b85d4b4419ddcb3dc937580d61614f8
-sha256 crates/app/src/query_workbench/query_context_picker_view.rs
-  -> c458992e61401e581fc6e2afdfdd249ce91df7c5c79010e618312ab6e0bf4536
+code under test  9e72de50fa821926a3874949e2ebc65289885d0a  fix(ui): cap horizontal selection controls …
+evidence/plan    1e39b606 (docs HEAD when these results were re-run)
+baseline         9b50e7a27b4d92de5b126e6ecaf3a518448ad97b  (pre-fix tree)
 ```
+
+The fix is committed and pushed; nothing below depends on uncommitted working-tree state. The
+baseline SHA is quoted only to describe the pre-fix behaviour the findings refer to.
 
 Host: macOS 25.6.0 (arm64), eframe/egui 0.36.2.
 
@@ -190,17 +188,22 @@ coverage only, not a screenshot.
 
 ## 5. Re-verification on the pushed tree
 
-Re-run at `f17a1d4b931e3090322e71e2c701e064dd20d694` (the pushed HEAD) after a reviewer asked for
-fresh results:
+Re-run against code SHA `9e72de50fa821926a3874949e2ebc65289885d0a` at docs HEAD `1e39b606`, after
+a reviewer asked for fresh results:
 
 | Gate | Result |
 |---|---|
 | `cargo +nightly fmt --all -- --check` | exit 0 |
 | `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
-| `cargo test --workspace` | exit 0 — 2,269 passed / 0 failed / 65 ignored |
+| `cargo test --workspace` | cargo exited 0 — 2,269 passed / 0 failed / 65 ignored |
 | `cargo clippy --workspace --all-targets -- -D warnings` | exit 0, 0 diagnostics |
 | `cargo check --workspace` | exit 0 |
 | `cargo build --release --locked -p db-pro-native` | exit 0 |
+
+The workspace run was sequential (tests → clippy → check → release build) to avoid Cargo-lock
+contention. The 65 ignored entries are the pre-existing `#[ignore]`d provider integration suites,
+skipped because no live PostgreSQL/MySQL/SQL Server/SSH fixtures were provisioned; they are not
+counted as passing.
 
 Runtime smoke on the same tree (fresh temp data dir, not overwriting the committed evidence):
 
