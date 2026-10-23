@@ -31,6 +31,10 @@ scroll affordance is a picker decision.
 
 ## Cursor affordance audit (owner-reported: cursor does not match behaviour)
 
+**Evidence level: source only.** This inventory comes from reading every `CursorIcon` site and every
+`Sense::click`/`Sense::hover` allocation; no runtime hover was driven yet, so each gap below is a
+source-derived expectation, not an observed mismatch. Runtime confirmation is a checklist item.
+
 Inventory: 51 `CursorIcon` sites in `crates/ui` + `crates/app` — 33 `PointingHand`, 12 resize
 variants, `Grab`/`Grabbing`/`Move` in the diagram canvas, `Wait` on a busy button, `NotAllowed` on a
 disabled select option, one `Default`. **`CursorIcon::Text` is never used anywhere.**
