@@ -20,9 +20,9 @@ matrix captured  c245183e  manifest + reproducible runner
 | Rubric with 0–4 anchors, eight dimensions | written — `RUBRIC.md` |
 | Capture matrix | **60 cells captured** (10 surfaces × 3 widths × 2 themes) |
 | Cells retained in the repository | 6 (Explorer, light+dark × 3 widths) — the rest are reproduced by `evidence/capture_matrix.py` |
-| Cells visually inspected after the last code change | **16 of 60** — Welcome 6/6, Explorer 6/6, Settings 3/6, Gallery 1/6; the rest were captured but not re-opened |
+| Cells visually inspected after the last code change | **16 of 60** plus **5 live Orca captures** (table data, table structure, Settings→Appearance, connection error, quick open); the remaining matrix cells were captured but not re-opened |
 | Cells scored | all surfaces scored by the nine agents; Table grid source-only |
-| Independent scoring pass | not started |
+| Independent scoring pass | **partial**: Settings at 1280 only, estimates not pixel measurements; Query/1920 not attributable at the time, its cells were re-captured afterwards |
 | Affected-surface gate after the pill change | open: Settings (3 cells) and Gallery (5 cells) were not re-inspected at every width/theme |
 | Real state captures (empty/loading/error) | not captured |
 | Sub-surfaces (`table` structure, Settings → Appearance, New Connection error) | not captured |

@@ -170,13 +170,17 @@ fn draw_row_limit_picker(context: &mut QueryContextViewContext<'_>, ui: &mut egu
         .position(|value| Some(*value) == context.execution.query_row_limit)
         .unwrap_or(usize::MAX);
     let previous = selected;
-    crate::components::Select::new("query_row_limit", &mut selected, &labels)
-        .theme(context.theme)
-        .width(108.0)
-        .size(crate::components::SelectSize::Sm)
-        .variant(crate::components::SelectVariant::Ghost)
-        .show(ui)
-        .on_hover_text(t!("query.row_limit_tooltip"));
+    // The picker now lives in the trailing right-to-left group; force left-to-right
+    // inside it so the trigger keeps "500 rows ⌄" instead of mirroring to "⌄ 500 rows".
+    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        crate::components::Select::new("query_row_limit", &mut selected, &labels)
+            .theme(context.theme)
+            .width(108.0)
+            .size(crate::components::SelectSize::Sm)
+            .variant(crate::components::SelectVariant::Ghost)
+            .show(ui)
+            .on_hover_text(t!("query.row_limit_tooltip"));
+    });
     if selected != previous {
         context.execution.query_row_limit = Some(ROW_CAPS[selected]);
     }

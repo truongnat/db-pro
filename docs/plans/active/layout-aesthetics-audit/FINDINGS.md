@@ -107,16 +107,22 @@ The four open items were checked against the running app, not the capture harnes
 | Table **structure** surface | `evidence/live/table-structure-light-1280.png` — header row, PK/FK badges, Actions column with `Alter` links |
 | Settings → **Appearance** | `evidence/live/settings-appearance-light-1280.png` — rail pill on the active section, card on the canvas, Light/Dark radios adjacent and unclipped, checkbox bounded |
 | Connection **error** state | `evidence/live/connection-error-light-1280.png` — every invalid field carries a red border and its own message, plus a toast |
-| Cursor | verified by test, not screenshot: `stale_cursor_is_cleared_before_widgets_draw` asserts both directions of the frame-level reset (clear-first keeps a widget's `PointingHand`; clear-after erases it). Screenshot proof of the pointer glyph was not obtainable here — the shared desktop kept another window frontmost, so `screencapture -C` captured the wrong app |
+| Cursor | **test-verified, not hover-verified in the real app**: `stale_cursor_is_cleared_before_widgets_draw` asserts both directions of the frame-level reset (clear-first keeps a widget's `PointingHand`; clear-after erases it). Screenshot proof of the pointer glyph was not obtainable here — the shared desktop kept another window frontmost, so `screencapture -C` captured the wrong app |
 
 New finding from the live pass:
 
-### F8: Connection dialog clips its last section at 838 pt height (P2)
+### F8 (provisional): Connection dialog clips its last section at 838 pt height (P2)
 - **Evidence:** `connection-dark-1440x900.png` — the `Cloud Presets & URI Importer` disclosure is cut mid-row by the dialog's bottom edge, behind the footer, with no scroll affordance.
-- **Cause (source):** the dialog body is laid out without a bounded scroll region; the capture fixtures at 1280 fit, at 1440×838 the content exceeds the available height.
+- **Cause (source):** `crates/app/src/connection/*` contains no `ScrollArea` at all, so the body is not a scroll region that happens to be scrolled to the top — the row is genuinely occluded. The footer's exact bounds were not measured, so this stays provisional until a rect comparison confirms it.
 - **Owner:** `native-visual-redesign` (dialog composition) — the body needs a capped scroll area, not a taller dialog.
 
-## Independent scoring pass (second reviewer)
+## Chevron order in the trailing group (fixed)
+
+Moving the row-cap picker into the right-to-left group mirrored its trigger to `⌄ 500 rows`. The picker now draws inside a forced left-to-right layout, so it reads `500 rows ⌄` again (verified in the re-captured `query-light-1280x800.png`).
+
+## Independent scoring pass (second reviewer) — **partial**
+
+This pass scored **Settings at 1280 only**, with visual estimates rather than pixel measurements, and could not attribute the Query/1920 images (three capture generations in the directory). It does **not** close the independent-review item and does not validate the other eight surfaces.
 
 | Surface | First pass | Independent pass | Disagreement |
 |---|---|---|---|
