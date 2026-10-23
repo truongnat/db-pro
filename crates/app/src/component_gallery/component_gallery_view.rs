@@ -390,20 +390,10 @@ impl DbProApp {
     fn draw_gallery_category_group(&mut self, ui: &mut Ui, categories: &[(GalleryCategory, Icon, &'static str)]) {
         for (category, icon, label) in categories {
             let selected = self.gallery_state.category == *category;
-            if Button::new(self.theme)
-                .text(*label)
-                .icon(*icon)
-                .variant(if selected {
-                    ButtonVariant::Secondary
-                } else {
-                    ButtonVariant::Ghost
-                })
-                .size(ButtonSize::Sm)
-                .full_width(true)
-                .left_aligned()
-                .show(ui)
-                .clicked()
-            {
+            // Same selected-row treatment as the sidebar (`Secondary` + accent pill):
+            // in light theme a bare Secondary fill equals the rail's own fill, so the
+            // active row would be invisible without the pill.
+            if crate::components::nav::sidebar_item(ui, *icon, label, selected, self.theme).clicked() {
                 self.gallery_state.category = *category;
             }
             ui.add_space(SPACE_XXS);

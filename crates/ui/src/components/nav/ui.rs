@@ -253,6 +253,29 @@ pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) ->
     )
 }
 
+/// Paints the accent pill that marks the active row in a navigation rail.
+///
+/// A rail's own fill is the chrome panel, which in light theme equals the
+/// `Secondary` rest fill, so the pill — not the fill — is what makes selection
+/// visible. Shared so every rail (sidebar, gallery, settings) marks it the same way.
+pub fn paint_selection_pill(ui: &Ui, row: egui::Rect, theme: DbProTheme) {
+    let pill_rect = egui::Rect::from_min_max(
+        egui::pos2(
+            row.left() + SIDEBAR_ITEM_PILL_INSET_X,
+            row.top() + SIDEBAR_ITEM_PILL_INSET_Y,
+        ),
+        egui::pos2(
+            row.left() + SIDEBAR_ITEM_PILL_INSET_X + SIDEBAR_ITEM_PILL_WIDTH,
+            row.bottom() - SIDEBAR_ITEM_PILL_INSET_Y,
+        ),
+    );
+    ui.painter().rect_filled(
+        pill_rect,
+        CornerRadius::same(SIDEBAR_ITEM_PILL_RADIUS as u8),
+        theme.accent,
+    );
+}
+
 /// Full-width sidebar row: ghost button when idle, secondary + accent pill when
 /// the item is the active view.
 // cc-scan:allow TOO_MANY_PARAMS — context params passed through
@@ -270,21 +293,7 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
         .left_aligned();
     let response = button.show(ui);
     if active {
-        let pill_rect = egui::Rect::from_min_max(
-            egui::pos2(
-                response.rect.left() + SIDEBAR_ITEM_PILL_INSET_X,
-                response.rect.top() + SIDEBAR_ITEM_PILL_INSET_Y,
-            ),
-            egui::pos2(
-                response.rect.left() + SIDEBAR_ITEM_PILL_INSET_X + SIDEBAR_ITEM_PILL_WIDTH,
-                response.rect.bottom() - SIDEBAR_ITEM_PILL_INSET_Y,
-            ),
-        );
-        ui.painter().rect_filled(
-            pill_rect,
-            CornerRadius::same(SIDEBAR_ITEM_PILL_RADIUS as u8),
-            theme.accent,
-        );
+        paint_selection_pill(ui, response.rect, theme);
     }
     response
 }

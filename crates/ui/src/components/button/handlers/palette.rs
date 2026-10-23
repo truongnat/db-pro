@@ -28,6 +28,10 @@ impl ButtonPalette {
                 // Rest sits on subtle so the hover wash is a visible step in both themes.
                 // Dark hover and selected are different roles; this variant must not use
                 // selected as its hover fill or the two states collapse.
+                //
+                // In light theme `subtle` equals the chrome panel, so a Secondary control
+                // on a sidebar/rail needs a non-fill cue for "selected" — the nav rows
+                // add the accent pill (`nav::sidebar_item`) rather than relying on this fill.
                 fill_rest: theme.surface_2,
                 fill_hover: theme.surface_hover,
                 stroke_rest: Stroke::NONE,

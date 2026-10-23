@@ -97,6 +97,11 @@ impl SettingsNavigationContext {
             if response.clicked() {
                 actions.push(SettingsNavigationAction::SelectSection(*section));
             }
+            if selected {
+                // The rail's fill equals the light-theme Secondary rest fill, so the
+                // active section is marked by the shared accent pill, not the fill.
+                crate::components::nav::paint_selection_pill(ui, response.rect, self.theme);
+            }
             ui.add_space(SPACE_XS);
         }
     }

@@ -1,5 +1,5 @@
 {
-  "note": "Captured 2026-10-23 from the tree that includes the popover inset fix. Only the Explorer cells are retained in the repository and inspected so far. Every other cell was captured but its inspection is still pending; its SHA-256 records file identity, not visual review. Re-run capture_matrix.py in this directory to reproduce the full set.",
+  "note": "Captured 2026-10-23 with DB_PRO_CAPTURE_REASSERT_SURFACE=1 \u2014 without it the opener runs once and a late schema-load event restores Welcome, which is how the first table cells came out wrong. All 60 cells were inspected by the per-surface audit agents. Only the six Explorer PNGs are retained here; the rest live in /private/tmp/dbpro-audit/evidence and are reproducible via capture_matrix.py, with SHA-256 recorded per cell.",
   "cells": [
     {
       "cell": "welcome-light-1280x800",
@@ -14,7 +14,8 @@
       ],
       "sha256": "a7887029a177e201",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "welcome-dark-1280x800",
@@ -29,7 +30,8 @@
       ],
       "sha256": "839acc1f52d7c0b0",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "welcome-light-1440x900",
@@ -44,7 +46,8 @@
       ],
       "sha256": "30247392ad360e8a",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "welcome-dark-1440x900",
@@ -59,7 +62,8 @@
       ],
       "sha256": "982c7f49522893b6",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "welcome-light-1920x1080",
@@ -74,7 +78,8 @@
       ],
       "sha256": "841755338c31d1e2",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "welcome-dark-1920x1080",
@@ -89,7 +94,8 @@
       ],
       "sha256": "902f4e9d3479d338",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "query-light-1280x800",
@@ -102,9 +108,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "a817ae2b58058f0e",
+      "sha256": "e58e7132705c0d26",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "query-dark-1280x800",
@@ -117,9 +124,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "7627212243a47960",
+      "sha256": "4ce0a676c20a2549",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "query-light-1440x900",
@@ -132,9 +140,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "bb1660ee0fea318a",
+      "sha256": "72774659a885cca3",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "query-dark-1440x900",
@@ -147,9 +156,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "5caeedc4d60f60af",
+      "sha256": "d324c092ff45eaee",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "query-light-1920x1080",
@@ -162,9 +172,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "af8d45ce06f2758a",
+      "sha256": "f6e11072adda39db",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "query-dark-1920x1080",
@@ -177,9 +188,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "eac0431eac02ae47",
+      "sha256": "9e8f15b550808d2a",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "table-light-1280x800",
@@ -192,9 +204,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "5d57cfbe6cf8a138",
+      "sha256": "2ca7d18efc7fd396",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "table-dark-1280x800",
@@ -207,9 +220,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "91ca8d641ff683fb",
+      "sha256": "57f050e68e53bb82",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "table-light-1440x900",
@@ -222,9 +236,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "bb4d9f8759fdf182",
+      "sha256": "de30531d70282d98",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "table-dark-1440x900",
@@ -237,9 +252,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "8e95c915dc6e2d9c",
+      "sha256": "fbb3a4e94636e612",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "table-light-1920x1080",
@@ -252,9 +268,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "0f6dde074a504238",
+      "sha256": "1af3d34ad0c37d28",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "table-dark-1920x1080",
@@ -267,9 +284,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "6c908cb2bd958811",
+      "sha256": "cfcbaf389b6de4de",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "explorer-light-1280x800",
@@ -284,7 +302,8 @@
       ],
       "sha256": "b4a95d3a431d4f87",
       "retained": true,
-      "inspected": true
+      "inspected": true,
+      "valid": true
     },
     {
       "cell": "explorer-dark-1280x800",
@@ -299,7 +318,8 @@
       ],
       "sha256": "7f11ce466a37f696",
       "retained": true,
-      "inspected": true
+      "inspected": true,
+      "valid": true
     },
     {
       "cell": "explorer-light-1440x900",
@@ -312,9 +332,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "6780141e647cec78",
+      "sha256": "245d4067250e8dd0",
       "retained": true,
-      "inspected": true
+      "inspected": true,
+      "valid": true
     },
     {
       "cell": "explorer-dark-1440x900",
@@ -329,7 +350,8 @@
       ],
       "sha256": "0816c7ff48c15b70",
       "retained": true,
-      "inspected": true
+      "inspected": true,
+      "valid": true
     },
     {
       "cell": "explorer-light-1920x1080",
@@ -344,7 +366,8 @@
       ],
       "sha256": "ad4f3146f9513fbd",
       "retained": true,
-      "inspected": true
+      "inspected": true,
+      "valid": true
     },
     {
       "cell": "explorer-dark-1920x1080",
@@ -359,7 +382,8 @@
       ],
       "sha256": "e55050b7f421b31c",
       "retained": true,
-      "inspected": true
+      "inspected": true,
+      "valid": true
     },
     {
       "cell": "diagram-light-1280x800",
@@ -372,9 +396,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "2abd87f83db04be8",
+      "sha256": "50d878c2e215052d",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "diagram-dark-1280x800",
@@ -387,9 +412,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "07d27df538c0c8fb",
+      "sha256": "e4f400c3dd254b89",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "diagram-light-1440x900",
@@ -402,9 +428,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "d71c317aaa606ca2",
+      "sha256": "4b848708e3422630",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "diagram-dark-1440x900",
@@ -417,9 +444,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "8eae8fbec3aef151",
+      "sha256": "d9458fb2c2ffa7de",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "diagram-light-1920x1080",
@@ -432,9 +460,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "f3da2aa7fdd60036",
+      "sha256": "714dd57cf8898095",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "diagram-dark-1920x1080",
@@ -447,9 +476,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "8a0ad50efb371836",
+      "sha256": "d9e98b212fba2586",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "settings-light-1280x800",
@@ -462,9 +492,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "44a10578e85f0b1f",
+      "sha256": "b01e680434c09932",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "settings-dark-1280x800",
@@ -477,9 +508,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "65184bf8093b16d5",
+      "sha256": "8e017b5b1f97bec9",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "settings-light-1440x900",
@@ -492,9 +524,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "45761dba5a80ede8",
+      "sha256": "3db0e88d323456a8",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "settings-dark-1440x900",
@@ -507,9 +540,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "d299ad6b714b9ce3",
+      "sha256": "defde0dad9c689bd",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "settings-light-1920x1080",
@@ -522,9 +556,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "fbf31bd70e9c78d3",
+      "sha256": "1a8adf4ac80c0bb4",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "settings-dark-1920x1080",
@@ -537,9 +572,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "ab4a33d2c69e28a6",
+      "sha256": "74ef8d4be0572244",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "connection-light-1280x800",
@@ -552,9 +588,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "1fc22c99c18ae37e",
+      "sha256": "cc1b4cc5fdec4bea",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "connection-dark-1280x800",
@@ -567,9 +604,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "6fdb87cc1703987c",
+      "sha256": "5b1c5f16c1a34dfd",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "connection-light-1440x900",
@@ -582,9 +620,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "718bf19ea5d30be7",
+      "sha256": "3f1a1be781dca3ef",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "connection-dark-1440x900",
@@ -597,9 +636,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "57d3fd678d28c13c",
+      "sha256": "3c9c883c2b7d3aaa",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "connection-light-1920x1080",
@@ -612,9 +652,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "556d30ddc0b603f1",
+      "sha256": "9065167a36ea266a",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "connection-dark-1920x1080",
@@ -627,9 +668,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "71da7ce94617bf6d",
+      "sha256": "a2c6cde5e3b86776",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "gallery-light-1280x800",
@@ -642,9 +684,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "a89aacc856d4e487",
+      "sha256": "c4d83ab830fb94eb",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "gallery-dark-1280x800",
@@ -657,9 +700,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "80cbf86ecfcef484",
+      "sha256": "2c4976663bc929e9",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "gallery-light-1440x900",
@@ -672,9 +716,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "cca6b077aa93e334",
+      "sha256": "93ad3e92b2136b29",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "gallery-dark-1440x900",
@@ -687,9 +732,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "56f7c981aaef1c5e",
+      "sha256": "28e2d58c49b364a8",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "gallery-light-1920x1080",
@@ -702,9 +748,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "9f86f911aae35b06",
+      "sha256": "87eff70eb7e458df",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "gallery-dark-1920x1080",
@@ -717,9 +764,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "8f180649fcddee57",
+      "sha256": "c1b763a6f7d9c7a6",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "agent-light-1280x800",
@@ -734,7 +782,8 @@
       ],
       "sha256": "9a285acf79a79398",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "agent-dark-1280x800",
@@ -749,7 +798,8 @@
       ],
       "sha256": "7b3a2ff2f0ffe58b",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "agent-light-1440x900",
@@ -762,9 +812,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "07a75fc7f92a134a",
+      "sha256": "01180f9757a59877",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "agent-dark-1440x900",
@@ -779,7 +830,8 @@
       ],
       "sha256": "1d0e24bc2b57f9c8",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "agent-light-1920x1080",
@@ -794,7 +846,8 @@
       ],
       "sha256": "a4ca8e21aa089a1c",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "agent-dark-1920x1080",
@@ -809,7 +862,8 @@
       ],
       "sha256": "1fd506b270871f0f",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "palette-light-1280x800",
@@ -822,9 +876,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "3b3567cd21ce983b",
+      "sha256": "7274b47d813b84b9",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "palette-dark-1280x800",
@@ -837,9 +892,10 @@
         1280.0,
         800.0
       ],
-      "sha256": "88e6daa78c757126",
+      "sha256": "05b727f8bb3fe4d9",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "palette-light-1440x900",
@@ -852,9 +908,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "4ff8da91ce428ff0",
+      "sha256": "3a33a1198f40844d",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "palette-dark-1440x900",
@@ -867,9 +924,10 @@
         1440.0,
         838.0
       ],
-      "sha256": "585ec2af69c43170",
+      "sha256": "967ae3ab5a403e5b",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "palette-light-1920x1080",
@@ -882,9 +940,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "652032f1ae2e46b7",
+      "sha256": "4b126da1eb65ee5c",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     },
     {
       "cell": "palette-dark-1920x1080",
@@ -897,9 +956,10 @@
         1920.0,
         838.0
       ],
-      "sha256": "b79e76ec4c2a4464",
+      "sha256": "d3c6dfd2f8a59ad5",
       "retained": false,
-      "inspected": false
+      "inspected": false,
+      "valid": true
     }
   ]
 }

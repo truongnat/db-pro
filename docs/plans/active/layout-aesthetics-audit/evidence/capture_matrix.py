@@ -50,6 +50,10 @@ for name, extra in surfaces.items():
                 'DB_PRO_WINDOW_SIZE': size,
                 'DB_PRO_CAPTURE_TO': str(png),
                 'DB_PRO_CAPTURE_SETTLE_FRAMES': '45',
+                # Without this the opener runs once and a late schema-load event
+                # restores the Welcome tab, so the cell silently captures the wrong
+                # surface while still reporting png:true.
+                'DB_PRO_CAPTURE_REASSERT_SURFACE': '1',
                 **extra,
             })
             if theme == 'light' and name in light_env:

@@ -8,5 +8,6 @@ pub use handler::{
     page_button_colors, prev_page,
 };
 pub use ui::{
-    page_icon_button, section_label, sidebar_item, Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader,
+    page_icon_button, paint_selection_pill, section_label, sidebar_item, Breadcrumb, BreadcrumbItem, PageHeader,
+    Pagination, SectionHeader,
 };
