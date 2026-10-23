@@ -457,6 +457,11 @@ impl DbProApp {
         self.theme = DbProTheme::light();
     }
 
+    /// Capture helper: open the query context picker popup (connection/schema selector).
+    pub fn open_query_context_picker_for_capture(&mut self) {
+        self.query.editor.query_context_picker_open = true;
+    }
+
     /// Capture helper: open the Query workspace with the output dock populated
     /// with a deterministic result grid so evidence shots document the results
     /// toolbar, export entry points, and the docked layout.

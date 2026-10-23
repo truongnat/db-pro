@@ -312,6 +312,9 @@ impl eframe::App for CaptureApp {
         self.prepare_loading();
         eframe::App::ui(&mut self.inner, ui, frame);
         self.open_requested_surface(&ctx);
+        if std::env::var_os("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").is_some() {
+            self.inner.open_query_context_picker_for_capture();
+        }
         self.pin_viewport(&ctx);
         #[cfg(debug_assertions)]
         if self.audit {
@@ -400,6 +403,9 @@ impl CaptureApp {
             // Select stores its open flag in temp data, not egui's Popup memory;
             // opening the Popup id left the menu closed in every capture.
             ctx.data_mut(|d| d.insert_temp(egui::Id::new("query_row_limit"), true));
+        }
+        if std::env::var_os("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").is_some() {
+            self.inner.open_query_context_picker_for_capture();
         }
         true
     }

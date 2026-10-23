@@ -16,6 +16,10 @@ let changed = RadioGroup::new(theme)
 
 Pointer click chooses an option. Arrow keys move focus and selection with wraparound, skipping disabled entries; the axis follows layout orientation. Space/Enter activates the focused option. Empty groups return `None`. If all options are disabled, keyboard movement does not select anything. Values must implement `Clone + PartialEq` and uniquely identify choices for reliable selection.
 
+A horizontal group renders each option compact, allocating its measured label width so options stay
+adjacent inside the parent instead of stretching across the row; a vertical group keeps full-width
+rows for descriptions and larger click targets.
+
 ## Layers
 
 `ui.rs` owns egui layout and response routing; `handler.rs` owns selection eligibility, keyboard movement, and spacing; `config.rs` owns group spacing.

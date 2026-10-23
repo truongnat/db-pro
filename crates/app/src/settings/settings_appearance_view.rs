@@ -46,8 +46,8 @@ impl SettingsAppearanceContext<'_> {
                 .small()
                 .color(self.theme.text_muted),
             );
-            if ui
-                .checkbox(&mut self.preferences.reduce_motion, "Reduce motion")
+            if crate::components::Checkbox::new(&mut self.preferences.reduce_motion, "Reduce motion", *self.theme)
+                .show(ui)
                 .changed()
             {
                 self.preferences.settings.appearance.reduce_motion = self.preferences.reduce_motion;

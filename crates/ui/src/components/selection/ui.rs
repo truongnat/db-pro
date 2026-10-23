@@ -19,6 +19,7 @@ pub struct Checkbox<'a> {
     pub(crate) description: Option<&'a str>,
     pub(crate) enabled: bool,
     pub(crate) focusable: bool,
+    pub(crate) compact: Option<bool>,
     pub(crate) theme: DbProTheme,
 }
 
@@ -30,6 +31,7 @@ impl<'a> Checkbox<'a> {
             description: None,
             enabled: true,
             focusable: true,
+            compact: None,
             theme,
         }
     }
@@ -49,13 +51,27 @@ impl<'a> Checkbox<'a> {
         self
     }
 
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = Some(compact);
+        self
+    }
+
     pub fn show(self, ui: &mut Ui) -> Response {
         // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate, not a real clone
         let size = config::CONTROL_SIZE;
         let spacing = config::CONTROL_SPACING;
+        let is_horizontal = ui.layout().main_dir() == egui::Direction::LeftToRight;
+        let is_compact = self.compact.unwrap_or(is_horizontal);
+        // The cap must come from the parent: inside `ui.horizontal` egui reports the
+        // child row's own width, which a very narrow parent does not bound.
+        let parent_available = ui.available_width();
 
         ui.horizontal(|ui| {
-            let text_width = (ui.available_width() - size - spacing).max(config::MIN_CONTROL_TEXT_WIDTH);
+            let text_width = if is_compact {
+                (parent_available - size - spacing).max(1.0)
+            } else {
+                (ui.available_width() - size - spacing).max(config::MIN_CONTROL_TEXT_WIDTH)
+            };
             // cc-scan:allow DUPLICATE_BLOCK — coincidental boilerplate
             let text_color = if self.enabled {
                 self.theme.text_primary
@@ -82,9 +98,17 @@ impl<'a> Checkbox<'a> {
                     .as_ref()
                     .map_or(0.0, |galley| config::CONTROL_DESC_GAP + galley.size().y);
             let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
-            let row_width = ui
-                .available_width()
-                .max(size + spacing + config::MIN_CONTROL_TEXT_WIDTH);
+            let needed_text_width = text_galley
+                .size()
+                .x
+                .max(description_galley.as_ref().map_or(0.0, |galley| galley.size().x));
+            let content_width = size + spacing + needed_text_width;
+            let row_width = if is_compact {
+                content_width.min(parent_available.max(size + spacing))
+            } else {
+                ui.available_width()
+                    .max(size + spacing + config::MIN_CONTROL_TEXT_WIDTH)
+            };
 
             let sense = if self.focusable {
                 Sense::CLICK | Sense::FOCUSABLE
@@ -294,6 +318,7 @@ pub struct Radio<'a> {
     label: &'a str,
     description: Option<&'a str>,
     enabled: bool,
+    compact: Option<bool>,
     theme: DbProTheme,
 }
 
@@ -304,6 +329,7 @@ impl<'a> Radio<'a> {
             label,
             description: None,
             enabled: true,
+            compact: None,
             theme,
         }
     }
@@ -318,12 +344,26 @@ impl<'a> Radio<'a> {
         self
     }
 
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = Some(compact);
+        self
+    }
+
     pub fn show(self, ui: &mut Ui) -> Response {
         let size = config::CONTROL_SIZE;
         let spacing = config::CONTROL_SPACING;
+        let is_horizontal = ui.layout().main_dir() == egui::Direction::LeftToRight;
+        let is_compact = self.compact.unwrap_or(is_horizontal);
+        // The cap must come from the parent: inside `ui.horizontal` egui reports the
+        // child row's own width, which a very narrow parent does not bound.
+        let parent_available = ui.available_width();
 
         ui.horizontal(|ui| {
-            let text_width = (ui.available_width() - size - spacing).max(config::MIN_CONTROL_TEXT_WIDTH);
+            let text_width = if is_compact {
+                (parent_available - size - spacing).max(1.0)
+            } else {
+                (ui.available_width() - size - spacing).max(config::MIN_CONTROL_TEXT_WIDTH)
+            };
             let text_color = if self.enabled {
                 self.theme.text_primary
             } else {
@@ -348,9 +388,17 @@ impl<'a> Radio<'a> {
                     .as_ref()
                     .map_or(0.0, |galley| config::CONTROL_DESC_GAP + galley.size().y);
             let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
-            let row_width = ui
-                .available_width()
-                .max(size + spacing + config::MIN_CONTROL_TEXT_WIDTH);
+            let needed_text_width = text_galley
+                .size()
+                .x
+                .max(description_galley.as_ref().map_or(0.0, |galley| galley.size().x));
+            let content_width = size + spacing + needed_text_width;
+            let row_width = if is_compact {
+                content_width.min(parent_available.max(size + spacing))
+            } else {
+                ui.available_width()
+                    .max(size + spacing + config::MIN_CONTROL_TEXT_WIDTH)
+            };
 
             let (rect, response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
             response.widget_info(|| radio_info(self.enabled, self.selected, self.label));
@@ -572,3 +620,7 @@ impl<'a> Slider<'a> {
 #[cfg(test)]
 #[path = "tests/ui_cursor_tests.rs"]
 mod cursor_tests;
+
+#[cfg(test)]
+#[path = "tests/layout_bounds_tests.rs"]
+mod layout_bounds_tests;
