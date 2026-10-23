@@ -41,7 +41,7 @@ not scorer leniency; every delta ≥ 2 dimension is accounted for above.
 | Explorer | 20/32 | 20/32 | best surface; unchecked control boundary 1.26:1 |
 | Settings | 18/32 | 20/32 | *pre-fix score* for the rail; light input still has no boundary (open) |
 | Connection dialog | 14/32 | 16/32 | 4 column seams in one 772 pt form; 7 type sizes |
-| Component gallery | 18/32 | 20/32 | *pre-fix score*: light selection was invisible; fixed by F7b, not re-scored |
+| Component gallery | 18/32 | 20/32 | *pre-fix score*: light selection was invisible before F7b; superseded by pass 2 |
 | ER diagram | 14/32 | 13/32 | opens at 41–44 % zoom, cards render as name strips |
 | Agent panel | 19/32 | 19/32 | composer fill equals panel fill |
 | Command palette | 17/32 | 19/32 | 7 type sizes; selection 1.08–1.13:1 |
