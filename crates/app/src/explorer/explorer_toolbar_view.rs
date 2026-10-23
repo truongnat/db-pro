@@ -91,38 +91,47 @@ impl ExplorerToolbarContext<'_> {
             .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
             .open_memory(None)
             .show(|ui| {
-                ui.set_min_width(180.0);
-                ui.set_max_width(220.0);
-                ui.label(
-                    RichText::new("Name match")
-                        .font(font_caption())
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                for mode in ExplorerMatchMode::ALL {
-                    if Radio::new(filter.mode == mode, mode.label(), self.theme).show(ui).clicked() {
-                        filter.mode = mode;
-                    }
-                }
-                ui.add_space(SPACE_XS);
-                Separator::horizontal(self.theme).show(ui);
-                ui.label(
-                    RichText::new("Object kinds")
-                        .font(font_caption())
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                Checkbox::new(&mut filter.tables, "Tables", self.theme).show(ui);
-                Checkbox::new(&mut filter.views, "Views", self.theme).show(ui);
-                Checkbox::new(&mut filter.functions, "Functions", self.theme).show(ui);
-                Checkbox::new(&mut filter.triggers, "Triggers", self.theme).show(ui);
-                ui.add_space(SPACE_XXS);
-                if ui
-                    .link(RichText::new("Reset").font(font_caption()).color(self.theme.accent))
-                    .clicked()
-                {
-                    *filter = ExplorerObjectFilter::default();
-                }
+                // ui-rules: margin-only layout frame (no fill, no stroke) — the popup
+                // frame already owns the surface; this only insets its content so rows
+                // and the separator do not bleed into the rounded edge.
+                egui::Frame::NONE
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_SM as i8))
+                    .show(ui, |ui| {
+                        ui.set_min_width(180.0);
+                        ui.set_max_width(204.0);
+                        ui.spacing_mut().item_spacing.y = SPACE_XXS;
+                        ui.label(
+                            RichText::new("Name match")
+                                .font(font_caption())
+                                .strong()
+                                .color(self.theme.text_secondary),
+                        );
+                        for mode in ExplorerMatchMode::ALL {
+                            if Radio::new(filter.mode == mode, mode.label(), self.theme).show(ui).clicked() {
+                                filter.mode = mode;
+                            }
+                        }
+                        ui.add_space(SPACE_SM);
+                        Separator::horizontal(self.theme).show(ui);
+                        ui.add_space(SPACE_SM);
+                        ui.label(
+                            RichText::new("Object kinds")
+                                .font(font_caption())
+                                .strong()
+                                .color(self.theme.text_secondary),
+                        );
+                        Checkbox::new(&mut filter.tables, "Tables", self.theme).show(ui);
+                        Checkbox::new(&mut filter.views, "Views", self.theme).show(ui);
+                        Checkbox::new(&mut filter.functions, "Functions", self.theme).show(ui);
+                        Checkbox::new(&mut filter.triggers, "Triggers", self.theme).show(ui);
+                        ui.add_space(SPACE_SM);
+                        if ui
+                            .link(RichText::new("Reset").font(font_caption()).color(self.theme.accent))
+                            .clicked()
+                        {
+                            *filter = ExplorerObjectFilter::default();
+                        }
+                    });
             },
         );
     }

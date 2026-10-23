@@ -57,7 +57,9 @@ only).
    Connection dialog (blank + error), Component Gallery, Agent panel, Command palette.
 2. **Capture matrix.** Each surface at 1280×800, 1440×900 and 1920×1080, light and dark, plus one
    real state where it exists (empty/loading/error). Use the existing `--features capture` harness;
-   record requested vs rendered size and the `exit=-6` TouchBar teardown honestly.
+   record requested vs rendered size and the `exit=-6` TouchBar teardown honestly. The 1440/1920
+   requests render at 838 logical height on this host, so the report states that instead of claiming
+   full-height verification.
 3. **Measure, don't vibe.** For every scored screen record objective numbers alongside the image:
    panel widths, gutters, type sizes, contrast ratios, count of distinct radii/spacing steps, count
    of competing emphasis elements. A score without a number or a cited image is not evidence.

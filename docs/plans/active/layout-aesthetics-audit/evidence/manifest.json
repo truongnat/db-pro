@@ -1,0 +1,782 @@
+[
+  {
+    "cell": "welcome-light-1280x800",
+    "surface": "welcome",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "a7887029a177e201"
+  },
+  {
+    "cell": "welcome-dark-1280x800",
+    "surface": "welcome",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "839acc1f52d7c0b0"
+  },
+  {
+    "cell": "welcome-light-1440x900",
+    "surface": "welcome",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "30247392ad360e8a"
+  },
+  {
+    "cell": "welcome-dark-1440x900",
+    "surface": "welcome",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "982c7f49522893b6"
+  },
+  {
+    "cell": "welcome-light-1920x1080",
+    "surface": "welcome",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "841755338c31d1e2"
+  },
+  {
+    "cell": "welcome-dark-1920x1080",
+    "surface": "welcome",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "902f4e9d3479d338"
+  },
+  {
+    "cell": "query-light-1280x800",
+    "surface": "query",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "a817ae2b58058f0e"
+  },
+  {
+    "cell": "query-dark-1280x800",
+    "surface": "query",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "7627212243a47960"
+  },
+  {
+    "cell": "query-light-1440x900",
+    "surface": "query",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "bb1660ee0fea318a"
+  },
+  {
+    "cell": "query-dark-1440x900",
+    "surface": "query",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "5caeedc4d60f60af"
+  },
+  {
+    "cell": "query-light-1920x1080",
+    "surface": "query",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "af8d45ce06f2758a"
+  },
+  {
+    "cell": "query-dark-1920x1080",
+    "surface": "query",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "eac0431eac02ae47"
+  },
+  {
+    "cell": "table-light-1280x800",
+    "surface": "table",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "5d57cfbe6cf8a138"
+  },
+  {
+    "cell": "table-dark-1280x800",
+    "surface": "table",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "91ca8d641ff683fb"
+  },
+  {
+    "cell": "table-light-1440x900",
+    "surface": "table",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "bb4d9f8759fdf182"
+  },
+  {
+    "cell": "table-dark-1440x900",
+    "surface": "table",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "8e95c915dc6e2d9c"
+  },
+  {
+    "cell": "table-light-1920x1080",
+    "surface": "table",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "0f6dde074a504238"
+  },
+  {
+    "cell": "table-dark-1920x1080",
+    "surface": "table",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "6c908cb2bd958811"
+  },
+  {
+    "cell": "explorer-light-1280x800",
+    "surface": "explorer",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "b4a95d3a431d4f87"
+  },
+  {
+    "cell": "explorer-dark-1280x800",
+    "surface": "explorer",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "7f11ce466a37f696"
+  },
+  {
+    "cell": "explorer-light-1440x900",
+    "surface": "explorer",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "245d4067250e8dd0"
+  },
+  {
+    "cell": "explorer-dark-1440x900",
+    "surface": "explorer",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "0816c7ff48c15b70"
+  },
+  {
+    "cell": "explorer-light-1920x1080",
+    "surface": "explorer",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "ad4f3146f9513fbd"
+  },
+  {
+    "cell": "explorer-dark-1920x1080",
+    "surface": "explorer",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "e55050b7f421b31c"
+  },
+  {
+    "cell": "diagram-light-1280x800",
+    "surface": "diagram",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "2abd87f83db04be8"
+  },
+  {
+    "cell": "diagram-dark-1280x800",
+    "surface": "diagram",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "07d27df538c0c8fb"
+  },
+  {
+    "cell": "diagram-light-1440x900",
+    "surface": "diagram",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "d71c317aaa606ca2"
+  },
+  {
+    "cell": "diagram-dark-1440x900",
+    "surface": "diagram",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "8eae8fbec3aef151"
+  },
+  {
+    "cell": "diagram-light-1920x1080",
+    "surface": "diagram",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "f3da2aa7fdd60036"
+  },
+  {
+    "cell": "diagram-dark-1920x1080",
+    "surface": "diagram",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "8a0ad50efb371836"
+  },
+  {
+    "cell": "settings-light-1280x800",
+    "surface": "settings",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "44a10578e85f0b1f"
+  },
+  {
+    "cell": "settings-dark-1280x800",
+    "surface": "settings",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "65184bf8093b16d5"
+  },
+  {
+    "cell": "settings-light-1440x900",
+    "surface": "settings",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "45761dba5a80ede8"
+  },
+  {
+    "cell": "settings-dark-1440x900",
+    "surface": "settings",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "d299ad6b714b9ce3"
+  },
+  {
+    "cell": "settings-light-1920x1080",
+    "surface": "settings",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "fbf31bd70e9c78d3"
+  },
+  {
+    "cell": "settings-dark-1920x1080",
+    "surface": "settings",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "ab4a33d2c69e28a6"
+  },
+  {
+    "cell": "connection-light-1280x800",
+    "surface": "connection",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "1fc22c99c18ae37e"
+  },
+  {
+    "cell": "connection-dark-1280x800",
+    "surface": "connection",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "6fdb87cc1703987c"
+  },
+  {
+    "cell": "connection-light-1440x900",
+    "surface": "connection",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "718bf19ea5d30be7"
+  },
+  {
+    "cell": "connection-dark-1440x900",
+    "surface": "connection",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "57d3fd678d28c13c"
+  },
+  {
+    "cell": "connection-light-1920x1080",
+    "surface": "connection",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "556d30ddc0b603f1"
+  },
+  {
+    "cell": "connection-dark-1920x1080",
+    "surface": "connection",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "71da7ce94617bf6d"
+  },
+  {
+    "cell": "gallery-light-1280x800",
+    "surface": "gallery",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "a89aacc856d4e487"
+  },
+  {
+    "cell": "gallery-dark-1280x800",
+    "surface": "gallery",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "80cbf86ecfcef484"
+  },
+  {
+    "cell": "gallery-light-1440x900",
+    "surface": "gallery",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "cca6b077aa93e334"
+  },
+  {
+    "cell": "gallery-dark-1440x900",
+    "surface": "gallery",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "56f7c981aaef1c5e"
+  },
+  {
+    "cell": "gallery-light-1920x1080",
+    "surface": "gallery",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "9f86f911aae35b06"
+  },
+  {
+    "cell": "gallery-dark-1920x1080",
+    "surface": "gallery",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "8f180649fcddee57"
+  },
+  {
+    "cell": "agent-light-1280x800",
+    "surface": "agent",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "9a285acf79a79398"
+  },
+  {
+    "cell": "agent-dark-1280x800",
+    "surface": "agent",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "7b3a2ff2f0ffe58b"
+  },
+  {
+    "cell": "agent-light-1440x900",
+    "surface": "agent",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "07a75fc7f92a134a"
+  },
+  {
+    "cell": "agent-dark-1440x900",
+    "surface": "agent",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "1d0e24bc2b57f9c8"
+  },
+  {
+    "cell": "agent-light-1920x1080",
+    "surface": "agent",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "a4ca8e21aa089a1c"
+  },
+  {
+    "cell": "agent-dark-1920x1080",
+    "surface": "agent",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "1fd506b270871f0f"
+  },
+  {
+    "cell": "palette-light-1280x800",
+    "surface": "palette",
+    "theme": "light",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "3b3567cd21ce983b"
+  },
+  {
+    "cell": "palette-dark-1280x800",
+    "surface": "palette",
+    "theme": "dark",
+    "requested": "1280x800",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "88e6daa78c757126"
+  },
+  {
+    "cell": "palette-light-1440x900",
+    "surface": "palette",
+    "theme": "light",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "4ff8da91ce428ff0"
+  },
+  {
+    "cell": "palette-dark-1440x900",
+    "surface": "palette",
+    "theme": "dark",
+    "requested": "1440x900",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "585ec2af69c43170"
+  },
+  {
+    "cell": "palette-light-1920x1080",
+    "surface": "palette",
+    "theme": "light",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "652032f1ae2e46b7"
+  },
+  {
+    "cell": "palette-dark-1920x1080",
+    "surface": "palette",
+    "theme": "dark",
+    "requested": "1920x1080",
+    "exit": 0,
+    "png": true,
+    "rendered": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "b79e76ec4c2a4464"
+  }
+]
