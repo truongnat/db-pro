@@ -385,3 +385,83 @@ mod scheduler_repaint_cadence_tests {
         );
     }
 }
+
+/// The frame-level cursor reset must run *before* widgets draw. When it ran
+/// after, it overwrote every `on_hover_cursor` in the app and hover cursors
+/// disappeared everywhere — the audit's "cursor does not match behaviour".
+#[test]
+fn stale_cursor_is_cleared_before_widgets_draw() {
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    // A value left over from the previous pass.
+    ctx.set_cursor_icon(egui::CursorIcon::Grab);
+
+    let button_rect = std::cell::Cell::new(egui::Rect::NOTHING);
+    let _ = crate::test_frame::frame(
+        &ctx,
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 200.0))),
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                crate::app::app_lifecycle::clear_stale_cursor(ui.ctx());
+                button_rect.set(
+                    crate::components::button::Button::new(DbProTheme::dark())
+                        .text("Run")
+                        .show(ui)
+                        .rect,
+                );
+            });
+        },
+    );
+
+    // Hover the button in the next pass, which also clears first.
+    let output = crate::test_frame::frame(
+        &ctx,
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 200.0))),
+            events: vec![egui::Event::PointerMoved(button_rect.get().center())],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                crate::app::app_lifecycle::clear_stale_cursor(ui.ctx());
+                crate::components::button::Button::new(DbProTheme::dark())
+                    .text("Run")
+                    .show(ui);
+            });
+        },
+    );
+
+    assert_eq!(
+        output.platform_output.cursor_icon,
+        egui::CursorIcon::PointingHand,
+        "clearing before drawing must not erase the widget's hover cursor"
+    );
+
+    // The other side of the contract, so the ordering cannot be "simplified"
+    // later: a reset *after* drawing erases the hover cursor. That is the
+    // regression this test exists for.
+    let after_draw = crate::test_frame::frame(
+        &ctx,
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 200.0))),
+            events: vec![egui::Event::PointerMoved(button_rect.get().center())],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                crate::components::button::Button::new(DbProTheme::dark())
+                    .text("Run")
+                    .show(ui);
+                crate::app::app_lifecycle::clear_stale_cursor(ui.ctx());
+            });
+        },
+    );
+    assert_eq!(
+        after_draw.platform_output.cursor_icon,
+        egui::CursorIcon::Default,
+        "a reset after drawing would erase the hover cursor — keep the clear first"
+    );
+}

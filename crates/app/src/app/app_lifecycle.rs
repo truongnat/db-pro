@@ -21,12 +21,7 @@ impl eframe::App for DbProApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // egui keeps `PlatformOutput::cursor_icon` sticky between frames, so a
-        // hover cursor outlives the pointer leaving its widget unless it is
-        // cleared every pass. Clear it *before* drawing: widgets set their own
-        // cursor while they are drawn, and a reset afterwards would overwrite
-        // every one of them.
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
+        clear_stale_cursor(ui.ctx());
         self.draw_shell(ui);
         self.draw_overlays(ui.ctx());
         if cfg!(target_os = "linux") {
@@ -34,6 +29,17 @@ impl eframe::App for DbProApp {
         }
     }
 }
+/// Clears the previous pass's cursor before any widget draws.
+///
+/// egui keeps `PlatformOutput::cursor_icon` sticky between frames, so a hover
+/// cursor would outlive the pointer leaving its widget. The clear must happen
+/// *first*: widgets set their own cursor while they are drawn, and a reset
+/// afterwards overwrites every one of them — which is exactly the bug that made
+/// cursors feel wrong across the whole app.
+pub(crate) fn clear_stale_cursor(ctx: &egui::Context) {
+    ctx.set_cursor_icon(egui::CursorIcon::Default);
+}
+
 impl DbProApp {
     fn persist_layout_and_connection_state(&mut self, storage: &mut dyn eframe::Storage) {
         let scope = TableDataState::layout_scope(
