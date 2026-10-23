@@ -119,8 +119,8 @@ fn draw_header(theme: DbProTheme, ui: &mut egui::Ui) {
 fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAction> {
     let items = welcome_items(ui.ctx());
     let avail_width = ui.available_width();
-    let is_wide = avail_width >= WIDE_GRID_MIN_WIDTH;
-    let container_width = avail_width.clamp(0.0, WIDE_GRID_WIDTH);
+    let columns = grid_columns(avail_width);
+    let container_width = grid_width(avail_width, columns);
     let side_margin = ((avail_width - container_width) * 0.5).max(0.0);
 
     let mut triggered = None;
@@ -129,21 +129,49 @@ fn draw_quick_actions(theme: DbProTheme, ui: &mut egui::Ui) -> Option<WelcomeAct
         ui.vertical(|ui| {
             ui.set_width(container_width);
             ui.spacing_mut().item_spacing = egui::vec2(SPACE_MD, SPACE_MD);
-            triggered = if is_wide {
-                draw_wide_rows(theme, ui, container_width, &items)
-            } else {
-                draw_stacked_rows(theme, ui, container_width, &items)
-            };
+            triggered = draw_grid_rows(theme, ui, container_width, columns, &items);
         });
     });
     triggered
 }
 
-fn draw_wide_rows(theme: DbProTheme, ui: &mut egui::Ui, width: f32, items: &[WelcomeItem; 4]) -> Option<WelcomeAction> {
-    let card_w = ((width - SPACE_MD) * 0.5).floor();
+/// Columns the quick-action grid uses at the local content width: all four
+/// actions on one row when they fit, two columns above the two-column
+/// breakpoint, one otherwise.
+fn grid_columns(avail_width: f32) -> usize {
+    if avail_width >= QUAD_GRID_MIN_WIDTH {
+        4
+    } else if avail_width >= WIDE_GRID_MIN_WIDTH {
+        2
+    } else {
+        1
+    }
+}
+
+/// Width of the grid itself: it spends the surface's width up to one
+/// `CARD_MAX_WIDTH` per column, so wide viewports get more columns instead of a
+/// fixed-width island, and no card stretches past a readable measure.
+fn grid_width(avail_width: f32, columns: usize) -> f32 {
+    let columns = columns.max(1);
+    let capped = columns as f32 * CARD_MAX_WIDTH + (columns as f32 - 1.0) * SPACE_MD;
+    avail_width.max(0.0).min(capped)
+}
+
+/// One row per `columns` cards; a trailing partial row keeps the same card
+/// size so the grid never stretches its last row.
+fn draw_grid_rows(
+    theme: DbProTheme,
+    ui: &mut egui::Ui,
+    width: f32,
+    columns: usize,
+    items: &[WelcomeItem; 4],
+) -> Option<WelcomeAction> {
+    let columns = columns.max(1);
+    let gap_total = (columns - 1) as f32 * SPACE_MD;
+    let card_w = ((width - gap_total) / columns as f32).floor().max(0.0);
     let card_size = egui::vec2(card_w, CARD_HEIGHT);
     let mut action = None;
-    for row in items.chunks(2) {
+    for row in items.chunks(columns) {
         ui.horizontal(|ui| {
             for item in row {
                 if let Some(act) = draw_card_item(theme, ui, card_size, item) {
@@ -153,16 +181,6 @@ fn draw_wide_rows(theme: DbProTheme, ui: &mut egui::Ui, width: f32, items: &[Wel
         });
     }
     action
-}
-
-fn draw_stacked_rows(
-    theme: DbProTheme,
-    ui: &mut egui::Ui,
-    width: f32,
-    items: &[WelcomeItem; 4],
-) -> Option<WelcomeAction> {
-    let card_size = egui::vec2(width, CARD_HEIGHT);
-    items.iter().find_map(|item| draw_card_item(theme, ui, card_size, item))
 }
 
 fn draw_card_item(

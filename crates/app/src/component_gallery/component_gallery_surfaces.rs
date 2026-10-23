@@ -14,7 +14,7 @@ impl DbProApp {
             "Displays a button or a component that looks like a button with various variants and sizes.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             ui.label(
                 RichText::new("Variants")
                     .size(FONT_SIZE_UI_LABEL)
@@ -140,7 +140,7 @@ impl DbProApp {
             "Operational telemetry for query execution and connection state.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(SPACE_MD, SPACE_SM);
                 ui.label(
@@ -214,7 +214,7 @@ impl DbProApp {
             "Aspect ratio containers and visual separators for composing native surfaces.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             AspectRatio::sixteen_nine().show(ui, |ui| {
                 ui.centered_and_justified(|ui| {
                     ui.label("16:9 content region");
@@ -240,7 +240,7 @@ impl DbProApp {
             "Specialized primitives for developer environments: InlineCode, CodeBlock with copy, DiffViewer, and Schema Tree.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             // Row 1: InlineCode & CodeBlock
             ui.label(
                 RichText::new("Inline Code & CodeBlock")
@@ -305,7 +305,7 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_SM);
 
-                Card::new(theme).show(ui, |ui| {
+                Card::new(theme).fill_width().show(ui, |ui| {
                     DatabaseTreeNode::new("localhost:5432", TreeNodeKind::Server, 0, theme)
                         .detail("PostgreSQL 16.2")
                         .expanded(&mut self.gallery_state.tree_server_expanded)
@@ -504,7 +504,7 @@ impl DbProApp {
             "Connection cards, health monitors, activity bar, status bar, and driver badges.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             // Row 1: Connection Cards & Badges
             ui.label(
                 RichText::new("Connection Cards & Database Driver Badges")

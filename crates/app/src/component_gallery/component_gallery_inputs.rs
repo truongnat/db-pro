@@ -27,7 +27,7 @@ impl DbProApp {
             "Responsive connection form with explicit labels, keyboard navigation, validation summary, and inline recovery.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             self.draw_gallery_form_header(ui);
             ui.add_space(SPACE_LG);
 
@@ -349,7 +349,7 @@ impl DbProApp {
             "Checkboxes, animated toggle switches, radio groups, dropdown selects, and sliders.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             ui.columns(3, |columns| {
                 // Column 1: Checkboxes
                 let ui = &mut columns[0];
@@ -474,7 +474,7 @@ impl DbProApp {
 
     fn draw_gallery_radio_group(&mut self, ui: &mut Ui) {
         let theme = self.theme;
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             RadioGroup::new(theme)
                 .label("Transaction isolation")
                 .option(RadioGroupOption::new(0, "Read committed").description("Default for most workloads."))
@@ -590,7 +590,7 @@ impl DbProApp {
 }
 
 fn gallery_panel<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-    Card::new(theme).show(ui, add_contents)
+    Card::new(theme).fill_width().show(ui, add_contents)
 }
 
 fn gallery_panel_heading(ui: &mut Ui, theme: DbProTheme, (title, description): (&str, &str)) {

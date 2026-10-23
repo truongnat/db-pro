@@ -18,11 +18,23 @@ use crate::{
 
 pub struct Card {
     theme: DbProTheme,
+    fill_width: bool,
 }
 
 impl Card {
     pub fn new(theme: DbProTheme) -> Self {
-        Self { theme }
+        Self {
+            theme,
+            fill_width: false,
+        }
+    }
+
+    /// Expand the card to the width its parent offers instead of shrinking to
+    /// its content. Specimen blocks and full-width panels use this so the card
+    /// edge — not the widest child — defines the block's bounds.
+    pub fn fill_width(mut self) -> Self {
+        self.fill_width = true;
+        self
     }
 
     pub fn frame(&self) -> Frame {
@@ -37,7 +49,14 @@ impl Card {
     }
 
     pub fn show<R>(&self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-        self.frame().show(ui, add_contents).inner
+        self.frame()
+            .show(ui, |ui| {
+                if self.fill_width {
+                    ui.set_min_width(ui.available_width());
+                }
+                add_contents(ui)
+            })
+            .inner
     }
 }
 

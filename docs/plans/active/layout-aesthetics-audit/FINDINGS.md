@@ -85,3 +85,14 @@ The convention this codebase already follows, stated once so the gaps are obviou
 
 Routed to: `core-component-style-system` for C1/C2 (grid affordances live in the shared table/grid
 components), and this audit's own follow-up for C3–C6 (view-level omissions).
+
+## Wide-layout distribution (audit item 5)
+
+| Ref | Surface | Before | After |
+|---|---|---|---|
+| W1 | Welcome grid | fixed 620 pt at every width (38.8 % at 1920, 13.6 % canvas coverage) | column count from the local width: 4 columns at 1920 (100 % of the content column, card 396 pt), 2 at 1440/1280, 1 below 572; `CARD_MAX_WIDTH = 420` keeps the reading measure |
+| W2 | Gallery specimen card | 541 pt inside a 1120 pt column (48 %); header actions ~110 pt outside the column | card fills the column (`Card::fill_width`); header and body share one `detail_column` helper so both land on the same edges |
+| W3 | `nav::section_label` | `SECTION_LABEL_FONT_SIZE = 10.5` literal | `FONT_SIZE_BADGE` — the last off-token label size is gone |
+| W4 | Query toolbar | ~60 % dead run at 1920 | **open** — the distribution attempt was reverted: at 1920 the gap was still ~48 % and the row-limit trigger clipped its label to "50…", so the tree keeps the previous behaviour until a pass fixes both |
+
+W4's revert is deliberate: shipping a distribution that clips a control is worse than the dead run it replaced. The next attempt must size the row-limit trigger to its content before distributing slack.

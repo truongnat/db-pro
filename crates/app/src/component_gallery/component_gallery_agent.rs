@@ -12,7 +12,7 @@ impl DbProApp {
             "Context awareness, agent reasoning trace, plan checklist, tool approvals, transaction bar, and safe execution boundaries.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             self.draw_gallery_agent_composer(ui);
             self.draw_gallery_agent_context(ui);
             self.draw_gallery_agent_status_and_actions(ui);

@@ -14,7 +14,7 @@ impl DbProApp {
             "Tooltip, popover, dropdown, dialog, and sheet using the shared floating surface.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             ui.label(
                 RichText::new("Tooltips (Positions & Shortcuts):")
                     .size(FONT_SIZE_CAPTION)
@@ -183,7 +183,7 @@ impl DbProApp {
             "CommandInput, CommandGroup, CommandItem, and CommandEmpty for quick actions.",
         );
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             ui.set_max_width(520.0);
             CommandInput::new(&mut self.gallery_state.command_query, theme)
                 .placeholder("Type a command or search actions...")

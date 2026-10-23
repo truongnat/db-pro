@@ -9,15 +9,15 @@ use super::{
         BREADCRUMB_CHEVRON_SIZE, BREADCRUMB_TEXT_SIZE, BREADCRUMB_UNDERLINE_INSET, BREADCRUMB_UNDERLINE_THICKNESS,
         PAGE_BUTTON_ICON_SIZE, PAGE_BUTTON_RADIUS, PAGE_HEADER_DESCRIPTION_SIZE, PAGE_HEADER_GAP,
         PAGE_HEADER_TITLE_SIZE, PAGE_LABEL_FONT_SIZE, SECTION_HEADER_DESCRIPTION_SIZE, SECTION_HEADER_GAP,
-        SECTION_HEADER_TITLE_SIZE, SECTION_LABEL_FONT_SIZE, SIDEBAR_ITEM_PILL_INSET_X, SIDEBAR_ITEM_PILL_INSET_Y,
-        SIDEBAR_ITEM_PILL_RADIUS, SIDEBAR_ITEM_PILL_WIDTH,
+        SECTION_HEADER_TITLE_SIZE, SIDEBAR_ITEM_PILL_INSET_X, SIDEBAR_ITEM_PILL_INSET_Y, SIDEBAR_ITEM_PILL_RADIUS,
+        SIDEBAR_ITEM_PILL_WIDTH,
     },
     handler::{
         breadcrumb_item_color, can_navigate_next, can_navigate_prev, clamp_page, format_page_label, next_page,
         page_button_accessible_label, page_button_colors, prev_page,
     },
 };
-use crate::{components::interact::paint_focus_ring, DbProTheme};
+use crate::{components::interact::paint_focus_ring, tokens::FONT_SIZE_BADGE, DbProTheme};
 
 /// Controls navigation between numbered pages of items.
 pub struct Pagination<'a> {
@@ -244,10 +244,7 @@ impl<'a> SectionHeader<'a> {
 pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
     ui.label(
         RichText::new(text.into())
-            .font(FontId::new(
-                SECTION_LABEL_FONT_SIZE,
-                FontFamily::Name("ui_medium".into()),
-            ))
+            .font(FontId::new(FONT_SIZE_BADGE, FontFamily::Name("ui_medium".into())))
             .strong()
             .color(theme.text_muted),
     )

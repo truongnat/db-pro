@@ -32,10 +32,6 @@ pub const SECTION_HEADER_DESCRIPTION_SIZE: f32 = 12.0;
 /// Vertical spacing between section header title and description.
 pub const SECTION_HEADER_GAP: f32 = 2.0;
 
-/// Font size of the muted uppercase section labels above field groups, in egui
-/// points (10.5 sits between caption 12 and kbd 9).
-pub const SECTION_LABEL_FONT_SIZE: f32 = 10.5;
-
 /// Horizontal inset of the active accent pill inside a sidebar item, in egui points.
 pub const SIDEBAR_ITEM_PILL_INSET_X: f32 = crate::tokens::STROKE_THIN;
 /// Vertical inset of the active accent pill inside a sidebar item, in egui points.

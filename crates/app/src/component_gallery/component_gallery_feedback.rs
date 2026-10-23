@@ -104,7 +104,7 @@ impl DbProApp {
             "Feedback, Progress & Shortcuts",
             "Progress bars, animated spinners, and keyboard shortcut badges.",
         );
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             self.draw_gallery_progress(ui);
             self.draw_gallery_shortcut_bar(ui);
             self.draw_gallery_shortcut_dialog(ui);
@@ -474,7 +474,7 @@ impl DbProApp {
         let theme = self.theme;
         self.draw_section_heading(ui, "Navigation & Tabs", "Segmented controls and underline tabs.");
 
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             ui.label(
                 RichText::new("Segmented Pill Tabs")
                     .size(FONT_SIZE_UI_LABEL)
@@ -507,7 +507,7 @@ impl DbProApp {
         });
 
         ui.add_space(16.0);
-        Card::new(theme).show(ui, |ui| {
+        Card::new(theme).fill_width().show(ui, |ui| {
             PageHeader::new("Schema explorer", theme)
                 .description("Browse databases, schemas, and objects.")
                 .show(ui);

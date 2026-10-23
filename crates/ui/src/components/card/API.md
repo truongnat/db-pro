@@ -13,6 +13,7 @@ Card::new(theme).show(ui, |ui| {
 
 - `Card::new(theme) -> Card` creates the themed passive surface.
 - `frame(&self) -> egui::Frame` returns its frame for custom composition.
+- `fill_width(mut self) -> Card` makes the card take its parent's offered width instead of shrinking to its content; use it for specimen blocks and full-width panels.
 - `show<R>(&self, ui, add_contents) -> R` renders the frame and returns the closure result.
 - `card_header(ui, title, description, theme)` paints a title and optional description, then adds standard spacing.
 - `card_content<R>(ui, add_contents) -> R` lays out vertical body content and returns its result.

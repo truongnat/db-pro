@@ -5,6 +5,103 @@ use super::*;
 use egui::{RichText, Ui};
 use lucide_icons::Icon;
 
+/// Width of the category rail: the widest category label plus its icon, pill
+/// and row padding. Shared by the rail's minimum and maximum so the rail cannot
+/// drift wider than the space its rows were sized for.
+const CATEGORY_RAIL_WIDTH: f32 = 196.0;
+
+/// Reading measure of the detail column. The header and the scrolling body both
+/// render inside this column, and specimen cards fill it, so the card edge —
+/// not the widest specimen row — defines each block.
+const DETAIL_COLUMN_MAX_WIDTH: f32 = 1120.0;
+
+/// Render `add_contents` inside the gallery's detail column.
+///
+/// `surface_inset` is the horizontal margin the surrounding surface already
+/// applied (the header panel's frame). The column subtracts it from its own
+/// gutter, so the header's content and the body's content resolve to the same
+/// left and right edges at every width.
+fn detail_column<R>(ui: &mut Ui, surface_inset: f32, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    Container::new()
+        .gutter((SPACE_LG - surface_inset).max(0.0))
+        .max_width(DETAIL_COLUMN_MAX_WIDTH)
+        .show(ui, add_contents)
+        .1
+}
+
+/// What the gallery header's action cluster asked for this frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GalleryHeaderAction {
+    ToggleTheme,
+    Reset,
+}
+
+fn gallery_header(ui: &mut Ui, theme: DbProTheme, dark_mode: bool) -> Option<GalleryHeaderAction> {
+    let mut action = None;
+    let frame = panel_frame(theme);
+    // The panel insets its own content; the column subtracts that inset so the
+    // header's edges land exactly on the body column's edges.
+    let surface_inset = frame.inner_margin.left as f32;
+    frame.show(ui, |ui| {
+        ui.set_min_height(TOOLBAR_HEIGHT);
+        detail_column(ui, surface_inset, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(char::from(Icon::Palette).to_string())
+                        .font(font_icon(ICON_DEFAULT))
+                        .color(theme.accent),
+                );
+                ui.add_space(SPACE_XS);
+                ui.vertical(|ui| {
+                    ui.label(
+                        RichText::new("Component Gallery")
+                            .font(font_subheading())
+                            .color(theme.text_primary),
+                    );
+                    ui.label(
+                        RichText::new("DB Pro workstation primitives")
+                            .font(font_caption())
+                            .color(theme.text_tertiary),
+                    );
+                });
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let (icon, label) = if dark_mode {
+                        (Icon::Sun, "Preview light theme")
+                    } else {
+                        (Icon::Moon, "Preview dark theme")
+                    };
+                    if Button::new(theme)
+                        .icon(icon)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip(label)
+                        .access_label(label)
+                        .show(ui)
+                        .clicked()
+                    {
+                        action = Some(GalleryHeaderAction::ToggleTheme);
+                    }
+
+                    ui.add_space(SPACE_XS);
+                    if Button::new(theme)
+                        .text("Reset")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::RotateCcw)
+                        .tooltip("Reset interactive component samples")
+                        .show(ui)
+                        .clicked()
+                    {
+                        action = Some(GalleryHeaderAction::Reset);
+                    }
+                });
+            });
+        });
+    });
+    action
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GalleryCategory {
     #[default]
@@ -252,7 +349,7 @@ impl DbProApp {
                 scroll.show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.add_space(SPACE_MD);
-                    Container::new().gutter(SPACE_LG).max_width(1120.0).show(ui, |ui| {
+                    detail_column(ui, 0.0, |ui| {
                         self.draw_selected_gallery_category(ui);
                         ui.add_space(SPACE_2XL);
                     });
@@ -264,79 +361,23 @@ impl DbProApp {
     }
 
     fn draw_gallery_header(&mut self, ui: &mut Ui) {
-        let theme = self.theme;
-        panel_frame(theme).show(ui, |ui| {
-            ui.set_min_height(TOOLBAR_HEIGHT);
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(char::from(Icon::Palette).to_string())
-                        .font(font_icon(ICON_DEFAULT))
-                        .color(theme.accent),
-                );
-                ui.add_space(SPACE_XS);
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new("Component Gallery")
-                            .font(font_subheading())
-                            .color(theme.text_primary),
-                    );
-                    ui.label(
-                        RichText::new("DB Pro workstation primitives")
-                            .font(font_caption())
-                            .color(theme.text_tertiary),
-                    );
-                });
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if Button::new(theme)
-                        .icon(if self.preferences.dark_mode {
-                            Icon::Sun
-                        } else {
-                            Icon::Moon
-                        })
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip(if self.preferences.dark_mode {
-                            "Preview light theme"
-                        } else {
-                            "Preview dark theme"
-                        })
-                        .access_label(if self.preferences.dark_mode {
-                            "Preview light theme"
-                        } else {
-                            "Preview dark theme"
-                        })
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.preferences.dark_mode = !self.preferences.dark_mode;
-                        self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
-                        ui.ctx().request_repaint();
-                    }
-
-                    ui.add_space(SPACE_XS);
-                    if Button::new(theme)
-                        .text("Reset")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .icon(Icon::RotateCcw)
-                        .tooltip("Reset interactive component samples")
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.gallery_state = ComponentGalleryState::default();
-                    }
-                });
-            });
-        });
+        match gallery_header(ui, self.theme, self.preferences.dark_mode) {
+            Some(GalleryHeaderAction::ToggleTheme) => {
+                self.preferences.dark_mode = !self.preferences.dark_mode;
+                self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
+                ui.ctx().request_repaint();
+            }
+            Some(GalleryHeaderAction::Reset) => self.gallery_state = ComponentGalleryState::default(),
+            None => {}
+        }
     }
 
     fn draw_gallery_category_navigation(&mut self, ui: &mut Ui, available_height: f32) {
         let theme = self.theme;
         sidebar_frame(theme).show(ui, |ui| {
             ui.vertical(|ui| {
-                ui.set_min_size(egui::vec2(196.0, available_height));
-                ui.set_max_width(196.0);
+                ui.set_min_size(egui::vec2(CATEGORY_RAIL_WIDTH, available_height));
+                ui.set_max_width(CATEGORY_RAIL_WIDTH);
 
                 ui.label(RichText::new("LIBRARY").font(font_caption()).color(theme.text_tertiary));
                 ui.add_space(SPACE_SM);
@@ -425,3 +466,7 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
     }
 }
+
+#[cfg(test)]
+#[path = "tests/component_gallery_view_tests.rs"]
+mod tests;
