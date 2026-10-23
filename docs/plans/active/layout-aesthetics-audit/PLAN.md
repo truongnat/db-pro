@@ -61,9 +61,9 @@ only).
 3. **Measure, don't vibe.** For every scored screen record objective numbers alongside the image:
    panel widths, gutters, type sizes, contrast ratios, count of distinct radii/spacing steps, count
    of competing emphasis elements. A score without a number or a cited image is not evidence.
-4. **Score with anchors.** Six dimensions, 0–4 each, with written anchors (0 = broken, 2 = usable but
-   inconsistent, 4 = deliberate and consistent). Two passes: self, then an independent reviewer on
-   the same evidence; disagreement is reported, not averaged away.
+4. **Score with anchors.** Eight dimensions from the table above, 0–4 each (32 points), with written
+   anchors (0 = broken, 2 = usable but inconsistent, 4 = deliberate and consistent). Two passes: self,
+   then an independent reviewer on the same evidence; disagreement is reported, not averaged away.
 5. **Prioritize and route.** Every finding carries severity (P0/P1/P2), the dimension it hits, its
    evidence pointer, and the owning plan. Nothing is filed as "polish later" without an owner.
 

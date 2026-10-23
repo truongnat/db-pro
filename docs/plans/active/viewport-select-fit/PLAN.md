@@ -46,6 +46,6 @@ Resolve horizontal overflow caused by unconditional full-width allocation in hor
 - [x] Vertical descriptive choices maintain full clickable row width when in vertical containers.
 - [x] Query context picker popup width is bounded and hugs the trigger; each list region is sized to its rows and capped, so short lists stay compact and long lists scroll in a bounded window.
 - [x] No duplicate `ScrollArea` ID warning banners appear in the context picker.
-- [x] All unit regression tests pass (8 new tests).
+- [x] All unit regression tests pass (10 new tests: 4 selection, 5 picker, 1 palette ladder).
 - [x] 17-cell matrix captures (2 surfaces × 3 viewports × 2 themes + dense list + short list + Explorer popover) executed and visually verified.
 - [x] Light chrome reads as its own region without collapsing hover/selected states (owner-reported F7).

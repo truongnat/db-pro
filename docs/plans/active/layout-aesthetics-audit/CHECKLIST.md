@@ -2,7 +2,7 @@
 
 ## 1. Preparation
 - [ ] Confirm the surface inventory with the owner (10 surfaces; add/remove before capturing).
-- [ ] Write the six-dimension rubric with 0–4 anchors into `RUBRIC.md`.
+- [ ] Write the eight-dimension rubric (32-point total) with 0–4 anchors into `RUBRIC.md`.
 - [ ] Fix the measurement list per screen (panel widths, gutters, type sizes, contrast, distinct
       radii/spacing steps, competing emphasis count).
 - [ ] Build the capture binary: `cargo build -p db-pro-native --features capture`.
@@ -20,7 +20,7 @@
 - [ ] Count distinct corner radii, spacing steps and emphasis levels per screen.
 
 ## 4. Judgement
-- [ ] Score all six dimensions per surface with anchors; attach the numbers to each score.
+- [ ] Score all eight dimensions per surface with anchors; attach the numbers to each score.
 - [ ] Re-judge the three surfaces fixed in `457cd645` and state before/after.
 - [ ] Write findings with severity, dimension, evidence pointer and owning plan.
 - [ ] Route each finding: `native-visual-redesign`, `ui-spacing-consistency`,

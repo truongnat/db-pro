@@ -459,18 +459,15 @@ impl DbProApp {
 
     /// Capture helper: open the query context picker popup (connection/schema selector).
     ///
-    /// `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER` selects the state: `dense` seeds many
-    /// long-named schemas to exercise the bounded scroll, `empty` clears the schema list
-    /// to document the empty section; any other value keeps the live fixture data.
+    /// `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER=dense` seeds many long-named schemas to
+    /// exercise the bounded scroll window; any other non-empty value keeps the live
+    /// fixture data. There is no `empty` mode: the picker's caller always supplies at
+    /// least one schema (`main`/`public` fallback), so an empty list cannot be produced.
     pub fn open_query_context_picker_for_capture(&mut self) {
-        match std::env::var("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").as_deref() {
-            Ok("dense") => {
-                self.schema.explorer.schema.schemas = (0..24)
-                    .map(|index| format!("tenant_{index:02}_customer_analytics_reporting"))
-                    .collect();
-            }
-            Ok("empty") => self.schema.explorer.schema.schemas.clear(),
-            _ => {}
+        if std::env::var("DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER").as_deref() == Ok("dense") {
+            self.schema.explorer.schema.schemas = (0..24)
+                .map(|index| format!("tenant_{index:02}_customer_analytics_reporting"))
+                .collect();
         }
         self.query.editor.query_context_picker_open = true;
     }
