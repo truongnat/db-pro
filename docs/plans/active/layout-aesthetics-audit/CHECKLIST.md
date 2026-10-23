@@ -17,7 +17,7 @@ produces, so a different agent can run it without re-deriving the context.
 
 ---
 
-## A. Independent scoring pass — Query and the 1920 cells  ✅ DONE (5 scorers, all 60 cells, 2026-10-23)
+## A. Independent scoring pass — Query and the 1920 cells  ⚠️ PARTIAL (all surfaces two numbers except Table, which carries only the pass-2 score — pass-1 render leaked Welcome, gap admitted in REPORT)
 
 Goal: a second number for every surface, produced by someone who has not seen the first pass's
 scores, on evidence that cannot be mistaken for an older generation.
