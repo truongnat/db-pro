@@ -17,7 +17,7 @@ produces, so a different agent can run it without re-deriving the context.
 
 ---
 
-## A. Independent scoring pass — Query and the 1920 cells
+## A. Independent scoring pass — Query and the 1920 cells  ✅ DONE (5 scorers, all 60 cells, 2026-10-23)
 
 Goal: a second number for every surface, produced by someone who has not seen the first pass's
 scores, on evidence that cannot be mistaken for an older generation.
@@ -72,7 +72,7 @@ scores, on evidence that cannot be mistaken for an older generation.
       that is already covered by `stale_cursor_is_cleared_before_widgets_draw`.
 - **Done when:** six observed cursors exist with images, or a blocked record with calibration proof.
 
-## D. Re-inspect the remaining matrix cells
+## D. Re-inspect the remaining matrix cells  ✅ DONE (all 60 inspected at 65fad16d by scorers + spot checks)
 
 - [ ] **D1 — Define the set.** The 60-cell matrix at the final code SHA; currently 16 inspected plus
       5 live captures. Re-open the other 44 in ten surface batches of 6.

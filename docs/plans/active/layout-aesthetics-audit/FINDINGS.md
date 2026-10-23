@@ -145,3 +145,42 @@ Disagreements are recorded, not averaged. The independent pass also flagged two 
 - **Light rail edge is faint** (dimension 5): the nav panel and canvas differ by few luminance steps, so the rail boundary is weaker than the card boundary.
 
 Query workspace could not be independently scored in that pass: the evidence directory held files from three capture generations and the reviewer could not attribute them to labels. The four Query cells (light/dark × 1280/1920) were re-captured afterwards; a second pass on Query remains open.
+
+## Findings from the independent pass (post-matrix, SHA 65fad16d)
+
+### F9 (P2): scrollable regions hide every scrollbar — no "more content" affordance
+`components::scroll_area::ScrollArea::build` hardcodes `ScrollBarVisibility::AlwaysHidden` for every
+component ScrollArea. Consequences observed in evidence:
+
+- `table-*-1280x800`: `created_at` timestamps clip mid-digit at the grid's right edge with no bar
+  signalling horizontal scroll (the grid's ScrollArea does scroll — verified in source).
+- `connection-*` (all 6): the last form section renders half-clipped at the pinned body's bottom —
+  readable only after a scroll; the bar appears only after interaction.
+- The dialog frame's own `VisibleWhenNeeded` (added earlier) still fades its bar unless the pointer
+  interacts, so the same affordance gap remains even there.
+
+Fix direction: expose `scroll_bar_visibility(...)` on the component wrapper (default `AlwaysHidden`)
+and opt `VisibleWhenNeeded` on the grid's horizontal axis and any pinned-height body whose overflow
+isn't otherwise advertised. Owner: `native-visual-redesign`.
+
+### F10 (P2): Settings/General dead space
+Settings card occupies the top ~40% of the canvas; ~60% dead space below at ≥1440×838. Content could
+centre vertically or the card could grow; either is a design decision, not a bug.
+
+### F11 (P2): New Connection form grid uses three different column splits
+Name/Folder ≈55/45, Host/Port ≈72/28, Database/Username ≈48/52 — left-column right edges disagree by
+~200px across rows. Unify to two column templates.
+
+### F12 (P2): diagram node headers burn the accent role
+10 decorative blue node headers + 1 teal chip on screen; only the chip is actionable. Mutes the
+accent language elsewhere (same class of issue pass 1 flagged in other surfaces).
+
+### F13 (P2): light-theme active-tab contrast too weak
+Active query tab distinguished only by a faint top accent line; tab fill ≈ canvas fill.
+
+### F14 (P3 cluster): recorded, no fix planned this cycle
+Welcome 1920 card-copy line imbalance; palette light muted action text ~3:1; connection dialog opens
+without a dim scrim; Save/Save Connection is accent blue in light but near-white in dark (same role,
+different treatment); red TLS warning ~4:1 on dark; explorer popover content edges sit ~4pt from the
+rounded border; stray floating panel-collapse icon bottom-left of sidebar; muted agent suggestion
+text borderline 4.5:1.

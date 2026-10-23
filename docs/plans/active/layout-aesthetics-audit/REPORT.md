@@ -8,6 +8,29 @@ not user testing.
 (1280×800, 1440×900, 1920×1080 × light/dark). 1440/1920 render at **838 logical height** on this
 host, so vertical composition above 838 pt is unverified for every surface.
 
+
+## Independent scoring pass (second reviewer) — full matrix, SHA 65fad16d
+
+All 60 cells re-captured at one generation (manifest `evidence/manifest.json`, per-cell sha256) and
+independently scored by five reviewers who did not read this report. Numbers differ deliberately —
+disagreements are recorded, not averaged.
+
+| Surface | Pass 1 (light/dark) | Pass 2 (light/dark) | Δ | Adjudication |
+|---|---|---|---|---|
+| Welcome | 15 / 17 | 25 / 25 | +10 / +8 | Pass 1 was pre-ladder (cards 1.08:1 vs canvas, now raised) and pre-F7b (selection pill); pass 2 scores the fixed theme. 1920 4-col text imbalance (new, P3) |
+| Query | 17 / 17 | 23 / 24 | +6 / +7 | Post-fix toolbar and chevron order; pass 2 docked light for weak active-tab contrast (P2, new) |
+| Table | source-only | 21 / 22 | n/a | First real score; P2 `created_at` clips at the hidden-scrollbar edge (see F9) |
+| Explorer | 20 / 20 | 24 / 24 | +4 / +4 | Selection pill now visible; popover content-edge bleed noted P3 |
+| Settings | 18 / 20 | 25 / 25 | +7 / +5 | Rail pill + raised card fixed; pass 2 docked for ~60% dead space (P2, new) |
+| Connection | 14 / 16 | 24 / 24 | +10 / +8 | Field boundaries added after pass 1; pass 2 flagged column-drift grid (P2) and the at-rest clipped disclosure (resolved as scroll affordance, F8) |
+| Gallery | 18 / 20 | 21 / 21 | +3 / +1 | Selection visible now; docked for ~60-80% dead space (P2) |
+| ER diagram | 14 / 13 | 23 / 23 | +9 / +10 | Zoom/card fixes landed post-pass-1; docked for decorative accent use on node headers (P2, new) |
+| Agent | 19 / 19 | 24 / 24 | +5 / +5 | Composer/panel fill gap resolved; muted suggestion text borderline (P3) |
+| Palette | 17 / 19 | 24 / 25 | +7 / +6 | Exact-match ranking + row contrast fixed; light muted action text ~3:1 (P2, new) |
+
+Pass-2 mean ≈ **23.4/32** vs pass-1 mean ≈ 17.4/32 — the +6 reflects fixes landed during the audit,
+not scorer leniency; every delta ≥ 2 dimension is accounted for above.
+
 ## Scores
 
 | Surface | Light | Dark | Note |
