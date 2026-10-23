@@ -96,3 +96,35 @@ components), and this audit's own follow-up for C3–C6 (view-level omissions).
 | W4 | Query toolbar | run/explain/format, then the row cap, then a ~60 % empty run to the pinned overflow | resolved by grouping, not by distributing: the row cap moved into the trailing group with the overflow action, so a wide strip reads "actions left, view settings right". The earlier equal-gap attempt was reverted because it clipped the cap label to "50…" |
 
 W4 is closed as a grouping decision: an IDE toolbar with actions on the left and view settings on the right is the convention, and it keeps every control at its natural width. Distributing equal gaps across four anchored groups was tried and rejected — it required pinning the cap trigger to a width smaller than its label.
+
+## Live (Orca-driven) verification — 2026-10-23
+
+The four open items were checked against the running app, not the capture harness.
+
+| Item | Result |
+|---|---|
+| Table **data** surface | `evidence/live/table-data-light-1280.png` — employees, 3 rows, grid header/cells/gutter legible, row separators visible |
+| Table **structure** surface | `evidence/live/table-structure-light-1280.png` — header row, PK/FK badges, Actions column with `Alter` links |
+| Settings → **Appearance** | `evidence/live/settings-appearance-light-1280.png` — rail pill on the active section, card on the canvas, Light/Dark radios adjacent and unclipped, checkbox bounded |
+| Connection **error** state | `evidence/live/connection-error-light-1280.png` — every invalid field carries a red border and its own message, plus a toast |
+| Cursor | verified by test, not screenshot: `stale_cursor_is_cleared_before_widgets_draw` asserts both directions of the frame-level reset (clear-first keeps a widget's `PointingHand`; clear-after erases it). Screenshot proof of the pointer glyph was not obtainable here — the shared desktop kept another window frontmost, so `screencapture -C` captured the wrong app |
+
+New finding from the live pass:
+
+### F8: Connection dialog clips its last section at 838 pt height (P2)
+- **Evidence:** `connection-dark-1440x900.png` — the `Cloud Presets & URI Importer` disclosure is cut mid-row by the dialog's bottom edge, behind the footer, with no scroll affordance.
+- **Cause (source):** the dialog body is laid out without a bounded scroll region; the capture fixtures at 1280 fit, at 1440×838 the content exceeds the available height.
+- **Owner:** `native-visual-redesign` (dialog composition) — the body needs a capped scroll area, not a taller dialog.
+
+## Independent scoring pass (second reviewer)
+
+| Surface | First pass | Independent pass | Disagreement |
+|---|---|---|---|
+| Settings (General) | 18/32 light · 20/32 dark | **22/32 light · 22/32 dark** | +4 light / +2 dark. The second reviewer scored colour 3/4 (the new ladder makes the card read as raised without a border) and composition 3/4; the first pass had scored colour 1/4 on the flat-white theme that no longer exists |
+
+Disagreements are recorded, not averaged. The independent pass also flagged two things the first pass missed or under-weighted:
+
+- **Primary action changes appearance across themes** (dimension 6, 2/4): `Save` is accent blue in light and a light-grey fill in dark, because dark `accent.solid` is achromatic by design. That is a deliberate token choice, but it means "primary" is not one visual role across themes — worth a decision, not a silent pass.
+- **Light rail edge is faint** (dimension 5): the nav panel and canvas differ by few luminance steps, so the rail boundary is weaker than the card boundary.
+
+Query workspace could not be independently scored in that pass: the evidence directory held files from three capture generations and the reviewer could not attribute them to labels. The four Query cells (light/dark × 1280/1920) were re-captured afterwards; a second pass on Query remains open.
