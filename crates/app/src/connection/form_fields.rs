@@ -3,7 +3,6 @@
 // egui painter/view file: fns are linear layout code; branches are per-state paint variants.
 use super::config::*;
 use super::layout::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::input::{Input, PasswordInput};
 use crate::components::selection::Checkbox;
 use crate::components::tabs::SegmentedTabs;
@@ -60,7 +59,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         if show_name_error {
             name_input = name_input.error_text(t!("connection.validation_name_required"));
         }
-        let favorite = self.dialog.draft.favorite;
         form_row(
             ui,
             &widths,
@@ -68,49 +66,20 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                 Box::new(|ui| {
                     name_input.show(ui);
                 }),
-                // Group input shares its labeled cell with a square star toggle
-                // so the favorite affordance reads as part of the folder/group
-                // metadata instead of a lone third column.
                 Box::new(|ui| {
                     ui.spacing_mut().indent = 0.0;
                     Label::new(t!("connection.folder_group"), self.theme).show(ui);
                     ui.add_space(SPACE_XXS);
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = SPACE_XS;
-                        let toggle_w = egui::vec2(38.0, 38.0);
-                        let group_w = (widths[1] - toggle_w.x - SPACE_XS).max(80.0);
-                        Input::new(
-                            &mut self.dialog.draft.group,
-                            t!("connection.folder_group_placeholder"),
-                            self.theme,
-                        )
-                        .id_salt(focus_id::GROUP)
-                        .width(group_w)
-                        .leading_icon(Icon::Folder)
-                        .clearable(true)
-                        .show(ui);
-                        let (rect, _) = ui.allocate_exact_size(toggle_w, egui::Sense::hover());
-                        let mut toggle_ui = ui.new_child(
-                            egui::UiBuilder::new()
-                                .max_rect(rect)
-                                .layout(egui::Layout::top_down(egui::Align::Center)),
-                        );
-                        toggle_ui.spacing_mut().indent = 0.0;
-                        if Button::new(self.theme)
-                            .icon(Icon::Star)
-                            .variant(if favorite {
-                                ButtonVariant::Secondary
-                            } else {
-                                ButtonVariant::Outline
-                            })
-                            .size(ButtonSize::Lg)
-                            .access_label(t!("connection.favorite"))
-                            .show(&mut toggle_ui)
-                            .clicked()
-                        {
-                            self.dialog.draft.favorite = !favorite;
-                        }
-                    });
+                    Input::new(
+                        &mut self.dialog.draft.group,
+                        t!("connection.folder_group_placeholder"),
+                        self.theme,
+                    )
+                    .id_salt(focus_id::GROUP)
+                    .width(widths[1])
+                    .leading_icon(Icon::Folder)
+                    .clearable(true)
+                    .show(ui);
                 }),
             ],
             gap,

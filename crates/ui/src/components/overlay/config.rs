@@ -19,6 +19,9 @@ pub const POPOVER_MARGIN: Margin = Margin::same(10);
 pub const DROPDOWN_ITEM_MARGIN: Margin = Margin::symmetric(4, 6);
 /// Smallest popup width a dropdown takes relative to its trigger.
 pub const DROPDOWN_MIN_WIDTH: f32 = 180.0;
+/// Widest a dropdown menu grows; longer labels truncate rather than stretch the
+/// panel to a screen-wide band.
+pub const DROPDOWN_MAX_WIDTH: f32 = 320.0;
 /// Left inset from a dropdown row's edge to its icon/label.
 pub const DROPDOWN_ITEM_HORIZONTAL_PADDING: f32 = 8.0;
 /// Horizontal distance from a dropdown row's icon to where its label starts.

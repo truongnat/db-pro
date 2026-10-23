@@ -121,6 +121,10 @@ pub struct StatusRole {
     pub border: Color32,
     /// `subtle_wash(solid)` — badge/diff/chip wash.
     pub subtle: Color32,
+    /// Deep fill for controls that carry white text on a solid status color
+    /// (destructive confirm). The accent `solid` reads as black-on-status in the
+    /// dark theme, which is illegible as a fill.
+    pub fill_strong: Color32,
 }
 
 /// Status roles. Each theme ships all four.
@@ -176,6 +180,7 @@ impl StatusRole {
             fill: solid.linear_multiply(STATUS_FILL_OPACITY),
             border: solid.linear_multiply(STATUS_BORDER_OPACITY),
             subtle: subtle_wash(solid, dark),
+            fill_strong: solid,
         }
     }
 }
@@ -300,7 +305,10 @@ impl SemanticTokens {
             status: Status {
                 success: StatusRole::from_solid(dark::GREEN_500, true),
                 warning: StatusRole::from_solid(dark::AMBER_400, true),
-                danger: StatusRole::from_solid(dark::RED_400, true),
+                danger: StatusRole {
+                    fill_strong: dark::RED_700,
+                    ..StatusRole::from_solid(dark::RED_400, true)
+                },
                 info: StatusRole::from_solid(dark::BLUE_450, true),
             },
             syntax: Syntax {

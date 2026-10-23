@@ -53,11 +53,14 @@ impl ButtonPalette {
                 text_color: theme.text_primary,
             },
             ButtonVariant::Destructive => Self {
-                fill_rest: theme.danger,
-                fill_hover: theme.danger.linear_multiply(0.85),
+                // `status.danger.fill_strong`, not the accent `danger` solid: the
+                // dark accent red (#ef4444) is so light `text_on_solid` labels it
+                // black — illegible and flickering white on hover darkening.
+                fill_rest: theme.semantic.status.danger.fill_strong,
+                fill_hover: theme.semantic.status.danger.fill_strong.linear_multiply(0.85),
                 stroke_rest: Stroke::NONE,
                 stroke_hover: Stroke::NONE,
-                text_color: theme.text_on_solid(theme.danger),
+                text_color: theme.text_on_solid(theme.semantic.status.danger.fill_strong),
             },
             ButtonVariant::Link => Self {
                 fill_rest: Color32::TRANSPARENT,

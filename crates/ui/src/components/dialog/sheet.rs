@@ -100,8 +100,12 @@ impl<'a> Sheet<'a> {
                         progress,
                     },
                 );
-                // The sheet intentionally dismisses through Escape or its close control, not backdrop clicks.
-                ui.allocate_response(screen.size(), egui::Sense::click());
+                // Sheets dismiss like modals: Escape, the close control, or a
+                // click on the dim backdrop.
+                let resp = ui.allocate_response(screen.size(), egui::Sense::click());
+                if resp.clicked() {
+                    *open = false;
+                }
             });
 
         Area::new(sheet_id)

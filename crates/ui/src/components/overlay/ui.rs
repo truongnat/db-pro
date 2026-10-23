@@ -271,7 +271,22 @@ impl<'a> DropdownMenu<'a> {
             .fixed_pos(pos)
             .show(ui.ctx(), |ui| {
                 ui.set_opacity(fade_alpha(progress));
-                ui.set_min_width(trigger.rect.width().max(config::DROPDOWN_MIN_WIDTH));
+                // Rows allocate `available_width`, which inside a floating Area is
+                // the full screen — cap it at the widest measured label (clamped)
+                // so the panel hugs its content instead of spanning the window.
+                let content_w = self
+                    .items
+                    .iter()
+                    .map(|item| handler::dropdown_item_content_width(ui, item))
+                    .fold(0.0_f32, f32::max);
+                let target_w = trigger
+                    .rect
+                    .width()
+                    .max(config::DROPDOWN_MIN_WIDTH)
+                    .max(content_w)
+                    .min(config::DROPDOWN_MAX_WIDTH);
+                ui.set_min_width(target_w);
+                ui.set_max_width(target_w);
                 floating_surface(self.theme, config::DROPDOWN_RADIUS, config::DROPDOWN_ITEM_MARGIN)
                     .show(ui, |ui| {
                         for (index, item) in self.items.iter().enumerate() {

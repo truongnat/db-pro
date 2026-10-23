@@ -242,6 +242,9 @@ pub mod dark {
     pub const GREEN_500: Color32 = Color32::from_rgb(16, 163, 127); // #10a37f (OpenAI Emerald)
     pub const AMBER_400: Color32 = Color32::from_rgb(234, 179, 8); // #eab308
     pub const RED_400: Color32 = Color32::from_rgb(239, 68, 68); // #ef4444
+    /// Deep danger for filled controls (destructive buttons) — dark enough that
+    /// `text_on_solid` keeps a white label, where `RED_400` would flip to black.
+    pub const RED_700: Color32 = Color32::from_rgb(153, 27, 27); // #991b1b
     pub const BLUE_450: Color32 = Color32::from_rgb(96, 165, 250); // #60a5fa
 
     // SQL syntax hues.
