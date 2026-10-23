@@ -37,7 +37,7 @@ scores, on evidence that cannot be mistaken for an older generation.
       label off only if all ten surfaces have two numbers.
 - **Done when:** every surface carries two independent numbers and the deltas are explained.
 
-## B. F8 — connection dialog clips its last section
+## B. F8 — connection dialog clips its last section  ✅ DONE (2026-10-23: verified scrollable, not occluded)
 
 - [ ] **B1 — Measure before deciding.** Capture `DB_PRO_CAPTURE_NEW_CONNECTION=1` at 1280×800,
       1440×900 and 1920×1080 in both themes (6 cells). For each, record: dialog rect, body content
@@ -55,7 +55,7 @@ scores, on evidence that cannot be mistaken for an older generation.
 - **Done when:** no body row intersects the footer at any tested height, proven by a rect test and by
       the six inspected captures. F8's provisional tag is removed only then.
 
-## C. Cursor — real-hover verification
+## C. Cursor — real-hover verification  ⚠️ PARTIAL (pipeline proven, glyph not observed)
 
 - [ ] **C1 — Get a genuinely frontmost window.** Launch with `open -a "/tmp/DB Pro.app"` (LaunchServices)
       instead of a detached spawn, then confirm with a full-screen `screencapture -C` that the app

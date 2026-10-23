@@ -107,14 +107,25 @@ The four open items were checked against the running app, not the capture harnes
 | Table **structure** surface | `evidence/live/table-structure-light-1280.png` — header row, PK/FK badges, Actions column with `Alter` links |
 | Settings → **Appearance** | `evidence/live/settings-appearance-light-1280.png` — rail pill on the active section, card on the canvas, Light/Dark radios adjacent and unclipped, checkbox bounded |
 | Connection **error** state | `evidence/live/connection-error-light-1280.png` — every invalid field carries a red border and its own message, plus a toast |
-| Cursor | **test-verified, not hover-verified in the real app**: `stale_cursor_is_cleared_before_widgets_draw` asserts both directions of the frame-level reset (clear-first keeps a widget's `PointingHand`; clear-after erases it). Screenshot proof of the pointer glyph was not obtainable here — the shared desktop kept another window frontmost, so `screencapture -C` captured the wrong app |
+| Cursor | **test-verified + one live hover datum**: `stale_cursor_is_cleared_before_widgets_draw` asserts both directions of the frame-level reset (clear-first keeps a widget's `PointingHand`; clear-after erases it). Screenshot proof of the pointer glyph was not obtainable here — the shared desktop kept another window frontmost. Later pass: `screencapture -C` proven working
+(Terminal I-beam renders), frontmost confirmed `db-pro-native`, yet hovering `Connected` (status bar)
+and the `Welcome` tab still showed the OS **arrow** rather than `PointingHand`. Unresolved whether the
+hit-miss is a hit-test gap or the OS cursor request not reaching winit; `clear_stale_cursor` itself is
+locked by `stale_cursor_is_cleared_before_widgets_draw` |
 
 New finding from the live pass:
 
-### F8 (provisional): Connection dialog clips its last section at 838 pt height (P2)
-- **Evidence:** `connection-dark-1440x900.png` — the `Cloud Presets & URI Importer` disclosure is cut mid-row by the dialog's bottom edge, behind the footer, with no scroll affordance.
-- **Cause (source):** `crates/app/src/connection/*` contains no `ScrollArea` at all, so the body is not a scroll region that happens to be scrolled to the top — the row is genuinely occluded. The footer's exact bounds were not measured, so this stays provisional until a rect comparison confirms it.
-- **Owner:** `native-visual-redesign` (dialog composition) — the body needs a capped scroll area, not a taller dialog.
+### F8 (RESOLVED — not a defect): Connection dialog's last section was clipped at rest, scrollable (P3 nit)
+- **Evidence:** `connection-dark-1440x900.png` — the `Cloud Presets & URI Importer` disclosure is cut mid-row at the body viewport bottom.
+- **Resolution (live Orca drive, 2026-10-23):** `DialogFrame::body` already wraps the form in
+  `egui::ScrollArea::vertical().max_height(560)` (DIALOG_FORM_BODY_HEIGHT) with a pinned footer
+  outside the scroll region. The a11y tree exposes a `scroll bar` element, and
+  `orca computer scroll --element-index` moved the body so the Cloud Presets row renders
+  fully above the footer (screenshot `live/connection-scrolled-light-1280.png`).
+  The clipped appearance at rest is the standard "more below" affordance of a scroll viewport.
+- **Remaining P3 nit:** no scrollbar is painted at rest because `VisibleWhenNeeded`'s
+  opacity animation only rises on interaction; the half-clipped row is the only affordance.
+  Recorded as polish, not blocking.
 
 ## Chevron order in the trailing group (fixed)
 

@@ -1,21 +1,19 @@
 {
-  "note": "Captured 2026-10-23 with DB_PRO_CAPTURE_REASSERT_SURFACE=1. `inspected` marks cells the auditor actually opened after the last code change; the other cells were captured but not re-opened, so they are not evidence for the current tree. Only the six Explorer PNGs are retained here; the rest are reproducible via capture_matrix.py with SHA-256 recorded.",
   "cells": [
     {
       "cell": "welcome-light-1280x800",
       "surface": "welcome",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "a7887029a177e201",
+      "sha256": "258c80221dc14667",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "welcome-dark-1280x800",
@@ -28,10 +26,9 @@
         1280.0,
         800.0
       ],
-      "sha256": "839acc1f52d7c0b0",
+      "sha256": "09ee4d1ade9cf518",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "welcome-light-1440x900",
@@ -44,10 +41,9 @@
         1440.0,
         838.0
       ],
-      "sha256": "30247392ad360e8a",
+      "sha256": "8742c568223b2ded",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "welcome-dark-1440x900",
@@ -60,138 +56,129 @@
         1440.0,
         838.0
       ],
-      "sha256": "982c7f49522893b6",
+      "sha256": "0e17b950c0e18f3f",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "welcome-light-1920x1080",
       "surface": "welcome",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "841755338c31d1e2",
+      "sha256": "5e494b9f613e06fb",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "welcome-dark-1920x1080",
       "surface": "welcome",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "902f4e9d3479d338",
+      "sha256": "372c34a693d38dce",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "query-light-1280x800",
       "surface": "query",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "e58e7132705c0d26",
+      "sha256": "a1328b4b694345f6",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "query-dark-1280x800",
       "surface": "query",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "4ce0a676c20a2549",
+      "sha256": "2412924f5a2b169f",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "query-light-1440x900",
       "surface": "query",
       "theme": "light",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "72774659a885cca3",
+      "sha256": "bbc8c12e865cd51c",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "query-dark-1440x900",
       "surface": "query",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "d324c092ff45eaee",
+      "sha256": "73ec200a23545fec",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "query-light-1920x1080",
       "surface": "query",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "f6e11072adda39db",
+      "sha256": "eaadf3d6a8936066",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "query-dark-1920x1080",
       "surface": "query",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "9e8f15b550808d2a",
+      "sha256": "f9270c2f3cf9228f",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "table-light-1280x800",
@@ -204,26 +191,24 @@
         1280.0,
         800.0
       ],
-      "sha256": "2ca7d18efc7fd396",
+      "sha256": "6a054deab373958a",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "table-dark-1280x800",
       "surface": "table",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "57f050e68e53bb82",
+      "sha256": "537f1ce81c6775f7",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "table-light-1440x900",
@@ -236,90 +221,84 @@
         1440.0,
         838.0
       ],
-      "sha256": "de30531d70282d98",
+      "sha256": "d9b75c01cd656dea",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "table-dark-1440x900",
       "surface": "table",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "fbb3a4e94636e612",
+      "sha256": "58eb412907321d9d",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "table-light-1920x1080",
       "surface": "table",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "1af3d34ad0c37d28",
+      "sha256": "bfb545054ecdb582",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "table-dark-1920x1080",
       "surface": "table",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "cfcbaf389b6de4de",
+      "sha256": "adacc1c0170ee455",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "explorer-light-1280x800",
       "surface": "explorer",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "b4a95d3a431d4f87",
+      "sha256": "e9b1495159fb4f8f",
       "retained": true,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "explorer-dark-1280x800",
       "surface": "explorer",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "7f11ce466a37f696",
+      "sha256": "4628925db6983781",
       "retained": true,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "explorer-light-1440x900",
@@ -332,10 +311,9 @@
         1440.0,
         838.0
       ],
-      "sha256": "245d4067250e8dd0",
+      "sha256": "081b492136aeda86",
       "retained": true,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "explorer-dark-1440x900",
@@ -348,74 +326,69 @@
         1440.0,
         838.0
       ],
-      "sha256": "0816c7ff48c15b70",
+      "sha256": "db8832a51d77f061",
       "retained": true,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "explorer-light-1920x1080",
       "surface": "explorer",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "ad4f3146f9513fbd",
+      "sha256": "edd194fd80b8fae0",
       "retained": true,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "explorer-dark-1920x1080",
       "surface": "explorer",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "e55050b7f421b31c",
+      "sha256": "597f680ae62ff8b5",
       "retained": true,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "diagram-light-1280x800",
       "surface": "diagram",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "50d878c2e215052d",
+      "sha256": "6a8ec69a3b0e9961",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "diagram-dark-1280x800",
       "surface": "diagram",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "e4f400c3dd254b89",
+      "sha256": "d2aa18a98a013fbf",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "diagram-light-1440x900",
@@ -428,90 +401,84 @@
         1440.0,
         838.0
       ],
-      "sha256": "4b848708e3422630",
+      "sha256": "28fcf1f6adb436a1",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "diagram-dark-1440x900",
       "surface": "diagram",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "d9458fb2c2ffa7de",
+      "sha256": "52afa3b67b30fb6b",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "diagram-light-1920x1080",
       "surface": "diagram",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "714dd57cf8898095",
+      "sha256": "a2fd964a4d578622",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "diagram-dark-1920x1080",
       "surface": "diagram",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "d9e98b212fba2586",
+      "sha256": "e1f91963990cde2a",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "settings-light-1280x800",
       "surface": "settings",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "b01e680434c09932",
+      "sha256": "85522853b54b1f8a",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "settings-dark-1280x800",
       "surface": "settings",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "8e017b5b1f97bec9",
+      "sha256": "ad97d83ce352ee90",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "settings-light-1440x900",
@@ -524,186 +491,174 @@
         1440.0,
         838.0
       ],
-      "sha256": "3db0e88d323456a8",
+      "sha256": "a68b06970621ea1f",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "settings-dark-1440x900",
       "surface": "settings",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "defde0dad9c689bd",
+      "sha256": "5ff8b98e81ee7649",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "settings-light-1920x1080",
       "surface": "settings",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "1a8adf4ac80c0bb4",
+      "sha256": "497248719a83be57",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "settings-dark-1920x1080",
       "surface": "settings",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "74ef8d4be0572244",
+      "sha256": "bc1e0e5508fe7c29",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "connection-light-1280x800",
       "surface": "connection",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "cc1b4cc5fdec4bea",
+      "sha256": "5b3e65ea1c3a8189",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "connection-dark-1280x800",
       "surface": "connection",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "5b1c5f16c1a34dfd",
+      "sha256": "f23e1c497ea268a9",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "connection-light-1440x900",
       "surface": "connection",
       "theme": "light",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "3f1a1be781dca3ef",
+      "sha256": "4ab16d96e85ce4b0",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "connection-dark-1440x900",
       "surface": "connection",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "3c9c883c2b7d3aaa",
+      "sha256": "146ec01856ff7e31",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "connection-light-1920x1080",
       "surface": "connection",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "9065167a36ea266a",
+      "sha256": "a121f481acd7aed4",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "connection-dark-1920x1080",
       "surface": "connection",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "a2c6cde5e3b86776",
+      "sha256": "049400b68ac5592c",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "gallery-light-1280x800",
       "surface": "gallery",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "c4d83ab830fb94eb",
+      "sha256": "b1cb99cf5558f679",
       "retained": false,
-      "inspected": true,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "gallery-dark-1280x800",
       "surface": "gallery",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "2c4976663bc929e9",
+      "sha256": "d2d60e83dfd6318c",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "gallery-light-1440x900",
@@ -716,10 +671,9 @@
         1440.0,
         838.0
       ],
-      "sha256": "93ad3e92b2136b29",
+      "sha256": "be9a8ef7a1065d5b",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "gallery-dark-1440x900",
@@ -732,74 +686,69 @@
         1440.0,
         838.0
       ],
-      "sha256": "28e2d58c49b364a8",
+      "sha256": "c02dc8e90ac4e692",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "gallery-light-1920x1080",
       "surface": "gallery",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "87eff70eb7e458df",
+      "sha256": "49a0ca2a2bb445b9",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "gallery-dark-1920x1080",
       "surface": "gallery",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "c1b763a6f7d9c7a6",
+      "sha256": "0e4afa9fb3a98887",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "agent-light-1280x800",
       "surface": "agent",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "9a285acf79a79398",
+      "sha256": "1e7cd9f64bc8b719",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "agent-dark-1280x800",
       "surface": "agent",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "7b3a2ff2f0ffe58b",
+      "sha256": "f1c2eb174c52db16",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "agent-light-1440x900",
@@ -812,26 +761,24 @@
         1440.0,
         838.0
       ],
-      "sha256": "01180f9757a59877",
+      "sha256": "8e154955c1820944",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "agent-dark-1440x900",
       "surface": "agent",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "1d0e24bc2b57f9c8",
+      "sha256": "f13d25aeb8cefb5b",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "agent-light-1920x1080",
@@ -844,10 +791,9 @@
         1920.0,
         838.0
       ],
-      "sha256": "a4ca8e21aa089a1c",
+      "sha256": "79216161e639bae0",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "agent-dark-1920x1080",
@@ -860,42 +806,39 @@
         1920.0,
         838.0
       ],
-      "sha256": "1fd506b270871f0f",
+      "sha256": "c5fb7f9f7b8f4607",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "palette-light-1280x800",
       "surface": "palette",
       "theme": "light",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "7274b47d813b84b9",
+      "sha256": "f69652ee52db4033",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "palette-dark-1280x800",
       "surface": "palette",
       "theme": "dark",
       "requested": "1280x800",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1280.0,
         800.0
       ],
-      "sha256": "05b727f8bb3fe4d9",
+      "sha256": "e1094dfb6772fe34",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "palette-light-1440x900",
@@ -908,59 +851,56 @@
         1440.0,
         838.0
       ],
-      "sha256": "3a33a1198f40844d",
+      "sha256": "e8221f67972b59c1",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "palette-dark-1440x900",
       "surface": "palette",
       "theme": "dark",
       "requested": "1440x900",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1440.0,
         838.0
       ],
-      "sha256": "967ae3ab5a403e5b",
+      "sha256": "365fd87425d62f5b",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "palette-light-1920x1080",
       "surface": "palette",
       "theme": "light",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "4b126da1eb65ee5c",
+      "sha256": "73fa04bba6b3e047",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     },
     {
       "cell": "palette-dark-1920x1080",
       "surface": "palette",
       "theme": "dark",
       "requested": "1920x1080",
-      "exit": 0,
+      "exit": -6,
       "png": true,
       "rendered": [
         1920.0,
         838.0
       ],
-      "sha256": "d3c6dfd2f8a59ad5",
+      "sha256": "c14d3f62add3d36a",
       "retained": false,
-      "inspected": false,
-      "valid": true
+      "inspected": false
     }
   ],
-  "inspected_total": 16
+  "code_sha": "65fad16d",
+  "captured_at": "2026-10-23T21:05:29.619975"
 }
