@@ -23,29 +23,22 @@ pub fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
 }
 
 pub(crate) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChromeState, theme: DbProTheme) {
-    // Resting fields are identified by their fill; reserve outlines for hover,
-    // keyboard focus, and validation errors.
+    // Every enabled field is bounded at rest: `background.field` separates it from the
+    // card it sits on and this `border.default` stroke draws the edge. A fill-only rest
+    // state left text fields invisible whenever their fill matched the parent surface.
     //
     // Precedence comes from the input contract: disabled → error → focus → hover →
-    // default, so a disabled field paints no border even while focused or errored.
+    // rest, so a disabled field paints no border even while focused or errored.
     let stroke = match resolve_chrome(state) {
-        FieldChrome::Disabled | FieldChrome::Rest => return,
+        FieldChrome::Disabled => return,
         FieldChrome::Error => Stroke::new(ERROR_STROKE_WIDTH, theme.danger),
         FieldChrome::Focus => Stroke::new(FOCUS_STROKE_WIDTH, theme.border_focus),
-        FieldChrome::Bordered => Stroke::new(BORDER_STROKE_WIDTH, theme.border_default),
+        FieldChrome::Rest => Stroke::new(BORDER_STROKE_WIDTH, theme.border_default),
         FieldChrome::Hover => {
             let hover = hover_t(ui.ctx(), id.with("input_hover"), true);
             Stroke::new(
                 BORDER_STROKE_WIDTH,
-                lerp_color(
-                    if state.bordered {
-                        theme.border_default
-                    } else {
-                        egui::Color32::TRANSPARENT
-                    },
-                    theme.border_strong,
-                    hover,
-                ),
+                lerp_color(theme.border_default, theme.border_strong, hover),
             )
         }
     };

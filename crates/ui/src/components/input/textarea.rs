@@ -26,8 +26,6 @@ pub struct Textarea<'a> {
     read_only: bool,
     /// Optional font override (e.g. monospace) for the editable text.
     font: Option<egui::FontId>,
-    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
-    bordered: bool,
     theme: DbProTheme,
 }
 
@@ -41,7 +39,6 @@ impl<'a> Textarea<'a> {
             max_chars: None,
             read_only: false,
             font: None,
-            bordered: false,
             theme,
         }
     }
@@ -65,12 +62,6 @@ impl<'a> Textarea<'a> {
     /// inspector/preview surfaces (maps to `TextEdit::interactive(false)`).
     pub fn read_only(mut self, read_only: bool) -> Self {
         self.read_only = read_only;
-        self
-    }
-
-    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
-    pub fn bordered(mut self, bordered: bool) -> Self {
-        self.bordered = bordered;
         self
     }
 
@@ -104,7 +95,7 @@ impl<'a> Textarea<'a> {
             }
 
             let frame_output = Frame {
-                fill: self.theme.surface_editor,
+                fill: self.theme.surface_field,
                 stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(SPACE_SM as i8, TEXTAREA_INNER_MARGIN_Y as i8),
                 corner_radius: CornerRadius::same(RADIUS_INPUT as u8),
@@ -139,7 +130,6 @@ impl<'a> Textarea<'a> {
                     hovered: frame_output.response.hovered() || edit_response.hovered(),
                     enabled: true,
                     has_error: false,
-                    bordered: self.bordered,
                 },
                 self.theme,
             );

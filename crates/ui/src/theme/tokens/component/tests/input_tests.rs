@@ -1,37 +1,30 @@
 //! Tests for `../input.rs` (moved out of the source file).
 use super::*;
 
-fn field_state(enabled: bool, has_error: bool, focused: bool, hovered: bool, bordered: bool) -> FieldChromeState {
+fn field_state(enabled: bool, has_error: bool, focused: bool, hovered: bool) -> FieldChromeState {
     FieldChromeState {
         enabled,
         has_error,
         focused,
         hovered,
-        bordered,
     }
 }
 
 #[test]
 fn disabled_outranks_error_focus_and_hover() {
-    let state = field_state(false, true, true, true, false);
+    let state = field_state(false, true, true, true);
     assert_eq!(resolve_chrome(state), FieldChrome::Disabled);
 }
 
 #[test]
 fn error_outranks_focus_and_hover_but_not_disabled() {
-    assert_eq!(
-        resolve_chrome(field_state(true, true, true, true, false)),
-        FieldChrome::Error
-    );
-    assert_eq!(
-        resolve_chrome(field_state(true, true, false, true, false)),
-        FieldChrome::Error
-    );
+    assert_eq!(resolve_chrome(field_state(true, true, true, true)), FieldChrome::Error);
+    assert_eq!(resolve_chrome(field_state(true, true, false, true)), FieldChrome::Error);
 }
 
 #[test]
 fn focus_outranks_hover_and_rest_follows() {
-    let rest = field_state(true, false, false, false, false);
+    let rest = field_state(true, false, false, false);
     assert_eq!(
         resolve_chrome(FieldChromeState { focused: true, ..rest }),
         FieldChrome::Focus
@@ -43,24 +36,19 @@ fn focus_outranks_hover_and_rest_follows() {
     assert_eq!(resolve_chrome(rest), FieldChrome::Rest);
 }
 
+/// `Rest` is a painted state, not "paint nothing": it owns the `border.default`
+/// outline that gives a resting field its boundary. Only `Disabled` is outline-free.
 #[test]
-fn bordered_field_paints_a_resting_outline_but_states_still_upgrade() {
-    let bordered_rest = field_state(true, false, false, false, true);
-    assert_eq!(resolve_chrome(bordered_rest), FieldChrome::Bordered);
+fn rest_is_the_only_bounded_default_and_disabled_is_outline_free() {
     assert_eq!(
-        resolve_chrome(FieldChromeState {
-            hovered: true,
-            ..bordered_rest
-        }),
-        FieldChrome::Hover
+        resolve_chrome(field_state(true, false, false, false)),
+        FieldChrome::Rest
     );
     assert_eq!(
-        resolve_chrome(FieldChromeState {
-            focused: true,
-            ..bordered_rest
-        }),
-        FieldChrome::Focus
+        resolve_chrome(field_state(false, false, false, false)),
+        FieldChrome::Disabled
     );
+    assert_ne!(FieldChrome::Rest, FieldChrome::Disabled);
 }
 
 #[test]

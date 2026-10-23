@@ -294,7 +294,7 @@ impl<'a> Select<'a> {
             } else if ghost {
                 egui::Color32::TRANSPARENT
             } else {
-                theme.surface_editor
+                theme.surface_field
             },
             stroke: if !enabled {
                 Stroke::new(crate::tokens::STROKE_THIN, theme.border_subtle)

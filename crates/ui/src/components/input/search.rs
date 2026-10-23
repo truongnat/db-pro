@@ -21,8 +21,6 @@ pub struct SearchInput<'a> {
     placeholder: &'a str,
     shortcut: Option<&'a str>,
     width: Option<f32>,
-    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
-    bordered: bool,
     theme: DbProTheme,
 }
 
@@ -33,7 +31,6 @@ impl<'a> SearchInput<'a> {
             placeholder,
             shortcut: None,
             width: None,
-            bordered: false,
             theme,
         }
     }
@@ -48,12 +45,6 @@ impl<'a> SearchInput<'a> {
         self
     }
 
-    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
-    pub fn bordered(mut self, bordered: bool) -> Self {
-        self.bordered = bordered;
-        self
-    }
-
     pub fn show(self, ui: &mut Ui) -> Response {
         let width = resolve_field_width(self.width, ui.available_width());
         // Cap the frame's content to the field's own width. `set_min_width` alone is
@@ -63,7 +54,7 @@ impl<'a> SearchInput<'a> {
         let inner_w = (width - SPACE_SM * 2.0).max(0.0);
 
         let frame_output = Frame {
-            fill: self.theme.surface_editor,
+            fill: self.theme.surface_field,
             // Border is owned by `paint_field_chrome` (rest / hover / focus).
             stroke: Stroke::NONE,
             inner_margin: Margin::symmetric(SPACE_SM as i8, SPACE_XS as i8),
@@ -162,22 +153,9 @@ impl<'a> SearchInput<'a> {
                 hovered: frame_output.response.hovered() || edit_response.hovered(),
                 enabled: true,
                 has_error: false,
-                bordered: self.bordered,
             },
             self.theme,
         );
-
-        // Keep the subtle outline on search controls for discoverability. Standard
-        // text inputs use their fill at rest and reserve outlines for interaction.
-        if !edit_response.has_focus() && !frame_output.response.hovered() && !edit_response.hovered() {
-            let width = crate::tokens::component::input::BORDER_STROKE_WIDTH;
-            ui.painter().rect_stroke(
-                frame_rect.shrink(width),
-                CornerRadius::same((RADIUS_INPUT - width).max(0.0) as u8),
-                Stroke::new(width, self.theme.border_subtle),
-                egui::StrokeKind::Inside,
-            );
-        }
 
         edit_response
     }

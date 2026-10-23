@@ -37,9 +37,15 @@ fn applying_theme_selects_matching_egui_style_across_frames() {
 fn light_tokens_follow_codex_surface_contract() {
     let theme = DbProTheme::light();
 
-    assert_eq!(theme.surface_app, egui::Color32::from_rgb(255, 255, 255));
-    assert_eq!(theme.surface_panel, egui::Color32::from_rgb(246, 246, 246));
-    assert_eq!(theme.surface_active, egui::Color32::from_rgb(238, 238, 238));
+    // The light ladder is a paper stack: pure white is the top plane (cards,
+    // popovers, editor) and the app/chrome planes step down from it.
+    assert_eq!(theme.surface_elevated, egui::Color32::from_rgb(255, 255, 255));
+    assert_eq!(theme.surface_app, egui::Color32::from_rgb(248, 248, 248));
+    assert_eq!(theme.surface_field, egui::Color32::from_rgb(246, 246, 246));
+    assert_eq!(theme.surface_panel, egui::Color32::from_rgb(243, 243, 243));
+    assert_eq!(theme.surface_2, egui::Color32::from_rgb(240, 240, 240));
+    assert_eq!(theme.surface_hover, egui::Color32::from_rgb(237, 237, 237));
+    assert_eq!(theme.surface_active, egui::Color32::from_rgb(231, 231, 231));
     assert_eq!(theme.text_primary, egui::Color32::from_rgb(26, 28, 31));
     assert_eq!(theme.accent, egui::Color32::from_rgb(0, 111, 204));
 }
@@ -68,6 +74,14 @@ fn light_surface_ladder_keeps_hover_and_selected_distinct_from_chrome() {
     assert_ne!(theme.surface_active, theme.surface_hover);
     assert_ne!(theme.surface_active, theme.surface_panel);
 
+    // Elevation ladder: a raised card may not reuse the fill of the plane it is drawn
+    // on (canvas on the settings page, panel in the workspace body), and a resting
+    // field may not reuse the card fill it sits on.
+    assert_ne!(theme.surface_elevated, theme.surface_app);
+    assert_ne!(theme.surface_elevated, theme.surface_panel);
+    assert_ne!(theme.surface_field, theme.surface_elevated);
+    assert_ne!(theme.surface_field, theme.surface_2);
+
     let luminance = |color: egui::Color32| {
         let linear = |channel: u8| {
             let value = f32::from(channel) / 255.0;
@@ -79,10 +93,70 @@ fn light_surface_ladder_keeps_hover_and_selected_distinct_from_chrome() {
         };
         0.2126 * linear(color.r()) + 0.7152 * linear(color.g()) + 0.0722 * linear(color.b())
     };
-    // Darker in this ladder means a stronger state.
+    // Darker in this ladder means a stronger state; brighter means a raised plane.
     assert!(luminance(theme.surface_panel) < luminance(theme.surface_app));
     assert!(luminance(theme.surface_hover) < luminance(theme.surface_panel));
     assert!(luminance(theme.surface_active) < luminance(theme.surface_hover));
+    assert!(luminance(theme.surface_elevated) > luminance(theme.surface_app));
+    assert!(luminance(theme.surface_elevated) > luminance(theme.surface_panel));
+    assert!(luminance(theme.surface_field) < luminance(theme.surface_elevated));
+
+    // Quantitative floors. A 1.00–1.08 step is what made cards read as a hairline-only
+    // edge, so the ladder is held to a visible step rather than mere inequality.
+    assert!(
+        contrast_ratio(theme.surface_elevated, theme.surface_app) >= 1.05,
+        "card on canvas {:?}",
+        contrast_ratio(theme.surface_elevated, theme.surface_app)
+    );
+    assert!(
+        contrast_ratio(theme.surface_elevated, theme.surface_panel) >= 1.10,
+        "card on panel {:?}",
+        contrast_ratio(theme.surface_elevated, theme.surface_panel)
+    );
+    assert!(
+        contrast_ratio(theme.surface_panel, theme.surface_hover) >= 1.05,
+        "hover on panel {:?}",
+        contrast_ratio(theme.surface_panel, theme.surface_hover)
+    );
+    assert!(
+        contrast_ratio(theme.surface_hover, theme.surface_active) >= 1.05,
+        "selected on hover {:?}",
+        contrast_ratio(theme.surface_hover, theme.surface_active)
+    );
+    assert!(
+        contrast_ratio(theme.surface_field, theme.surface_elevated) >= 1.05,
+        "field on card {:?}",
+        contrast_ratio(theme.surface_field, theme.surface_elevated)
+    );
+    // The resting field stroke has to read against the field fill it outlines.
+    assert!(
+        contrast_ratio(theme.border_default, theme.surface_field) >= 1.15,
+        "rest stroke on field {:?}",
+        contrast_ratio(theme.border_default, theme.surface_field)
+    );
+}
+
+#[test]
+fn raised_surfaces_are_brighter_than_the_plane_they_sit_on_in_both_themes() {
+    for theme in [DbProTheme::light(), DbProTheme::dark()] {
+        assert_ne!(theme.surface_elevated, theme.surface_app);
+        assert_ne!(theme.surface_elevated, theme.surface_panel);
+        assert_ne!(theme.surface_field, theme.surface_elevated);
+        assert!(
+            super::relative_luminance(theme.surface_elevated) > super::relative_luminance(theme.surface_app),
+            "card {:?} must be raised above canvas {:?}",
+            theme.surface_elevated,
+            theme.surface_app
+        );
+        assert!(
+            super::relative_luminance(theme.surface_elevated) > super::relative_luminance(theme.surface_panel),
+            "card {:?} must be raised above panel {:?}",
+            theme.surface_elevated,
+            theme.surface_panel
+        );
+        // A resting field is a control, never the same plane as the card behind it.
+        assert_ne!(theme.border_default, theme.surface_field);
+    }
 }
 
 #[test]
@@ -137,6 +211,7 @@ fn flat_facade_fields_are_built_from_the_semantic_roles() {
     for theme in [DbProTheme::light(), DbProTheme::dark()] {
         assert_eq!(theme.surface_app, theme.semantic.background.canvas);
         assert_eq!(theme.surface_2, theme.semantic.background.subtle);
+        assert_eq!(theme.surface_field, theme.semantic.background.field);
         assert_eq!(theme.surface_active, theme.semantic.background.selected);
         assert_eq!(theme.border_focus, theme.semantic.border.focus);
         assert_eq!(theme.text_muted, theme.semantic.foreground.muted);

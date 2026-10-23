@@ -36,8 +36,6 @@ pub struct Input<'a> {
     /// callers that need a reveal toggle use `PasswordInput` instead).
     password: bool,
     required: bool,
-    /// Keep a resting outline (`border.default`) instead of fill-only chrome.
-    bordered: bool,
     width: Option<f32>,
     id_salt: Option<Id>,
     auto_focus: bool,
@@ -58,7 +56,6 @@ impl<'a> Input<'a> {
             clearable: false,
             password: false,
             required: false,
-            bordered: false,
             width: None,
             id_salt: None,
             auto_focus: false,
@@ -112,13 +109,6 @@ impl<'a> Input<'a> {
         self
     }
 
-    /// Keep a resting outline (`border.default`) instead of fill-only chrome;
-    /// hover/focus/error still upgrade the stroke.
-    pub fn bordered(mut self, bordered: bool) -> Self {
-        self.bordered = bordered;
-        self
-    }
-
     pub fn id_salt(mut self, id_salt: impl std::hash::Hash + std::fmt::Debug) -> Self {
         self.id_salt = Some(Id::new(id_salt));
         self
@@ -152,7 +142,7 @@ impl<'a> Input<'a> {
             let has_error = self.error_text.is_some();
 
             let fill = if self.enabled {
-                self.theme.surface_editor
+                self.theme.surface_field
             } else {
                 self.theme.surface_2
             };
@@ -261,7 +251,6 @@ impl<'a> Input<'a> {
                     hovered: frame_output.response.hovered() || edit_response.hovered(),
                     enabled: self.enabled,
                     has_error,
-                    bordered: self.bordered,
                 },
                 self.theme,
             );

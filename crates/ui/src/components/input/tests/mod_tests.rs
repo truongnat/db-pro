@@ -523,7 +523,7 @@ fn standard_field_geometry_is_independent_of_parent_spacing_and_accessories() {
             let fill = if control == "disabled-clearable" {
                 theme.surface_2
             } else {
-                theme.surface_editor
+                theme.surface_field
             };
             let frame = output
                 .shapes

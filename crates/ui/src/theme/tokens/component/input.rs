@@ -1,16 +1,19 @@
 //! Input component contract (single-line fields, textareas, password/search fields).
 //!
-//! States supported: default, hover, focus, error, disabled. Resting fields are
-//! unoutlined; hover adds a subtle outline, while focus and errors use clear
-//! semantic strokes. Text fields have no loading/active/selected states today.
+//! States supported: default, hover, focus, error, disabled. Every resting field
+//! carries a `border.default` outline: a fill-only rest state left text fields
+//! with no boundary at all once their fill matched the card behind them. Hover
+//! strengthens that outline to `border.strong`, focus and errors switch it to the
+//! accent/danger role. Text fields have no loading/active/selected states today.
 //! Precedence (strongest first): `disabled → error → focus → hover → default`;
 //! `components/input/layout.rs` resolves every painted border through
 //! [`resolve_chrome`].
 //!
-//! Semantic roles consumed (via `DbProTheme`): `border.strong` for hover,
-//! `border.focus` for the focus outline, `status.danger.solid` for errors,
-//! `foreground.disabled` for disabled text, and `background.subtle` for disabled
-//! fill.
+//! Semantic roles consumed (via `DbProTheme`): `border.default` for the resting
+//! outline, `border.strong` for hover, `border.focus` for the focus outline,
+//! `status.danger.solid` for errors, `foreground.disabled` for disabled text,
+//! `background.field` for the enabled fill and `background.subtle` for the
+//! disabled fill.
 //!
 //! Owned values: field heights and chrome stroke widths. Min width, inner margins,
 //! and icon/gap sizes stay in `components/input/config.rs` as component geometry;
@@ -37,9 +40,6 @@ pub struct FieldChromeState {
     pub hovered: bool,
     pub enabled: bool,
     pub has_error: bool,
-    /// When true the field keeps a resting border (`border.default`) instead of
-    /// relying on fill alone; hover/focus/error still upgrade the stroke.
-    pub bordered: bool,
 }
 
 /// Resolved chrome state of a text field, strongest state first.
@@ -49,9 +49,7 @@ pub enum FieldChrome {
     Error,
     Focus,
     Hover,
-    /// Bordered resting state (static outline).
-    Bordered,
-    /// Default resting state (no outline).
+    /// Resting state: `border.default` outline over the field fill.
     Rest,
 }
 
@@ -65,8 +63,6 @@ pub fn resolve_chrome(state: FieldChromeState) -> FieldChrome {
         FieldChrome::Focus
     } else if state.hovered {
         FieldChrome::Hover
-    } else if state.bordered {
-        FieldChrome::Bordered
     } else {
         FieldChrome::Rest
     }

@@ -37,7 +37,7 @@ fn field_label_marker_and_helper_gaps_have_one_spacing_owner() {
             .shapes
             .iter()
             .find_map(|shape| match &shape.shape {
-                egui::Shape::Rect(rect) if rect.fill == theme.surface_editor => Some(rect.rect),
+                egui::Shape::Rect(rect) if rect.fill == theme.surface_field => Some(rect.rect),
                 _ => None,
             })
             .expect("field frame");

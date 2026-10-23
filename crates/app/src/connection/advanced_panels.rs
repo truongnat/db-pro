@@ -111,7 +111,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     self.theme,
                 )
                 .label(t!("connection.paste_uri"))
-                .bordered(true)
                 .show(ui);
                 ui.add_space(SPACE_XXS);
                 ui.horizontal(|ui| {
@@ -155,7 +154,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             ui.add_space(SPACE_XS);
             Input::new(&mut self.dialog.draft.ssl_root_cert_path, "/path/to/ca.pem", self.theme)
                 .label(t!("connection.root_ca_path"))
-                .bordered(true)
                 .leading_icon(Icon::FileCode)
                 .show(ui);
             ui.add_space(SPACE_XS);
@@ -171,7 +169,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                             self.theme,
                         )
                         .label(t!("connection.client_cert_path"))
-                        .bordered(true)
                         .width(widths[0])
                         .show(ui);
                     }),
@@ -182,7 +179,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                             self.theme,
                         )
                         .label(t!("connection.client_key_path"))
-                        .bordered(true)
                         .width(widths[1])
                         .show(ui);
                     }),
@@ -245,7 +241,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                                 Input::new(&mut self.dialog.draft.ssh_host, "bastion.example.com", self.theme)
                                     .label(t!("connection.ssh_host"))
                                     .required(true)
-                                    .bordered(true)
                                     .width(widths[0])
                                     .leading_icon(Icon::Server);
                             if show_ssh_host_error {
@@ -258,7 +253,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                             let mut ssh_port = Input::new(&mut self.dialog.draft.ssh_port, "22", self.theme)
                                 .label(t!("connection.port"))
                                 .required(true)
-                                .bordered(true)
                                 .width(widths[1])
                                 .leading_icon(Icon::Hash);
                             if show_ssh_port_error {
@@ -272,7 +266,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                                 Input::new(&mut self.dialog.draft.ssh_user, "ubuntu", self.theme)
                                     .label(t!("connection.ssh_user"))
                                     .required(true)
-                                    .bordered(true)
                                     .width(widths[2])
                                     .leading_icon(Icon::User);
                             if show_ssh_user_error {
@@ -361,7 +354,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                 ui.add_space(SPACE_XS);
                 Input::new(&mut self.dialog.draft.tags, placeholder, self.theme)
                     .label(t!("connection.tags_label"))
-                    .bordered(true)
                     .leading_icon(Icon::Tag)
                     .show(ui);
             },
@@ -390,7 +382,6 @@ fn ssh_key_cell(
         let browse_w = 68.0;
         let key_input_w = (key_w - browse_w - SPACE_XS).max(50.0);
         let mut ssh_key = Input::new(ssh_private_key, "~/.ssh/id_rsa", theme)
-            .bordered(true)
             .width(key_input_w)
             .leading_icon(Icon::Key);
         if show_key_error {

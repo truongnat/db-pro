@@ -52,7 +52,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
         )
         .label(t!("connection.connection_name"))
         .required(true)
-        .bordered(true)
         .id_salt(focus_id::NAME)
         .auto_focus(focus_name)
         .width(widths[0])
@@ -85,7 +84,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                             t!("connection.folder_group_placeholder"),
                             self.theme,
                         )
-                        .bordered(true)
                         .id_salt(focus_id::GROUP)
                         .width(group_w)
                         .leading_icon(Icon::Folder)
@@ -190,7 +188,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     )
                     .label(t!("connection.host"))
                     .required(true)
-                    .bordered(true)
                     .id_salt(focus_id::HOST)
                     .width(widths[0])
                     .leading_icon(Icon::Server);
@@ -203,7 +200,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     let mut port_input = Input::new(&mut self.dialog.draft.port, port_hint, self.theme)
                         .label(t!("connection.port"))
                         .required(true)
-                        .bordered(true)
                         .id_salt(focus_id::PORT)
                         .width(widths[1])
                         .leading_icon(Icon::Hash);
@@ -237,7 +233,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     let mut db_input = Input::new(&mut self.dialog.draft.database, db_hint, self.theme)
                         .label(t!("connection.database"))
                         .required(true)
-                        .bordered(true)
                         .id_salt(focus_id::DATABASE)
                         .width(widths[0])
                         .leading_icon(Icon::Database)
@@ -251,7 +246,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     let mut user_input = Input::new(&mut self.dialog.draft.username, user_hint, self.theme)
                         .label(t!("connection.username"))
                         .required(true)
-                        .bordered(true)
                         .id_salt(focus_id::USERNAME)
                         .width(widths[1])
                         .leading_icon(Icon::User);
@@ -292,7 +286,6 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                         self.theme,
                     )
                     .label(pwd_label)
-                    .bordered(true)
                     .id_salt(focus_id::PASSWORD)
                     .width(widths[0])
                     .show(ui);

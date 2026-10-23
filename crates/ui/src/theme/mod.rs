@@ -49,6 +49,10 @@ pub struct DbProTheme {
     pub surface_elevated: Color32,
     pub surface_floating: Color32,
     pub surface_editor: Color32,
+    /// Resting fill of a text field / textarea / search box / select trigger
+    /// (`background.field`). Distinct from `surface_elevated`, so a field is not
+    /// painted with the same fill as the card it sits on.
+    pub surface_field: Color32,
     pub surface_hover: Color32,
     /// Compatibility alias of `background.selected` — active/pressed widget and
     /// selected-row wash.
@@ -111,6 +115,7 @@ impl DbProTheme {
             surface_elevated: semantic.background.elevated,
             surface_floating: semantic.background.floating,
             surface_editor: semantic.background.editor,
+            surface_field: semantic.background.field,
             surface_hover: semantic.background.hover,
             surface_active: semantic.background.selected,
             surface_2: semantic.background.subtle,
@@ -167,6 +172,7 @@ impl DbProTheme {
             surface_elevated: semantic.background.elevated,
             surface_floating: semantic.background.floating,
             surface_editor: semantic.background.editor,
+            surface_field: semantic.background.field,
             surface_hover: semantic.background.hover,
             surface_active: semantic.background.selected,
             surface_2: semantic.background.subtle,
@@ -235,12 +241,12 @@ impl DbProTheme {
     }
 
     /// Quiet gutter wash behind line numbers (Zed/DBeaver density).
+    ///
+    /// Uses the chrome panel role: it is one step off the editor in both themes
+    /// (light `#f3f3f3` on white, dark `#171717` on `#212121`), where the previous
+    /// hard-coded values made the light gutter identical to the canvas.
     pub fn editor_gutter_fill(self) -> Color32 {
-        if self.dark_mode {
-            Color32::from_rgb(20, 20, 20)
-        } else {
-            Color32::from_rgb(248, 248, 248)
-        }
+        self.surface_panel
     }
 
     /// Soft current-line highlight — accent-tinted wash per the Stitch
@@ -472,8 +478,9 @@ impl DbProTheme {
         visuals.widgets.hovered.bg_fill = self.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = self.surface_hover;
         visuals.widgets.hovered.bg_stroke = Stroke::new(STROKE_THIN, self.border_strong);
-        // `accent` (#006fcc on the #f1f1f1 hover wash) misses AA by a hair;
-        // the darker hover accent keeps hovered text at ≥4.5:1 (#344).
+        // `accent` (#006fcc) measures 4.33:1 on the `#ededed` hover wash and 4.10:1 on
+        // the `#e7e7e7` selected wash, both short of AA; the deeper hover accent keeps
+        // accent text on interactive washes at 5.6:1 / 5.3:1 (#344).
         visuals.widgets.hovered.fg_stroke = Stroke::new(STROKE_THIN, self.accent_hover);
         visuals.widgets.hovered.corner_radius = CornerRadius::same(RADIUS_EGUI_WIDGET as u8);
         visuals.widgets.active.bg_fill = self.surface_active;

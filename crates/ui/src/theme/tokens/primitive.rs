@@ -157,16 +157,30 @@ pub const DURATION_TOAST_DEFAULT_SECS: f32 = 5.0;
 pub mod light {
     use egui::Color32;
 
-    // Neutrals.
+    // Neutrals. Numbered by darkness: a higher step is darker.
     pub const NEUTRAL_0: Color32 = Color32::from_rgb(255, 255, 255); // #ffffff
+    /// App canvas — one step below the white top plane so a raised card is visible.
+    pub const NEUTRAL_40: Color32 = Color32::from_rgb(248, 248, 248); // #f8f8f8
+    /// Resting field fill: a filled input reads against the white card it sits on.
     pub const NEUTRAL_75: Color32 = Color32::from_rgb(246, 246, 246); // #f6f6f6
+    /// Chrome panel (sidebars, toolbars, status bar).
+    pub const NEUTRAL_85: Color32 = Color32::from_rgb(243, 243, 243); // #f3f3f3
+    /// Hairline borders (`border.subtle`).
     pub const NEUTRAL_100: Color32 = Color32::from_rgb(241, 241, 241); // #f1f1f1
-    pub const NEUTRAL_125: Color32 = Color32::from_rgb(238, 238, 238); // #eeeeee
+    /// Quiet fill for disabled controls, icon boxes and secondary buttons.
+    pub const NEUTRAL_110: Color32 = Color32::from_rgb(240, 240, 240); // #f0f0f0
+    /// Pointer hover wash.
+    pub const NEUTRAL_135: Color32 = Color32::from_rgb(237, 237, 237); // #ededed
+    /// Default border / separator, and the resting stroke around a text field.
     pub const NEUTRAL_150: Color32 = Color32::from_rgb(229, 229, 229); // #e5e5e5
+    /// Selected-row / active wash — stronger than hover.
+    pub const NEUTRAL_155: Color32 = Color32::from_rgb(231, 231, 231); // #e7e7e7
+    /// Strong border: hover outline, card hover edge.
     pub const NEUTRAL_175: Color32 = Color32::from_rgb(212, 212, 212); // #d4d4d4
     pub const NEUTRAL_450: Color32 = Color32::from_rgb(138, 138, 138); // #8a8a8a
-    /// Tertiary/muted text that still clears 4.5:1 on the `#f1f1f1` chrome panel.
-    pub const NEUTRAL_525: Color32 = Color32::from_rgb(107, 107, 107); // #6b6b6b
+    /// Tertiary/muted text that still clears 4.5:1 on the darkest interactive wash
+    /// (`NEUTRAL_155`, selected rows), not just on the chrome panel.
+    pub const NEUTRAL_525: Color32 = Color32::from_rgb(100, 100, 100); // #646464
     pub const NEUTRAL_550: Color32 = Color32::from_rgb(110, 110, 110); // #6e6e6e
     pub const NEUTRAL_575: Color32 = Color32::from_rgb(100, 100, 110); // #64646e
     pub const NEUTRAL_600: Color32 = Color32::from_rgb(95, 95, 95); // #5f5f5f
@@ -176,7 +190,10 @@ pub mod light {
     // Accent (Modern Blue).
     pub const BLUE_50: Color32 = Color32::from_rgb(230, 242, 255); // #e6f2ff
     pub const BLUE_500: Color32 = Color32::from_rgb(0, 111, 204); // #006fcc
-    pub const BLUE_600: Color32 = Color32::from_rgb(1, 105, 204); // #0169cc
+    /// Accent text on an interactive wash (`hover`/`selected`) and the primary
+    /// button's hover fill. One step deeper than `BLUE_500` so accent text keeps
+    /// 4.5:1 on the darker light washes instead of landing at ~4.2:1.
+    pub const BLUE_650: Color32 = Color32::from_rgb(0, 95, 168); // #005fa8
     pub const BLUE_700: Color32 = Color32::from_rgb(37, 99, 235); // #2563eb
 
     // Shipped status colors.

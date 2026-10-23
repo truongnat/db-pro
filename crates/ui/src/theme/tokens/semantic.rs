@@ -50,6 +50,10 @@ pub struct Background {
     pub floating: Color32,
     /// SQL editor / result grid background.
     pub editor: Color32,
+    /// Resting fill of a text field, textarea, search box or select trigger.
+    /// Its own role because a field is a control, not a page: it must separate
+    /// from `elevated` (the card it sits on) by fill *and* a resting stroke.
+    pub field: Color32,
     /// Pointer hover wash on interactive rows and controls.
     pub hover: Color32,
     /// Active/pressed widget and selected-row wash.
@@ -182,17 +186,22 @@ impl SemanticTokens {
     pub fn light() -> Self {
         Self {
             background: Background {
-                canvas: light::NEUTRAL_0,
-                // Chrome sits one visible step below the white canvas. `NEUTRAL_100`
-                // would collide with `hover`, leaving hovered sidebar rows identical
-                // to the base fill, so the ladder stays canvas → panel → hover → selected.
-                panel: light::NEUTRAL_75,
+                // The light ladder is a paper stack: pure white is the top plane
+                // (cards, popovers, editor) and every plane below it steps down by a
+                // visible amount — canvas → panel → subtle → hover → selected.
+                // Before this ladder existed, canvas/elevated/floating/editor were all
+                // #ffffff, so a card on the page measured 1.00–1.08:1 and read as a
+                // hairline-only edge. Chrome must stay above `hover`, otherwise a
+                // hovered rail row looks like the base fill it sits on.
+                canvas: light::NEUTRAL_40,
+                panel: light::NEUTRAL_85,
                 elevated: light::NEUTRAL_0,
                 floating: light::NEUTRAL_0,
                 editor: light::NEUTRAL_0,
-                hover: light::NEUTRAL_100,
-                selected: light::NEUTRAL_125,
-                subtle: light::NEUTRAL_75,
+                field: light::NEUTRAL_75,
+                hover: light::NEUTRAL_135,
+                selected: light::NEUTRAL_155,
+                subtle: light::NEUTRAL_110,
                 overlay: light::SCRIM,
             },
             foreground: Foreground {
@@ -214,7 +223,7 @@ impl SemanticTokens {
             accent: Accent {
                 subtle: light::BLUE_50,
                 solid: light::BLUE_500,
-                solid_hover: light::BLUE_600,
+                solid_hover: light::BLUE_650,
                 foreground: light::NEUTRAL_0,
             },
             status: Status {
@@ -261,6 +270,9 @@ impl SemanticTokens {
                 // Lighter than hover so a selected row is not the same wash as a pointer hover.
                 selected: dark::NEUTRAL_700,
                 subtle: dark::NEUTRAL_775,
+                // Sunken field fill: one step below `elevated`, so an input on a card or
+                // dialog already separates by 1.20:1 before its resting stroke.
+                field: dark::NEUTRAL_850,
                 overlay: dark::SCRIM,
             },
             foreground: Foreground {
