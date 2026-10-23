@@ -1,0 +1,5 @@
+[2m2026-10-22T23:55:28.549639Z[0m [32m INFO[0m [2mdb_pro_runtime[0m[2m:[0m DB_PRO_DISABLE_KEYRING: OS keyring disabled — secrets use the encrypted-file + session stores (set DB_PRO_USE_KEYRING=1 to force the OS keyring)
+[2m2026-10-22T23:55:29.389129Z[0m [32m INFO[0m [2mdb_pro_runtime::worker[0m[2m:[0m connection started [3mrequest_id[0m[2m=[0m2 [3mconnection_id[0m[2m=[0mfb79058f-7485-4ff0-b55f-2b93e85d7a20
+[2m2026-10-22T23:55:29.389977Z[0m [32m INFO[0m [2mdb_pro_runtime::worker[0m[2m:[0m connection completed [3mrequest_id[0m[2m=[0m2 [3mconnection_id[0m[2m=[0mfb79058f-7485-4ff0-b55f-2b93e85d7a20
+[2m2026-10-22T23:55:29.928766Z[0m [32m INFO[0m [2mdb_pro_runtime::worker[0m[2m:[0m schema introspection started [3mrequest_id[0m[2m=[0m3 [3mconnection_id[0m[2m=[0mfb79058f-7485-4ff0-b55f-2b93e85d7a20 [3mforce_refresh[0m[2m=[0mfalse [3minvalidate_cache[0m[2m=[0mfalse
+[2m2026-10-22T23:55:29.930416Z[0m [32m INFO[0m [2mdb_pro_runtime::worker[0m[2m:[0m schema introspection completed [3mrequest_id[0m[2m=[0m3 [3mconnection_id[0m[2m=[0mfb79058f-7485-4ff0-b55f-2b93e85d7a20 [3mtables[0m[2m=[0m11
