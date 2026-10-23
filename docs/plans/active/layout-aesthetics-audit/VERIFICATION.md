@@ -52,3 +52,26 @@ audit HEAD          fede8872 + subsequent doc-only commits (77ddfa61)
 - `python3 evidence/capture_matrix.py` — 60/60 PNGs written, manifest sha256 verified.
 - `orca computer scroll --element-index <scrollbar>` — F8: dialog body scrolls, clipped row
   revealed. `screencapture -C` calibration — Terminal I-beam proven, app arrow observed.
+
+## 2026-10-23 — Dialog header/footer separators (64a96f57) — evidence caveat
+
+**Change**: `DialogFrame` + `paint_dialog_card` paint `Separator` hairlines so
+dialog cards read as header / body / footer (light & dark verified in
+`evidence/dlg-sep-*`).
+
+**Captured sizes** (18 PNGs): requested 1280×800 / 1440×900 / 1920×1080.
+**Actual framebuffer**: 1280×800, 1440×838, 1920×838 logical points
+(@2× → 2560×1600, 2880×1676, 3840×1676 px).
+
+**Why**: macOS clamps `InnerSize` to the physical display's visible area — the
+workstation screen is ~900 logical points tall minus menu bar/Dock, so heights
+above ~838pt cannot be realized on a windowed capture. Widths land exactly.
+This is an environment constraint, not a bug in the separators: the hairlines
+are drawn relative to the card's own height and verified at every captured
+dimension. Full-height evidence requires a display (or virtual display) with
+≥1080pt visible height.
+
+**States verified per size**: normal, error (`DB_PRO_CAPTURE_CONNECTION_ERROR` —
+note it must be set *alone*; combined with `NEW_CONNECTION` the else-if chain
+picks the normal dialog first), and pending (`TEST_PENDING`). Empty-state does
+not apply to a form dialog.
