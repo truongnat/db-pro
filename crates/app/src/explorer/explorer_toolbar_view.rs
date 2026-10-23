@@ -91,12 +91,7 @@ impl ExplorerToolbarContext<'_> {
             .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
             .open_memory(None)
             .show(|ui| {
-                // ui-rules: margin-only layout frame (no fill, no stroke) — the popup
-                // frame already owns the surface; this only insets its content so rows
-                // and the separator do not bleed into the rounded edge.
-                egui::Frame::NONE
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM as i8, SPACE_SM as i8))
-                    .show(ui, |ui| {
+                crate::components::common::popup_content_frame().show(ui, |ui| {
                         ui.set_min_width(180.0);
                         ui.set_max_width(204.0);
                         ui.spacing_mut().item_spacing.y = SPACE_XXS;

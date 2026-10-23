@@ -15,7 +15,7 @@ pub use format::{
 };
 pub use frames::{
     activity_bar_frame, agent_message_frame, app_frame, chip_frame, editor_frame, grid_frame, list_row_frame,
-    panel_frame, shell_surface_frame, sidebar_frame, tab_frame, toolbar_frame, ShellSurface,
+    panel_frame, popup_content_frame, shell_surface_frame, sidebar_frame, tab_frame, toolbar_frame, ShellSurface,
 };
 pub use layout::{
     calculate_dialog_layout, calculate_sheet_layout, clamp_popup_to_screen, dialog_body_cap, DialogLayout,

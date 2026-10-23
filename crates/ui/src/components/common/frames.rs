@@ -148,6 +148,16 @@ pub fn chip_frame(theme: DbProTheme) -> Frame {
     }
 }
 
+/// Content inset for a popup that already owns its surface (`egui::Popup`,
+/// `FloatingPopup`): margin only, no fill or stroke, so rows and dividers sit
+/// inside the rounded edge instead of bleeding into it.
+///
+/// Lives here rather than in a view because frame construction belongs to the
+/// component layer (`RULES.md` §1: no hand-built `egui::Frame` in view code).
+pub fn popup_content_frame() -> Frame {
+    Frame::NONE.inner_margin(Margin::symmetric(SPACE_SM as i8, SPACE_SM as i8))
+}
+
 /// Row wash for a selectable row inside a floating list (suggestion/completion
 /// menus): accent wash when selected, transparent otherwise.
 pub fn list_row_frame(theme: DbProTheme, selected: bool) -> Frame {

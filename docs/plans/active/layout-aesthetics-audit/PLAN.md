@@ -46,9 +46,20 @@ correctness fixes; nobody has yet judged the composition as a whole.
 | Iconography | size/weight consistency, alignment to text baseline |
 | Responsive composition | what survives at 1280×800 with panes open |
 
+**Matrix coverage gaps (declared, not hidden).** The 60-cell run captures one representative per
+group, so three planned sub-surfaces are **not** covered yet: Table *structure* (only the data grid is
+captured), Settings → *Appearance* (only General), and the New Connection *error* state (only blank).
+They stay open in `CHECKLIST.md`; no group is scored as fully covered from a single capture.
+
 **Out of scope:** behaviour changes, provider/database work, new components or primitives, any
 redesign proposal that is not backed by a finding in this audit, motion recording (static frames
 only).
+
+**Exception — routed defect fixes.** A defect the owner reports while the audit runs may be fixed in
+its own scoped commit and recorded here as a routed finding (pre-fix capture kept for comparison),
+because leaving a visibly broken surface in place would poison the scoring. The audit does not become
+an implementation plan by doing so: it still owns judgement, the fix is listed under the finding that
+justifies it.
 
 ## Method
 
