@@ -87,8 +87,9 @@ scores, on evidence that cannot be mistaken for an older generation.
       Gallery, Diagram, Agent, Palette.
 - [x] **D3 — Update the manifest** (`inspected: true`) only for cells actually opened in this pass, and
       `REPORT.md` with anything new.
-- [ ] **D4 — Close the loop.** When all 60 are inspected at one SHA, move the plan to `RUNTIME_VERIFY`
-      with the coverage table; `COMPLETED` still needs A and B done.
+- [ ] **D4 — Close the loop.** All 60 inspected at `65fad16d` ✓, but the plan stays `Review`, not
+      `RUNTIME_VERIFY`, because the A-gap (Table single number) and the F9/F15 fixes are still
+      open. Unchecked on purpose.
 - **Done when:** 60/60 inspected at a single SHA, or an explicit list of what could not be inspected
       and why.
 
