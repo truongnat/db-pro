@@ -6,7 +6,7 @@
 |---|---|
 | Agent identity | omp · audit lane, nine per-surface `scout` agents (one per feature) |
 | Issue(s) | Owner request for an aesthetics/design evaluation + "audit kỹ hơn, mỗi feature một sub agent"; owner follow-ups on the Explorer popover and cursor behaviour |
-| Task state | `Review` — report written, two P1s fixed, independent pass still open |
+| Task state | `Review` — report written, four defects fixed, independent pass **partial** |
 | Baseline SHA | `493e3b9b`; fixes landed at `1b94044e` and `bc99ad10` |
 | Branch / PR | `main` (direct edit per owner override) · no PR |
 | Scope interpretation | Score every primary surface against the eight-dimension rubric using per-surface agents, fix owner-reported defects as routed findings, and report the recurring design problems with owners. |
@@ -14,15 +14,18 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `bc99ad10` (code + report); docs commit follows
+- Current HEAD: `faab6466`; code under test `a87da3e6` + the chevron fix in `faab6466`
 - Completed rows:
   - [x] `RUBRIC.md` — eight dimensions, 0–4 anchors, per-dimension measurement list
   - [x] 60-cell matrix captured with `DB_PRO_CAPTURE_REASSERT_SURFACE=1` and inspected by nine agents
   - [x] Per-surface scores published in `REPORT.md`
   - [x] Explorer popover inset fixed (F7a) and selected-nav visibility fixed (F7b)
   - [x] Cursor inventory recorded as source-derived (C1–C6)
-- Remaining rows: Table grid re-score on its fresh capture; three declared sub-surfaces; real states;
-  independent second scoring pass; runtime hover confirmation for the cursor list
+- Remaining rows: Query + 1920 independent re-score; F8 confirmation (footer bounds);
+  runtime hover confirmation for the cursor list (blocked: shared desktop)
+- Live Orca pass (2026-10-23): Table data, Table structure, Settings→Appearance and the connection
+  error state captured from the running app and inspected; empty-form submit did not persist
+  (`meta.db` still holds two connections)
 - Findings / risks: F7a/F7b fixed (P2/P1); C1–C6 open; the five recurring design problems in
   `REPORT.md` are routed, not implemented
 - Tests already run: `cargo test -p db-pro-ui -p db-pro-app` → 725 + 681 passed / 0 failed; workspace
@@ -33,7 +36,7 @@
 
 | Field | Value |
 |---|---|
-| Exact SHA | `bc99ad102829729dddb5baf00ee5a253db40d867` |
+| Exact SHA | `faab6466` (docs + chevron fix) · `a87da3e6` (wide-layout) · `8ba71006` (cursor/type/diagram) · `c735211d` (light ladder) |
 | Commit list | `1b94044e` popover inset · `c245183e` honest manifest + runner · `c90d7426` inset moved to the component layer · `36eb1155` + `523bd9db` cursor inventory · `ec2d69ce` lib.rs named re-export · `bc99ad10` selected-nav pill + report |
 | File / surface inventory | `docs/plans/active/layout-aesthetics-audit/{PLAN,RUBRIC,CHECKLIST,FINDINGS,VERIFICATION,REPORT,AGENT_EVIDENCE}.md` · `evidence/{manifest.json,capture_matrix.py,6 Explorer PNGs}` · `crates/app/src/explorer/explorer_toolbar_view.rs` · `crates/app/src/component_gallery/component_gallery_view.rs` · `crates/app/src/settings/settings_navigation_view.rs` · `crates/ui/src/components/common/frames.rs` · `crates/ui/src/components/nav/{ui,mod}.rs` · `crates/ui/src/lib.rs` |
 | Acceptance mapping | rubric → `RUBRIC.md`; matrix → manifest 60/60 valid; scores → `REPORT.md`; findings routed → `FINDINGS.md`; independent pass → **open** |
