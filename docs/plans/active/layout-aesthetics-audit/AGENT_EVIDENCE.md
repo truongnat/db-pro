@@ -31,9 +31,9 @@
 - F8 — **resolved, not a defect**: `DialogFrame::body` wraps the form in `egui::ScrollArea` with
   `VisibleWhenNeeded`; live Orca scroll revealed the clipped section fully. Downgraded to P3
   affordance note.
-- F15 — **recorded**: `on_hover_cursor(PointingHand)` observed as OS arrow on live hover across
-  status bar + tab; `screencapture -C` proven working via Terminal I-beam. Unit test green; runtime
-  glyph wrong → open winit/egui defect.
+- F15 — **recorded**: `on_hover_cursor(PointingHand)` observed as OS arrow on 3 of 6 sampled
+  hover targets; `screencapture -C` proven via Terminal I-beam. Unit test green, runtime glyph
+  wrong → open defect, root cause unproven (winit mapping vs egui propagation vs focus).
 - F9 — **recorded**: shared `components::scroll_area::ScrollArea` hardcodes `AlwaysHidden` → grid
   right-edge clip invisible. **Separate cause** from the dialog's `VisibleWhenNeeded` (which fades
   but exists) — two distinct code paths, do not merge.
