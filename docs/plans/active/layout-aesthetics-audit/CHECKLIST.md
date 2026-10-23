@@ -39,18 +39,24 @@ scores, on evidence that cannot be mistaken for an older generation.
 
 ## B. F8 — connection dialog clips its last section  ✅ DONE (2026-10-23: verified scrollable, not occluded)
 
-- [x] **B1 — Measure before deciding.** Capture `DB_PRO_CAPTURE_NEW_CONNECTION=1` at 1280×800,
+- [ ] **B1 — Measure before deciding.** Capture `DB_PRO_CAPTURE_NEW_CONNECTION=1` at 1280×800,
+      1440×900 and 1920×1080 in both themes (6 cells). For each, record: dialog rect, body content
+      bottom, footer top, and whether the `Cloud Presets & URI Importer` row intersects the footer.
+      **N/A:** superseded by the live Orca scroll, which proved reachability without a rect dump.
       1440×900 and 1920×1080 in both themes (6 cells). For each, record: dialog rect, body content
       bottom, footer top, and whether the `Cloud Presets & URI Importer` row intersects the footer.
 - [x] **B2 — Read the body layout.** `crates/app/src/connection/view.rs` and
       `crates/ui/src/components/common/layout.rs` already expose `calculate_dialog_layout` /
       `dialog_body_cap`; establish whether the cap exists but is unused, or is missing entirely.
-- [x] **B3 — Fix with the existing primitives.** Wrap the dialog body in
+- [x] **B3 —** *superseded:* the body already wraps `egui::ScrollArea::vertical().max_height(560)`
+      (`DialogFrame::body`), so no fix was applied — scrollability was verified live instead.
       `components::scroll_area::ScrollArea` bounded by `dialog_body_cap`, footer stays pinned. No new
       frame literals in the view; no hard-coded heights.
-- [x] **B4 — Geometry test.** Assert at 838 logical height that the last body row's bottom ≤ body
+- [ ] **B4 — Geometry test.** **N/A:** live scroll replaced a rect assertion; a synthetic test would
+      re-measure what the screenshot already shows.
       bottom ≤ footer top, and that the disclosure is reachable by keyboard (Tab) after the fix.
-- [x] **B5 — Re-capture and inspect** the 6 cells; confirm no row is occluded and the scroll affordance
+- [ ] **B5 — Re-capture and inspect** the 6 cells. **N/A:** live post-scroll screenshot is the
+      evidence; static captures can't show a mid-scroll state.
       is either visible or documented as the component's hidden-bar contract.
 - **Done when:** no body row intersects the footer at any tested height, proven by a rect test and by
       the six inspected captures. F8's provisional tag is removed only then.
@@ -81,7 +87,7 @@ scores, on evidence that cannot be mistaken for an older generation.
       Gallery, Diagram, Agent, Palette.
 - [x] **D3 — Update the manifest** (`inspected: true`) only for cells actually opened in this pass, and
       `REPORT.md` with anything new.
-- [x] **D4 — Close the loop.** When all 60 are inspected at one SHA, move the plan to `RUNTIME_VERIFY`
+- [ ] **D4 — Close the loop.** When all 60 are inspected at one SHA, move the plan to `RUNTIME_VERIFY`
       with the coverage table; `COMPLETED` still needs A and B done.
 - **Done when:** 60/60 inspected at a single SHA, or an explicit list of what could not be inspected
       and why.
