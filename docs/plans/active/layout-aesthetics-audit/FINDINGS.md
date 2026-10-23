@@ -29,6 +29,42 @@ A5 belongs to `core-component-style-system` (component geometry), A1/A4/A6 to
 `native-visual-redesign` (composition and elevation), A2 to this audit's own follow-up because the
 scroll affordance is a picker decision.
 
-## Scoring
+## Cursor affordance audit (owner-reported: cursor does not match behaviour)
 
-Not started. Scores land in `REPORT.md` once the matrix is measured.
+Inventory: 51 `CursorIcon` sites in `crates/ui` + `crates/app` — 33 `PointingHand`, 12 resize
+variants, `Grab`/`Grabbing`/`Move` in the diagram canvas, `Wait` on a busy button, `NotAllowed` on a
+disabled select option, one `Default`. **`CursorIcon::Text` is never used anywhere.**
+
+The convention this codebase already follows, stated once so the gaps are obvious:
+
+| Element | Cursor |
+|---|---|
+| Button, link, tab, menu item, row that navigates or selects | `PointingHand` |
+| Editable or selectable text | `Text` |
+| Splitter / column border / dock grip | `ResizeHorizontal` · `ResizeVertical` |
+| Window edge / corner | `Resize*` in the matching direction |
+| Canvas pan / drag / movable object | `Grab` · `Grabbing` · `Move` |
+| Disabled control | `NotAllowed` (or `Default`) |
+| Busy | `Wait` |
+
+### Gaps (clickable, but cursor stays the default arrow)
+
+| Ref | Element | File | Expected |
+|---|---|---|---|
+| C1 | Result-grid cell — double-click opens the inline editor | `result_grid/result_grid_cell.rs:48` | `Text` on editable cells |
+| C2 | Result-grid row gutter — click selects the row | `result_grid/result_grid_row_gutter_view.rs:11` | `PointingHand` |
+| C3 | Query status-bar labels — toggle transaction, edit bind parameters | `query_workbench/query_status_bar_surface_view.rs:133,148` | `PointingHand` |
+| C4 | Explorer tree rows — click selects, disclosure toggles | `explorer/explorer_tree.rs:98` | `PointingHand` |
+| C5 | Tools-hub cards | `tools/tools_hub_surface_view.rs` | `PointingHand` |
+| C6 | Table data toolbar clickable cells | `table/table_data_toolbar_surface_view.rs` | `PointingHand` |
+
+### Judged acceptable
+
+- Diagram: `Grab` on empty canvas, `Grabbing` while panning/dragging, `Move` over a node — the node
+  case could arguably be `Grab`, but it is deliberate and consistent.
+- `NotAllowed` on a disabled select option and `Wait` on a busy button match the table above.
+- `PointingHand` on tabs, menu rows, tree rows in the core `Tree` component and select options is
+  correct; the custom explorer tree simply does not inherit it (C4).
+
+Routed to: `core-component-style-system` for C1/C2 (grid affordances live in the shared table/grid
+components), and this audit's own follow-up for C3–C6 (view-level omissions).
