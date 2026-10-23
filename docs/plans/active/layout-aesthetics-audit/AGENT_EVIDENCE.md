@@ -7,14 +7,14 @@
 | Agent identity | omp · audit lane — 9 per-surface `scout` agents (pass 1) + 5 `scout` scorers (pass 2) |
 | Issue(s) | Owner request for an aesthetics/design evaluation + "audit kỹ hơn, mỗi feature một sub agent"; owner follow-ups on the Explorer popover and cursor behaviour |
 | Task state | `Review` — all planned steps executed; two-pass scoring reconciled; 8 findings recorded (F9–F15), no P0 |
-| Baseline SHA | `493e3b9b`; current HEAD `fede8872` |
+| Baseline SHA | `493e3b9b`; current HEAD: see `git log -1` (docs commits follow the matrix) |
 | Branch / PR | `main` (direct edit per owner override) · no PR |
 | Scope interpretation | Score every primary surface against the eight-dimension rubric using per-surface agents, fix owner-reported defects as routed findings, and report the recurring design problems with owners. |
 | Out of scope | Redesign proposals without a finding; provider work; motion recording; scoring cells that do not exist. |
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `fede8872`; evidence matrix at `65fad16d` (60 cells, `evidence/manifest.json` with per-cell sha256).
+- Evidence matrix at `65fad16d` (60 cells, `evidence/manifest.json` with per-cell sha256); audit docs trail it by a few doc-only commits.
 - Completed:
   - [x] `RUBRIC.md` — 8 dimensions, 0–4 anchors.
   - [x] Pass 1: 9 agents scored the first matrix (pre-ladder theme).
@@ -47,7 +47,7 @@
 
 | Field | Value |
 |---|---|
-| Exact SHA | `fede8872` (HEAD) · evidence matrix `65fad16d` · pass-1 fixes `1b94044e` `bc99ad10` `c735211d` `a87da3e6` `8ba71006` `faab6466` |
+| Exact SHA | evidence matrix `65fad16d` · pass-1 fixes `1b94044e` `bc99ad10` `c735211d` `a87da3e6` `8ba71006` `faab6466` · docs trail = `git log` since matrix |
 | Commit list | full history on `main` since `493e3b9b`; see `git log 493e3b9b..HEAD` |
 | File / surface inventory | `docs/plans/active/layout-aesthetics-audit/{PLAN,RUBRIC,CHECKLIST,FINDINGS,VERIFICATION,REPORT,AGENT_EVIDENCE}.md` · `evidence/{manifest.json,capture_matrix.py,60 matrix PNGs,6 live PNGs}` · `crates/app/src/{explorer,settings,query_workbench,connection}` · `crates/ui/src/components/{common,nav,scroll_area,dialog}` |
 | Acceptance mapping | rubric → `RUBRIC.md`; matrix → manifest 60/60 sha256-verified; two-pass scores → `REPORT.md`; findings → `FINDINGS.md` (F1–F15); independent pass → **partial (Table single number)** |

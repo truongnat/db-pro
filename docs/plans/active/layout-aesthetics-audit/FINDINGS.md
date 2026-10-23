@@ -144,7 +144,7 @@ Disagreements are recorded, not averaged. The independent pass also flagged two 
 - **Primary action changes appearance across themes** (dimension 6, 2/4): `Save` is accent blue in light and a light-grey fill in dark, because dark `accent.solid` is achromatic by design. That is a deliberate token choice, but it means "primary" is not one visual role across themes — worth a decision, not a silent pass.
 - **Light rail edge is faint** (dimension 5): the nav panel and canvas differ by few luminance steps, so the rail boundary is weaker than the card boundary.
 
-Query workspace could not be independently scored in that pass: the evidence directory held files from three capture generations and the reviewer could not attribute them to labels. The four Query cells (light/dark × 1280/1920) were re-captured afterwards; a second pass on Query remains open.
+Query workspace could not be scored in that *earlier* pass (three capture generations in the directory). The full-matrix pass 2 afterwards scored Query 23/32 light and 24/32 dark — that gap is closed.
 
 ## Findings from the independent pass (post-matrix, SHA 65fad16d)
 
