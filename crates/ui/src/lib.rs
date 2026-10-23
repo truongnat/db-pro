@@ -19,6 +19,9 @@ mod theme;
 
 pub use chart::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartProjection, ChartRenderer, ChartType};
 pub use components::*;
+// Named re-export for component helpers added after the legacy glob, per the
+// `lib.rs` API-contract rule (a new public item must be listed explicitly).
+pub use components::common::popup_content_frame;
 pub use i18n::UiLanguage;
 pub use runtime::{
     RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,
