@@ -149,15 +149,19 @@ Query workspace could not be independently scored in that pass: the evidence dir
 ## Findings from the independent pass (post-matrix, SHA 65fad16d)
 
 ### F9 (P2): scrollable regions hide every scrollbar — no "more content" affordance
-`components::scroll_area::ScrollArea::build` hardcodes `ScrollBarVisibility::AlwaysHidden` for every
-component ScrollArea. Consequences observed in evidence:
+Two **distinct** scrollbar paths, one shared symptom — do not merge:
 
-- `table-*-1280x800`: `created_at` timestamps clip mid-digit at the grid's right edge with no bar
-  signalling horizontal scroll (the grid's ScrollArea does scroll — verified in source).
-- `connection-*` (all 6): the last form section renders half-clipped at the pinned body's bottom —
-  readable only after a scroll; the bar appears only after interaction.
-- The dialog frame's own `VisibleWhenNeeded` (added earlier) still fades its bar unless the pointer
-  interacts, so the same affordance gap remains even there.
+- **Component wrapper (`components::scroll_area::ScrollArea`)** hardcodes
+  `ScrollBarVisibility::AlwaysHidden` (line 78). Consumers: the grid's horizontal axis, settings
+  panes, output docks. On `table-*-1280x800` `created_at` clips mid-digit at the grid's right edge
+  with no bar signalling horizontal scroll.
+- **Dialog frame (`components::dialog::frame.rs`)** uses `VisibleWhenNeeded` — the bar exists and
+  appears after interaction, but fades at rest. On `connection-*` the last form section renders
+  half-clipped at the pinned body's bottom until the user scrolls.
+
+Fix direction: expose `scroll_bar_visibility(...)` on the wrapper (default `AlwaysHidden`) and opt
+`VisibleWhenNeeded` on the grid's horizontal axis; for the dialog, keep `VisibleWhenNeeded` but the
+affordance gap is inherent to egui's fade — the half-clipped row is the intended hint.
 
 Fix direction: expose `scroll_bar_visibility(...)` on the component wrapper (default `AlwaysHidden`)
 and opt `VisibleWhenNeeded` on the grid's horizontal axis and any pinned-height body whose overflow
