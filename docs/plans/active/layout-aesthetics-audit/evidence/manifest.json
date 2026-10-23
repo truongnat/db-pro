@@ -1,5 +1,5 @@
 {
-  "note": "Captured 2026-10-23 with DB_PRO_CAPTURE_REASSERT_SURFACE=1 \u2014 without it the opener runs once and a late schema-load event restores Welcome, which is how the first table cells came out wrong. All 60 cells were inspected by the per-surface audit agents. Only the six Explorer PNGs are retained here; the rest live in /private/tmp/dbpro-audit/evidence and are reproducible via capture_matrix.py, with SHA-256 recorded per cell.",
+  "note": "Captured 2026-10-23 with DB_PRO_CAPTURE_REASSERT_SURFACE=1. `inspected` marks cells the auditor actually opened after the last code change; the other cells were captured but not re-opened, so they are not evidence for the current tree. Only the six Explorer PNGs are retained here; the rest are reproducible via capture_matrix.py with SHA-256 recorded.",
   "cells": [
     {
       "cell": "welcome-light-1280x800",
@@ -14,7 +14,7 @@
       ],
       "sha256": "a7887029a177e201",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -30,7 +30,7 @@
       ],
       "sha256": "839acc1f52d7c0b0",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -46,7 +46,7 @@
       ],
       "sha256": "30247392ad360e8a",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -62,7 +62,7 @@
       ],
       "sha256": "982c7f49522893b6",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -78,7 +78,7 @@
       ],
       "sha256": "841755338c31d1e2",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -94,7 +94,7 @@
       ],
       "sha256": "902f4e9d3479d338",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -494,7 +494,7 @@
       ],
       "sha256": "b01e680434c09932",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -510,7 +510,7 @@
       ],
       "sha256": "8e017b5b1f97bec9",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -558,7 +558,7 @@
       ],
       "sha256": "1a8adf4ac80c0bb4",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -686,7 +686,7 @@
       ],
       "sha256": "c4d83ab830fb94eb",
       "retained": false,
-      "inspected": false,
+      "inspected": true,
       "valid": true
     },
     {
@@ -961,5 +961,6 @@
       "inspected": false,
       "valid": true
     }
-  ]
+  ],
+  "inspected_total": 16
 }

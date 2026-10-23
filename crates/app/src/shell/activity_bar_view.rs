@@ -116,20 +116,25 @@ fn draw_rail_separator(ui: &mut egui::Ui, theme: DbProTheme) {
 
 fn draw_rail_icon_button(ui: &mut egui::Ui, icon: Icon, active: bool, hint: &str, theme: DbProTheme) -> bool {
     // `Secondary` is the shared selected treatment (same as the diagram mode
-    // toggles); `Ghost` is the quiet rest state.
+    // toggles); `Ghost` is the quiet rest state. In light theme `Secondary`'s fill
+    // equals the rail's own fill, so the active icon also gets the shared accent
+    // pill — otherwise the current activity is invisible.
     let variant = if active {
         ButtonVariant::Secondary
     } else {
         ButtonVariant::Ghost
     };
-    Button::new(theme)
+    let response = Button::new(theme)
         .icon(icon)
         .variant(variant)
         .size(ButtonSize::IconSm)
         .tooltip(hint)
         .access_label(hint)
-        .show(ui)
-        .clicked()
+        .show(ui);
+    if active {
+        crate::components::nav::paint_selection_pill(ui, response.rect, theme);
+    }
+    response.clicked()
 }
 
 fn draw_settings_button(ui: &mut egui::Ui, context: &ActivityBarContext) -> bool {

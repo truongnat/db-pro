@@ -53,6 +53,9 @@ decides whether the product looks like a database tool or a prototype.
 
 ## Not covered
 
+- After the selected-nav pill change, Settings (3 of 6 cells) and Gallery (5 of 6 cells) were not
+  re-inspected at every width/theme; their scores predate the pill.
+
 - Table data grid: scored from source only (density 3/4, alignment 2/4, typography 1/4, colour 2/4,
   consistency 2/4, composition `n/a`); the fresh capture has not been re-scored, so no total is claimed.
 

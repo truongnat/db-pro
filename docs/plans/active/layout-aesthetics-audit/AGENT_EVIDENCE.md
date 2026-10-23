@@ -4,40 +4,42 @@
 
 | Field | Value |
 |---|---|
-| Agent identity | omp · audit lane (evaluation + one routed defect fix) |
-| Issue(s) | Owner request for an aesthetics/design evaluation; owner follow-up "cái này cũng siêu xấu" on the Explorer filter popover |
-| Task state | `In Progress` — rubric and matrix exist, scoring and the independent pass do not |
-| Baseline SHA | `493e3b9b`; the audit's own fix landed at `1b94044e`, helper refactor after it |
+| Agent identity | omp · audit lane, nine per-surface `scout` agents (one per feature) |
+| Issue(s) | Owner request for an aesthetics/design evaluation + "audit kỹ hơn, mỗi feature một sub agent"; owner follow-ups on the Explorer popover and cursor behaviour |
+| Task state | `Review` — report written, two P1s fixed, independent pass still open |
+| Baseline SHA | `493e3b9b`; fixes landed at `1b94044e` and `bc99ad10` |
 | Branch / PR | `main` (direct edit per owner override) · no PR |
-| Scope interpretation | Judge the native layout against an eight-dimension rubric with measured evidence, route findings to owning plans, and fix the owner-reported popover defect as a routed finding (F7a). |
-| Out of scope | Redesign proposals without a finding; provider work; motion recording; scoring surfaces that were not captured. |
+| Scope interpretation | Score every primary surface against the eight-dimension rubric using per-surface agents, fix owner-reported defects as routed findings, and report the recurring design problems with owners. |
+| Out of scope | Redesign proposals without a finding; provider work; motion recording; scoring cells that do not exist. |
 
 ## 2. Progress checkpoint
 
-- Current HEAD: working tree on top of `c245183e` (helper refactor not yet committed at writing)
+- Current HEAD: `bc99ad10` (code + report); docs commit follows
 - Completed rows:
-  - [x] `RUBRIC.md` — eight dimensions, 0–4 anchors, measurement list per dimension
-  - [x] 60-cell capture matrix (10 surfaces × 3 widths × 2 themes) with a committed runner
-  - [x] Explorer popover inset fixed and re-captured in all six cells
-  - [x] Findings F7a (fixed) and A1–A6 (open, routed)
-- Remaining rows: inspection of 54 of 60 cells, all scoring, the declared sub-surfaces
-  (Table structure / Settings Appearance / Connection error), real states, independent pass, `REPORT.md`
-- Findings / risks: F7a P2 fixed; A1–A6 unrated and therefore not yet prioritised
-- Tests already run: `cargo test --workspace` 2,272 passed / 0 failed / 65 ignored; `cargo test -p
-  db-pro-app` 681 passed; fmt and workspace clippy exit 0; locked release build exit 0
+  - [x] `RUBRIC.md` — eight dimensions, 0–4 anchors, per-dimension measurement list
+  - [x] 60-cell matrix captured with `DB_PRO_CAPTURE_REASSERT_SURFACE=1` and inspected by nine agents
+  - [x] Per-surface scores published in `REPORT.md`
+  - [x] Explorer popover inset fixed (F7a) and selected-nav visibility fixed (F7b)
+  - [x] Cursor inventory recorded as source-derived (C1–C6)
+- Remaining rows: Table grid re-score on its fresh capture; three declared sub-surfaces; real states;
+  independent second scoring pass; runtime hover confirmation for the cursor list
+- Findings / risks: F7a/F7b fixed (P2/P1); C1–C6 open; the five recurring design problems in
+  `REPORT.md` are routed, not implemented
+- Tests already run: `cargo test -p db-pro-ui -p db-pro-app` → 725 + 681 passed / 0 failed; workspace
+  fmt and clippy exit 0; locked release build exit 0
 - Dependency / blocker changes: none
 
 ## 3. Implementation handoff / review request
 
 | Field | Value |
 |---|---|
-| Exact SHA | `1b94044e` (popover fix) · `c245183e` (manifest + runner) · helper refactor pending commit |
-| Commit list | `5829c0ce` plan opened · `7e81a380` F2 correction · `d7c23aa5` audit handoff + rubric alignment · `1b94044e` popover inset · `c245183e` honest manifest + runner |
-| File / surface inventory | `docs/plans/active/layout-aesthetics-audit/{PLAN,RUBRIC,CHECKLIST,FINDINGS,VERIFICATION,AGENT_EVIDENCE}.md` · `evidence/manifest.json` · `evidence/capture_matrix.py` · six Explorer PNGs · `crates/app/src/explorer/explorer_toolbar_view.rs` (inset) · `crates/ui/src/components/common/frames.rs` (`popup_content_frame`) |
-| Acceptance mapping | "rubric published" → `RUBRIC.md`; "matrix captured" → manifest 60/60; "every image inspected" → **6/60, open**; "scores with numbers" → not started; "independent pass" → not started |
-| Commands and counts | fmt 0 · clippy workspace 0 · `cargo test --workspace` 2,272 / 0 / 65 · `cargo test -p db-pro-app` 681 / 0 · locked release build 0 · ui-architecture PASS |
+| Exact SHA | `bc99ad102829729dddb5baf00ee5a253db40d867` |
+| Commit list | `1b94044e` popover inset · `c245183e` honest manifest + runner · `c90d7426` inset moved to the component layer · `36eb1155` + `523bd9db` cursor inventory · `ec2d69ce` lib.rs named re-export · `bc99ad10` selected-nav pill + report |
+| File / surface inventory | `docs/plans/active/layout-aesthetics-audit/{PLAN,RUBRIC,CHECKLIST,FINDINGS,VERIFICATION,REPORT,AGENT_EVIDENCE}.md` · `evidence/{manifest.json,capture_matrix.py,6 Explorer PNGs}` · `crates/app/src/explorer/explorer_toolbar_view.rs` · `crates/app/src/component_gallery/component_gallery_view.rs` · `crates/app/src/settings/settings_navigation_view.rs` · `crates/ui/src/components/common/frames.rs` · `crates/ui/src/components/nav/{ui,mod}.rs` · `crates/ui/src/lib.rs` |
+| Acceptance mapping | rubric → `RUBRIC.md`; matrix → manifest 60/60 valid; scores → `REPORT.md`; findings routed → `FINDINGS.md`; independent pass → **open** |
+| Commands and counts | fmt 0 · clippy workspace 0 · `db-pro-ui` 725 / `db-pro-app` 681 passed · locked release build 0 |
 | CI run IDs / status | not run (no PR) |
-| Known limitations | 1440/1920 render at 838 logical height; six cells exit `-6` from the post-capture TouchBar teardown; 54 cells are reproducible but not retained in the repo (SHA recorded); no real-state or sub-surface captures yet |
+| Known limitations | 1440/1920 render at 838 logical height; the table grid was captured only after the reassert fix and has not been re-scored; the first matrix run silently produced Welcome for table cells and is superseded |
 | Migrations / config implications | none; capture env vars are opt-in fixtures |
 | Out-of-scope changes | `none` |
 
@@ -45,45 +47,46 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | n/a — no independent review of the audit yet |
+| Reviewed SHA | n/a — the audit's own independent pass has not run |
 | Verdict | n/a |
-| P0 / P1 / P2 counts | fixed: 0 / 0 / 1 (F7a) · open observations: 6, unrated |
-| Findings | `FINDINGS.md` — F7a fixed with before/after evidence; A1–A6 open |
+| P0 / P1 / P2 counts | fixed: 0 / 1 / 1 · open findings: 5 recurring + C1–C6 |
+| Findings | `FINDINGS.md` + `REPORT.md` |
 | CI disposition | not executed |
-| Next task(s) unblocked | inspect the remaining 54 cells, then score; add the three declared sub-surfaces |
+| Next task(s) unblocked | light-theme elevation ladder (`native-visual-redesign`), input boundary (`core-component-style-system`), diagram LOD + edge routing (new issue) |
 
 ## 5. Research / audit handoff
 
 - **Source date:** 2026-10-23
-- **References:** `RUBRIC.md`, `evidence/manifest.json`, the six Explorer PNGs, `crates/ui/src/theme/tokens/semantic.rs`, `crates/ui/src/components/selection/config.rs`, `crates/app/src/explorer/explorer_toolbar_view.rs`.
-- **Factual findings:**
-  - The popover's content sat at `menu_margin = SPACE_XS` (4 pt) from its rounded edge, so the divider
-    and rows bled into the edge; measured from the pre-fix capture and confirmed in source.
-  - `CONTROL_SIZE = SPACE_LG` (16 pt) against ~11–13 pt labels, component-wide (A5).
-  - In light mode the Welcome cards are white on a white canvas with a hairline border only, while
-    dark uses an elevated fill (A1).
-- **Inference:** [INFERENCE] the light elevation gap and the wide-width imbalance (A6) come from the
-  canvas/elevated roles rather than from the cards' own frames; needs the panel-role experiment
-  before a fix is proposed.
-- **Decision / recommendation:** keep the audit `PLANNING`; score only inspected cells; the popover
-  fix is a routed finding, not a redesign.
-- **Unresolved questions:** independent reviewer identity; whether motion should be judged at all.
-- **Downstream tasks activated:** A5 → `core-component-style-system`; A1/A4/A6 → `native-visual-redesign`; A2 → audit follow-up.
+- **References:** nine agent reports (`agent://Audit*`), `RUBRIC.md`, `evidence/manifest.json`, the six
+  retained Explorer PNGs, `REPORT.md`.
+- **Factual findings (measured, per surface):** light `canvas = elevated = editor = floating = #ffffff`
+  with `panel #f6f6f6`, so cards separate by 1.08:1 and inputs by 0; `surface_2` = `subtle` = `panel`
+  = `#f6f6f6`, so a selected row is invisible in light; type scales run 4–7 sizes per surface with
+  off-token literals; icon sizes run 2–5 per surface; wide layouts do not distribute (query toolbar
+  62 % empty at 1920, welcome grid fixed at 620 pt).
+- **Inference:** [INFERENCE] most light-theme weaknesses trace to a single missing elevation step
+  rather than to per-surface mistakes; fixing the role ladder should move dimension 5 on six surfaces
+  at once.
+- **Decision / recommendation:** route to `native-visual-redesign` (ladder, composition) and
+  `core-component-style-system` (input boundary, type/icon scales); the diagram LOD and edge-routing
+  defects need their own issue.
+- **Unresolved questions:** independent reviewer identity; whether the light ladder should add a step
+  or shift the panel role.
+- **Downstream tasks activated:** none yet (routing table only).
 
 ## 6. Tổng kết (Vietnamese summary)
 
-Audit đang ở `PLANNING`, chưa chấm điểm. Đã có: rubric 8 chiều × 0–4 với anchor và danh sách số đo,
-matrix 60 ô (10 surface × 3 kích thước × 2 theme) cùng manifest ghi rõ ô nào **được giữ lại** và ô nào
-**đã đọc** — hiện chỉ 6 ô Explorer đã đọc, 54 ô còn lại mới capture.
+Đã chạy 9 sub-agent, mỗi feature một agent, chấm theo rubric 8 chiều × 0–4 trên 60 ô ảnh (10 surface ×
+3 kích thước × 2 theme). Điểm trung bình ≈17,4/32; **chiều "colour & surface" yếu nhất** — 7/9 surface
+chỉ 1–2 điểm.
 
-Đã sửa lỗi bạn báo ("siêu xấu"): popover filter của Explorer trước đây chỉ cách mép 4pt nên dòng kẻ và
-`Reset` dính sát viền; nay nội dung thụt 8pt qua helper `popup_content_frame` trong tầng component
-(không dựng `egui::Frame` thô trong view), có khoảng thở trước divider/header/Reset. Ảnh 6 ô
-Explorer đã capture lại và đọc.
+Nguyên nhân gốc lặp lại: theme sáng không có bậc nâng (canvas = elevated = editor = floating = trắng,
+panel #f6f6f6) nên card chỉ hơn 1,08:1 và input **không có viền**; `surface_2` = `subtle` = `panel` =
+#f6f6f6 nên hàng đang chọn trong light gần như vô hình.
 
-Gate trên cây hiện tại: fmt 0, clippy workspace 0, workspace **2.272 pass / 0 fail / 65 ignored**,
-`db-pro-app` 681 pass, release build locked 0, ui-architecture PASS.
+Đã sửa 2 lỗi trong lúc audit: popover Explorer thụt nội dung 8pt (`1b94044e`), và hàng nav đang chọn
+được đánh dấu bằng pill accent dùng chung (`bc99ad10`). Phát hiện thêm lỗi capture: lần chạy matrix đầu
+tiên chụp nhầm Welcome cho cả 6 ô Table — runner giờ bắt buộc `DB_PRO_CAPTURE_REASSERT_SURFACE`.
 
-Còn thiếu: đọc + chấm 54 ô, ba sub-surface đã khai báo (Table structure, Settings Appearance,
-Connection error), state thật, và vòng chấm độc lập. Vì vậy chưa có `REPORT.md` và chưa chuyển trạng
-thái.
+Còn mở: chấm lại ô Table trên ảnh mới, 3 sub-surface đã khai báo, state thật, và vòng chấm độc lập.
+Danh sách cursor (C1–C6) mới ở mức đọc source, chưa hover thật.
