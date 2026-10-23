@@ -93,12 +93,17 @@ floating surface actually laid out, including the shrink-to-content height for a
 | Capture build | `cargo build -p db-pro-native --features capture` | exit 0 (rebuilt after the narrow-viewport fixes) |
 | **Native release gate** | `cargo build --release --locked -p db-pro-native` | exit 0 — `Finished release profile [optimized]` |
 | **Workspace tests** | `cargo test --workspace` | exit 0 — **2,272 passed / 0 failed / 65 ignored** |
+| **Provider suites** (the 65 `#[ignore]`d tests, live fixtures) | `--ignored` on each integration target | exit 0 — `pg_integration` **40/40** · `pg_object_identity` **2/2** · `mysql_integration` **12/12** · `sqlserver_integration` **9/9** · `ssh_backup_runtime_verification` **1/1** · `data_diff_smoke` **1/1** = **65/65** |
 | Unit tests (touched crates) | `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — `db-pro-app` 681 passed / 0 failed / 0 ignored; `db-pro-ui` 725 passed / 0 failed / 0 ignored |
 | Clean-code diff ratchet | `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | exit 0 — 11 pass / 5 warn / 0 fail (warnings are pre-existing long-file/clone heuristics in untouched files) |
 
-The 65 ignored tests are the pre-existing `#[ignore]`d provider suites that need live
-PostgreSQL/MySQL/SQL Server/SSH fixtures; ignored tests are not counted as passing. All seven new
-regression tests appear as `ok` in the workspace run:
+The 65 tests that `cargo test --workspace` reports as ignored are the provider integration suites;
+they were then executed against the live fixtures on this host and all passed (see the provider row
+above). The `data_diff_smoke` target needs a second writable PostgreSQL database, so a throwaway
+`dbpro_diff_target` was created for the run and dropped afterwards — `pg_database` was verified to
+contain only `dbpro_fixture` again.
+
+All eight new regression tests appear as `ok` in the workspace run:
 
 ```text
 components::selection::ui::layout_bounds_tests::{horizontal_radios_do_not_consume_entire_row_width,
@@ -107,12 +112,15 @@ components::selection::ui::layout_bounds_tests::{horizontal_radios_do_not_consum
   compact_rows_keep_the_glyph_floor_in_a_sliver_parent} ... ok
 app::query_context_picker_view::tests::{query_context_picker_has_compact_bounds_for_short_lists,
   query_context_picker_caps_to_a_narrow_viewport,
+  query_context_picker_closes_on_click_outside,
+  query_context_picker_expands_its_scroll_window_for_long_lists,
   query_context_picker_action_on_escape_closes} ... ok
+theme::tests::light_surface_ladder_keeps_hover_and_selected_distinct_from_chrome ... ok
 ```
 
-Not run: the CI review workflows and the Explorer-filter capture (see §4).
+Not run: the CI review workflows (no PR was opened).
 
-## 3. Runtime evidence — 12-cell matrix
+## 3. Runtime evidence — 17-cell matrix
 
 Deterministic capture harness: `crates/native-app/src/capture.rs` with a new
 `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER` hook (plus `open_query_context_picker_for_capture` in
@@ -189,37 +197,43 @@ shrink-wrapped to their rows. The previous ~600 px slab and the two 180 px empty
 gone. Long connection labels truncate with an ellipsis instead of widening the surface. No
 "First use of ScrollArea ID …" banner is painted over any row in either theme.
 
-Not used as evidence: `DB_PRO_CAPTURE_FILTER` opened the Welcome workspace instead of the Explorer
-filter popover on this build, so the Explorer toolbar radios (`explorer_toolbar_view.rs`) have unit
-coverage only, not a screenshot.
+The Explorer filter popover is now captured deterministically: the fixture keeps the Explorer activity
+in place via `DB_PRO_CAPTURE_REASSERT_SURFACE`, the popover id is a stable `egui::Id`, and
+`DB_PRO_CAPTURE_EXPLORER_FILTER_POPOVER` opens it with `egui::Popup::open_id`. Earlier attempts
+landed on the Welcome workspace because the activity was overwritten before the frame drew.
 
-## 5. Re-verification on the pushed tree
+## 5. Re-verification history
 
-Re-run against code SHA `9e72de50fa821926a3874949e2ebc65289885d0a` at docs HEAD `1e39b606`, after
-a reviewer asked for fresh results:
+Two review rounds asked for fresh results. Both were executed; the newest supersedes the older.
+
+**Round 2 — final tree `457cd6457480ff5f23f8a3e5000e9efcc771ad0b`** (this is the tree the evidence
+images and the gate table in §2 describe):
 
 | Gate | Result |
 |---|---|
 | `cargo +nightly fmt --all -- --check` | exit 0 |
-| `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
-| `cargo test --workspace` | cargo exited 0 — 2,269 passed / 0 failed / 65 ignored |
 | `cargo clippy --workspace --all-targets -- -D warnings` | exit 0, 0 diagnostics |
 | `cargo check --workspace` | exit 0 |
 | `cargo build --release --locked -p db-pro-native` | exit 0 |
+| `cargo test --workspace` | exit 0 — 2,272 passed / 0 failed / 65 ignored |
+| provider suites (`--ignored`, live fixtures) | exit 0 — 65/65 across six targets |
+| `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — 725 + 681 passed |
+| `scripts/check-ui-architecture.sh` / cc-ratchet | PASS / 0 fail |
 
-The workspace run was sequential (tests → clippy → check → release build) to avoid Cargo-lock
-contention. The 65 ignored entries are the pre-existing `#[ignore]`d provider integration suites,
-skipped because no live PostgreSQL/MySQL/SQL Server/SSH fixtures were provisioned; they are not
-counted as passing.
+**Round 1 — earlier tree `9e72de50`** (superseded; kept only so the history is not rewritten):
+fmt exit 0, clippy exit 0, check exit 0, release build exit 0, workspace 2,269 passed / 0 failed /
+65 ignored. Its ignored count was recorded as "skipped" at the time because the provider fixtures had
+not yet been run; that is no longer the state of the record.
 
-Runtime smoke on the same tree (fresh temp data dir, not overwriting the committed evidence):
+Runtime smoke during round 1 (fresh temp data dir, not overwriting the committed evidence):
 
 - `appearance-dark-1280x800` re-captured byte-identically — SHA-256
-  `2bc6fd89fa758679cc8ef4322963d8a2a11efa6700da0ee1f4ca64b222b1d73`, equal to the committed
+  `2bc6fd89fa758679cc8ef4322963d8a2a11efa6700da0ee1f4ca64b222b1d73`, equal to the then-committed
   manifest entry. The fix is deterministic.
-- `query-picker-dark-1280x800` re-captured with the same compact geometry, but its SHA differs from
-  the committed image because the status bar prints the data-directory path, which differs between
-  runs. Visual inspection confirms identical layout; the hash difference is not a layout change.
+- `query-picker-dark-1280x800` re-captured with the same compact geometry but a different hash,
+  because the status bar prints the data-directory path. Visual inspection confirmed identical
+  layout; the hash difference is not a layout change. (The round-2 matrix re-captured every cell from
+  the final tree, so this comparison is historical only.)
 
 Operational note: `cargo test --workspace` rebuilds `target/debug/db-pro-native` **without** the
 `capture` feature, so a capture run after the test suite must first re-run
