@@ -23,7 +23,9 @@
 - [x] Verify `cargo +nightly fmt --all -- --check` (exit 0).
 - [x] Full crate suites: `cargo test -p db-pro-ui -p db-pro-app` (679 + 724 passed, 0 failed).
 - [x] Clean-code diff ratchet: 11 pass / 5 warn / 0 fail (exit 0).
-- [x] **Mandatory native release gate** `cargo build --release --locked -p db-pro-native` — exit 0 (`Finished release profile [optimized]`, 1m 23s).
+- [x] **Mandatory native release gate** `cargo build --release --locked -p db-pro-native` — exit 0.
+- [x] Workspace gates: `cargo test --workspace` **2,269 passed / 0 failed / 65 ignored**; `cargo clippy --workspace --all-targets -- -D warnings` 0 diagnostics; `cargo check --workspace` exit 0.
+- [x] Re-verification on pushed HEAD `f17a1d4b`: all gates re-run, appearance capture reproduced byte-identically.
 - [x] Narrow-viewport regression tests for compact row floor and popup viewport cap (red before, green after; both found real defects F5/F6).
 - [x] Re-run clippy/fmt/check/tests after the narrow-viewport code changes.
 - [x] Rebuild the capture binary and re-run the 12-cell matrix so the evidence matches the final tree; every PNG re-inspected.

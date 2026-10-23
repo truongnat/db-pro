@@ -89,16 +89,30 @@ floating surface actually laid out, including the shrink-to-content height for a
 | Gate | Command | Result |
 |---|---|---|
 | Formatting | `cargo +nightly fmt --all -- --check` | exit 0 |
-| Clippy (touched crates) | `cargo clippy -p db-pro-ui -p db-pro-app -p db-pro-native --all-targets -- -D warnings` | exit 0, 0 errors (re-run after the narrow-viewport changes) |
-| Type check (touched crates) | `cargo check -p db-pro-ui -p db-pro-app -p db-pro-native` | exit 0, `Finished dev profile` |
+| Clippy (workspace) | `cargo clippy --workspace --all-targets -- -D warnings` | exit 0, 0 errors / 0 warnings |
+| Type check (workspace) | `cargo check --workspace` | exit 0, `Finished dev profile` |
 | UI architecture | `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
 | Capture build | `cargo build -p db-pro-native --features capture` | exit 0 (rebuilt after the narrow-viewport fixes) |
-| **Native release gate** | `cargo build --release --locked -p db-pro-native` | exit 0 — `Finished release profile [optimized]` in 1m 23s |
-| Unit tests | `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — `db-pro-app` 679 passed / 0 failed / 0 ignored; `db-pro-ui` 724 passed / 0 failed / 0 ignored |
+| **Native release gate** | `cargo build --release --locked -p db-pro-native` | exit 0 — `Finished release profile [optimized]` |
+| **Workspace tests** | `cargo test --workspace` | exit 0 — **2,269 passed / 0 failed / 65 ignored** |
+| Unit tests (touched crates) | `cargo test -p db-pro-ui -p db-pro-app` | exit 0 — `db-pro-app` 679 passed / 0 failed / 0 ignored; `db-pro-ui` 724 passed / 0 failed / 0 ignored |
 | Clean-code diff ratchet | `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | exit 0 — 11 pass / 5 warn / 0 fail (warnings are pre-existing long-file/clone heuristics in untouched files) |
 
-Not run: `cargo test --workspace` (provider suites need live fixtures on this host), the CI review
-workflows, and the Explorer-filter capture (see §4). They are not claimed as passing.
+The 65 ignored tests are the pre-existing `#[ignore]`d provider suites that need live
+PostgreSQL/MySQL/SQL Server/SSH fixtures; ignored tests are not counted as passing. All seven new
+regression tests appear as `ok` in the workspace run:
+
+```text
+components::selection::ui::layout_bounds_tests::{horizontal_radios_do_not_consume_entire_row_width,
+  horizontal_checkboxes_do_not_consume_entire_row_width,
+  compact_rows_honour_a_parent_wider_than_the_glyph_floor,
+  compact_rows_keep_the_glyph_floor_in_a_sliver_parent} ... ok
+app::query_context_picker_view::tests::{query_context_picker_has_compact_bounds_for_short_lists,
+  query_context_picker_caps_to_a_narrow_viewport,
+  query_context_picker_action_on_escape_closes} ... ok
+```
+
+Not run: the CI review workflows and the Explorer-filter capture (see §4).
 
 ## 3. Runtime evidence — 12-cell matrix
 
@@ -174,7 +188,35 @@ Not used as evidence: `DB_PRO_CAPTURE_FILTER` opened the Welcome workspace inste
 filter popover on this build, so the Explorer toolbar radios (`explorer_toolbar_view.rs`) have unit
 coverage only, not a screenshot.
 
-## 5. Honest limitations
+## 5. Re-verification on the pushed tree
+
+Re-run at `f17a1d4b931e3090322e71e2c701e064dd20d694` (the pushed HEAD) after a reviewer asked for
+fresh results:
+
+| Gate | Result |
+|---|---|
+| `cargo +nightly fmt --all -- --check` | exit 0 |
+| `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
+| `cargo test --workspace` | exit 0 — 2,269 passed / 0 failed / 65 ignored |
+| `cargo clippy --workspace --all-targets -- -D warnings` | exit 0, 0 diagnostics |
+| `cargo check --workspace` | exit 0 |
+| `cargo build --release --locked -p db-pro-native` | exit 0 |
+
+Runtime smoke on the same tree (fresh temp data dir, not overwriting the committed evidence):
+
+- `appearance-dark-1280x800` re-captured byte-identically — SHA-256
+  `2bc6fd89fa758679cc8ef4322963d8a2a11efa6700da0ee1f4ca64b222b1d73`, equal to the committed
+  manifest entry. The fix is deterministic.
+- `query-picker-dark-1280x800` re-captured with the same compact geometry, but its SHA differs from
+  the committed image because the status bar prints the data-directory path, which differs between
+  runs. Visual inspection confirms identical layout; the hash difference is not a layout change.
+
+Operational note: `cargo test --workspace` rebuilds `target/debug/db-pro-native` **without** the
+`capture` feature, so a capture run after the test suite must first re-run
+`cargo build -p db-pro-native --features capture`. Skipping that makes `DB_PRO_CAPTURE_TO` inert and
+the process run until timeout (observed as exit 124 with no PNG).
+
+## 6. Honest limitations
 
 - Matrix heights above 838 logical px are unavailable on this host; the requested 900/1080 cells are
   recorded as clamped, not as verified at those heights.
@@ -187,4 +229,5 @@ coverage only, not a screenshot.
 - Pointer-driven dismissal (`clicked_outside`) was not re-tested here.
 - No PostgreSQL or SQLite database behavior changed; the picker is a pure UI surface fed by
   already-loaded catalog/schema state. Provider matrix: PostgreSQL `N/A`, SQLite `N/A` (layout-only).
-- `cargo test --workspace` and the CI review workflows were not executed in this session.
+- `cargo test --workspace` passes, but its 65 `#[ignore]`d provider tests did not run; the CI review
+  workflows were not executed (no PR).
