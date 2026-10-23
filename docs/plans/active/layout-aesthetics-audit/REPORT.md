@@ -37,7 +37,7 @@ not scorer leniency; every delta ≥ 2 dimension is accounted for above.
 |---|---|---|---|
 | Welcome + shell chrome | 15/32 | 17/32 | light loses 2 on colour (cards 1.08:1); rail selection ΔL 0 was fixed by F7b after scoring |
 | Query workspace | 17/32 | 17/32 | strongest surface; loses on type scale (5 sizes) and icon sizes (4) |
-| Table (data grid) | — | — | **source-derived only**: the first capture run rendered Welcome; the fresh grid capture exists but has not been re-scored |
+| Table (data grid) | — | — | pass-1 capture leaked Welcome → source-derived only; see the pass-2 row above |
 | Explorer | 20/32 | 20/32 | best surface; unchecked control boundary 1.26:1 |
 | Settings | 18/32 | 20/32 | *pre-fix score* for the rail; light input still has no boundary (open) |
 | Connection dialog | 14/32 | 16/32 | 4 column seams in one 772 pt form; 7 type sizes |
@@ -84,10 +84,8 @@ decides whether the product looks like a database tool or a prototype.
   pass-2 number (21/22 light, 22/32 dark) is the only complete score, so the surface has one
   independent number rather than two.
 
-- Declared sub-surfaces: Table structure, Settings → Appearance, Connection **error** state.
-- Real states (empty/loading/error) per surface.
-- Independent second scoring pass.
-- Heights above 838 logical.
+- Real states (empty/loading) per surface beyond the ones captured (error state already live-verified).
+- Heights above 838 logical (host clamp — needs an external display to exercise).
 
 ## Next
 

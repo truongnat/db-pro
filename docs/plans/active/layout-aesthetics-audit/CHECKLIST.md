@@ -55,7 +55,7 @@ scores, on evidence that cannot be mistaken for an older generation.
 - **Done when:** no body row intersects the footer at any tested height, proven by a rect test and by
       the six inspected captures. F8's provisional tag is removed only then.
 
-## C. Cursor — real-hover verification  ⚠️ RESOLVED-AS-FINDING (capture pipeline proven; OS arrow observed where PointingHand was set → recorded as an open defect, not a test gap)
+## C. Cursor — real-hover verification  ⚠️ PARTIAL (C1/C2 proven; C3/C4 sampled on 3 targets; C5 left open as F15)
 
 - [ ] **C1 — Get a genuinely frontmost window.** Launch with `open -a "/tmp/DB Pro.app"` (LaunchServices)
       instead of a detached spawn, then confirm with a full-screen `screencapture -C` that the app
