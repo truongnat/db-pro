@@ -351,7 +351,18 @@ fn draw_dropdown_item(ui: &mut Ui, item: &DropdownItem<'_>, theme: DbProTheme) -
         cursor += config::DROPDOWN_ITEM_ICON_OFFSET;
     }
 
-    ui.painter().text(
+    // Labels longer than the row must not bleed past the rect (or under the
+    // shortcut badge): clip to the measured label span before painting.
+    let label_right = if item.shortcut.is_some() {
+        rect.right() - config::DROPDOWN_ITEM_TRAILING_RESERVE
+    } else {
+        rect.right() - config::DROPDOWN_ITEM_HORIZONTAL_PADDING
+    };
+    let label_clip = Rect::from_min_max(
+        Pos2::new(cursor, rect.top()),
+        Pos2::new(label_right.max(cursor), rect.bottom()),
+    );
+    ui.painter().with_clip_rect(label_clip).text(
         Pos2::new(cursor, rect.center().y),
         Align2::LEFT_CENTER,
         item.label,

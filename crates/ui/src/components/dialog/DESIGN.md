@@ -14,7 +14,7 @@
 
 ## Event flow and rendering cost
 
-The caller draws the builder each frame. A closed overlay returns `None`; an opening or open overlay registers its stable egui ID, resolves topmost ownership, handles Escape/backdrop input, draws one dim layer and one foreground area, then invokes the content closure. Escape takes precedence over a simultaneous backdrop click. A backdrop click inside the card is ignored. Sheets do not dismiss on backdrop clicks. Only the topmost registered modal owns modal input and focus trapping.
+The caller draws the builder each frame. A closed overlay returns `None`; an opening or open overlay registers its stable egui ID, resolves topmost ownership, handles Escape/backdrop input, draws one dim layer and one foreground area, then invokes the content closure. Escape takes precedence over a simultaneous backdrop click. A backdrop click inside the card is ignored. Sheets dismiss on backdrop clicks like dialogs. Only the topmost registered modal owns modal input and focus trapping.
 
 While the transition is active, the overlay requests repaint so the animation can finish. Once closed motion reaches zero, no overlay area or content closure is drawn. Cost is proportional to the content the caller draws; the modal stack check is linear in the small number of simultaneously open modals.
 

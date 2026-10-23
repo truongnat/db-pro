@@ -26,7 +26,7 @@ let result = Dialog::new(&mut open, "Delete table", theme)
 
 ## Sheet
 
-`Sheet::new(&mut open, title, theme).width(f32).id_salt(hash).show(ui, closure)` renders a right-side panel and returns `Option<R>` with the same closed/open semantics as `Dialog`. Escape closes only the topmost modal. Backdrop clicks intentionally do not close sheets; provide a visible close action for pointer users.
+`Sheet::new(&mut open, title, theme).width(f32).id_salt(hash).show(ui, closure)` renders a right-side panel and returns `Option<R>` with the same closed/open semantics as `Dialog`. Escape closes only the topmost modal. Backdrop clicks dismiss sheets like dialogs; the close button and Escape remain the non-pointer paths.
 
 ## Helpers
 

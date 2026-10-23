@@ -13,7 +13,7 @@ Native egui modal dialog and right-side sheet primitives. The caller owns each `
 
 - Set the caller's `open` flag to control visibility. A stable `.id_salt(...)` is recommended when multiple dialogs/sheets can be active from the same call site.
 - Dialog Escape and backdrop dismissal belong only to the topmost modal. Backdrop clicks inside the card do not dismiss it; a missing pointer position on a registered backdrop click retains the current close behavior.
-- Sheets share topmost Escape routing and focus trapping with dialogs. They intentionally do not dismiss on backdrop clicks; use Escape or the close button.
+- Sheets share topmost Escape routing and focus trapping with dialogs. Backdrop clicks dismiss them, as do Escape and the close button.
 - Dismissal decisions are typed in `handler.rs`; modal stacking/focus coordination is shared through `modal_guard.rs`, while egui overlay, layout and painting remain in the UI modules.
 
 ## Example
