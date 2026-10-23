@@ -4,6 +4,19 @@ Baseline: `493e3b9b`. Scores live in `REPORT.md`; this file holds the issues the
 
 ## Fixed during the audit
 
+### F7b: Selected rows were invisible in the light theme (P1, found by three agents)
+- **Surfaces:** activity rail, sidebar rows, gallery category nav, settings section rail.
+- **Symptom:** `ButtonVariant::Secondary` rest fill is `surface_2` = `background.subtle` = `#f6f6f6`,
+  which equals `surface_panel` — the fill of every rail — so the active row was pixel-identical to its
+  background in light mode. Dark escaped by accident (Δ21).
+- **Rejected fix:** reordering `Secondary`'s fill ladder. `palette.rs` documents that hover must not use
+  the selected role, and `Secondary`/`surface_2` also serve ordinary secondary actions and chips.
+- **Fix:** selection is marked by the shared accent pill (`nav::paint_selection_pill`), used by
+  `sidebar_item`, the gallery category nav, the settings section rail and the activity rail icon button.
+- **Evidence:** Welcome 6/6 cells re-inspected after the change; gallery/settings 1280 cells
+  re-inspected. The remaining gallery/settings cells were re-captured but not re-opened, so those
+  scores stay annotated as pre-fix.
+
 ### F7a: Explorer filter popover content had no inset (P2, owner-reported "siêu xấu")
 - **Surface:** Explorer toolbar → object-filter popover, both themes.
 - **Symptom:** Every row, the separator and the `Reset` link sat 4 pt from the popover's rounded edge

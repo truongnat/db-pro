@@ -1,6 +1,6 @@
 # Layout Aesthetics Audit — Report
 
-Scored 2026-10-23 by nine per-surface audit agents (one per feature) against `RUBRIC.md`
+**Partial.** Scored 2026-10-23 by nine per-surface audit agents (one per feature) against `RUBRIC.md`
 (eight dimensions, 0–4, 32 max). Scores are expert judgement with anchors and cited measurements,
 not user testing.
 
@@ -12,13 +12,13 @@ host, so vertical composition above 838 pt is unverified for every surface.
 
 | Surface | Light | Dark | Note |
 |---|---|---|---|
-| Welcome + shell chrome | 15/32 | 17/32 | light loses 2 on colour (cards 1.08:1, rail selection ΔL 0) |
+| Welcome + shell chrome | 15/32 | 17/32 | light loses 2 on colour (cards 1.08:1); rail selection ΔL 0 was fixed by F7b after scoring |
 | Query workspace | 17/32 | 17/32 | strongest surface; loses on type scale (5 sizes) and icon sizes (4) |
 | Table (data grid) | — | — | **source-derived only**: the first capture run rendered Welcome; the fresh grid capture exists but has not been re-scored |
 | Explorer | 20/32 | 20/32 | best surface; unchecked control boundary 1.26:1 |
-| Settings | 18/32 | 20/32 | light input has no boundary at all |
+| Settings | 18/32 | 20/32 | *pre-fix score* for the rail; light input still has no boundary (open) |
 | Connection dialog | 14/32 | 16/32 | 4 column seams in one 772 pt form; 7 type sizes |
-| Component gallery | 18/32 | 20/32 | light selection invisible (fixed here) |
+| Component gallery | 18/32 | 20/32 | *pre-fix score*: light selection was invisible; fixed by F7b, not re-scored |
 | ER diagram | 14/32 | 13/32 | opens at 41–44 % zoom, cards render as name strips |
 | Agent panel | 19/32 | 19/32 | composer fill equals panel fill |
 | Command palette | 17/32 | 19/32 | 7 type sizes; selection 1.08–1.13:1 |
@@ -33,7 +33,7 @@ decides whether the product looks like a database tool or a prototype.
    #ffffff` and `panel = #f6f6f6`, so cards (1.08:1), inputs (1.0:1 with no stroke), the command
    field (1.13:1) and popovers all separate by a hairline at best. Dark uses four distinct steps and
    scores 2–3 higher on this dimension everywhere.
-2. **Selection is carried by fill in light, and the fill collides.** `surface_2` (Secondary rest) =
+2. *(Fixed during the audit — kept because it explains the pre-fix scores.)* **Selection was carried by fill in light, and the fill collides.** `surface_2` (Secondary rest) =
    `background.subtle` = `#f6f6f6` = `surface_panel`, so a selected rail/gallery row is pixel-identical
    to its background. Dark gets away with it by accident (Δ21).
 3. **Type scales drift upward in count, not size.** Query 5 sizes, Settings 4, Welcome 6, Connection 7,
@@ -49,7 +49,7 @@ decides whether the product looks like a database tool or a prototype.
 | Ref | Fix | Evidence |
 |---|---|---|
 | F7a | Explorer filter popover content inset (8 pt, component-layer `popup_content_frame`) | 6 Explorer cells, re-inspected |
-| F7b | Selected nav rows marked by the shared accent pill (`paint_selection_pill`), used by the sidebar, the gallery nav and the settings rail | gallery/settings cells re-captured |
+| F7b | Selected rows marked by the shared accent pill (`paint_selection_pill`): activity rail, sidebar rows, gallery nav, settings rail | 6 Welcome cells + gallery/settings 1280 re-inspected; the rest of those surfaces are not yet re-opened |
 
 ## Not covered
 

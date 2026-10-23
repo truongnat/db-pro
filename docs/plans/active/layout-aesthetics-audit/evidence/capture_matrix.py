@@ -81,5 +81,21 @@ for name, extra in surfaces.items():
             rows.append(entry)
             print(f"{cell:34} exit={code:4} {entry.get('rendered')}", flush=True)
 
-(ev / 'manifest.json').write_text(json.dumps(rows, indent=2))
+# Merge with an existing manifest so per-cell `retained` / `inspected` flags
+# survive a re-capture instead of being silently reset.
+manifest_path = ev / 'manifest.json'
+previous = {}
+if manifest_path.exists():
+    try:
+        stored = json.loads(manifest_path.read_text())
+        for row in stored.get('cells', stored if isinstance(stored, list) else []):
+            previous[row.get('cell')] = row
+    except (json.JSONDecodeError, OSError):
+        previous = {}
+for row in rows:
+    prior = previous.get(row['cell'], {})
+    for flag in ('retained', 'inspected'):
+        if flag in prior:
+            row[flag] = prior[flag]
+manifest_path.write_text(json.dumps({'cells': rows}, indent=2))
 print('done', sum(r['png'] for r in rows), 'of', len(rows))
