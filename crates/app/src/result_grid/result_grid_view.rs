@@ -12,6 +12,10 @@ mod result_grid_body_view;
 #[path = "tests/result_grid_record_tests.rs"]
 mod record_tests;
 
+#[cfg(test)]
+#[path = "tests/result_grid_view_tests.rs"]
+mod view_tests;
+
 /// Per-cell render context for the result grid.
 pub(crate) struct GridCell<'a> {
     pub(crate) visible_indexes: &'a [usize],
@@ -62,9 +66,9 @@ impl DbProApp {
             return;
         }
 
-        self.claim_result_grid_focus(ui);
         let is_table_data =
             self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
+        self.claim_result_grid_focus(ui, is_table_data);
         if is_table_data {
             self.apply_capture_cell_edit_env();
         }
@@ -288,12 +292,17 @@ impl DbProApp {
     }
 
     /// Registers the grid's focus id so a focus command survives the next frame.
-    fn claim_result_grid_focus(&self, ui: &mut egui::Ui) {
-        let id = result_grid_keyboard_view::result_grid_focus_id();
+    fn claim_result_grid_focus(&self, ui: &mut egui::Ui, is_table_data: bool) {
+        let id = result_grid_keyboard_view::result_grid_focus_id(ui);
         // A zero-size interactable is unreachable — audit flags it as a dead
         // focus target; give the claim the grid's visible bounds (#344).
         let rect = ui.min_rect().intersect(ui.clip_rect());
         let _ = ui.interact(rect, id, egui::Sense::focusable_noninteractive());
+        // `handle_shortcuts` requests focus without a `Ui` in hand, so the
+        // output-dock grid records its (ui-scoped) focus id once per frame.
+        if !is_table_data {
+            result_grid_keyboard_view::record_query_result_grid_focus_id(ui);
+        }
     }
 
     /// Copy, paste-to-edit, staged-changes, and keyboard navigation for the result grid.

@@ -423,7 +423,7 @@ fn focus_result_grid_enables_copy_discard_and_delete() {
     );
     assert_eq!(
         ctx.memory(|memory| memory.focused()),
-        Some(result_grid_keyboard_view::result_grid_focus_id())
+        result_grid_keyboard_view::query_result_grid_focus_id(&ctx)
     );
 
     grid_frame(&mut app, &ctx, &result, egui::Key::C, ctrl, false);

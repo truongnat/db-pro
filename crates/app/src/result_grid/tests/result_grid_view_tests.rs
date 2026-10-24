@@ -560,3 +560,38 @@ fn sql_insert_and_copy_export_preserve_null_and_quotes() {
     assert!(json.contains("\"name\": \"O'Brien\""));
     assert!(json.contains("\"name\": null"));
 }
+
+/// #UAT-2: the grid focus claim used one global `Id::new("db-pro-result-grid")`,
+/// so a table grid and the output-dock grid in the same frame collided on it.
+/// The focus id must be distinct per grid `Ui`.
+#[test]
+fn result_grid_focus_id_is_scoped_per_grid_ui() {
+    let ctx = egui::Context::default();
+    let mut ids = Vec::new();
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ui| {
+        ui.horizontal(|ui| {
+            ids.push(result_grid_keyboard_view::result_grid_focus_id(ui));
+        });
+        ui.horizontal(|ui| {
+            ids.push(result_grid_keyboard_view::result_grid_focus_id(ui));
+        });
+    });
+    assert_eq!(ids.len(), 2);
+    assert_ne!(ids[0], ids[1], "sibling grids must not share a focus id");
+}
+
+/// The docked query grid publishes its ui-scoped focus id so `handle_shortcuts`
+/// can request focus without a `Ui`; the table grid does not claim that slot.
+#[test]
+fn query_result_grid_focus_id_records_only_query_grids() {
+    let ctx = egui::Context::default();
+    assert!(result_grid_keyboard_view::query_result_grid_focus_id(&ctx).is_none());
+    let _ = crate::test_frame::frame(&ctx, egui::RawInput::default(), |ui| {
+        ui.horizontal(|ui| {
+            result_grid_keyboard_view::record_query_result_grid_focus_id(ui);
+        });
+    });
+    let recorded = result_grid_keyboard_view::query_result_grid_focus_id(&ctx);
+    assert!(recorded.is_some());
+    assert_ne!(recorded, Some(egui::Id::new("db-pro-result-grid")));
+}

@@ -179,7 +179,9 @@ impl DbProApp {
             .output
             .set_active_for_optional_document(document_id.as_deref(), OutputTab::Results);
         self.query.editor.query_editor_focused = false;
-        ctx.memory_mut(|memory| memory.request_focus(result_grid_keyboard_view::result_grid_focus_id()));
+        if let Some(id) = result_grid_keyboard_view::query_result_grid_focus_id(ctx) {
+            ctx.memory_mut(|memory| memory.request_focus(id));
+        }
     }
 
     /// Opens the explorer's selected table through the palette Open Table path.
