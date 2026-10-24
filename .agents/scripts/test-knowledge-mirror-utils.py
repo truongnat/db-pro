@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
 
 from knowledge_mirror_utils import (
     encode_mirror_body,
     is_pipeline_memory_artifact,
     mirror_filename,
+    mirror_filename_collisions,
     parse_mirror_file,
     sha256_text,
     verify_v2_mirror,
@@ -28,7 +30,7 @@ def test_leading_newline_roundtrip() -> None:
         assert not truncated
         mirror_dir = root / ".agents/memory/entries/migrated/by-source-file"
         mirror_dir.mkdir(parents=True)
-        fname = ".cursor__skills__x__LICENSE.txt.md"
+        fname = mirror_filename(rel)
         fm = f"""---
 source_sha256: "{source_sha}"
 mirror_body_sha256: "{sha256_text(body)}"
@@ -56,26 +58,24 @@ def test_parse_preserves_leading_newline() -> None:
     assert parsed["body"] == "hello"
 
 
-def test_mirror_filename_encoding() -> None:
-    assert mirror_filename("docs/plans/STATUS.md") == "docs__plans__STATUS.md"
-    assert mirror_filename("foo.json") == "foo.json.md"
-    assert mirror_filename("weird.md") == "weird.md"
-    assert mirror_filename("weird.md.md") == "weird.md.md"
+def test_mirror_filename_percent_encoding() -> None:
+    assert mirror_filename("docs/plans/STATUS.md") == quote("docs/plans/STATUS.md", safe="") + ".md"
+    assert mirror_filename("foo.json") == quote("foo.json", safe="") + ".md"
     assert mirror_filename("foo.md") != mirror_filename("foo.md.md")
-    assert mirror_filename("foo.md") == "foo.md"
-    assert mirror_filename("foo.md.md") == "foo.md.md"
-    assert mirror_filename("weird.md") != mirror_filename("weird.md.md")
+    assert mirror_filename("a/b.md") != mirror_filename("a__b.md")
+    assert mirror_filename("x/foo") != mirror_filename("x/foo.md")
 
 
-def test_mirror_filename_collisions_detected() -> None:
-    from knowledge_mirror_utils import mirror_filename_collisions
-
-    # Known ambiguities (collision gate must catch if both paths exist in repo):
-    assert mirror_filename("a/b.md") == mirror_filename("a__b.md")
-    col = mirror_filename_collisions(["x/foo", "x/foo.md"])
-    assert list(col.keys()) == ["x__foo.md"]
-    assert set(col["x__foo.md"]) == {"x/foo", "x/foo.md"}
-    assert mirror_filename_collisions(["docs/a.md", "docs/b.md"]) == {}
+def test_mirror_filename_no_collisions_on_ambiguous_pairs() -> None:
+    pairs = [
+        ("a/b.md", "a__b.md"),
+        ("x/foo", "x/foo.md"),
+        ("foo.md", "foo.md.md"),
+        ("docs/a.md", "docs/b.md"),
+    ]
+    for a, b in pairs:
+        assert mirror_filename(a) != mirror_filename(b)
+    assert mirror_filename_collisions([a for a, _ in pairs] + [b for _, b in pairs]) == {}
 
 
 def test_pipeline_artifact_detection() -> None:
@@ -89,8 +89,8 @@ def main() -> int:
     test_leading_newline_roundtrip()
     test_large_file_full_mirror()
     test_parse_preserves_leading_newline()
-    test_mirror_filename_encoding()
-    test_mirror_filename_collisions_detected()
+    test_mirror_filename_percent_encoding()
+    test_mirror_filename_no_collisions_on_ambiguous_pairs()
     test_pipeline_artifact_detection()
     print("ok")
     return 0

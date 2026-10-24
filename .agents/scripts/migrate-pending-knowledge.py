@@ -15,6 +15,7 @@ OUT = ROOT / ".agents/memory/entries/migrated/by-source-file"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from knowledge_mirror_utils import (  # noqa: E402
     CANONICAL_IN_PLACE,
+    assert_mirror_filename_unique,
     encode_mirror_body,
     is_pipeline_memory_artifact,
     mirror_filename,
@@ -67,6 +68,7 @@ tags: [migrated, by-source-file]
 
 def main() -> None:
     inv = json.loads(INVENTORY.read_text(encoding="utf-8"))
+    assert_mirror_filename_unique([r["path"] for r in inv.get("repo_sources", [])])
     migrated = 0
     skipped = 0
     for row in inv.get("repo_sources", []):

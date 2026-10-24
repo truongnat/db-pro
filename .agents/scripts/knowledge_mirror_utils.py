@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 # Full-byte mirror: no arbitrary cap (owner requirement: migration hết).
 TRUNCATE_MARKER = "\n\n… [truncated at migrate cap]\n"
@@ -54,13 +56,8 @@ def sha256_text(text: str) -> str:
 
 
 def mirror_filename(rel: str) -> str:
-    """Deterministic mirror basename: `/` → `__`; append `.md` only when source path does not end in `.md`.
-
-    Not globally injective (e.g. `a/b.md` and a repo file `a__b.md` both map to `a__b.md`;
-    `x/foo` vs `x/foo.md` likewise). Run `check-mirror-filename-collisions.py` before migrate.
-    Does not strip `.md.md` — `foo.md` and `foo.md.md` stay distinct."""
-    safe = rel.replace("/", "__")
-    return safe if safe.endswith(".md") else f"{safe}.md"
+    """Mirror basename: percent-encode repo-relative path, then `.md` (one mirror file per source path)."""
+    return quote(rel, safe="") + ".md"
 
 
 def mirror_filename_collisions(repo_rels: list[str]) -> dict[str, list[str]]:
@@ -69,6 +66,16 @@ def mirror_filename_collisions(repo_rels: list[str]) -> dict[str, list[str]]:
     for rel in repo_rels:
         buckets.setdefault(mirror_filename(rel), []).append(rel)
     return {name: paths for name, paths in buckets.items() if len(paths) > 1}
+
+
+def assert_mirror_filename_unique(repo_rels: list[str]) -> None:
+    """Abort migrate/bootstrap if any two sources would share a mirror file."""
+    col = mirror_filename_collisions(repo_rels)
+    if col:
+        raise SystemExit(
+            "mirror_filename collision (two sources → same mirror file):\n"
+            + json.dumps(col, indent=2)
+        )
 
 
 def encode_mirror_body(rel: str, raw: bytes) -> tuple[str, bool, str]:

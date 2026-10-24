@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _load_build_inventory import load as load_build  # noqa: E402
-from knowledge_mirror_utils import mirror_filename_collisions  # noqa: E402
+from knowledge_mirror_utils import assert_mirror_filename_unique, mirror_filename_collisions  # noqa: E402
 
 
 def main() -> int:
@@ -18,6 +18,7 @@ def main() -> int:
     if col:
         print(json.dumps({"collisions": col}, indent=2), file=sys.stderr)
         return 1
+    assert_mirror_filename_unique(paths)
     print(json.dumps({"repo_sources": len(paths), "collisions": 0}))
     return 0
 
