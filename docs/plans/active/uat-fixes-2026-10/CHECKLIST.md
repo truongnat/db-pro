@@ -5,22 +5,29 @@ Severity scheme follows AGENTS.md: **P0** catastrophic/security/unusable ·
 edge coverage. (No separate P3 tier in the repo scale — findings labeled P3 in
 FINDINGS.md map to the low end of P2 and are listed as minor.)
 
-- [ ] **UAT-4 (P2)** Row-limit truncation indicator. `UiQueryResult` has no
-      `has_more` flag → check runtime `query_service` whether the backend knows
-      it clipped (LIMIT n or n+1 strategy). If not derivable, surface the
-      applied limit in the status text: "100 rows · limit 100". Files:
-      `crates/app/src/query_workbench/query_result_events.rs`,
-      `query_status_bar_surface_view.rs`.
-- [ ] **UAT-1 (P2)** Explorer filter-options popover outside-click passes
-      through to rows. File: `crates/app/src/explorer/explorer_toolbar_view.rs`
-      (`egui::Popup` config). Consume the dismiss click or use a backdrop area.
+- [ ] **UAT-4 (P2)** Row-limit cap not disclosed. Trace established that providers
+      stop at `max_rows` and set `row_count` to fetched rows without probing an
+      extra row; exact-N cannot prove truncation. Disclose the applied query cap
+      in completion status and results header, without claiming truncation.
+      Files: query dispatch/result reducer, `query_document`, result header,
+      and inline-query pagination status.
+- [x] **UAT-1 (P2)** Explorer filter-options outside-click dismissal now uses an
+      invisible click sink below Tooltip popovers, so the dismissing press does
+      not activate rows beneath it. Component-level egui UI test
+      `dismiss_scrim_consumes_the_outside_click`
+      passes; native dark/light captures inspected at requested 1280×800,
+      1440×900, and 1920×1080 (larger heights host-clamped to 838 logical pt).
+      Commit: `76ead2690a874eef8f55b5cb710dad5ed56d4aa4`.
 - [ ] **UAT-2 (P2)** egui "Second use of widget ID" on table surfaces. Find the
       duplicated `Id::new`/`push_id` in `crates/app/src/table*` or
       `crates/app/src/result_grid*`; make the salt unique per view instance.
       Debug-only overlay but noisy on every capture.
-- [ ] **UAT-5 (P2)** Workspace tab strip: scroll active tab into view on
-      activation; keep × reachable for the selected tab. File:
-      `crates/app/src/workspace/workspace_tabs_surface_view.rs`.
+- [x] **UAT-5 (P2)** Workspace tab strip scrolls the newly active tab into view
+      only when selection changes, preserving manual scroll on later frames;
+      selected tab close × remains reachable. Regression tests cover target
+      transitions and actual horizontal overflow. Dark/light native captures
+      inspected at requested 1280×800, 1440×900, and 1920×1080 (larger heights
+      host-clamped to 838 logical pt). Commit: `a7362d39`.
 - [ ] **UAT-6 (minor)** Status bar shows global connection, not active
       document binding. File: `crates/app/src/shell/shell_chrome_view.rs`
       `draw_statusbar` → prefer doc binding.
