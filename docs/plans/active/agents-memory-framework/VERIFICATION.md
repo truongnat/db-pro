@@ -97,6 +97,8 @@ Lifecycle skills added from blueprint 3: `software-lifecycle`, `requirements-dis
 
 ## 9. Post-edit reconcile (mandatory)
 
+**Git:** v2 mirror tree (`entries/migrated/by-source-file/`) and pipeline JSON are **gitignored** — regenerate locally after clone (§3 commands).
+
 After any edit to plan docs listed in v2 inventory, run full pipeline and refresh `reconciled_at_utc` in §3:
 
 ```bash

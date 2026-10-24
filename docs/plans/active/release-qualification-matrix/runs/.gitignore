@@ -1,3 +1,5 @@
-# Rebuild via RUNBOOK package step; keep coordinator/worker JSON and logs in git.
-**/artifacts/**/*.tar.gz
-**/artifacts/**/extracted/
+# Rebuild via RUNBOOK; keep coordinator manifests + invalidation notes only.
+**/artifacts/
+**/workers/
+**/expected-instances.json
+**/desktop-leases/

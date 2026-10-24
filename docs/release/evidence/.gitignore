@@ -1,0 +1,3 @@
+# Dated readiness snapshots (regenerate locally; keep observations.json if promoted to canonical)
+readiness-*/
+**/*.png

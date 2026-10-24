@@ -9,7 +9,7 @@ Thư mục này chứa workflow, quy tắc, điểm mở rộng, script, templat
 - `tools/`: công cụ hỗ trợ có hành vi xác định.
 - `scripts/`: script có thể thực thi.
 - `template/`: template Markdown có thể tái sử dụng.
-- `memory/`: knowledge base có thể tìm kiếm và quản lý bằng version control.
+- `memory/`: knowledge base có thể tìm kiếm. **Mirror bytes và JSON pipeline không commit** (xem `memory/.gitignore`); sau clone chạy pipeline trong `docs/plans/active/agents-memory-framework/VERIFICATION.md` §9.
 
 Không mặc định rằng công cụ sẽ tự phát hiện mọi thư mục. Hãy đăng ký skill/MCP hoặc cấu hình adapter cho file chỉ dẫn theo cơ chế riêng của agent đó.
 
