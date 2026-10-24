@@ -70,7 +70,8 @@ def test_mirror_filename_encoding() -> None:
 def test_mirror_filename_collisions_detected() -> None:
     from knowledge_mirror_utils import mirror_filename_collisions
 
-    # Encoding quirk: extensionless file vs sibling `.md` share one mirror name.
+    # Known ambiguities (collision gate must catch if both paths exist in repo):
+    assert mirror_filename("a/b.md") == mirror_filename("a__b.md")
     col = mirror_filename_collisions(["x/foo", "x/foo.md"])
     assert list(col.keys()) == ["x__foo.md"]
     assert set(col["x__foo.md"]) == {"x/foo", "x/foo.md"}

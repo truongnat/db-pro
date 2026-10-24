@@ -54,13 +54,17 @@ def sha256_text(text: str) -> str:
 
 
 def mirror_filename(rel: str) -> str:
-    """Injective encoding: path separators → `__`; non-`.md` sources get a `.md` mirror suffix."""
+    """Deterministic mirror basename: `/` → `__`; append `.md` only when source path does not end in `.md`.
+
+    Not globally injective (e.g. `a/b.md` and a repo file `a__b.md` both map to `a__b.md`;
+    `x/foo` vs `x/foo.md` likewise). Run `check-mirror-filename-collisions.py` before migrate.
+    Does not strip `.md.md` — `foo.md` and `foo.md.md` stay distinct."""
     safe = rel.replace("/", "__")
     return safe if safe.endswith(".md") else f"{safe}.md"
 
 
 def mirror_filename_collisions(repo_rels: list[str]) -> dict[str, list[str]]:
-    """Return mirror_filename → [source paths] for any non-injective mapping."""
+    """Return mirror_filename → [source paths] when two or more sources share one mirror name."""
     buckets: dict[str, list[str]] = {}
     for rel in repo_rels:
         buckets.setdefault(mirror_filename(rel), []).append(rel)
