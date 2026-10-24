@@ -46,12 +46,19 @@ Mẫu gitignore: `docs/plans/_template/runs.gitignore` → copy vào `runs/.giti
 
 ## 5. Plan UI evidence (PNG)
 
-| Trạng thái plan | Khuyến nghị |
-|-----------------|-------------|
-| `active` | Giữ PNG trong `evidence/` nếu `VERIFICATION.md` tham chiếu |
-| `completed` | Pilot: giữ manifest + viewport “golden”; archive `_archive/` nếu owner approve |
+**Contract (root `AGENTS.md`):** UI thay đổi cần runtime evidence tại **1280×800, 1440×900, 1920×1080** (cộng theme/state mà plan/VERIFICATION yêu cầu). Cleanup **không** được xóa viewport lớn để “gọn repo” nếu gate vẫn còn áp dụng.
 
-Chưa áp dụng xóa hàng loạt PNG — cần audit từng plan (wave riêng).
+| Trạng thái plan | Quy tắc |
+|-----------------|--------|
+| `active` / `RUNTIME_VERIFY` | Giữ mọi PNG (hoặc artifact tương đương) được `VERIFICATION.md` / checklist liệt kê cho từng viewport + theme |
+| `completed` | Giữ nguyên bộ evidence đã dùng để đóng plan; không bulk-delete theo kích thước file |
+
+**Giảm dung lượng (chỉ sau audit từng plan):**
+
+- **Lossless** (git LFS, `pngcrush`/tương đương) — không đổi pixel, không bỏ viewport.
+- **Dedup / thay thế** — chỉ khi plan có **manifest** (path, logical size, theme, surface) chứng minh artifact mới vẫn đáp **cùng** gate VERIFICATION; owner cập nhật VERIFICATION + disposition trong FINDINGS.
+
+**Không làm:** xóa 1920×1080 (hoặc chỉ giữ một viewport) như chiến lược mặc định; không archive `_archive/` hàng loạt không có disposition per plan.
 
 ## 6. Local only (không git)
 
@@ -66,10 +73,18 @@ Chưa áp dụng xóa hàng loạt PNG — cần audit từng plan (wave riêng)
 3. Chạy `scripts/verify-artifact-policy.sh` (readiness + RQM frozen run).
 4. Sau đổi memory sources: `scripts/bootstrap-agents-memory.sh`.
 
-## 8. Bootstrap sau clone
+## 8. Bootstrap sau clone (và CI)
+
+Mirrors nằm trong `.gitignore` → checkout sạch **không** có `entries/migrated/**`. Chỉ chạy `reconcile-knowledge-sources-v2.py` sẽ thiếu mirror và báo sai.
+
+**Local / CI (đúng):**
 
 ```bash
 scripts/bootstrap-agents-memory.sh
 ```
 
-Tùy chọn CI: cùng lệnh reconcile; fail nếu `scope_complete` false (không commit JSON).
+Tương đương: `build-knowledge-inventory.py` → `migrate-pending-knowledge.py` → reconcile → `classify-knowledge-groups.py` → migrate → reconcile (VERIFICATION §9).
+
+**CI tùy chọn:** job chạy **toàn bộ** `bootstrap-agents-memory.sh`; fail nếu `scope_complete` false. **Không** commit JSON/mirror artifacts. **Không** dùng reconcile-only trên tree không bootstrap.
+
+**Không** thêm CI memory gate nếu chưa sẵn sàng chi phí generate ~1.5k mirrors mỗi run — khi đó bỏ hẳn bước đó, không reconcile rỗng.

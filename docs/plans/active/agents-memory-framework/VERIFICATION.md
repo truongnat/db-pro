@@ -97,7 +97,7 @@ Lifecycle skills added from blueprint 3: `software-lifecycle`, `requirements-dis
 
 ## 9. Post-edit reconcile (mandatory)
 
-**Git:** v2 mirror tree (`entries/migrated/by-source-file/`) and pipeline JSON are **gitignored** — regenerate locally after clone (§3 commands).
+**Git:** v2 mirror tree (`entries/migrated/by-source-file/`) and pipeline JSON are **gitignored** — regenerate locally after clone (`scripts/bootstrap-agents-memory.sh` or §3 commands). **CI:** same full bootstrap before reconcile — never `reconcile-knowledge-sources-v2.py` alone on a fresh checkout (`docs/ARTIFACT_POLICY.md` §8).
 
 After any edit to plan docs listed in v2 inventory, run full pipeline and refresh `reconciled_at_utc` in §3:
 
