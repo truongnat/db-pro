@@ -23,12 +23,12 @@
 
 - [x] Discovery script: required paths, manifest count, search probes (VERIFICATION.md)
 - [x] `search-memory.sh` executable
-- [x] `python3 .agents/scripts/test-knowledge-mirror-utils.py`
+- [x] `python3 .agents/scripts/test-knowledge-mirror-utils.py` (percent encoding, injective basename check)
 - [x] `.agents/scripts/validate-skills.sh` (69 skills, 14 template refs)
 - [x] `scripts/bootstrap-agents-memory.sh` + `docs/ARTIFACT_POLICY.md` documented for clone/bootstrap
+- [x] Collision check + unique assert on mirror filenames before migration
 - [ ] Workspace `cargo test` — **not required** for docs-only; recorded as N/A
 - [ ] Re-run migrate idempotency after checklist freeze — optional
-
 ## Inventory migration (repo)
 
 - [x] `KNOWLEDGE_SOURCE_INVENTORY.json` built
