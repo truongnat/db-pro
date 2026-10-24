@@ -49,6 +49,44 @@ pub(super) fn apply_row_limit(sql: &str, limit: Option<u64>, driver: &str) -> St
     }
 }
 
+/// The cap that `apply_row_limit` would impose on this exact statement, or
+/// `None` when the text would pass through unchanged (no cap configured,
+/// non-read statement, existing LIMIT/TOP, or a multi-statement script).
+/// Lets the result layer disclose the applied limit only when injection occurs.
+pub(super) fn effective_row_limit(sql: &str, limit: Option<u64>, driver: &str) -> Option<u64> {
+    let limit = limit.filter(|limit| *limit > 0)?;
+    if split_statements(sql).len() != 1 {
+        return None;
+    }
+    if !matches!(classify_statement_safety(sql), Some(StatementSafety::Read)) {
+        return None;
+    }
+    let dialect = if driver.eq_ignore_ascii_case("sqlite") {
+        SqlDialect::SQLite
+    } else {
+        SqlDialect::Postgres
+    };
+    let tokens = SqlHighlighter::new(dialect).tokenize(sql);
+    if !starts_with_select_or_with(sql, &tokens) || has_row_cap_or_locking_tail(sql, &tokens) {
+        return None;
+    }
+    if is_sqlserver(driver) && has_set_operation(sql, &tokens) {
+        return None;
+    }
+    Some(limit)
+}
+
+/// Status suffix identifying the query cap that was applied (UAT-4).
+/// This deliberately does not claim truncation: providers stop at `max_rows`
+/// without fetching one extra row, so `row_count == limit` cannot distinguish
+/// a capped result from a result whose full cardinality is exactly the limit.
+pub(super) fn row_limit_note(applied_limit: Option<u64>) -> String {
+    match applied_limit {
+        Some(limit) if limit > 0 => format!(" · limit {limit} applied"),
+        _ => String::new(),
+    }
+}
+
 /// Byte offset just after the statement's last meaningful token (before a trailing `;`,
 /// whitespace, or comments). `None` when the statement is comment-only.
 fn statement_body_end(sql: &str, tokens: &[SyntaxToken]) -> Option<usize> {

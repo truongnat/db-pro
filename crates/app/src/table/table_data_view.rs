@@ -64,11 +64,17 @@ impl DbProApp {
             table_name,
         );
         let paging = table_data_toolbar_surface_view::TableDataPaging {
-            page_range: crate::components::common::format_page_range(
-                self.table.data_query.offset,
-                result.row_count,
-                self.table.data_query.total_rows,
-            ),
+            page_range: {
+                // UAT-4: label the applied cap, without asserting that the
+                // capped result was necessarily truncated.
+                let limit_note =
+                    query_row_limit::row_limit_note(self.table.data_query.last_result_row_limit);
+                format!("{}{limit_note}", crate::components::common::format_page_range(
+                    self.table.data_query.offset,
+                    result.row_count,
+                    self.table.data_query.total_rows,
+                ))
+            },
             total_rows,
             total_known,
             has_next: if total_known {
@@ -249,8 +255,14 @@ impl DbProApp {
             return;
         }
         let execution_range = (0, sql.len());
-        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::InlineQuery, execution_range, 0, false) {
-            self.table.data_query.pending_inline_query_confirmation = true;
+        let options = crate::app::events_query_dispatch::QueryRunOptions {
+            execution_range,
+            version: 0,
+            all_statements: false,
+            bound_params: None,
+            applied_row_limit: None,
+        };
+        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::InlineQuery, &options) {
             return;
         }
         let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {

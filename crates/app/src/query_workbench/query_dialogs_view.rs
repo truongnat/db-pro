@@ -196,14 +196,14 @@ impl DbProApp {
             && db_pro_core::domain::safety::classify_script_safety(&request.sql)
                 == Some(db_pro_core::domain::safety::StatementSafety::Destructive);
         if held_destructive {
-            let version = self.query.session.active_buffer_version();
-            self.hold_destructive_run(
-                &request.sql,
-                PendingDestructiveRunOrigin::ExplainAnalyze,
-                (0, request.sql.len()),
-                version,
-                false,
-            );
+            let options = super::events_query_dispatch::QueryRunOptions {
+                execution_range: (0, request.sql.len()),
+                version: self.query.session.active_buffer_version(),
+                all_statements: false,
+                bound_params: None,
+                applied_row_limit: None,
+            };
+            self.hold_destructive_run(&request.sql, PendingDestructiveRunOrigin::ExplainAnalyze, &options);
             return;
         }
         let request_id = self.next_request_id();

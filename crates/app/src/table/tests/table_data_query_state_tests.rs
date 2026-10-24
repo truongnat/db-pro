@@ -6,11 +6,11 @@
     fn keeps_last_successful_inline_sql_until_another_query_succeeds_or_table_resets() {
         let mut state = TableDataQueryState::default();
         let first_sql = "SELECT * FROM customers WHERE id = 1".to_owned();
-        state.begin_inline_query(RequestId(1), first_sql.clone());
+        state.begin_inline_query(RequestId(1), first_sql.clone(), None);
         assert!(state.complete_inline_query(RequestId(1)));
         assert_eq!(state.active_inline_query_sql.as_deref(), Some(first_sql.as_str()));
 
-        state.begin_inline_query(RequestId(2), "SELECT * FROM customers WHERE id = 2".to_owned());
+        state.begin_inline_query(RequestId(2), "SELECT * FROM customers WHERE id = 2".to_owned(), None);
         assert!(!state.complete_inline_query(RequestId(3)));
         assert!(state.abandon_inline_query(RequestId(2)));
         assert_eq!(state.active_inline_query_sql.as_deref(), Some(first_sql.as_str()));

@@ -84,7 +84,7 @@
                 false,
             )
             .expect("query should be prepared");
-        context.commit_dispatched(&prepared, (0, 36), 2);
+        context.commit_dispatched(&prepared, (0, 36), 2, None);
 
         assert_eq!(
             prepared,

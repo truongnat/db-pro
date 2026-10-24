@@ -4152,7 +4152,14 @@ fn failed_table_data_dispatch_does_not_leave_a_fake_pending_request() {
 fn failed_query_dispatch_does_not_mark_document_running() {
     let mut app = DbProApp::default();
 
-    app.send_query_run("conn-1".to_owned(), "SELECT 1".to_owned(), (0, 8), 0, false, None);
+    let options = crate::app::events_query_dispatch::QueryRunOptions {
+        execution_range: (0, 8),
+        version: 0,
+        all_statements: false,
+        bound_params: None,
+        applied_row_limit: None,
+    };
+    app.send_query_run("conn-1".to_owned(), "SELECT 1".to_owned(), options);
 
     assert_eq!(app.query.session.active_running_request(), None);
     assert!(app.query.editor.query_history.is_empty());
@@ -4928,7 +4935,7 @@ fn staged_save_completion_reruns_the_active_inline_sql() {
     *app.connection.lifecycle.active_connection_id_mut() = Some("sqlite".to_owned());
     app.schema.explorer.selected_table = Some("customers".to_owned());
     let inline_sql = "SELECT * FROM \"main\".\"customers\" WHERE first_name = 'Alice'".to_owned();
-    app.table.data_query.begin_inline_query(RequestId(73), inline_sql.clone());
+    app.table.data_query.begin_inline_query(RequestId(73), inline_sql.clone(), None);
     app.on_query_completed(RequestId(73), result());
     assert_eq!(app.table.data_query.active_inline_query_sql.as_deref(), Some(inline_sql.as_str()));
 
@@ -4938,6 +4945,67 @@ fn staged_save_completion_reruns_the_active_inline_sql() {
         panic!("refresh after inline query must rerun its SQL");
     };
     assert!(sql.contains("WHERE first_name = 'Alice'"));
+}
+
+/// UAT-4: completion reports the toolbar cap but does not claim truncation.
+/// Providers do not fetch an extra row, so a result of N cannot prove whether
+/// the full cardinality was N or larger.
+#[test]
+fn applied_row_limit_is_disclosed_in_completion_state() {
+    let mut app = DbProApp::default();
+    app.query.session.documents.clear();
+    let mut doc = QueryDocument::new("doc-limit", "Query 1", "SELECT * FROM users");
+    doc.execution_state = crate::query::query_document::QueryExecutionState::Running(RequestId(42));
+    doc.executing_sql = Some("SELECT * FROM users LIMIT 100".to_owned());
+    doc.executing_row_limit = Some(100);
+    doc.executing_version = Some(0);
+    app.query.session.documents.push(doc);
+    app.query
+        .session
+        .document_requests
+        .insert(RequestId(42), "doc-limit".to_owned());
+
+    let mut capped = result();
+    capped.row_count = 100;
+    app.on_query_completed(RequestId(42), capped);
+
+    let doc = &app.query.session.documents[app.query.session.active_document_index];
+    // The cap is stored for the results-header flag and outlives `executing_*`.
+    assert_eq!(doc.query_result_row_limit, Some(100));
+    assert_eq!(doc.executing_row_limit, None);
+    let last = doc.query_messages.last().expect("completion message");
+    assert!(
+        last.contains("100 rows") && last.contains("limit 100 applied"),
+        "completion must disclose the cap without asserting truncation: {last}"
+    );
+    assert!(app.feedback.runtime_message.contains("limit 100 applied"));
+}
+
+#[test]
+fn row_limit_is_reported_even_when_result_has_fewer_rows() {
+    let mut app = DbProApp::default();
+    app.query.session.documents.clear();
+    let mut doc = QueryDocument::new("doc-under-limit", "Query 1", "SELECT * FROM users");
+    doc.executing_sql = Some("SELECT * FROM users LIMIT 100".to_owned());
+    doc.executing_row_limit = Some(100);
+    doc.executing_version = Some(0);
+    app.query.session.documents.push(doc);
+    app.query
+        .session
+        .document_requests
+        .insert(RequestId(43), "doc-under-limit".to_owned());
+
+    // The cap is disclosed as query policy, not as proof of truncation.
+    app.on_query_completed(RequestId(43), result());
+
+    let doc = &app.query.session.documents[app.query.session.active_document_index];
+    assert_eq!(doc.query_result_row_limit, Some(100));
+    let last = doc.query_messages.last().expect("completion message");
+    assert!(last.contains("3 rows"), "unexpected message: {last}");
+    assert!(
+        last.contains("limit 100 applied"),
+        "applied cap must remain visible below the cap: {last}"
+    );
 }
 
 #[test]

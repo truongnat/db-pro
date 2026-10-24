@@ -36,7 +36,10 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
         table_data.selected_rows.clear();
         table_data.selection_anchor_row = None;
         table_data.selection_anchor_cell = None;
-        feedback.set_runtime_message(format!("Query completed · {} rows", result.row_count));
+        // UAT-4: report the applied cap without claiming the result was
+        // truncated; providers do not probe for an extra row.
+        let limit_note = query_row_limit::row_limit_note(table_data_query.last_result_row_limit);
+        feedback.set_runtime_message(format!("Query completed · {} rows{limit_note}", result.row_count));
     }
     let target_doc_id = query_session.document_requests.remove(&request_id);
     // A new result set replaces the rows behind the grid, so nothing the projection cache holds
@@ -44,6 +47,9 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
     table_data.invalidate_grid_projection();
     let completed_row_count = result.row_count;
     let completed_column_count = result.columns.len();
+    // Capture the cap before `executing_row_limit` is cleared. The result
+    // header retains it and completion messages report it (UAT-4).
+    let mut limit_note = String::new();
     let mut history = None;
     if let Some(doc_id) = &target_doc_id {
         if let Some(doc) = query_session.documents.iter_mut().find(|doc| &doc.id == doc_id) {
@@ -58,6 +64,8 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
             // One owned copy. `query_result` and `execution_output.result_set`
             // used to each hold another full grid.
             doc.query_results = vec![std::rc::Rc::new(result)];
+            doc.query_result_row_limit = doc.executing_row_limit.take();
+            limit_note = query_row_limit::row_limit_note(doc.query_result_row_limit);
             doc.query_result = None;
             doc.active_result_index = 0;
             doc.execution_output = Some(UiQueryExecutionOutput {
@@ -74,10 +82,11 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
             doc.execution_state = QueryExecutionState::Idle;
             doc.executing_range = None;
             doc.executing_sql = None;
+            doc.executing_row_limit = None;
             doc.executing_version = None;
             doc.execution_diagnostic = None;
             doc.query_messages
-                .push(format!("Query completed · {completed_row_count} rows"));
+                .push(format!("Query completed · {completed_row_count} rows{limit_note}"));
         }
     }
     if let Some((sql, connection_id, schema, started_at, duration_ms)) = history {
@@ -103,7 +112,7 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
         .is_some_and(|doc| target_doc_id.as_ref() == Some(&doc.id));
 
     if is_active_doc {
-        feedback.set_runtime_message(format!("Query completed · {completed_row_count} rows"));
+        feedback.set_runtime_message(format!("Query completed · {completed_row_count} rows{limit_note}"));
         table_data.grid_sort_column = None;
         table_data.grid_column_widths = vec![180.0; completed_column_count];
         table_data.selected_cell = None;

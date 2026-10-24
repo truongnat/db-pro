@@ -10,6 +10,8 @@ pub(super) struct QueryResultsSurfaceContext<'a> {
     pub(super) result_names: &'a std::collections::HashMap<usize, String>,
     pub(super) pinned_results: &'a std::collections::BTreeSet<usize>,
     pub(super) result: Option<&'a UiQueryResult>,
+    /// Applied query cap, displayed as a limit indicator without asserting truncation.
+    pub(super) row_limit: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,13 +53,14 @@ where
                 }
 
                 let loaded = result.rows.len();
+                let limit_note = query_row_limit::row_limit_note(context.row_limit);
                 let row_label = if loaded < result.row_count as usize {
                     // Sampled/truncated result — disclose the load count so
                     // Export/Copy-as on the visible subset isn't mistaken for
                     // the full result.
-                    format!("{loaded} of {} rows · {} ms", result.row_count, result.duration_ms)
+                    format!("{loaded} of {} rows{limit_note} · {} ms", result.row_count, result.duration_ms)
                 } else {
-                    format!("{} rows · {} ms", result.row_count, result.duration_ms)
+                    format!("{} rows{limit_note} · {} ms", result.row_count, result.duration_ms)
                 };
                 ui.label(
                     RichText::new(row_label).small().color(context.theme.text_muted),

@@ -333,14 +333,16 @@ fn projection_test_result() -> UiQueryResult {
 /// Draw the result grid for one frame, the way the app does.
 fn draw_grid_frame(app: &mut DbProApp, ctx: &egui::Context, result: &UiQueryResult) {
     DbProTheme::install_fonts(ctx);
-    ctx.begin_pass(egui::RawInput {
-        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
-        ..Default::default()
-    });
-    egui::CentralPanel::default().show(ctx, |ui| {
-        app.draw_result_grid(ui, result);
-    });
-    let _ = ctx.end_pass();
+    let _ = crate::test_frame::frame(
+        ctx,
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+            ..Default::default()
+        },
+        |ui| {
+            app.draw_result_grid(ui, result);
+        },
+    );
 }
 
 #[test]

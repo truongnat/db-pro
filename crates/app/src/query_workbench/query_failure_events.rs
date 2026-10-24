@@ -44,6 +44,7 @@ pub(super) fn on_query_failed(
                 let execution_range = doc.executing_range.take();
                 let execution_sql = doc.executing_sql.take();
                 let execution_version = doc.executing_version.take();
+                doc.executing_row_limit = None;
                 let (started_at, duration_ms) = doc.take_execution_timing(0);
                 history = Some((
                     execution_sql.clone().unwrap_or_else(|| doc.text().to_owned()),

@@ -38,6 +38,9 @@ pub(crate) struct PendingDestructiveRunMetadata {
     execution_range: (usize, usize),
     version: u64,
     all_statements: bool,
+    /// Row cap applied before this held run (UAT-4); carried through confirmation
+    /// so completion can disclose the applied limit in the result status.
+    row_limit: Option<u64>,
 }
 
 impl PendingDestructiveRunMetadata {
@@ -46,7 +49,14 @@ impl PendingDestructiveRunMetadata {
             execution_range,
             version,
             all_statements,
+            row_limit: None,
         }
+    }
+
+    /// Marks the held run as carrying an injected row cap.
+    pub(crate) fn with_row_limit(mut self, row_limit: Option<u64>) -> Self {
+        self.row_limit = row_limit;
+        self
     }
 }
 
@@ -94,6 +104,11 @@ impl PendingDestructiveRun {
 
     pub(crate) fn all_statements(&self) -> bool {
         self.metadata.all_statements
+    }
+
+    /// Row cap injected before the hold — `None` for unbounded or held writes.
+    pub(crate) fn row_limit(&self) -> Option<u64> {
+        self.metadata.row_limit
     }
 }
 

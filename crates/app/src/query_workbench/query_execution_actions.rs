@@ -171,9 +171,10 @@ impl<'a> QueryExecutionContext<'a> {
         prepared: &PreparedQueryRun,
         execution_range: (usize, usize),
         version: u64,
+        applied_row_limit: Option<u64>,
     ) {
         self.record_query_history(&prepared.sql);
-        self.mark_document_running(prepared.request_id, &prepared.sql, execution_range, version);
+        self.mark_document_running(prepared.request_id, &prepared.sql, execution_range, version, applied_row_limit);
         self.feedback.set_runtime_message(if prepared.all_statements {
             "Sending full script to runtime…"
         } else {
@@ -206,6 +207,7 @@ impl<'a> QueryExecutionContext<'a> {
         sql: &str,
         execution_range: (usize, usize),
         version: u64,
+        applied_row_limit: Option<u64>,
     ) {
         let Some(document) = self.session.active_document_mut() else {
             return;
@@ -215,6 +217,8 @@ impl<'a> QueryExecutionContext<'a> {
         document.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
         document.executing_range = Some(execution_range);
         document.executing_sql = Some(sql.to_owned());
+        document.executing_row_limit = applied_row_limit;
+        document.query_result_row_limit = None;
         document.executing_version = Some(version);
         document.last_executed_range = Some(execution_range);
         document.execution_diagnostic = None;

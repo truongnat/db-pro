@@ -54,6 +54,7 @@ pub(super) fn on_query_multi_completed(
             .map(std::rc::Rc::new)
             .collect();
         doc.query_result = None;
+        doc.query_result_row_limit = doc.executing_row_limit;
         doc.active_result_index = 0;
         doc.execution_output = Some(output.clone());
         doc.execution_state = if output.statements.iter().any(|statement| statement.error.is_some()) {
@@ -66,6 +67,7 @@ pub(super) fn on_query_multi_completed(
         let execution_version = doc.executing_version;
         doc.executing_range = None;
         doc.executing_sql = None;
+        doc.executing_row_limit = None;
         doc.executing_version = None;
         doc.execution_diagnostic = output.statements.iter().find_map(|statement| {
             let error = statement.error.as_ref()?;

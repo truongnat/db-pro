@@ -63,6 +63,7 @@ pub(super) fn on_query_cancelled(
             doc.execution_state = QueryExecutionState::Idle;
             doc.executing_range = None;
             doc.executing_sql = None;
+            doc.executing_row_limit = None;
             doc.executing_version = None;
             doc.execution_diagnostic = None;
             doc.query_messages.push("Query cancelled".to_owned());

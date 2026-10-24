@@ -4,6 +4,17 @@
 //! Keyboard shortcuts and query dispatch / destructive-run gate.
 use super::*;
 
+/// Parameters shared by query dispatch and the destructive-confirm hold path.
+/// Keeping the executed range/version, binding, and injected cap together
+/// prevents confirmation from dropping query metadata.
+pub(super) struct QueryRunOptions {
+    pub(super) execution_range: (usize, usize),
+    pub(super) version: u64,
+    pub(super) all_statements: bool,
+    pub(super) bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
+    pub(super) applied_row_limit: Option<u64>,
+}
+
 impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if self.shortcuts_blocked(ctx) {
@@ -294,23 +305,23 @@ impl DbProApp {
         }
         // The toolbar row cap only guards interactive editor runs — saved
         // tasks and other send_query_run callers keep their exact text.
+        let applied_limit =
+            query_row_limit::effective_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
-        let version = self.query.session.active_buffer_version();
-        if self.hold_destructive_run_bound(
-            &sql,
-            PendingDestructiveRunOrigin::QueryEditor,
+        let options = QueryRunOptions {
             execution_range,
-            version,
-            false,
-            bound_params.clone(),
-        ) {
+            version: self.query.session.active_buffer_version(),
+            all_statements: false,
+            bound_params,
+            applied_row_limit: applied_limit,
+        };
+        if self.hold_destructive_run_bound(&sql, PendingDestructiveRunOrigin::QueryEditor, &options) {
             return false;
         }
         if self.cross_tab_transaction_blocked(&connection_id) {
             return false;
         }
-        self.send_query_run(connection_id, sql, execution_range, version, false, bound_params)
-            .is_some()
+        self.send_query_run(connection_id, sql, options).is_some()
     }
 
     /// A transaction is per-connection on the server: refuse a run from a
@@ -376,15 +387,23 @@ impl DbProApp {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
+        let applied_limit =
+            query_row_limit::effective_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
-        let version = self.query.session.active_buffer_version();
-        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, execution_range, version, true) {
+        let options = QueryRunOptions {
+            execution_range,
+            version: self.query.session.active_buffer_version(),
+            all_statements: true,
+            bound_params: None,
+            applied_row_limit: applied_limit,
+        };
+        if self.hold_destructive_run(&sql, PendingDestructiveRunOrigin::QueryEditor, &options) {
             return;
         }
         if self.cross_tab_transaction_blocked(&connection_id) {
             return;
         }
-        self.send_query_run(connection_id, sql, execution_range, version, true, None);
+        self.send_query_run(connection_id, sql, options);
     }
 
     /// Hold a statement or script the classifier rates `Destructive` until the user
@@ -398,11 +417,9 @@ impl DbProApp {
         &mut self,
         sql: &str,
         origin: PendingDestructiveRunOrigin,
-        execution_range: (usize, usize),
-        version: u64,
-        all_statements: bool,
+        options: &QueryRunOptions,
     ) -> bool {
-        self.hold_destructive_run_bound(sql, origin, execution_range, version, all_statements, None)
+        self.hold_destructive_run_bound(sql, origin, options)
     }
 
     /// `hold_destructive_run` with pre-bound typed arguments (#252): a confirmed
@@ -411,11 +428,15 @@ impl DbProApp {
         &mut self,
         sql: &str,
         origin: PendingDestructiveRunOrigin,
-        execution_range: (usize, usize),
-        version: u64,
-        all_statements: bool,
-        bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
+        options: &QueryRunOptions,
     ) -> bool {
+        let QueryRunOptions {
+            execution_range,
+            version,
+            all_statements,
+            bound_params,
+            applied_row_limit,
+        } = options;
         // Resolve the connection the prompt names at hold time: confirming later may look
         // at a different active connection, and the dialog must show what will execute.
         let target_label = match origin {
@@ -433,8 +454,13 @@ impl DbProApp {
             sql,
             origin,
             target_label,
-            super::query_execution_state::PendingDestructiveRunMetadata::new(execution_range, version, all_statements),
-            bound_params,
+            super::query_execution_state::PendingDestructiveRunMetadata::new(
+                *execution_range,
+                *version,
+                *all_statements,
+            )
+            .with_row_limit(*applied_row_limit),
+            bound_params.clone(),
         )
     }
 
@@ -449,10 +475,13 @@ impl DbProApp {
         };
         let origin = pending.origin();
         let sql = pending.sql().to_owned();
-        let execution_range = pending.execution_range();
-        let version = pending.version();
-        let all_statements = pending.all_statements();
-        let bound_params = pending.bound_params().map(<[db_pro_core::domain::query::QueryParam]>::to_vec);
+        let options = QueryRunOptions {
+            execution_range: pending.execution_range(),
+            version: pending.version(),
+            all_statements: pending.all_statements(),
+            bound_params: pending.bound_params().map(<[db_pro_core::domain::query::QueryParam]>::to_vec),
+            applied_row_limit: pending.row_limit(),
+        };
         let connection_id = match origin {
             PendingDestructiveRunOrigin::InlineQuery => self
                 .active_connection()
@@ -480,7 +509,7 @@ impl DbProApp {
                 self.send_explain_run(connection_id, sql, true);
             }
             PendingDestructiveRunOrigin::QueryEditor => {
-                self.send_query_run(connection_id, sql, execution_range, version, all_statements, bound_params);
+                self.send_query_run(connection_id, sql, options);
             }
         }
     }
@@ -491,15 +520,19 @@ impl DbProApp {
         self.query_execution_context().cancel_pending_destructive_run();
     }
 
-    pub(crate) fn send_query_run(
+    pub(super) fn send_query_run(
         &mut self,
         connection_id: String,
         sql: String,
-        execution_range: (usize, usize),
-        version: u64,
-        all_statements: bool,
-        bound_params: Option<Vec<db_pro_core::domain::query::QueryParam>>,
+        options: QueryRunOptions,
     ) -> Option<crate::RequestId> {
+        let QueryRunOptions {
+            execution_range,
+            version,
+            all_statements,
+            bound_params,
+            applied_row_limit,
+        } = options;
         let request_id = self.next_request_id();
         let mut command = match bound_params {
             // Pre-bound typed arguments (routine workbench): the SQL already holds
@@ -515,7 +548,7 @@ impl DbProApp {
         let runtime_command = query_run_command(&command);
         if self.dispatch_command(runtime_command) {
             self.query_execution_context()
-                .commit_dispatched(&command, execution_range, version);
+                .commit_dispatched(&command, execution_range, version, applied_row_limit);
             if let Some(document_id) = command.session_id.clone() {
                 self.query
                     .execution
@@ -567,6 +600,8 @@ impl DbProApp {
     }
 
     pub(crate) fn send_table_data_query_run(&mut self, connection_id: String, sql: String) -> bool {
+        let applied_limit =
+            query_row_limit::effective_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let repeat_sql = sql.clone();
         let sql = query_row_limit::apply_row_limit(&sql, self.query.execution.query_row_limit, self.active_driver());
         let request_id = self.next_request_id();
@@ -578,7 +613,7 @@ impl DbProApp {
         };
         if self.dispatch_command(query_run_command(&command)) {
             self.query_execution_context().commit_inline_dispatched(&command);
-            self.table.data_query.begin_inline_query(request_id, repeat_sql);
+            self.table.data_query.begin_inline_query(request_id, repeat_sql, applied_limit);
             self.table.data_query.error = None;
             true
         } else {

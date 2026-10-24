@@ -302,9 +302,14 @@ impl DbProApp {
             .ok_or_else(|| "saved task connection is not available".to_owned())?;
         let sql = saved_task_sql::build_export_query(&connection.driver, table)?;
         let path = task_export_path(task.id, fmt);
-        let version = self.query.session.active_buffer_version();
-        let execution_range = (0, sql.len());
-        self.send_query_run(task.connection_id.clone(), sql, execution_range, version, false, None)
+        let options = crate::app::events_query_dispatch::QueryRunOptions {
+            execution_range: (0, sql.len()),
+            version: self.query.session.active_buffer_version(),
+            all_statements: false,
+            bound_params: None,
+            applied_row_limit: None,
+        };
+        self.send_query_run(task.connection_id.clone(), sql, options)
             .map(|request_id| TaskQueued {
                 request_id,
                 export_path: Some(path),

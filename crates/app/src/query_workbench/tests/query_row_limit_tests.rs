@@ -111,3 +111,10 @@
             "WITH x AS (SELECT 1) SELECT TOP 500 * FROM x"
         );
     }
+
+    #[test]
+    fn row_limit_note_reports_applied_cap_without_claiming_truncation() {
+        assert_eq!(super::row_limit_note(Some(100)), " · limit 100 applied");
+        assert_eq!(super::row_limit_note(None), "");
+        assert_eq!(super::row_limit_note(Some(0)), "");
+    }

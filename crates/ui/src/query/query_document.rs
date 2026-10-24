@@ -143,6 +143,10 @@ pub struct QueryDocument {
     /// `Rc::make_mut` if an in-place grid edit is ever needed.
     pub query_result: Option<Rc<UiQueryResult>>,
     pub query_results: Vec<Rc<UiQueryResult>>,
+    /// Row cap the toolbar injected into the run that produced `query_results`
+    /// (UAT-4). `Some(n)` lets the results header flag "limit n reached" when
+    /// a result comes back exactly at the cap. `None` for uncapped runs.
+    pub query_result_row_limit: Option<u64>,
     pub query_result_names: HashMap<usize, String>,
     pub pinned_results: std::collections::BTreeSet<usize>,
     pub active_result_index: usize,
@@ -157,6 +161,10 @@ pub struct QueryDocument {
     pub parameter_secrets: std::collections::BTreeSet<String>,
     pub executing_range: Option<(usize, usize)>,
     pub executing_sql: Option<String>,
+    /// Row cap injected into `executing_sql` by the toolbar limit selector —
+    /// `Some(n)` only when a cap was actually applied, so completion can disclose
+    /// the query limit instead of showing only a row count (UAT-4).
+    pub executing_row_limit: Option<u64>,
     pub executing_version: Option<u64>,
     pub last_executed_range: Option<(usize, usize)>,
     pub execution_diagnostic: Option<Diagnostic>,
@@ -219,6 +227,7 @@ impl QueryDocument {
             search: EditorSearchState::default(),
             query_result: None,
             query_results: Vec::new(),
+            query_result_row_limit: None,
             query_result_names: HashMap::new(),
             pinned_results: std::collections::BTreeSet::new(),
             active_result_index: 0,
@@ -231,6 +240,7 @@ impl QueryDocument {
             parameter_secrets: std::collections::BTreeSet::new(),
             executing_range: None,
             executing_sql: None,
+            executing_row_limit: None,
             executing_version: None,
             last_executed_range: None,
             execution_diagnostic: None,

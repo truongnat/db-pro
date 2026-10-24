@@ -31,6 +31,13 @@ pub(crate) struct TableDataQueryState {
     pub(super) sql_condition_suggestions_dismissed_for: Option<String>,
     pub(super) active_inline_query_sql: Option<String>,
     pub(super) pending_inline_query_sql: Option<String>,
+    /// Row cap the toolbar injected for the in-flight inline query (UAT-4).
+    /// Cleared when the inline query completes.
+    pub(super) inline_query_row_limit: Option<u64>,
+    /// Cap recorded on the last completed inline result so pagination can
+    /// disclose the applied query limit after in-flight state is cleared.
+    /// `None` for uncapped inline results and table loads.
+    pub(super) last_result_row_limit: Option<u64>,
 }
 
 impl Default for TableDataQueryState {
@@ -59,14 +66,17 @@ impl Default for TableDataQueryState {
             sql_condition_suggestions_dismissed_for: None,
             active_inline_query_sql: None,
             pending_inline_query_sql: None,
+            inline_query_row_limit: None,
+            last_result_row_limit: None,
         }
     }
 }
 
 impl TableDataQueryState {
-    pub(crate) fn begin_inline_query(&mut self, request_id: RequestId, sql: String) {
+    pub(crate) fn begin_inline_query(&mut self, request_id: RequestId, sql: String, row_limit: Option<u64>) {
         self.inline_query_request = Some(request_id);
         self.pending_inline_query_sql = Some(sql);
+        self.inline_query_row_limit = row_limit;
     }
 
     pub(crate) fn complete_inline_query(&mut self, request_id: RequestId) -> bool {
@@ -78,6 +88,7 @@ impl TableDataQueryState {
             self.active_inline_query_sql = Some(sql);
         }
         self.inline_query_result = true;
+        self.last_result_row_limit = self.inline_query_row_limit.take();
         true
     }
 
@@ -87,6 +98,8 @@ impl TableDataQueryState {
         }
         self.inline_query_request = None;
         self.pending_inline_query_sql = None;
+        self.inline_query_row_limit = None;
+        self.last_result_row_limit = None;
         true
     }
 
@@ -113,6 +126,8 @@ impl TableDataQueryState {
         self.sql_condition_suggestions_dismissed_for = None;
         self.active_inline_query_sql = None;
         self.pending_inline_query_sql = None;
+        self.inline_query_row_limit = None;
+        self.last_result_row_limit = None;
     }
 
     pub(crate) fn invalidate_result(&mut self) {

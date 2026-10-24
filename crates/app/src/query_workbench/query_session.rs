@@ -121,8 +121,14 @@ impl DbProApp {
             return;
         };
         // Reuse the normal run path so execution state / cancel / history stay consistent.
-        let version = self.query.session.active_buffer_version();
-        self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false, None);
+        let options = super::events_query_dispatch::QueryRunOptions {
+            execution_range: (0, sql.len()),
+            version: self.query.session.active_buffer_version(),
+            all_statements: false,
+            bound_params: None,
+            applied_row_limit: None,
+        };
+        self.send_query_run(connection_id, sql.to_owned(), options);
     }
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {
