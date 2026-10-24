@@ -13,7 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / ".agents/memory/KNOWLEDGE_SOURCE_INVENTORY.json"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from knowledge_mirror_utils import is_pipeline_memory_artifact, verify_v2_mirror  # noqa: E402
+from knowledge_mirror_utils import (  # noqa: E402
+    is_pipeline_memory_artifact,
+    mirror_filename,
+    verify_v2_mirror,
+)
 MIRROR_PLANS = ROOT / ".agents/memory/entries/migrated/from-plans"
 MIRROR_BY_FILE = ROOT / ".agents/memory/entries/migrated/by-source-file"
 
@@ -68,9 +72,7 @@ def migration_status(rel: Path, zone: str) -> tuple[str, str | None]:
         return "skipped_non_text", None
     if "_template" in rel.parts and zone == "docs_plans":
         return "skipped_template", None
-    # per-file mirror path
-    safe = rel.as_posix().replace("/", "__")
-    mirror = MIRROR_BY_FILE / (safe if safe.endswith(".md") else f"{safe}.md")
+    mirror = MIRROR_BY_FILE / mirror_filename(rel.as_posix())
     if mirror.is_file():
         v2 = verify_v2_mirror(ROOT, rel.as_posix())
         if v2.get("status") == "mirrored_full_verified":

@@ -13,6 +13,9 @@ Script cần có hành vi xác định, tham số rõ ràng, báo lỗi cụ th�
 | `validate-skill-references.py` | Skill → `.agents/template/*` phải tồn tại |
 | `classify-knowledge-groups.py` | Nhóm nguồn + durable + disposition; `GROUP_RECONCILIATION.md` |
 
-**Bootstrap (sau clone):** `scripts/bootstrap-agents-memory.sh` từ repo root — chạy full §9 + `validate-skills.sh`.
+| `purge-orphan-mirror-files.py` | Xóa file mirror không khớp `mirror_filename` nguồn (legacy) |
+| `check-mirror-filename-collisions.py` | Fail nếu hai nguồn trùng tên mirror |
+
+**Bootstrap (sau clone):** `scripts/bootstrap-agents-memory.sh` từ repo root — purge + collision check + full §9 + `validate-skills.sh`.
 
 **Policy / verify:** `docs/ARTIFACT_POLICY.md`, `scripts/verify-artifact-policy.sh`.

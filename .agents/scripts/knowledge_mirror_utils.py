@@ -54,11 +54,17 @@ def sha256_text(text: str) -> str:
 
 
 def mirror_filename(rel: str) -> str:
+    """Injective encoding: path separators → `__`; non-`.md` sources get a `.md` mirror suffix."""
     safe = rel.replace("/", "__")
-    # Avoid accidental double extension if source path already ends with .md
-    while safe.endswith(".md.md"):
-        safe = safe[: -len(".md")]
     return safe if safe.endswith(".md") else f"{safe}.md"
+
+
+def mirror_filename_collisions(repo_rels: list[str]) -> dict[str, list[str]]:
+    """Return mirror_filename → [source paths] for any non-injective mapping."""
+    buckets: dict[str, list[str]] = {}
+    for rel in repo_rels:
+        buckets.setdefault(mirror_filename(rel), []).append(rel)
+    return {name: paths for name, paths in buckets.items() if len(paths) > 1}
 
 
 def encode_mirror_body(rel: str, raw: bytes) -> tuple[str, bool, str]:

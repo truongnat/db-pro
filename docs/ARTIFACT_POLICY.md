@@ -14,7 +14,7 @@
 
 | Path | Git | Regenerate |
 |------|-----|------------|
-| `.agents/memory/entries/migrated/by-source-file/` | ❌ | `scripts/bootstrap-agents-memory.sh` |
+| `.agents/memory/entries/migrated/by-source-file/` | ❌ | `scripts/bootstrap-agents-memory.sh` (purge orphans + collision check trước migrate) |
 | `.agents/memory/entries/migrated/from-plans/` | ❌ | `migrate-plans-to-memory.py` (v1 excerpt) |
 | `KNOWLEDGE_*.json`, `MIGRATION_*.json` | ❌ | cùng bootstrap |
 | `APPROVED_EXCLUSIONS.json`, `SOURCE_SCOPE_MANIFEST.json` | ✅ | sửa tay + bootstrap |

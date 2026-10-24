@@ -6,6 +6,12 @@ cd "$ROOT"
 PY="${PYTHON:-python3}"
 SCRIPTS=".agents/scripts"
 
+echo "==> purge orphan mirrors (legacy)"
+"$PY" "$SCRIPTS/purge-orphan-mirror-files.py" >/dev/null
+
+echo "==> mirror_filename collision check"
+"$PY" "$SCRIPTS/check-mirror-filename-collisions.py"
+
 echo "==> build inventory"
 "$PY" "$SCRIPTS/build-knowledge-inventory.py" >/dev/null
 
