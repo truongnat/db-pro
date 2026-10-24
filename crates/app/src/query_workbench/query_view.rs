@@ -226,7 +226,18 @@ impl DbProApp {
             .and_then(|d| d.connection_id.clone())
             .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         let current_schema = self.active_query_schema().to_owned();
-        let available_schemas = if !self.schema.explorer.schema.schemas.is_empty() {
+        // UAT-8: the loaded schema explorer only applies when it describes the
+        // same connection the document is bound to — otherwise a PG-bound doc
+        // would offer SQLite's ["main"].
+        let doc_conn = self
+            .query
+            .session
+            .documents
+            .get(doc_idx)
+            .and_then(|d| d.connection_id.as_deref());
+        let global_conn = self.connection.lifecycle.active_connection_id();
+        let explorer_is_current = doc_conn.is_none() || doc_conn == global_conn;
+        let available_schemas = if explorer_is_current && !self.schema.explorer.schema.schemas.is_empty() {
             self.schema.explorer.schema.schemas.clone()
         } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
             vec!["main".to_string()]

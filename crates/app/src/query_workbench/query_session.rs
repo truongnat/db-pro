@@ -47,9 +47,27 @@ impl<'a> QueryConnectionContext<'a> {
     }
 
     pub(crate) fn schema(&self) -> &'a str {
-        self.query_session
-            .active_schema()
-            .unwrap_or_else(|| connection_status::active_schema(self.schema_explorer, self.catalog, self.lifecycle))
+        // UAT-8: an explicitly picked document schema always wins. The fallback
+        // (global explorer) only applies when the document binds to the same
+        // connection the sidebar has selected; a doc bound elsewhere defaults
+        // per its own driver instead of inheriting e.g. SQLite's "main".
+        if let Some(schema) = self.query_session.active_schema() {
+            return schema;
+        }
+        let doc_conn = self.query_session.active_connection_id();
+        let global_conn = self.lifecycle.active_connection_id();
+        if doc_conn.is_none() || doc_conn == global_conn {
+            return connection_status::active_schema(self.schema_explorer, self.catalog, self.lifecycle);
+        }
+        let driver = doc_conn
+            .and_then(|id| self.catalog.find(id))
+            .map(|c| c.driver.as_str())
+            .unwrap_or_default();
+        if driver.eq_ignore_ascii_case("sqlite") {
+            "main"
+        } else {
+            "public"
+        }
     }
 }
 

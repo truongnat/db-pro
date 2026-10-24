@@ -146,8 +146,14 @@ impl QuerySessionState {
         let Some(document) = self.documents.get_mut(index) else {
             return false;
         };
+        if document.connection_id == connection_id {
+            return false;
+        }
         document.connection_id = connection_id;
         document.completion.clear();
+        // UAT-8: a schema belongs to the connection it was picked from — keep a
+        // stale "main" only until the driver's own default resolves it.
+        document.schema = None;
         true
     }
 

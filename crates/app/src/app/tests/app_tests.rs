@@ -5684,6 +5684,70 @@ fn test_per_document_connection_and_schema_isolation() {
 }
 
 #[test]
+fn document_schema_resets_to_bound_driver_default_on_connection_switch() {
+    // UAT-8: a document bound to SQLite picked up "main"; switching its
+    // connection to PostgreSQL must drop the stale schema so it resolves to the
+    // new driver's default ("public"), not keep rendering "main".
+    let mut app = DbProApp {
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![
+                    UiConnectionSummary {
+                        id: "conn-pg".to_owned(),
+                        name: "PG".to_owned(),
+                        host: "localhost".to_owned(),
+                        port: 5432,
+                        database: "db".to_owned(),
+                        username: "u".to_owned(),
+                        ssl_mode: UiSslMode::Disable,
+                        readonly: false,
+                        tags: vec![],
+                        group: None,
+                        favorite: false,
+                        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
+                        driver: "postgresql".to_owned(),
+                    },
+                    UiConnectionSummary {
+                        id: "conn-sqlite".to_owned(),
+                        name: "Lite".to_owned(),
+                        host: "".to_owned(),
+                        port: 0,
+                        database: "/tmp/test.db".to_owned(),
+                        username: "".to_owned(),
+                        ssl_mode: UiSslMode::Disable,
+                        readonly: false,
+                        tags: vec![],
+                        group: None,
+                        favorite: false,
+                        environment: db_pro_core::domain::connection::ConnectionEnvironment::Development,
+                        driver: "sqlite".to_owned(),
+                    },
+                ],
+            },
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("conn-sqlite".to_owned()),
+                ..Default::default()
+            },
+            dialog: ConnectionDialogState::default(),
+        },
+        ..Default::default()
+    };
+
+    app.set_document_connection(0, Some("conn-sqlite".to_owned()));
+    app.set_document_schema(0, Some("main".to_owned()));
+    assert_eq!(app.active_query_schema(), "main");
+
+    // Rebinding to PostgreSQL clears the stored schema and derives "public".
+    app.set_document_connection(0, Some("conn-pg".to_owned()));
+    assert_eq!(app.active_query_schema(), "public");
+
+    // Rebinding to the same connection is a no-op and keeps the schema.
+    app.set_document_schema(0, Some("tenant1".to_owned()));
+    app.set_document_connection(0, Some("conn-pg".to_owned()));
+    assert_eq!(app.active_query_schema(), "tenant1");
+}
+
+#[test]
 fn test_ambiguous_column_completion_qualified_ranking() {
     let summary = UiSchemaSummary {
         table_details: vec![
