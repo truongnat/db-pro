@@ -87,7 +87,14 @@ impl ExplorerToolbarContext<'_> {
             egui::Popup::toggle_id(ui.ctx(), popup_id);
         }
         let filter = &mut *self.filter;
+        // UAT-1: `CloseOnClickOutside` only marks the popup for closing; egui
+        // deliberately forwards the dismiss click to whatever is under the
+        // pointer, so clicking a table row used to both close the popover and
+        // open the table. The scrim covers the screen one layer below the
+        // `PopupKind::Tooltip` surface and eats that click instead.
+        popup_dismiss_scrim(ui.ctx(), popup_id, egui::Popup::is_id_open(ui.ctx(), popup_id));
         egui::Popup::new(popup_id, ui.ctx().clone(), &button, ui.layer_id())
+            .kind(egui::PopupKind::Tooltip)
             .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
             .open_memory(None)
             .show(|ui| {

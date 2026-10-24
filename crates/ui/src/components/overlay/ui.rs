@@ -28,6 +28,29 @@ pub fn floating_surface(theme: DbProTheme, corner_radius: f32, margin: Margin) -
         ..Default::default()
     }
 }
+/// Draws an invisible, screen-covering click sink *below* `Order::Tooltip`
+/// popovers and above every `Background`/`Middle` widget. While it is drawn,
+/// a click outside the popover lands on this widget instead of the content
+/// underneath, so the click that dismisses the popover is consumed rather
+/// than forwarded (egui deliberately lets `PopupCloseBehavior` clicks fall
+/// through). Pair it with `egui::Popup::kind(PopupKind::Tooltip)` — or any
+/// `Order::Tooltip` area — so the popup itself keeps painting and hit-testing
+/// above the scrim; a bare `Order::Foreground` popup loses to this layer once
+/// the scrim is pressed (`Area` re-raises itself on press). The `open` flag
+/// must be whatever drives the popup's visibility so the scrim is only
+/// interactive while the popup is actually open.
+pub fn popup_dismiss_scrim(ctx: &egui::Context, id: egui::Id, open: bool) {
+    if !open {
+        return;
+    }
+    let rect = ctx.content_rect();
+    Area::new(id.with("dismiss_scrim"))
+        .order(Order::Foreground)
+        .fixed_pos(rect.min)
+        .show(ctx, |ui| {
+            let _ = ui.allocate_exact_size(rect.size(), Sense::click());
+        });
+}
 
 /// A positioned, themed floating surface for anchored popups whose visibility is
 /// driven by external state (completion lists, hover/signature help, find bars,

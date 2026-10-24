@@ -82,9 +82,9 @@ pub use input::{Input, PasswordInput, SearchInput, Textarea};
 pub use logs::{LogEntry, LogLevel, LogViewer};
 pub use nav::{section_label, sidebar_item, Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
 pub use overlay::{
-    context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
-    FloatingPopup, Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip,
-    TooltipPosition,
+    context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, popup_dismiss_scrim, DropdownItem,
+    DropdownMenu, FloatingPopup, Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant,
+    Tooltip, TooltipPosition,
 };
 pub use radio_group::{RadioGroup, RadioGroupOption};
 pub use responsive_layout::{container_width, grid_metrics, Container, ContainerWidth, GridMetrics, ResponsiveGrid};
