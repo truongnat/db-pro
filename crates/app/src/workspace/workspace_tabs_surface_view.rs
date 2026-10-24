@@ -27,6 +27,7 @@ pub(super) struct WorkspaceTabsViewContext<'a> {
     pub(super) schema: &'a SchemaWorkspaceState,
     pub(super) table: &'a TableEditorState,
     actions: Vec<WorkspaceTabsAction>,
+    scroll_active_tab: bool,
 }
 
 impl<'a> WorkspaceTabsViewContext<'a> {
@@ -44,12 +45,30 @@ impl<'a> WorkspaceTabsViewContext<'a> {
             schema,
             table,
             actions: Vec::new(),
+            scroll_active_tab: false,
         }
     }
 
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) -> Vec<WorkspaceTabsAction> {
         let modifier = Self::primary_modifier_label();
-
+        let active_tab_id = match self.workspace.active_tab {
+            WorkspaceTab::Welcome => 0,
+            WorkspaceTab::Query => 1,
+            WorkspaceTab::Table => 2,
+            WorkspaceTab::SchemaObject => 3,
+            WorkspaceTab::Results => 4,
+            WorkspaceTab::Diagram => 5,
+            WorkspaceTab::SchemaWorkbench => 6,
+            WorkspaceTab::SchemaCompare => 7,
+            WorkspaceTab::ComponentGallery => 8,
+        };
+        let mut active_target = egui::Id::new("workspace-tabs-active-target").with(active_tab_id);
+        if self.workspace.active_tab == WorkspaceTab::Query {
+            if let Some(document) = self.query.session.active_document() {
+                active_target = active_target.with(document.id.as_str());
+            }
+        }
+        self.scroll_active_tab = active_tab_target_changed(ui.ctx(), active_target);
         // Keep a small gutter around the strip and between independent tab targets.
         let tabs_width = ui.available_width();
         ui.set_min_width(tabs_width);
@@ -162,6 +181,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     }
                 },
             );
+            if welcome_selected && self.scroll_active_tab {
+                ui.scroll_to_cursor(None);
+            }
             if welcome_action.close_clicked {
                 close_welcome_requested = true;
             } else if welcome_action.clicked {
@@ -336,6 +358,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     }
                 },
             );
+            if selected && self.scroll_active_tab {
+                ui.scroll_to_cursor(None);
+            }
 
             if action.close_clicked {
                 close_query_idx = Some(idx);
@@ -454,6 +479,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     }
                 },
             );
+            if selected && self.scroll_active_tab {
+                ui.scroll_to_cursor(None);
+            }
 
             if table_action.close_clicked || close_table {
                 self.request_close_workspace_tab(WorkspaceTab::Table);
@@ -522,6 +550,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                     }
                 },
             );
+            if selected && self.scroll_active_tab {
+                ui.scroll_to_cursor(None);
+            }
 
             if obj_action.close_clicked || close_obj {
                 self.request_close_workspace_tab(WorkspaceTab::SchemaObject);
@@ -575,6 +606,9 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                 }
             },
         );
+        if self.workspace.active_tab == tab && self.scroll_active_tab {
+            ui.scroll_to_cursor(None);
+        }
         if action.close_clicked || close_requested {
             self.request_close_workspace_tab(tab);
         } else if action.clicked && self.workspace.active_tab != tab {
@@ -645,3 +679,15 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         }
     }
 }
+fn active_tab_target_changed(ctx: &egui::Context, active_target: egui::Id) -> bool {
+    let scroll_key = egui::Id::new("workspace-tabs-last-active-target");
+    ctx.data_mut(|data| {
+        let previous = data.get_temp::<egui::Id>(scroll_key);
+        data.insert_temp(scroll_key, active_target);
+        previous != Some(active_target)
+    })
+}
+
+#[cfg(test)]
+#[path = "tests/workspace_tabs_surface_view_tests.rs"]
+mod tests;

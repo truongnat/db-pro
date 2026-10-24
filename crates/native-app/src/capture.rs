@@ -91,6 +91,10 @@ const COMPARE_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_COMPARE";
 /// capturing (object-filter workbench evidence shots).
 const EXPLORER_FILTER_ENV: &str = "DB_PRO_CAPTURE_FILTER";
 
+/// Open the workspace tab strip with an off-screen query selected.
+const WORKSPACE_TABS_OVERFLOW_ENV: &str = "DB_PRO_CAPTURE_WORKSPACE_TABS";
+const WORKSPACE_TABS_LIGHT_ENV: &str = "DB_PRO_CAPTURE_WORKSPACE_TABS_LIGHT";
+
 /// When set, open Quick Open with its Schema filter selected before capturing.
 const QUICK_OPEN_ENV: &str = "DB_PRO_CAPTURE_QUICK_OPEN";
 
@@ -473,6 +477,8 @@ impl CaptureApp {
             inner.open_explain_plan_for_capture();
         } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
             inner.open_component_gallery_for_capture();
+        } else if std::env::var_os(WORKSPACE_TABS_OVERFLOW_ENV).is_some() {
+            inner.open_workspace_tabs_overflow_for_capture(std::env::var_os(WORKSPACE_TABS_LIGHT_ENV).is_some());
         } else if std::env::var_os(EXPLORER_FILTER_ENV).is_some() {
             inner.open_explorer_filter_for_capture();
         } else if std::env::var_os("DB_PRO_CAPTURE_ROUTINE_DEBUG").is_some() {

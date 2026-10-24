@@ -457,6 +457,27 @@ impl DbProApp {
         self.theme = DbProTheme::light();
     }
 
+    /// Capture helper: overflowing workspace tab strip with the last query active.
+    pub fn open_workspace_tabs_overflow_for_capture(&mut self, light: bool) {
+        self.open_query_workspace_for_capture();
+        if light {
+            self.preferences.dark_mode = false;
+            self.theme = DbProTheme::light();
+        }
+        self.query.session.documents = (0..18)
+            .map(|index| {
+                crate::query::query_document::QueryDocument::new(
+                    format!("capture-query-{index}"),
+                    format!("Query {index:02} · customer analytics"),
+                    "SELECT 1;",
+                )
+            })
+            .collect();
+        self.query.session.active_document_index = 17;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.workspace.activity = Activity::Queries;
+    }
+
     /// Capture helper: open the query context picker popup (connection/schema selector).
     ///
     /// `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER=dense` seeds many long-named schemas to
