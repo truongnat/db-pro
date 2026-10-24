@@ -10,7 +10,10 @@ Quick commands:
 
 ```bash
 .agents/scripts/search-memory.sh "<query>"
-python3 .agents/scripts/migrate-plans-to-memory.py
+scripts/bootstrap-agents-memory.sh          # v2 mirrors + reconcile (post-clone)
+python3 .agents/scripts/migrate-plans-to-memory.py   # v1 excerpt only
 ```
+
+Artifact policy: `docs/ARTIFACT_POLICY.md`.
 
 Manifest: [`.agents/memory/MIGRATION_MANIFEST.json`](../../.agents/memory/MIGRATION_MANIFEST.json)

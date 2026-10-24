@@ -1,0 +1,4 @@
+# Copy to docs/plans/active/<plan>/runs/.gitignore when creating a qualification run.
+# Coordinator + worker JSON/PNG listed in RUN_INVALIDATION stay in git.
+**/artifacts/**/*.tar.gz
+**/artifacts/**/extracted/**/MacOS/db-pro-native

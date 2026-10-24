@@ -80,3 +80,12 @@ ER reference from project perf-audit guidance:200/500/1000 tables time-to-intera
 - Normal Quit verification is not SIGTERM; emergency owned-process SIGTERM cleanup recorded as cleanup, never clean-exit PASS.
 - Restore only case-owned DB/file/keyring entries; verify outside sentinels and no orphan own tunnel/controller. Retain known failing snapshots and artifacts until disposition; no deleting evidence as cleanup.
 - Worker writes canonical AGENT_EVIDENCE sections1–6 in its lane run folder with actual source/artifact, statuses, commands, constraints and Vietnamese summary; release GUI lease explicitly. Lead issues aggregate only after reconciling all assigned/missing instances.
+
+## I. Git retention (runs/)
+
+Copy `docs/plans/_template/runs.gitignore` → `runs/.gitignore` for each new `run_id`. Policy: `docs/ARTIFACT_POLICY.md` §3.
+
+1. **Always commit:** `run-manifest.json`, `coordinator/*` (including `RUN_INVALIDATION.md` when invalidated), `expected-instances.json` when frozen for that run, worker `result.json` / `result.claimed-pass-invalid.json`, and any path listed under **Retained evidence** in invalidation.
+2. **Never commit:** package `*.tar.gz`, extracted `db-pro-native` binary — record hashes and paths in `workers/L1/package-macos.log` and `artifact-ready.marker`.
+3. **May commit:** `README-INSTALL.txt`, `Info.plist` as metadata when tarball is local-only.
+4. Before `gitignore` or cleanup: update `RUN_INVALIDATION.md` + `docs/plans/_template/ARTIFACT_RETENTION.md` pattern; run `scripts/verify-artifact-policy.sh`.

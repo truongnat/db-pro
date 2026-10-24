@@ -12,3 +12,7 @@ Script cần có hành vi xác định, tham số rõ ràng, báo lỗi cụ th�
 | `validate-skills.sh` | Kiểm tra frontmatter `SKILL.md` + tham chiếu `template/` |
 | `validate-skill-references.py` | Skill → `.agents/template/*` phải tồn tại |
 | `classify-knowledge-groups.py` | Nhóm nguồn + durable + disposition; `GROUP_RECONCILIATION.md` |
+
+**Bootstrap (sau clone):** `scripts/bootstrap-agents-memory.sh` từ repo root — chạy full §9 + `validate-skills.sh`.
+
+**Policy / verify:** `docs/ARTIFACT_POLICY.md`, `scripts/verify-artifact-policy.sh`.

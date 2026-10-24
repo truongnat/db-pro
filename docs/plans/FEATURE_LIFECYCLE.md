@@ -56,6 +56,7 @@ Plan folders capture **feature lifecycle**; long-lived lessons belong in searcha
 2. After `COMPLETED` or a verified incident/fix, if memory policy applies (`/.agents/rules/memory-policy.md`), add or update an entry — prefer editing an existing topic over duplicating.
 3. Bulk plan evidence was mirrored into `entries/migrated/from-plans/` — owner plan `docs/plans/active/agents-memory-framework/`. Curate high-value rows to `active` or move out of `migrated/` when verified.
 4. Re-run `python3 .agents/scripts/migrate-plans-to-memory.py` only when refreshing the mirror from `docs/plans/` (see MEMORY_MIGRATION.md).
+5. After clone or memory pipeline changes: `scripts/bootstrap-agents-memory.sh`. Release/RQM evidence rules: `docs/ARTIFACT_POLICY.md`; frozen-run check: `scripts/verify-artifact-policy.sh`.
 
 ## Evidence levels
 

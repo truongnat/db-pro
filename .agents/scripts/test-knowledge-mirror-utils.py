@@ -9,6 +9,7 @@ from pathlib import Path
 from knowledge_mirror_utils import (
     encode_mirror_body,
     is_pipeline_memory_artifact,
+    mirror_filename,
     parse_mirror_file,
     sha256_text,
     verify_v2_mirror,
@@ -55,6 +56,12 @@ def test_parse_preserves_leading_newline() -> None:
     assert parsed["body"] == "hello"
 
 
+def test_mirror_filename_no_double_md() -> None:
+    assert mirror_filename("docs/plans/STATUS.md") == "docs__plans__STATUS.md"
+    assert mirror_filename("foo.json") == "foo.json.md"
+    assert mirror_filename("weird.md.md") == "weird.md"
+
+
 def test_pipeline_artifact_detection() -> None:
     assert is_pipeline_memory_artifact(".agents/memory/KNOWLEDGE_SOURCE_INVENTORY.json")
     assert is_pipeline_memory_artifact(".agents/memory/KNOWLEDGE_RECONCILIATION_V2.json")
@@ -66,6 +73,7 @@ def main() -> int:
     test_leading_newline_roundtrip()
     test_large_file_full_mirror()
     test_parse_preserves_leading_newline()
+    test_mirror_filename_no_double_md()
     test_pipeline_artifact_detection()
     print("ok")
     return 0

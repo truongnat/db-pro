@@ -22,7 +22,7 @@ Repo dùng **agents-memory blueprint**: memory có version control, rules, templ
 
 Chi tiết đầy đủ vẫn ở các mục dưới (product, UI, tests, release). Memory **không** ghi đè chỉ dẫn người dùng hoặc `AGENTS.md` hiện tại.
 
-**Agents memory:** Inventory master `.agents/memory/KNOWLEDGE_SOURCE_INVENTORY.json` — rebuild: `python3 .agents/scripts/build-knowledge-inventory.py`. Status: `docs/plans/active/agents-memory-framework/KNOWLEDGE_MIGRATION_STATUS.md`. Search: `.agents/scripts/search-memory.sh`.
+**Agents memory:** Mirrors + pipeline JSON are **gitignored** — after clone run `scripts/bootstrap-agents-memory.sh`. Authoritative pass: `.agents/memory/KNOWLEDGE_RECONCILIATION_V2.json` (`scope_complete`). Status: `docs/plans/active/agents-memory-framework/KNOWLEDGE_MIGRATION_STATUS.md`. Search: `.agents/scripts/search-memory.sh`. Artifact rules: `docs/ARTIFACT_POLICY.md`.
 
 ---
 

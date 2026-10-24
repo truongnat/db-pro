@@ -11,9 +11,9 @@ Không dùng `mirror_present` / `migrated_full_mirror` (v1) làm bằng chứng.
 
 | Chỉ số | Giá trị |
 |---|---:|
-| `mirrored_full_verified` | 1561 |
+| `mirrored_full_verified` | 1562 |
 | `mirrored_truncated_verified` | 0 |
-| `excluded_approved` + artifact | 20 |
+| `excluded_approved` + artifact | 21 |
 | `unresolved_count` | 0 |
 
 Artifact: `.agents/memory/KNOWLEDGE_RECONCILIATION_V2.json` — lệnh: `python3 .agents/scripts/reconcile-knowledge-sources-v2.py`.
@@ -22,9 +22,9 @@ Artifact: `.agents/memory/KNOWLEDGE_RECONCILIATION_V2.json` — lệnh: `python3
 
 | Chỉ số | Giá trị |
 |---|---:|
-| File text trong `docs/` (không `_archive`) | 1237 |
-| Dòng inventory `docs_plans` | 979 |
-| Dòng inventory `docs_other` | 258 |
+| File text trong `docs/` (không `_archive`) | 1239 |
+| Dòng inventory `docs_plans` | 980 |
+| Dòng inventory `docs_other` | 259 |
 | Thiếu trong inventory | 0 |
 
 **Giải thích số cũ ~327 / ~1141:** v1 chỉ mirror 4 tên/plan → phần còn lại **không** ‘out of scope’ mà đã vào **v2 `by-source-file`** (`content_verified_full_mirror` sau `reconcile-knowledge-sources-v2.py`). Toàn `docs/` ngoài `_archive` được quét vào inventory (plans + docs_other + …).
@@ -41,7 +41,7 @@ Artifact: `.agents/memory/KNOWLEDGE_RECONCILIATION_V2.json` — lệnh: `python3
 | `agents_skills_vendored` | 268 | durable_medium | mirrored-full-verified |
 | `cursor` | 15 | durable_medium | mirrored-full-verified |
 | `docs_architecture_numbered` | 1 | durable_high | content_verified_full_mirror |
-| `docs_other` | 134 | durable_medium | content_verified_full_mirror |
+| `docs_other` | 135 | durable_medium | content_verified_full_mirror |
 | `docs_release` | 123 | durable_high | content_verified_full_mirror |
 | `plans_audit_slice` | 15 | durable_high | content_verified_full_mirror |
 | `plans_checklist` | 191 | durable_medium | content_verified_full_mirror |
@@ -52,7 +52,7 @@ Artifact: `.agents/memory/KNOWLEDGE_RECONCILIATION_V2.json` — lệnh: `python3
 | `plans_rqm_run_artifacts` | 14 | ephemeral | content_verified_full_mirror |
 | `plans_rqm_run_docs` | 5 | durable_medium | content_verified_full_mirror |
 | `plans_supplement` | 36 | durable_medium | content_verified_full_mirror |
-| `plans_template` | 5 | structural | excluded_template |
+| `plans_template` | 6 | structural | excluded_template |
 | `repo_canonical` | 3 | durable_high | canonical_in_place |
 | `repo_config` | 2 | durable_high | canonical_in_place |
 | `skills_dot` | 16 | durable_medium | mirrored-full-verified |

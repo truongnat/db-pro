@@ -55,6 +55,9 @@ def sha256_text(text: str) -> str:
 
 def mirror_filename(rel: str) -> str:
     safe = rel.replace("/", "__")
+    # Avoid accidental double extension if source path already ends with .md
+    while safe.endswith(".md.md"):
+        safe = safe[: -len(".md")]
     return safe if safe.endswith(".md") else f"{safe}.md"
 
 

@@ -35,6 +35,10 @@ Status: NOT VERIFIED
 
 - ...
 
+## Artifact retention
+
+Evidence paths linked from this file must match `docs/ARTIFACT_POLICY.md`. Qualification runs: copy `docs/plans/_template/runs.gitignore`; invalidated runs need `ARTIFACT_RETENTION.md` + `RUN_INVALIDATION.md` § Retained evidence.
+
 ## Completion decision
 
 Do not mark COMPLETED until all applicable lifecycle gates are satisfied.
