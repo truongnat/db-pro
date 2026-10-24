@@ -10,9 +10,9 @@
 
 ## Retained evidence (do not delete)
 
-- `workers/**/attempt-1/result.claimed-pass-invalid.json` — original invalid PASS JSON
-- `workers/L2/LIF-01::.../evidence/launch.png`, `orca-app-state.json`
-- `artifacts/macos-arm64/*` — **engineering reference only**, not qualifying release artifact
+- `workers/**/attempt-1/result.claimed-pass-invalid.json` — original invalid PASS JSON (**tracked in git**)
+- `workers/L2/LIF-01::.../evidence/launch.png`, `orca-app-state.json` (**tracked in git**)
+- `artifacts/macos-arm64/*` — **engineering reference only**, not qualifying release artifact; tarball + `db-pro-native` **gitignored**; `README-INSTALL.txt` + `Info.plist` tracked as metadata
 
 ## Downgraded authoritative statuses (`result.json`)
 
@@ -25,3 +25,6 @@
 ## Next run (not started here)
 
 New `run_id` required after **`cargo +1.95.0 build --release -p db-pro-native --locked`** and repackage; record actual compiler string matching pin. See `runs/rqm-next-pin195/preflight.json`.
+
+
+[You have received this identical output 3 times. Re-reading 'docs/plans/active/release-qualification-matrix/runs/rqm-20261024T104824Z/coordinator/RUN_INVALIDATION.md:raw' will not change it — use a narrower selector (path:A-B), or proceed with the edit.]

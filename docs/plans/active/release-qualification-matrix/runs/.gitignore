@@ -1,5 +1,4 @@
-# Rebuild via RUNBOOK; keep coordinator manifests + invalidation notes only.
-**/artifacts/
-**/workers/
-**/expected-instances.json
-**/desktop-leases/
+# Regenerable macOS package outputs only. Invalidated-run retained evidence
+# (workers/**, coordinator/*) stays in git — RUN_INVALIDATION.md §11.
+**/artifacts/**/*.tar.gz
+**/artifacts/**/extracted/**/MacOS/db-pro-native

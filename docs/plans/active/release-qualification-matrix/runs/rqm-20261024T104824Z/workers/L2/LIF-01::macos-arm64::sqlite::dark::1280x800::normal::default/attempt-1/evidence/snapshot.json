@@ -1,0 +1,32 @@
+{
+  "focusedElementId": null,
+  "elementCount": 57,
+  "truncation": {
+    "truncated": false,
+    "maxDepth": 64,
+    "maxDepthReached": false,
+    "maxNodes": 1200
+  },
+  "app": {
+    "name": "DB Pro",
+    "bundleId": "com.dbpro.app",
+    "pid": 73927
+  },
+  "id": "47A3436C-C231-483D-B031-5C38D8993F90",
+  "treeText": "App=com.dbpro.app (pid 73927)\nWindow: \"DB Pro\", App: DB Pro.\n\n0 standard window DB Pro\n\t1 button Collapse Sidebar (\u2318B)\n\t2 button (disabled) Back\n\t3 button (disabled) Forward\n\t4 text \u2502\n\t5 text \ue226\n\t6 text Sample E-Commerce (SQ\u2026\n\t7 text SQLite\n\t8 button Command Palette\n\t9 button Open Component Gallery\n\t10 button Open Copilot Assistant\n\t11 button Switch to Dark Theme\n\t12 button Search commands, tables, schemas (\u2318P)\n\t13 text \ue226\n\t14 text Connected\n\t15 text Sample E-Commerce (SQLite)\n\t16 text SQLite\n\t17 text /tmp/db-pro-qual-rqm-20261024T104824Z/s\u2026\n\t18 text main\n\t19 text Schema loaded \u00b7 11 tables \u00b7 2 views \u00b7 1 triggers \u00b7 0 functions\n\t20 button Toggle output panel\n\t21 text UTF-8\n\t22 text Workspace\n\t23 button Database Navigator\n\t24 button SQL Scripts & Projects\n\t25 button Tools & Management Hub\n\t26 button AI Copilot (Agent)\n\t27 button Settings\n\t28 toggle button (settable) Welcome, Value: 1\n\t29 toggle button (settable) Query 1, Value: 0\n\t30 button New Query Tab (\u2318N)\n\t31 text \ue0ad\n\t32 text DB Pro\n\t33 text Explore databases, write SQL with AI Copilot, and inspect results.\n\t34 text PostgreSQL  \u00b7  SQLite  \u00b7  MySQL  \u00b7  SQL Server\n\t35 button New Connection \u2014 Connect to PostgreSQL, SQLite or remote database\n\t36 button New SQL Query \u2014 Open a blank scratchpad with auto-completion\n\t37 button AI Copilot Assistant \u2014 Generate queries, explain schema or review SQL\n\t38 button ER Diagram Canvas \u2014 Visualize schema tables and relationships\n\t39 button Sample E-Commerce (SQLite) \u2014 Command Palette (\u2318\u21e7P)\n\t40 button New Connection (\u2318N)\n\t41 button New Query\n\t42 text \ue151\n\t43 text field (settable) Filter objects\u2026\n\t44 button Object filter options\n\t45 button Refresh active schema\n\t46 text CONNECTIONS\n\t47 toggle button (settable) Sample E-Commerce (SQLite), Value: 1\n\t48 toggle button (settable) /tmp/db-pro-qual-rqm-20261024T104824Z/sample-ecommerce.sqlite, Value: 0\n\t49 toggle button (settable) main, Value: 0\n\t50 toggle button (settable) Tables, Value: 0\n\t51 toggle button (settable) Views, Value: 0\n\t52 toggle button (settable) Triggers, Value: 0\n\t53 close button\n\t54 full screen button, Secondary Actions: zoom the window\n\t55 minimize button\n\t56 text DB Pro\n\nNo UI element is currently focused.",
+  "window": {
+    "screenIndex": 0,
+    "width": 1440,
+    "x": 0,
+    "height": 870,
+    "isMinimized": false,
+    "platform": {
+      "layer": 0
+    },
+    "id": 103545,
+    "title": "DB Pro",
+    "isOffscreen": false,
+    "y": 30
+  },
+  "coordinateSpace": "window"
+}

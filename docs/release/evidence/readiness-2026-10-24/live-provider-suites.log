@@ -1,0 +1,188 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling log v0.4.34
+   Compiling hashbrown v0.17.1
+   Compiling tracing-core v0.1.36
+   Compiling form_urlencoded v1.2.2
+   Compiling bitflags v2.13.1
+   Compiling base64 v0.22.1
+   Compiling simd-adler32 v0.3.10
+   Compiling futures-channel v0.3.33
+   Compiling ahash v0.8.12
+   Compiling miniz_oxide v0.8.9
+   Compiling zopfli v0.8.3
+   Compiling security-framework v2.11.1
+   Compiling indexmap v2.14.0
+   Compiling rustls v0.21.12
+   Compiling regex-syntax v0.8.11
+   Compiling flate2 v1.1.9
+   Compiling security-framework v3.7.0
+   Compiling quote v1.0.47
+   Compiling syn v3.0.3
+   Compiling syn v2.0.119
+   Compiling rustls-native-certs v0.6.3
+   Compiling regex-automata v0.4.18
+   Compiling keyring v3.6.3
+   Compiling regex v1.13.1
+   Compiling serde_derive v1.0.229
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.19
+   Compiling tokio-macros v2.7.2
+   Compiling async-trait v0.1.92
+   Compiling synstructure v0.13.2
+   Compiling thiserror v2.0.19
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling zerocopy-derive v0.8.55
+   Compiling tracing-attributes v0.1.31
+   Compiling futures-macro v0.3.33
+   Compiling zip v2.4.2
+   Compiling futures-util v0.3.33
+   Compiling enumflags2_derive v0.7.12
+   Compiling thiserror-impl v1.0.69
+   Compiling zerofrom v0.1.8
+   Compiling tracing v0.1.44
+   Compiling zerocopy v0.8.55
+   Compiling serde v1.0.229
+   Compiling yoke v0.8.3
+   Compiling enumflags2 v0.7.12
+   Compiling thiserror v1.0.69
+   Compiling rust_xlsxwriter v0.80.0
+   Compiling asynchronous-codec v0.6.2
+   Compiling mockall_derive v0.13.1
+   Compiling smallvec v1.16.3
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling parking_lot_core v0.9.12
+   Compiling parking_lot v0.12.5
+   Compiling either v1.17.0
+   Compiling tokio v1.53.1
+   Compiling ipnetwork v0.20.0
+   Compiling futures-intrusive v0.5.0
+   Compiling chrono v0.4.45
+   Compiling num-bigint-dig v0.8.6
+   Compiling tinystr v0.8.3
+   Compiling icu_locale_core v2.2.0
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling rsa v0.9.10
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+   Compiling half v2.7.1
+   Compiling rand v0.8.7
+   Compiling hashbrown v0.14.5
+   Compiling icu_provider v2.2.0
+   Compiling ciborium-ll v0.2.2
+   Compiling itertools v0.10.5
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling hashlink v0.9.1
+   Compiling ciborium v0.2.2
+   Compiling rayon v1.12.0
+   Compiling rusqlite v0.32.1
+   Compiling tinytemplate v1.2.1
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling criterion-plot v0.5.0
+   Compiling url v2.5.8
+   Compiling mockall v0.13.1
+   Compiling sqlx-core v0.8.6
+   Compiling criterion v0.5.1
+   Compiling tokio-stream v0.1.19
+   Compiling tokio-util v0.7.19
+   Compiling tokio-rustls v0.24.1
+   Compiling db-pro-core v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/core)
+   Compiling tiberius v0.12.3
+   Compiling sqlx-postgres v0.8.6
+   Compiling sqlx-mysql v0.8.6
+   Compiling sqlx-macros-core v0.8.6
+   Compiling sqlx-macros v0.8.6
+   Compiling sqlx v0.8.6
+   Compiling db-pro-infrastructure v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/infrastructure)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 49.23s
+     Running tests/pg_integration.rs (target-build/debug/deps/pg_integration-1f19995fc9d19db8)
+
+running 40 tests
+test dbpro252_typed_routine_execution_binds_parameters_and_surfaces_plpgsql_trace ... ok
+test pg_autocommit_run_resolves_unqualified_tables_in_active_query_schema ... ok
+test pg_autocommit_timeout_discards_the_schema_scoped_connection ... ok
+test pg_composite_fk_detail ... ok
+test pg_connector_alone_reports_rolled_back_for_a_batch_that_committed ... ok
+test pg_date_cell_filter_binds_as_date ... ok
+test pg_decoder_matrix_covers_every_value_class ... ok
+test pg_enum_and_domain_values_decode_to_canonical_values ... ok
+test pg_execute_batch_failure_rolls_back_prior_mutation ... ok
+test pg_execute_batch_timeout_rolls_back_prior_mutation ... ok
+test pg_index_lifecycle ... ok
+test pg_introspect_foreign_keys ... ok
+test pg_introspect_indexes ... ok
+test pg_introspect_tables ... ok
+test pg_introspect_triggers ... ok
+test pg_introspect_views ... ok
+test pg_introspection_survives_concurrent_index_churn ... ok
+test pg_multi_statement_batch_with_commit_is_refused_and_writes_nothing ... ok
+test pg_multi_statement_batch_without_transaction_control_still_rolls_back ... ok
+test pg_parameterized_transaction_failure_rolls_back_replace_delete ... ok
+test pg_parameterized_transaction_respects_active_query_schema ... ok
+test pg_query_categories ... ok
+test pg_query_decodes_native_temporal_and_network_values ... ok
+test pg_query_decodes_structured_and_binary_value_classes ... ok
+test pg_query_preserves_numeric_and_enum_values ... ok
+test pg_routine_debug_probe_reports_extension_absent_cleanly ... ok
+test pg_special_identifiers ... ok
+test pg_temporal_classes_decode_to_canonical_strings ... ok
+test pg_timestamp_without_time_zone_keeps_wall_clock_value ... ok
+test pg_transaction_commit_failure_reports_unknown_outcome ... ok
+test pg_transaction_failure_rolls_back_prior_mutation ... ok
+test pg_transaction_run_resolves_unqualified_tables_in_active_query_schema ... ok
+test pg_transaction_timeout_rolls_back_prior_mutation ... ok
+test pg_typed_query_cap_returns_before_slow_tail_without_schema_override ... ok
+test pg_typed_query_integer_composite_pk_via_table_data_service ... ok
+test pg_typed_query_keeps_metadata_at_streaming_row_limits ... ok
+test pg_typed_query_null_parameters_preserve_contextual_inference ... ok
+test pg_typed_query_uncast_parameter_preserves_bigint_precision_and_empty_metadata ... ok
+test pg_typed_temporal_and_network_parameters_bind_without_casts ... ok
+test pg_unsupported_binary_classes_stay_exact_and_keep_the_row_readable ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.72s
+
+   Compiling db-pro-infrastructure v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/infrastructure)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.64s
+     Running tests/mysql_integration.rs (target-build/debug/deps/mysql_integration-f28f603d36a67da2)
+
+running 12 tests
+test mysql_connects_and_executes_query ... ok
+test mysql_cross_database_foreign_key_ddl_round_trips ... ok
+test mysql_execute_returns_affected_rows ... ok
+test mysql_explain_returns_json ... ok
+test mysql_introspect_returns_canonical_model ... ok
+test mysql_introspects_named_check_constraints ... ok
+test mysql_positional_parameters_bind_and_round_trip ... ok
+test mysql_reserved_fields_preserve_authenticated_user_and_database ... skipping #452 MySQL regression: DB_PRO_MYSQL_452_HOST is not set
+ok
+test mysql_reserved_fields_still_reject_wrong_password ... skipping #452 MySQL regression: DB_PRO_MYSQL_452_HOST is not set
+ok
+test mysql_strict_ssl_modes_reject_a_server_without_tls ... skipping #452 MySQL regression: DB_PRO_MYSQL_452_HOST is not set
+ok
+test mysql_table_data_change_set_round_trips ... ok
+test mysql_transaction_rolls_back_on_failure ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+
+   Compiling db-pro-infrastructure v0.1.0 (/Users/truongdq/tx/GitHub/db-pro/crates/infrastructure)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.25s
+     Running tests/sqlserver_integration.rs (target-build/debug/deps/sqlserver_integration-1676166f4697b9f1)
+
+running 9 tests
+test sqlserver_cancel_kills_running_query_via_out_of_band_spid ... ok
+test sqlserver_cancel_on_idle_session_keeps_the_connection ... ok
+test sqlserver_connects_and_queries ... ok
+test sqlserver_foreign_key_actions_round_trip_through_schema_service ... ok
+test sqlserver_introspects_catalog ... ok
+test sqlserver_preserves_parameterized_decimal_and_bigint ... ok
+test sqlserver_query_timeout_is_enforced_and_recovers_the_session ... ok
+test sqlserver_showplan_text_explain_returns_a_plan_row ... ok
+test sqlserver_transaction_rolls_back_on_failure ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.03s
+

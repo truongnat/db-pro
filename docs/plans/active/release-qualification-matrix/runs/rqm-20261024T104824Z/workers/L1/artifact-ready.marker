@@ -1,0 +1,8 @@
+{
+  "invalidated": true,
+  "invalidated_reason": "Built with rustc 1.99.0; does not satisfy pin 1.95.0 — not for release qualification",
+  "app_path": "docs/plans/active/release-qualification-matrix/runs/rqm-20261024T104824Z/artifacts/macos-arm64/extracted/DB Pro.app",
+  "binary_sha256": "60e3192dfafe2406de5666ad10ae0e20aa6184e1bc0ec87e2374d267c87a5ade",
+  "archive_sha256": "ad731c2b9227de433e3aff70f67bf68f587873b58f9bbd0c8ed62b1c60c41b78",
+  "version": "0.1.0"
+}
