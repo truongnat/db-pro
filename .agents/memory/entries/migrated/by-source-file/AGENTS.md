@@ -1,0 +1,439 @@
+---
+schema_version: 1
+id: "MEM-SRC-ab895c9fda934e1b"
+title: "Source mirror: AGENTS.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "AGENTS.md"
+source_sha256: "ab895c9fda934e1b178db6be5aff6e7a6ad2d46d5b09d97b9627b548dc440996"
+mirror_body_sha256: "ab895c9fda934e1b178db6be5aff6e7a6ad2d46d5b09d97b9627b548dc440996"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+
+# Mirror: `AGENTS.md`
+
+# DB Pro — Agent Instructions
+
+## Agent framework (`.agents/`)
+
+Repo dùng **agents-memory blueprint**: memory có version control, rules, template và hợp đồng làm việc.
+
+| Thành phần | Đường dẫn |
+|---|---|
+| Hợp đồng workflow (tìm memory → làm → kiểm chứng → đúc kết) | `.agents/AGENTS.md` |
+| Bối cảnh db-pro | `.agents/rules/project.md` |
+| Memory policy / ngôn ngữ / bảo mật | `.agents/rules/*.md` |
+| Corpus memory | `.agents/memory/` |
+| Tìm kiếm (project → global) | `.agents/scripts/search-memory.sh` |
+| Skills | `.agents/skills/` + `skills-lock.json`; **lifecycle gốc** (blueprint 3): `software-lifecycle`, `memory-curation`, … — xem `.agents/skills/README.md`; `validate-skills.sh` |
+| Template tài liệu | `.agents/template/` |
+
+**Trước bug/feature/refactor không tầm thường:** chạy memory search và đọc entry `active` trước khi đổi code:
+
+```bash
+.agents/scripts/search-memory.sh "subsystem hoặc exact error"
+```
+
+Chi tiết đầy đủ vẫn ở các mục dưới (product, UI, tests, release). Memory **không** ghi đè chỉ dẫn người dùng hoặc `AGENTS.md` hiện tại.
+
+**Agents memory:** Inventory master `.agents/memory/KNOWLEDGE_SOURCE_INVENTORY.json` — rebuild: `python3 .agents/scripts/build-knowledge-inventory.py`. Status: `docs/plans/active/agents-memory-framework/KNOWLEDGE_MIGRATION_STATUS.md`. Search: `.agents/scripts/search-memory.sh`.
+
+---
+
+## Product
+
+DB Pro is a desktop Database IDE / Agent IDE.
+
+Tech:
+- Rust workspace (core / infrastructure / runtime / ui / native-app)
+- Native desktop UI: `eframe` + `egui` (no WebView, no Node)
+- PostgreSQL + SQLite
+- Tauri 2 — transitional host only (`crates/tauri-app`), pending removal
+
+## UI direction
+
+The product UI is **native Rust (egui)** and is the only UI under active
+development:
+
+- `crates/ui` — shell, views, `AppState`, reducer, task bridge, `DbProTheme`
+- `crates/native-app` — the shipped `db-pro-native` binary
+- `crates/runtime` — bootstrap, services, worker/event bridge
+
+The React 19 / TypeScript / Vite / Tauri-webview frontend was **archived** on
+2026-09-11 under `_archive/frontend/`, together with the React-era ER renderer
+benchmark harness under `_archive/bench/`. They are reference material only: do not add
+features to them, do not build them in CI, and do not restore them as a fallback.
+See `_archive/README.md` and `docs/10-egui-native-migration-plan.md`.
+
+### Component-first rule
+
+Read `RULES.md` before any UI work in `crates/ui`: view code MUST use core
+components (`crates/ui/src/components/*`), never raw egui widgets
+(`ui.checkbox`, `egui::ScrollArea`, `egui::ComboBox`, `ui.text_edit_*`, …).
+Theme colors come only from `DbProTheme`/tokens. Exemptions require an inline
+`// ui-rules:` comment; `scripts/check-ui-architecture.sh` enforces the rule.
+
+
+## Canonical feature lifecycle
+
+Read `docs/plans/FEATURE_LIFECYCLE.md` before non-trivial work.
+
+Allowed states:
+
+```text
+BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED
+```
+
+`BLOCKED` is allowed when an external dependency prevents progress.
+
+Never mark a feature `COMPLETED` when runtime/provider evidence is still pending.
+Never leave a `RUNTIME_VERIFY` feature under `docs/plans/completed/`.
+
+## Working model
+
+Never implement a non-trivial feature directly on main.
+
+### User workflow override (2026-09-30)
+
+The repository owner explicitly requires this workspace to be edited directly
+on `main`. Do not create or use a Git worktree for future tasks. Keep changes
+on `main`; when the owner asks to merge, the target is the local `main` branch.
+
+For every feature:
+
+1. Read:
+   - `docs/plans/STATUS.md`
+   - `docs/plans/FEATURE_LIFECYCLE.md`
+   - relevant `docs/plans/active/<feature>/*`
+   - architecture documentation
+
+2. Create or work on:
+   - `feature/<feature-slug>` for product work
+   - `fix/<feature-slug>` for focused correctness/security fixes
+
+3. Maintain exactly one plan directory:
+
+```text
+docs/plans/active/<feature>/
+  PLAN.md
+  CHECKLIST.md
+  FINDINGS.md
+  VERIFICATION.md
+```
+
+4. Implement in coherent commits.
+5. Do not silently expand scope.
+6. Before publishing a PR:
+   - self-review architecture
+   - review correctness/security
+   - review test coverage
+   - record remaining P0/P1/P2
+7. Move the plan to `docs/plans/completed/` only in the change that actually satisfies all completion gates.
+
+## Analyst-first policy
+
+For autonomous or scheduled work, never start coding immediately after identifying a suspicious pattern.
+
+First establish:
+
+1. Evidence — concrete code path, invariant, or failing test
+2. Failure scenario — how the behavior fails in a realistic case
+3. Severity — P0/P1/P2 with justification
+4. Scope — smallest coherent fix
+5. Existing coverage — whether another active PR already addresses it
+6. Provider impact — PostgreSQL and SQLite independently
+7. Runtime testability — what evidence can actually be collected
+
+A suspicious code pattern is not automatically a bug.
+Prefer proving one important defect over fixing five speculative issues.
+One autonomous analysis run should produce at most one focused PR.
+
+## Severity
+
+P0:
+- catastrophic data loss
+- security-critical issue
+- application unusable
+
+P1:
+- data corruption
+- wrong database mutation
+- unsafe SQL
+- broken transaction semantics
+- stale state causing incorrect behavior
+- provider-specific correctness failure
+- major user flow broken
+
+P2:
+- non-blocking UX
+- maintainability
+- missing edge-case coverage
+- polish
+
+A PR must not be marked ready with P0/P1 open.
+
+## Database safety
+
+Never:
+- concatenate untrusted SQL identifiers
+- concatenate untrusted SQL literals
+- bypass safety policy
+- bypass confirmation policy
+- claim atomicity without a transaction
+- treat affectedRows=0 as mutation success
+- silently coerce precision-sensitive values
+- infer one provider's runtime behavior from another provider's tests
+
+All provider-specific behavior must respect explicit capabilities.
+Unsupported operations must be capability-gated with a clear reason instead of emitting unsupported SQL.
+
+## Native UI quality gates
+
+There is no Node, pnpm, TypeScript, Tailwind, or web build in this repository
+anymore. The archived React frontend (`_archive/frontend/`) and the archived
+React-era benchmark harness (`_archive/bench/`) are not built, linted, or tested.
+UI work must additionally pass:
+
+```bash
+cargo build --release --locked -p db-pro-native
+```
+
+Design tokens are owned by `DbProTheme` in `crates/ui/src/theme.rs` and mapped to
+`egui::Visuals`. Widgets must read semantic tokens from the theme instead of
+hard-coding colors, and a token must not be duplicated across views.
+
+When reshaping a surface, read the project UI skills first:
+
+- `.cursor/skills/frontend-design/SKILL.md` — layout, type, and a point of view that is specific to a database IDE
+- `.cursor/skills/theme-factory/SKILL.md` — palette and type pairings when a new theme is requested
+
+Those skills do not override `DbProTheme`. Map any chosen colors through theme tokens.
+
+### Mandatory UI Skill Usage & Self-Verification Rule (2026-10-10)
+
+Whenever designing, modifying, or refactoring any UI component, view, layout, or theme:
+
+1. **MUST Invoke and Apply UI Skills**:
+   - `frontend-ui-engineering` / `.cursor/skills/frontend-design/SKILL.md`: layout structure, breathing whitespace, visual hierarchy, typography scale.
+   - `theme-factory` / `.cursor/skills/theme-factory/SKILL.md`: semantic color roles, contrast ratios, and theme mapping.
+   - `ui-design-review` / `ui-product-reviewer`: aesthetic critique, clutter elimination, removal of harsh separator lines.
+
+2. **MUST Self-Verify with Runtime Visual Evidence Before Reporting**:
+   - After completing UI code changes, the agent **MUST automatically capture runtime screenshots** (using the deterministic `--features capture` engine: `DB_PRO_CAPTURE_TO=/tmp/screen.png DB_PRO_WINDOW_SIZE=1280x800 ./target/debug/db-pro-native`) or launch the app and inspect rendered visual surfaces with the `read` image tool.
+   - Verify both **Light Mode** and **Dark Mode**, including active/hover/empty states.
+   - **STRICT RULE**: NEVER report to the user as "Done" or ask for review before visually verifying the rendered output yourself. Only report after self-verification proves the UI is clean, well-aligned, and visually defect-free.
+
+UI changes require runtime evidence (screenshot or short screen recording) of the
+affected surface at 1280×800, 1440×900 and 1920×1080, in normal plus
+loading/error/empty states. The visual acceptance gate is defined in
+`docs/10-egui-native-migration-plan.md`.
+
+## Test file layout
+
+Tests never live in the same file as the code under test — no inline
+`#[cfg(test)] mod tests { … }` blocks.
+
+Every `#[cfg(test)] mod …` is declared with `#[path]` pointing into a `tests/`
+folder that sits next to the source it covers:
+
+```rust
+#[cfg(test)]
+#[path = "tests/table_fk_lookup_tests.rs"]
+mod tests;
+```
+
+```text
+crates/app/src/table/
+  table_fk_lookup.rs
+  tests/
+    table_fk_lookup_tests.rs   # `<stem>_tests.rs`, one file per source file
+```
+
+Rules:
+
+- New source file → its unit tests go to `tests/<stem>_tests.rs` beside it.
+- Name the test file after the source stem; keep `use super::*;` inside the
+  test file so private items stay reachable (`#[path]` preserves the module
+  hierarchy).
+- `include_str!` / `include_bytes!` paths inside a moved test are relative to
+  the test file itself — fix them when adding or relocating a test.
+- Integration-level `crates/*/tests/` dirs (cargo's own convention) are
+  unaffected; this rule covers unit tests inside `src/`.
+
+## Module visibility (`crates/ui`)
+
+`crates/ui/src/lib.rs` declares the crate's public API with **named**
+`pub use` re-exports. The file is the API contract: an item only becomes
+`db_pro_ui::X` when it is listed there.
+
+Rules:
+
+- Default to `pub(crate)` (or `pub(super)` for sibling-only use) inside feature
+  modules. Reach for plain `pub` only when the item is meant for the crate API
+  (`DbProApp`, `DbProTheme`, `Ui*` protocol types, `TaskBridge`, `UiLanguage`,
+  component/widget surface, bench-pinned helpers like `GridSelectionLookup`).
+- Never mark something `pub` just to satisfy a cross-module import; use the
+  narrowest visibility that compiles.
+- Adding a new public item: re-export it from the feature module's `mod.rs`,
+  then add it to the named `pub use` list in `lib.rs`. Do not use
+  `pub use x::*` in `lib.rs` — glob exports turn incidental `pub` items into
+  unreviewed public API.
+
+
+## Rust quality gates
+
+```bash
+cargo +nightly fmt --all -- --check
+cargo check --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+Do not claim a command passed unless it was actually executed.
+
+## Build layout
+
+Intermediate artifacts (deps/, incremental/, build/) go to `target-build/` via
+`.cargo/config.toml` `build.build-dir`; `target/` only holds final binaries
+(db-pro-native, test executables). To reclaim disk: `rm -rf target-build`
+keeps binaries, `cargo clean` wipes both. Dev profile uses
+`debug = "line-tables-only"` + `incremental = false` — override with
+`CARGO_PROFILE_DEV_DEBUG=2` for lldb sessions.
+
+## Performance audit
+
+Use the `perf-audit` skill when:
+- Working on performance-sensitive features (ER diagrams, query execution, large schemas, data grid)
+- Before publishing a PR that touches rendering, bundling, or backend hot paths
+- Investigating performance regressions or user-reported slowness
+- Adding new dependencies or large modules
+
+Quick check before PR:
+
+```bash
+bash .skills/perf-audit/scripts/perf-scan.sh
+```
+
+Performance budgets are enforced in:
+- `crates/ui/benches/result_grid_benchmarks.rs`
+- `crates/infrastructure/benches/sqlite_benchmarks.rs`
+- `docs/architecture/performance-baseline.md`
+
+Never claim performance improved without measurement evidence.
+
+## Clean code
+
+Use the `clean-code` skill when:
+- Reviewing or self-reviewing a PR for readability / maintainability
+- Refactoring, renaming, or splitting large functions, components, or files
+- Adding a new module, service, provider adapter, runtime command, or egui view
+- Fixing error handling (no swallowed errors, no `unwrap()` on data paths)
+
+Quick check before PR (only files changed vs `main`):
+
+```bash
+bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci
+```
+
+`--ratchet` keeps pre-existing function/file-size debt as warnings while new debug output, swallowed
+errors, unsafe code and boundary violations remain blocking failures. Warnings still require review or
+follow-up; the ratchet is not an exclusion mechanism.
+
+Canonical module scanner (vendored from `truongnat/clean-code-skills`, see `clean-code.config.json`
+for the project's rule calibration and `tools/` exclusion):
+
+```bash
+python3 tools/cc-scan.py . --fail-on error     # gate: fails only on NEW findings
+python3 tools/cc-scan.py . --no-baseline       # raw report, all findings (legacy state)
+python3 tools/cc-scan.py <changed paths>       # scope a review to a feature
+```
+
+`.clean-code-baseline.json` freezes the legacy findings; regenerate it only when deliberately
+paying debt down, never to hide a new violation. `tools/arch-scan.py` is vendored for
+completeness but does not parse Rust `use` — crate layering is verified via `Cargo.toml`
+dependencies (`ui → core`, `runtime → infrastructure → core`).
+
+Standards and Sai/Đúng examples live in `.skills/clean-code/references/` (naming, functions, comments,
+formatting, objects-and-data, error-handling, design-principles, code-health, review-checklist).
+
+Never claim code is cleaner without naming the smell that was removed.
+
+## PR workflow
+
+Publish a PR instead of pushing a non-trivial feature directly to main.
+
+PR must reference:
+- PLAN.md
+- CHECKLIST.md
+- VERIFICATION.md
+
+Report:
+- commits
+- files changed
+- tests actually executed
+- runtime evidence actually collected
+- P0/P1/P2
+- known limitations
+
+## Agent evidence contract
+
+Every coding, research, audit and review agent hands off through the canonical template:
+
+```text
+docs/plans/_template/AGENT_EVIDENCE.md
+```
+
+Rules that apply to every handoff (the template's §1-§6 are the authoritative list):
+
+- Fill the sections that apply to the task's lane; never delete a section header — write `n/a`.
+- An exact SHA is mandatory wherever source behaviour is asserted. Line anchors without a SHA are
+  not evidence.
+- A skipped or failed gate is reported as skipped/failed; "passed" for a command that was not run is
+  a contract violation.
+- Review outcomes separate inherited baseline failures from regressions introduced by the reviewed
+  SHA, and record the verdict (`ACCEPT` / `BLOCK` / `ACCEPT WITH P2`) plus P0/P1/P2 counts.
+- Task states are normalized (`Todo / Ready / In Progress / Review / Blocked / Done / Deferred`) and
+  PR states too (`Draft / Ready / Merged`).
+- Every implementation/review handoff ends with a short Vietnamese summary
+  (`Tổng kết bằng tiếng Việt`, per #113).
+- The template contains one filled coding example and one filled research/audit example; use them as
+  the shape reference, not as boilerplate to copy verbatim.
+
+## Runtime verification
+
+Source inspection alone is not runtime evidence.
+
+For database features verify when applicable:
+
+```text
+UI (egui)
+→ UiCommand
+→ runtime worker
+→ backend service
+→ database
+→ introspection
+→ UiEvent
+→ refreshed UI state
+```
+
+Every database-facing feature must independently account for PostgreSQL and SQLite as supported, unsupported, or pending.
+
+## Review infrastructure
+
+The repository intentionally uses a read-only VPS/Kilo reviewer.
+Do not delete these as cleanup unless the task explicitly replaces the review system:
+
+- `REVIEW.md`
+- `.kilo/`
+- `.github/review-prompts/`
+- `.github/workflows/vps-pr-review.yml`
+
+The implementer must not treat its own self-review as independent approval. P0/P1 findings from external reviewers must be resolved, rejected, or downgraded with evidence before merge.

@@ -1,0 +1,41 @@
+---
+schema_version: 1
+id: "MEM-SRC-dddeb268a62370d2"
+title: "Source mirror: docs/plans/active/query-editor-large-schema-audit/evidence/manifest.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/query-editor-large-schema-audit/evidence/manifest.json"
+source_sha256: "dddeb268a62370d2febe1c065437c91673f5ad5a01eff440ca1b7f419bba0f56"
+mirror_body_sha256: "c4e54620f2e9a2fc3da3259b90fd06de61d0179b7e00fac2c119c0686b46e28c"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+{
+  "head": "3dd988e2ff06ac71942c7ec331acf66389d3c5cb",
+  "source_files": {
+    "crates/ui/src/query/schema_completion.rs": "a5a245be1473ea7e8e7e4572484debcf2091a0028390542a0acc7ff142d7b0c9",
+    "crates/ui/src/query/intelligence.rs": "22dd0f10f886197a540e8c1d712684fb5936d3419e81d6d675a2dd61c228cd00",
+    "crates/ui/src/query_completion_popup_view.rs": "da67224274e8a7d52dafc1f678c888b7ebf0f24ca152698238301500f9371159",
+    "crates/ui/src/query_view.rs": "a9a087bdb724a5205308e7e6c980a8b23d93e1f21bd9a733cd8a964f08c8723c",
+    "crates/ui/src/schema_events.rs": "63cf725dbac5e2a234a0390cb28b4ab8ff379091fb93bfe62ede96f35f68fd29",
+    "crates/runtime/src/api.rs": "c63a7f93abc6198d67ce299fba990a3aa8d038c5c5530474b894adb56aee6809",
+    "crates/infrastructure/src/postgres/introspect.rs": "f1f89556b43ec60b591884572425c40410de1c908aaf2acdcc78efe839049907"
+  },
+  "audited_paths_equal_head": true,
+  "rlib_path": "target/release/deps/libdb_pro_ui-7326ac596a1796d3.rlib",
+  "rlib_sha256": "56bc702a50650976d763527201d42933ead3996e6e4f606b36049754c1989846",
+  "probe_sha256": "efa4022b3e377f60dbe1f0874b10731be1843244e9b9a1c698c808d7248b4e1f",
+  "probe_binary_sha256": "4248e597aa7359df258f300eccfea5b80f31ed1712d4103f278a021a13fd639b",
+  "measurements_sha256": "b36567e5736e14764bb4746361328bc9553183dcb7dc8ca79c66f5ac1de816a2",
+  "notes": "probe linked to existing optimized library; audited implementation paths verified unchanged from exact HEAD; other dirty checkout changes preserved"
+}
+
+```

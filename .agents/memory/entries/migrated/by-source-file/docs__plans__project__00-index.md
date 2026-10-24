@@ -1,0 +1,114 @@
+---
+schema_version: 1
+id: "MEM-SRC-1f6acf3adfcd693e"
+title: "Source mirror: docs/plans/project/00-index.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/project/00-index.md"
+source_sha256: "1f6acf3adfcd693e7ac9f3ae708f8ea0610c375b85a910b99fb7789999d9f666"
+mirror_body_sha256: "1f6acf3adfcd693e7ac9f3ae708f8ea0610c375b85a910b99fb7789999d9f666"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# DB Pro — Plans Index
+
+**Status updated:** 2026-08-09 (amended 2026-09-11)  
+**Current status authority:** [`07-current-status.md`](07-current-status.md)
+
+> **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite frontend was
+> archived under `_archive/frontend/` and the UI is now native `eframe`/`egui`
+> (`crates/ui` + `crates/native-app`). Any plan row below that refers to React, TS, Vite,
+> Monaco, TanStack, shadcn, or "FE" describes the retired presentation layer and is
+> **historical reference only**. Current UI work is tracked in
+> `docs/10-egui-native-migration-plan.md` and `docs/plans/STATUS.md`.
+
+---
+
+## Plan Files
+
+| # | File | Description | Status role |
+|---|---|---|---|
+| 00 | `00-index.md` | Index and phase overview | CURRENT |
+| 01 | `01-overview.md` | Master product/release plan | CURRENT |
+| 02 | `02-backend-tasks.md` | Detailed Rust backend task definitions | HISTORICAL / REFERENCE |
+| 03 | `03-frontend-tasks.md` | Detailed React/TS frontend task definitions (**archived UI**) | HISTORICAL / REFERENCE |
+| 04 | `04-testing-tasks.md` | Testing strategy/task definitions | HISTORICAL / REFERENCE |
+| 05 | `05-cicd-tasks.md` | CI/CD/build/release task definitions | HISTORICAL / REFERENCE |
+| 06 | `06-database-tasks.md` | Database/connector/meta-store task definitions | HISTORICAL / REFERENCE |
+| 07 | `07-current-status.md` | Authoritative live implementation + release status | CURRENT / AUTHORITATIVE |
+
+> The detailed `02–06` files were created before several architecture and release-scope changes. Their unchecked rows are **not** a reliable measure of current completion. Use `07-current-status.md` for live status and keep `02–06` as implementation history/backlog reference.
+
+---
+
+## Current Phase Status
+
+| Phase | Name | Status | Notes |
+|---|---|---|---|
+| 0 | Scaffolding | DONE | Rust/Tauri/frontend workspace established |
+| 1 | Core Domain + Ports | DONE | Domain types and ports implemented |
+| 2 | Infrastructure Adapters | DONE | PostgreSQL, SQLite, secrets, metadata implemented |
+| 3 | Application Services | DONE | Connection/query/schema/export/data services implemented |
+| 4 | Tauri Commands | DONE | Frontend/backend command boundary implemented |
+| 5 | FE Scaffolding | HISTORICAL | React/Vite/TanStack/shadcn shell implemented — frontend archived 2026-09-11 |
+| 6 | FE Core Utilities | HISTORICAL | DI, stores, errors, i18n, Action Platform foundation — superseded by native UI |
+| 7 | Connection Module | DONE | 0.1.0 source scope implemented |
+| 8 | Query Module | DONE | 0.1.0 source scope implemented |
+| 9 | Schema Module | DONE | DB Object inspection/workbench implemented |
+| 10 | DataGrid Module | DONE / PARTIAL historical | Read/update/delete release scope done; insert deferred |
+| 11 | Export Module | DONE (release subset) | Runtime smoke still required |
+| 12 | Advanced Features | PARTIAL / DEFERRED | Not required in full for 0.1.0 |
+| 13 | Testing | BLOCKED | Current release SHA still needs a fully green suite |
+| 14 | CI/CD + Packaging | BLOCKED | Workflow exists; release matrix/artifacts not yet proven |
+
+---
+
+## Release Train Status
+
+| Track | Status |
+|---|---|
+| Action Platform 6.1 | CLOSED |
+| Action Platform 6.2 | CLOSED |
+| Action Platform 6.3 | CLOSED |
+| Wave A — interaction consistency | CLOSED in source |
+| Wave B — core usability/data safety | Source mostly closed; verification pending |
+| Wave C / new productivity features | HOLD until 0.1.0 release gates close |
+| MCP / Agent execution | POST-0.1 |
+
+---
+
+## Quick Reference — Original Task Ranges
+
+| Area | Tasks |
+|---|---|
+| Backend (Rust) | B-001 to B-105 |
+| Frontend (React/TS, archived) | F-001 to F-150 |
+| Database Layer | D-001 to D-107 |
+| Testing | T-001 to T-078 |
+| CI/CD | C-001 to C-060 |
+
+## Reference Documents
+
+| Doc | Path |
+|---|---|
+| Current Status | `docs/plans/project/07-current-status.md` |
+| Release Readiness | `docs/release/0.1.0-readiness.md` |
+| Release Checklist | `docs/release/0.1.0-release-checklist.md` |
+| Verification | `docs/release/0.1.0-verification.md` |
+| Manual Smoke | `docs/release/0.1.0-manual-smoke.md` |
+| Features | `docs/01-features.md` |
+| Rules | `docs/02-rules.md` |
+| Types | `docs/03-types.md` |
+| System Design | `docs/04-system-design.md` |
+| BE Architecture | `docs/05-be-architecture.md` |
+| DB Architecture | `docs/06-db-architecture.md` |
+| FE Architecture | `docs/architecture/07-fe-architecture.md` |
+| Technology Decisions | `docs/architecture/08-technology-decisions.md` |
+| Architecture Decisions | `docs/architecture/09-architecture-decisions.md` |

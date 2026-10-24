@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "reconciled_at_utc": "2026-10-24T13:52:08Z",
+  "by_status": {
+    "excluded_approved": 20,
+    "mirrored_full_verified": 1561
+  },
+  "unresolved_count": 0,
+  "unresolved_sample": [],
+  "scope_complete": true,
+  "pass_criteria": "Every repo source mirrored_full_verified OR excluded_approved/skipped_template/canonical_in_place/inventory_artifact/v1 excerpt verified. Truncated mirrors (legacy cap) are mirror_truncated_not_allowed and fail scope."
+}

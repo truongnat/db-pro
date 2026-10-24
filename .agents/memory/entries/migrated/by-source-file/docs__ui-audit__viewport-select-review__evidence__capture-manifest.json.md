@@ -1,0 +1,252 @@
+---
+schema_version: 1
+id: "MEM-SRC-3d76256149c59cc0"
+title: "Source mirror: docs/ui-audit/viewport-select-review/evidence/capture-manifest.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/ui-audit/viewport-select-review/evidence/capture-manifest.json"
+source_sha256: "3d76256149c59cc0bd65e6d5b3d6b7ae7eb73c42920707c753dbe14d8970f6d6"
+mirror_body_sha256: "2e1f31821f68229c0282bd2542347d4ed13af42a997001a53c73df2fb676bedf"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+{
+  "source_sha": "9b50e7a27b4d92de5b126e6ecaf3a518448ad97b",
+  "captured_at": "2026-10-23T07:07:17.775617+07:00",
+  "matrix": [
+    {
+      "name": "connection-light-1280x800",
+      "requested_viewport": "1280x800",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2560,
+        1600
+      ],
+      "logical_rendered_viewport": [
+        1280.0,
+        800.0
+      ],
+      "png_sha256": "08488acbfd8ec9db29ef99f30c98390f42917c8b2b0a92cfcf64e13bf19f70c3",
+      "screenshot_retained": true
+    },
+    {
+      "name": "connection-dark-1280x800",
+      "requested_viewport": "1280x800",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2560,
+        1600
+      ],
+      "logical_rendered_viewport": [
+        1280.0,
+        800.0
+      ],
+      "png_sha256": "8c6ab83b3f448e5d3020bc6163eddfb6bfd8c05f7c91839e475a2cc3f49e63db",
+      "screenshot_retained": false
+    },
+    {
+      "name": "connection-dark-1440x900",
+      "requested_viewport": "1440x900",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2880,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1440.0,
+        838.0
+      ],
+      "png_sha256": "ef68da344001f57c3cff0cfabfd7dd8ada1f0d64ddc351b158bc71388b61c498",
+      "screenshot_retained": false
+    },
+    {
+      "name": "connection-light-1440x900",
+      "requested_viewport": "1440x900",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2880,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1440.0,
+        838.0
+      ],
+      "png_sha256": "258111dcd097c1104a11175ce19601e4a946e6eeb403a7d492330dce47585fc0",
+      "screenshot_retained": false
+    },
+    {
+      "name": "connection-dark-1920x1080",
+      "requested_viewport": "1920x1080",
+      "exit": 124,
+      "report": false,
+      "screenshot": false
+    },
+    {
+      "name": "connection-light-1920x1080",
+      "requested_viewport": "1920x1080",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        3840,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1920.0,
+        838.0
+      ],
+      "png_sha256": "bd65793b4653b2f3e9653908c49ece24b957630113343e998961e00e8b93b418",
+      "screenshot_retained": false
+    },
+    {
+      "name": "gallery-selection-dark-1280x800",
+      "requested_viewport": "1280x800",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2560,
+        1600
+      ],
+      "logical_rendered_viewport": [
+        1280.0,
+        800.0
+      ],
+      "png_sha256": "b76852a4929e159a5dfbab181c13c5285c447da760ba32035933d3f01255b745",
+      "screenshot_retained": true
+    },
+    {
+      "name": "gallery-selection-light-1280x800",
+      "requested_viewport": "1280x800",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2560,
+        1600
+      ],
+      "logical_rendered_viewport": [
+        1280.0,
+        800.0
+      ],
+      "png_sha256": "78f2f178a4505a266b5b17ad2c7aa715235efdc637130dc26460e2641bf40d71",
+      "screenshot_retained": true
+    },
+    {
+      "name": "gallery-selection-dark-1440x900",
+      "requested_viewport": "1440x900",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2880,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1440.0,
+        838.0
+      ],
+      "png_sha256": "1df6c4e7a8cb9627fdabb908171c1a972294104a85e2ecdd262809b1e60eba8b",
+      "screenshot_retained": false
+    },
+    {
+      "name": "gallery-selection-light-1440x900",
+      "requested_viewport": "1440x900",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        2880,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1440.0,
+        838.0
+      ],
+      "png_sha256": "cb39fc0fedc6e6dd6fe5f9bddba86861a1950c593d39e5cbe4c57f233d79e6fc",
+      "screenshot_retained": false
+    },
+    {
+      "name": "gallery-selection-dark-1920x1080",
+      "requested_viewport": "1920x1080",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        3840,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1920.0,
+        838.0
+      ],
+      "png_sha256": "3116572ea71bfd18e6052ad1dec33a4b7e71f5cb5bc2bd8765654db540dd0cdf",
+      "screenshot_retained": false
+    },
+    {
+      "name": "gallery-selection-light-1920x1080",
+      "requested_viewport": "1920x1080",
+      "exit": 1,
+      "report": true,
+      "screenshot": true,
+      "framebuffer_pixels": [
+        3840,
+        1676
+      ],
+      "logical_rendered_viewport": [
+        1920.0,
+        838.0
+      ],
+      "png_sha256": "fbcb1ba430406a16aa2fbc0abc05095ad0816e9619ca09e2699728fd6fae392c",
+      "screenshot_retained": false
+    }
+  ],
+  "live_screenshots": {
+    "appearance-overflow-light": {
+      "framebuffer_pixels": [
+        2880,
+        1740
+      ],
+      "sha256": "af90a62a3a3d5234103ee44fee5709f5a5770226e6c3de5352d36b84ab336559"
+    },
+    "appearance-overflow-dark": {
+      "framebuffer_pixels": [
+        2880,
+        1740
+      ],
+      "sha256": "b90129d7704125e2ecc15e1c7c1e7e51371b2046e9bc45c9c05a42d0be0ea95d"
+    },
+    "query-context-open-dark": {
+      "framebuffer_pixels": [
+        2880,
+        1740
+      ],
+      "sha256": "8b66e77b9cde926ee1d53b54da49c3a7791e987d3b39a50fd53fb317d7b2501d"
+    },
+    "query-context-open-light": {
+      "framebuffer_pixels": [
+        2880,
+        1740
+      ],
+      "sha256": "00a081e04105eea1cfd859e67c74c5c5be97ca92fcec65aab3eb0add1c484c8e"
+    }
+  }
+}
+
+```

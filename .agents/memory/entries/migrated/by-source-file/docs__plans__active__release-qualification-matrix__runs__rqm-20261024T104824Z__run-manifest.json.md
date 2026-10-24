@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: "MEM-SRC-71d4641c3eb444c0"
+title: "Source mirror: docs/plans/active/release-qualification-matrix/runs/rqm-20261024T104824Z/run-manifest.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/release-qualification-matrix/runs/rqm-20261024T104824Z/run-manifest.json"
+source_sha256: "71d4641c3eb444c0900564f4bd00b8293b0ca7a6bc6cbeff53460fc15c7f1542"
+mirror_body_sha256: "9729ff57ce939f3c05bb2b2626156e140deed5f5821fc5ea0871cd456bc57abf"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+{
+  "run_id": "rqm-20261024T104824Z",
+  "state": "INVALIDATED",
+  "invalidated_at_utc": "2026-10-24T10:55:00Z",
+  "invalidation_reason": "Compiler pin 1.95.0 violated (built with 1.99.0); premature PASS retracted after schema/AGGREGATION §2 audit",
+  "compiler_pin_required": "1.95.0",
+  "compiler_actual_disqualified": "1.99.0",
+  "channel": "internal",
+  "authorized_by": "owner 2026-10-24",
+  "candidate": {
+    "git_sha": "dd2bf5e4090e6d509d34c0c8c58ca95015d91640",
+    "dirty_inventory": [
+      "M docs/plans/STATUS.md",
+      "?? docs/plans/active/release-qualification-matrix/",
+      "?? docs/release/2026-10-24-release-readiness.md",
+      "?? docs/release/evidence/readiness-2026-10-24/"
+    ],
+    "product_dirty": []
+  },
+  "expected_instances_digest_sha256": "ace27c14e9802a979f165ad68ef2a0786dba3cc26427b4696af528294f2419b5",
+  "expected_instances_path": "expected-instances.json",
+  "phase_gate": {
+    "phase_1": "L0 intake + L1 artifacts + macos-arm64 GUI lanes L2-L6 (serial lease)",
+    "phase_2": "L7-L10 macos-arm64 GUI",
+    "phase_3": "L11 visual matrix macos-arm64",
+    "deferred": "windows-x64 and linux-x64 instances remain BLOCKED_HOST until assigned hosts"
+  },
+  "data_isolation": {
+    "runtime_data_dir": "/tmp/db-pro-qual-rqm-20261024T104824Z",
+    "forbidden_connections": [
+      "fullstack_starter",
+      "saved user production connections"
+    ]
+  }
+}
+
+```

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: "MEM-SRC-2142188943c7edf0"
+title: "Source mirror: docs/release/evidence/readiness-2026-10-24/observations.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/release/evidence/readiness-2026-10-24/observations.json"
+source_sha256: "2142188943c7edf0eb4737a43d9115c55bd41ac8117517c2e55cd3fe76b1d3f4"
+mirror_body_sha256: "3a69810ce29ae701b187e6c0162eade855699db632e4ad6875ae23a6cc24e924"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+{
+  "source_sha": "dd2bf5e4090e6d509d34c0c8c58ca95015d91640",
+  "date_utc": "2026-10-24",
+  "host": "macOS 25.6.0 arm64",
+  "qualifying_rustc": "1.95.0",
+  "ambient_override": "RUSTUP_TOOLCHAIN=stable selected 1.99.0; that chain was cancelled and is not qualifying evidence",
+  "workspace_tests": {"harness_passed": 2315, "failed": 0, "ignored": 65},
+  "providers": {
+    "postgresql": {"harness_passed": 40, "failed": 0, "ignored": 0, "guard_skips_observed": 0, "fixture": "dbpro_fixture at 127.0.0.1:5432, PostgreSQL 18.6 Homebrew"},
+    "mysql": {"harness_passed": 12, "failed": 0, "ignored": 0, "guard_skips_observed": 3, "executed_cases": 9, "fixture": "repo-owned MySQL at 127.0.0.1:33306, dbpro_fixture and dbpro_reference", "unexecuted": ["mysql_reserved_fields_preserve_authenticated_user_and_database", "mysql_reserved_fields_still_reject_wrong_password", "mysql_strict_ssl_modes_reject_a_server_without_tls"]},
+    "sqlserver": {"harness_passed": 9, "failed": 0, "ignored": 0, "guard_skips_observed": 0, "fixture": "repo-owned SQL Server 2022 at 127.0.0.1:1433/dbpro_fixture"}
+  },
+  "artifact": {
+    "path": "/tmp/dbpro-release-dd2bf5e4/db-pro-v0.1.0-macos-arm64.tar.gz",
+    "version": "0.1.0",
+    "archive_bytes": 14800921,
+    "archive_sha256": "1446de6dd00765a9b0b36ff7849d526a58bdb7a9cdce971d39fd6c7a25d9ba9a",
+    "binary_bytes": 34239776,
+    "binary_sha256": "e27bff07a2dcba3ff1908cda6fdecc5e9477f4d767a6f53ffe93a7c4263fa4f4",
+    "minimum_macos_measured": "11.0",
+    "signature": "adhoc, linker-signed; TeamIdentifier not set; Info.plist not bound; Sealed Resources none",
+    "spctl": {"exit": 1, "message": "code has no resources but signature indicates they must be present"},
+    "stapler": {"exit": 65, "message": "DB Pro.app does not have a ticket stapled to it"}
+  },
+  "native_smoke": {
+    "build": "release, no capture feature",
+    "data_dir": "isolated temporary directory; existing user data untouched",
+    "env": {"DB_PRO_DISABLE_KEYRING": "1", "DB_PRO_WINDOW_SIZE": "1280x800"},
+    "visible_window_logical": "1280x832 including native title bar",
+    "screenshots_pixels": "2560x1664, scale 2",
+    "introspection": {"tables": 11, "views": 2, "triggers": 1},
+    "executed_sql": "select id, first_name, last_name, hire_date from employees limit 100;",
+    "result_rows": 3,
+    "independent_sqlite_count": 3,
+    "themes_inspected": ["light", "dark"],
+    "custom_scalar_input": "NOT TESTED: AXSetValue/keyboard paste did not replace the seeded SQL; no scalar result claimed",
+    "window_close": {"process_exit": -6, "signal": "SIGABRT", "exception": "NSRangeException", "detail": "_NSTouchBarFinderObservation removal for nextResponder from WinitView"},
+    "restart": {"connected_and_introspected": true, "saved_connection_count": 1, "saved_connection_ids_preserved": true, "theme_observed": "light; previous dark selection was not present after the abnormal close", "scope": "SQLite connection continuity only; not credential, full workspace, or upgrade qualification"},
+    "cleanup": "Restart process terminated with SIGTERM (-15), not counted as a clean GUI quit; clipboard restored; temporary evidence retained"
+  },
+  "ci": {"exact_sha_workflow_runs": 0, "rust_ci": "NOT RUN", "socket_report": "success, not Rust qualification"},
+  "advisory_scan": "NOT RUN: cargo audit is not installed",
+  "evidence_sha256": {
+    "live-provider-suites.log": "4509fc09c0783328ae9e358cf553aa802ef76c6e8d867006178aaa4353e23e28",
+    "packaged-runtime.log": "d19a08aecd938ff4557454934d10f41ac900242e19696cc68d17356215527495",
+    "pinned-quality-gates.log": "8ed40a4df99b3170ca4ac4bd9610aa7d3d286ed71b84ca6cbe108ed92a814dc4",
+    "query-dark.png": "b872cf6636efc395ba6cf8947bbf4a0b7cb10b47196a8588a913215282937c96",
+    "query-light.png": "972554209faf7d3b0f56416490bffaa8ad89c3f1ccf6ee9847322f0107691186",
+    "restart-light.png": "ca8ec5ac2eebb6ae2550dc2892255b7280c43407462684f1ec63e268ade86bd7"
+  }
+}
+
+```

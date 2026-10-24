@@ -1,0 +1,338 @@
+---
+schema_version: 1
+id: "MEM-SRC-1eb1d4c3f56d5f21"
+title: "Source mirror: docs/release/0.1.0-handoff.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/release/0.1.0-handoff.md"
+source_sha256: "1eb1d4c3f56d5f21d6cf2effc53edeff6c4a4a5e3d982db67ba11b3aa84d7be3"
+mirror_body_sha256: "1eb1d4c3f56d5f21d6cf2effc53edeff6c4a4a5e3d982db67ba11b3aa84d7be3"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# DB Pro 0.1.0 — Release Handoff
+
+**Purpose:** everything another engineer needs to install-test, tag, and (if authorized)
+publish DB Pro 0.1.0 without reading the plan documents. Written 2026-09-14.
+
+**Status of this document:** release-candidate handoff, **finalized** after the final release run
+`34860902181` finished green for the candidate `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`. All
+artifact names, sizes and SHA-256 values below are the **final, measured** values for that run and
+were independently re-hashed on this host. One class of value remains deliberately marked
+**`NOT VERIFIED`**: the runtime/GUI smoke steps that no environment available here could execute
+(`14-install-smoke.txt` §7.7). Values labelled **run `34859158012`** are superseded history from
+the previous green run and are *not* the final release values.
+
+---
+
+## 1. Candidate identity
+
+| Field | Value |
+|---|---|
+| Candidate SHA | `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20` |
+| Short SHA | `85a7fa3` |
+| Branch | `main` |
+| Version | `0.1.0` — authoritative manifest `crates/native-app/Cargo.toml`; `release.yml` validates a `v*` tag against it |
+| Toolchain | **rustc/cargo 1.95.0**, pinned in `rust-toolchain.toml`; both release jobs read the file and fail if the active compiler differs (`docs/release/evidence/v01-06/09-toolchain-pinning.txt`) |
+| Shipped binary | `db-pro-native` (`crates/native-app`), native `eframe`/`egui` |
+| License | **MIT** — root `LICENSE`, workspace/package metadata and third-party notice inventory are present; DB Pro trademarks remain separate |
+| Release workflow | `.github/workflows/release.yml` (`contents: read`, no secrets, no Release job) |
+| Release CI run (superseded, green) | **`34859158012`** — dispatched for SHA `1a0c186`. Every job green: `Resolve`, `Pre-flight checks`, `Build (macOS\|Windows\|Linux)`, `Package (macOS\|Windows\|Linux)`, `Assemble SHA256SUMS`. Its archives and `SHA256SUMS.txt` were downloaded and independently checksum-verified. It predates `85a7fa3` and therefore ships the pre-fix install note; it is **not** the final release record |
+| Release CI run (final, green) | **`34860902181`** — `workflow_dispatch` on `main` for the candidate `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`. Every job green: `Resolve release candidate`, `Pre-flight checks`, `Build (macOS\|Windows\|Linux)`, `Package (macOS\|Windows\|Linux)`, `Assemble SHA256SUMS`. Artifacts downloaded with `gh run download 34860902181` and independently re-hashed on this host; the archived `README-INSTALL.txt` carries the corrected four-branch state-directory order. Final values in §3 |
+| Earlier, superseded runs | `34845148946` (pre-flight clippy 1.98 `result_large_err`, fixed by the `fbf9fda` toolchain pin), `34847235273` (Linux D-Bus build failure, fixed by `e22a498`), `34851704292` (pre-flight flaky ER worker test, fixed by `1a0c186`), `34849517304` (cancelled by the coordinator, superseded by the state-directory fix), `34859158012` (green; superseded by the final run) |
+| Runtime evidence base (non-GUI) | `docs/release/evidence/v01-runtime/*` — the 2026-09-14 `v01-runtime` session: live PostgreSQL 16.15 integration 18/18 (`providers/07`), deterministic SQLite runtime fixture (`providers/02`–`05`), all four state-directory branches on the packaged CI artifact (`providers/17`, `providers/18`), cancellation capability gating verified correct (`providers/15`), keyring stall reproduced/classified `P2` (`providers/16`, `providers/22`), launch error-log audit (`providers/19`), findings `F1`–`F3` (`providers/23`). **No GUI evidence and no screenshots exist in it** (`providers/21`) |
+| Owner decisions | **Open** — MIT/`HD-001` is decided; remaining decisions plus the `F1`/GUI-smoke notes are enumerated in `docs/release/0.1.0-human-decisions.md` |
+
+### Release decisions (brief §45)
+
+| Decision | Value | Reasons |
+|---|---|---|
+| `INTERNAL_RC_READY` | **YES** | Exact-HEAD quality gates green on the pinned 1.95.0 toolchain; final run `34860902181` green end to end with all three archives + `SHA256SUMS.txt` independently re-hashed; packaged app verified to launch and reuse its state; live PostgreSQL 16.15 integration **18/18**; no P0/P1 found by the `v01-runtime` session (`providers/23`). Open items are governance/interactive-runtime/platform-coverage, not build/code blockers |
+| `PUBLIC_RELEASE_READY` | **NO** | MIT is decided. Remaining blockers: all artifacts UNSIGNED; the interactive GUI install smoke is `NOT VERIFIED` (`PENDING_HUMAN`); Windows/Linux runtime is `RUNTIME_UNVERIFIED` (no host); V01-01…V01-05 runtime gaps need GUI/visual evidence; and the exact-artifact third-party notice bundle is not generated. Live PostgreSQL/SQLite CLI-level evidence is not a substitute for the host runtime smoke |
+
+Owner decisions left **PENDING** (MIT/`HD-001` is decided; options, impact and recommended
+defaults for the remaining decisions are in `docs/release/0.1.0-human-decisions.md`): `HD-002` unsigned distribution, `HD-003` Windows/Linux runtime requirement, `HD-004` Agent Preview
+public inclusion, `HD-005` SSH/backup unqualified status, `HD-006` `F1` `pg_restore` disposition,
+`HD-007` interactive GUI smoke gate, `HD-008` tag sequence.
+
+### Post-candidate state-directory fix (`543b526`)
+
+The candidate `fbf9fda` produced a packaged macOS app that could not start when opened the normal
+way: `resolve_data_dir()` resolved `/.db-pro-data` under LaunchServices' `cwd=/`,
+`DbProRuntime::new` failed with
+`CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })`, and the
+process exited 1 **before opening a window**. The blocker was reproduced and fixed in code commit
+`543b526` (`fix(native): resolve the app state directory outside the working directory`), with a
+regression test and artifact-level evidence in
+`docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. `R-STATE-DIR` is now `FIXED`.
+
+Consequences for whoever continues this handoff:
+
+* The re-dispatch happened and the chain is closed: run `34859158012` (SHA `1a0c186`) was green,
+  and the **final** run `34860902181` for the candidate `85a7fa3` was green end to end with its
+  artifacts independently re-hashed (§3). No further dispatch is required for this candidate.
+* Existing installs and the developer checkout are **not** migrated: an already-present
+  `<cwd>/.db-pro-data` is still used. A fresh install writes to the per-user platform data
+  directory (macOS `~/Library/Application Support/DB Pro`).
+* The first launch of the ad-hoc-signed app can show a **Keychain authorization prompt**; an
+  unattended launch can wait there indefinitely. Recorded in `12-…txt` §6 and
+  `14-install-smoke.txt` §3; register entry `R-KEYRING-STALL`; not fixed here.
+
+## 2. Build matrix (what the workflow produces)
+
+| Platform | Runner | Target | Binary path | Archive |
+|---|---|---|---|---|
+| macOS ARM64 | `macos-14` (pinned) | `aarch64-apple-darwin` (runner default; `package` asserts `lipo -archs` = `arm64`) | `target/release/db-pro-native` | `db-pro-v0.1.0-macos-arm64.tar.gz` |
+| Windows x86_64 | `windows-latest` | `x86_64-pc-windows-msvc` (asserted: PE machine `0x8664`) | `target/release/db-pro-native.exe` | `db-pro-v0.1.0-windows-x86_64.zip` |
+| Linux x86_64 | `ubuntu-latest` | `x86_64-unknown-linux-gnu` (asserted: ELF `x86-64`) | `target/release/db-pro-native` | `db-pro-v0.1.0-linux-x86_64.tar.gz` |
+
+**Not in the matrix (by decision, not by omission):** macOS x86_64, universal binaries, and any
+installer format (`.dmg`, MSI/NSIS, `.deb`/`.rpm`, AppImage). See
+`docs/release/0.1.0-packaging.md` for the deferral list and rationale.
+
+Job order: `resolve` (ref → exact 40-char SHA, tag↔version check) → `preflight` (fmt, clippy,
+test + `release-provenance.json`) → `build` (per-platform) → `package` (per-platform archive) →
+`checksums` (one `SHA256SUMS.txt`).
+
+**Verified in the final run `34860902181`:** all three rows above built and packaged successfully
+in CI (`Build (macOS|Windows|Linux)` ✔, `Package (macOS|Windows|Linux)` ✔) for the candidate
+`85a7fa3`. Windows and Linux are therefore `BUILD_VERIFIED` / `PACKAGE_VERIFIED`; they stay
+`RUNTIME_UNVERIFIED` because no Windows/Linux host exists.
+
+## 3. Artifacts
+
+The final run **`34860902181`** (candidate `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`) produced
+all of the following. The coordinator downloaded them with `gh run download 34860902181` and
+independently re-hashed every size and SHA-256 on this host with `shasum -a 256`; all three values
+reproduced byte-for-byte against the run's `SHA256SUMS.txt` and the archive member lists matched
+the contract. **These are the final release-candidate values.**
+
+| Artifact | Contents | Final values (run `34860902181`, candidate `85a7fa3`) |
+|---|---|---|
+| `db-pro-v0.1.0-macos-arm64.tar.gz` | minimal `DB Pro.app` (`Contents/MacOS/db-pro-native` + `Contents/Info.plist`) + `README-INSTALL.txt` | **10,045,965 B** · sha256 `8141d6b7b7ecd98399dd9c2ca23c345da96df496abe0cd0169f9ab967bf2a83a` |
+| `db-pro-v0.1.0-windows-x86_64.zip` | `db-pro-native.exe` + `README-INSTALL.txt` | **10,076,835 B** · sha256 `3b0ba8ebe8b7aa86d51a53eb1ddc7dd6f5adccaad57e6adc5d26536de4580452` |
+| `db-pro-v0.1.0-linux-x86_64.tar.gz` | `db-pro-native` (mode 755) + `README-INSTALL.txt` | **15,168,133 B** · sha256 `3fecfc171dfae339c2c81d9f79be4616eb4168255116137d59e795ef09194970` |
+| `SHA256SUMS.txt` | SHA-256 of the three archives | 298 bytes, exactly the three lines above; all three reproduced byte-for-byte locally |
+| `db-pro-provenance-v0.1.0-85a7fa3` | `release-provenance.json` (version, SHA, ref, event, rustc) | `candidate_sha 85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`, `short_sha 85a7fa3`, `rustc 1.95.0 (59807616e 2026-04-14)`, `version 0.1.0`, `source_kind commit`, `event workflow_dispatch` |
+
+Intermediate build artifacts from the same run: `db-pro-native` macos-arm64 23,716,592 B;
+`db-pro-native` linux-x86_64 41,549,112 B; `db-pro-native.exe` win-x86_64 24,227,840 B. The
+macOS CI binary is sha256 `cf40855baa980cdaba8d738f40d0bd88cde939225b8fb8e1834c7b80dfacb55c`
+(Mach-O 64-bit arm64).
+
+Download: GitHub → Actions → run `34860902181` (job artifacts; the workflow cannot attach assets
+to a Release: `permissions: contents: read`). Do not publish values from the superseded runs
+`34845148946` / `34847235273` / `34849517304` / `34851704292` / `34859158012`.
+
+**Install-note check (closed):** the `README-INSTALL.txt` inside the run-`34859158012` archives
+documented the pre-`543b526` state location; the corrected four-branch note is in `85a7fa3`
+(`R-INSTALL-NOTE`) and was **verified inside the CI-produced archive from run `34860902181`** —
+a caller can check it directly with `tar -xzOf db-pro-v0.1.0-macos-arm64.tar.gz README-INSTALL.txt`.
+
+Superseded values, kept as history (run `34859158012`, SHA `1a0c186` — *not* the final release):
+macOS 10,045,739 B / sha256 `911335d0ad8623ea44cf6a1f011c227baf6979eeebce6a9ac4c92ddaa2d5f817`;
+Windows 10,076,654 B / sha256 `62870d9a78f8edfaa7bcd800cf903e031da465ec1624c421d199aedcc01029fd`;
+Linux 15,167,954 B / sha256 `d28bbf3a55c56f927f283edf4cc47e90867f6c08d285f6dc7d7ea7b7424c54a8`.
+
+Local equivalents (no CI): `bash scripts/release/package-macos.sh 0.1.0 target/release/db-pro-native <outdir>`
+(`package-linux.sh`, `package-windows.ps1` mirror it; `write-checksums.sh` writes the manifest).
+Measured local facts **after the state-directory fix** (`543b526`, evidence `12-…txt` §5.1):
+binary **23,733,024 bytes**, sha256 `a0645ca3…aab4f6c`; local archive
+`db-pro-v0.1.0-macos-arm64.tar.gz` **10,059,857 bytes**, sha256 `87113d5b…c580eb48` (the earlier
+pre-fix local archive was 10,058,062 bytes / `bddf4f70…`, and the coordinator's packaged run was
+10,058,054 bytes / `98c54fe1…` — archive bytes differ per run because tar embeds mtimes).
+`Signature=adhoc`, `flags=0x20002(adhoc,linker-signed)`, `TeamIdentifier=not set`;
+`spctl -a -vvv -t execute` **rejects** it; bundle `LSMinimumSystemVersion` is derived from the
+binary's `LC_BUILD_VERSION` minos (**11.0**).
+
+## 4. Quality gate results (rustc 1.95.0 — local, then re-run on the post-fix HEAD, then in CI)
+
+| Gate | Result (pre-fix candidate) | Result after the state-directory fix (`543b526`; unchanged at candidate `85a7fa3`) | Release CI (final run `34860902181`) |
+|---|---|---|---|
+| `cargo fmt --all -- --check` | PASS | PASS | PASS — `Pre-flight checks` |
+| `cargo check --workspace` | PASS | PASS | PASS (same job) |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS (0 warnings) | PASS (0 warnings) | PASS (same job) |
+| `cargo test --workspace` | PASS — **811 passed / 0 failed / 19 ignored** | PASS — **815 passed / 0 failed / 19 ignored** (+4: the new state-dir regression tests, none ignored; unchanged by the `1a0c186` tests-only flaky fix) | PASS (same job) |
+| `cargo build --release --locked -p db-pro-native` | PASS — 23,714,096 bytes | PASS — 23,733,024 bytes locally; CI macos-arm64 23,716,592 bytes | PASS — `Build` jobs ×3 |
+| `perf-scan.sh` | PASS — 4 / 0 / 0 | PASS — 4 / 0 / 0 | (local gate; not run in CI) |
+
+The 19 ignored tests are **not** passing and are **not** counted: 18 `pg_integration` cases need
+`DATABASE_URL`; the SSH backup case needs `DB_PRO_SSH_*`. Evidence:
+`docs/release/evidence/v01-06/02-quality-gates.txt`, `08-post-fix-quality-gates.txt`, the
+post-fix re-run in `12-state-dir-blocker-fix.txt` §4, and the six-gate re-run after the flaky-test
+fix in `13-flaky-er-worker-test.txt` §8 (all exit 0, still 815/0/19).
+
+The pre-flight blocker chain is closed (`R-CI-PREFLIGHT`): toolchain pin `fbf9fda`, Linux D-Bus
+build dependency `e22a498`, flaky ER layout-worker test `1a0c186`. The `1a0c186` fix is
+**tests only** — the worker's runtime behaviour is unchanged, and the rewritten tests still fail
+against a worker that drops the newest request (`13-…txt` §5.2).
+
+Note for the next operator: `ci.yml` on `main` is red for a pre-existing, unrelated reason
+(an escaped-quote bug in a Python one-liner in the "Configure live SSH backup fixture" step).
+The **release** workflow is green, so this blocks nothing release-specific; do not read it as a
+release blocker, and do not "fix" it in a release commit.
+
+## 5. Runtime verification summary
+
+| Item | State |
+|---|---|
+| Release binary launch (macOS ARM64, host) | `OBSERVED` PASS — starts, idles, exits on SIGTERM; no crash |
+| `DB Pro.app` bundle, launch-after-extract | `PARTIAL` — after the `543b526` fix, an `open`-launched bundle stays alive past 30 s and creates its state directory (`~/Library/Application Support/DB Pro/meta.db`); a direct `cwd=/` run no longer exits with `CreateDataDir`. **No window was rendered or interacted with** (no window-server visibility from the shell), so this is launch-after-extract only — `12-state-dir-blocker-fix.txt` §5. Re-confirmed on the **packaged archive** built from `1a0c186`: the shipped executable is byte-identical to the qualified build, `/.db-pro-data` is not created, and a relaunch reuses one state store (identical `meta.db` inode/size/mtime) — `14-install-smoke.txt` §1–§5. Still no window |
+| Install smoke (packaged archive) | **NOT VERIFIED (interactive half)** — launch-after-extract **and** file-level relaunch persistence are verified on the packaged archive (`14-install-smoke.txt` §1–§5) and again on the **CI-produced artifact of the final run `34860902181`** (extracted to `/tmp/dbpro-ci-smoke/install`; process ran, `meta.db` inode/size/mtime unchanged across launch and relaunch, `/.db-pro-data` absent, SIGTERM exits clean). The interactive steps are not: window rendering, Settings (incl. light/dark), creating a SQLite connection through the UI, `SELECT 1;` / `SELECT * FROM items;`, a clean window-close/⌘Q exit, and a saved connection surviving relaunch (§7.7). The GUI is unreachable on this host for four recorded environment reasons (§7.1–§7.6; the Orca helper now returns `runtime_unavailable` for every app because its runtime metadata file is missing, `osascript` returns the `-1743` TCC denial, `screencapture` cannot create an image from the display, and no accessibility tree exists). The smoke also bypassed the pre-existing keyring stall with a placeholder key (§3, `R-KEYRING-STALL`) — so it does **not** evidence a plain double-click launch on a machine with a stored key. §8 is the human runbook that closes it. Owned by the coordinator |
+| Manual desktop walkthrough | **NOT RUN** — `docs/release/0.1.0-manual-smoke.md`: **0 passed / 165 blocked / 0 failed / 0 not-run** (all 165 items are blocked by the same environment limitation — no window server, no GUI automation; `providers/21`). The executable runbook that closes it: `docs/release/0.1.0-interactive-verification-runbook.md` |
+| V01-01…V01-05 | `EVIDENCE_GAP` (01, 02, 04, 05) / `PARTIAL` (03) — `docs/release/evidence/v01-06/04-...`. The `v01-runtime` pass narrowed V01-02/V01-04's PostgreSQL half (live automated suite 18/18, `providers/07`) but closed neither: the native-UI/visual artifact is still absent. `docs/release/0.1.0-ui-visual-description.md` is a **code-derived** surface description and does **not** close the gap |
+| Windows / Linux runtime | `RUNTIME_UNVERIFIED` — no host in this project. Both **compile and package green in CI** (final run `34860902181`, `BUILD_VERIFIED`); the two states are not the same claim |
+| Live PostgreSQL fixture run | **PASS at provider level** — disposable `postgres:16` container **16.15** on host port **55432**; the 18 `#[ignore]`d `pg_integration` tests → **18 passed / 0 failed / 0 ignored**, exit 0; with `DATABASE_URL` the workspace suite is 815/0/19, so the effective total is **833 passed / 0 failed / 1 ignored** (`docs/release/evidence/v01-runtime/providers/07`–`09`). Container **stopped and left in place** (`docker start dbpro-v01-pg-fixture`). No GUI step is evidenced by this |
+| SSH fixture run | **`BLOCKED`** — the nine `DB_PRO_SSH_*` variables are unset (`providers/07`, `providers/09`); the suite was not run |
+| CLI-level backup/restore | **Verified with a recorded caveat** — `pg_dump -Fc` exit 0; the restore completes with identical object/row counts and per-table MD5 fingerprints, but `pg_restore` **exits 1** under 18.4-client/16.15-server skew (`SET transaction_timeout = 0`); version-matched 16.15→16.15 round-trips exit 0. Finding `F1`/`P2`, recorded not chased (`providers/10`–`14`, `providers/23`). The app's own Backup/Restore action is **not** covered |
+| Keyring startup stall | **Reproduced and classified `P2`** — unbounded Keychain read on the startup path before the data directory is resolved; needs a pre-existing `com.dbpro.app` item **and** a context where the authorization prompt cannot be shown; a user with no stored item passes instantly. Not an app-logic error; escalation condition recorded (`providers/16`, `providers/22`) |
+
+## 6. Known limitations and risks
+
+**Accepted risks** (full ledger: `docs/release/risk-register.md`): unsigned artifacts
+(`R003`); packaging deferrals (`R-PKG-DEFER`); Windows/Linux **build-verified, runtime-unverified**
+(`R-WINLINUX`); Agent Preview without a recorded live-provider run (`R-AGENT`); provider
+limitations incl. PostgreSQL cancellation unsupported (`R-PROV`); brand name unresolved
+(`R001`); the pre-existing keyring stall on an unattended first launch (`R-KEYRING-STALL`,
+LIM-018); and the interactive GUI smoke gap (`R-GUI-SMOKE`).
+
+**Fixed, not accepted risks:** the packaged-app working-directory defect (`R-STATE-DIR`) is
+**`FIXED` in `543b526`** — launch-after-extract is verified with the packaged artifact, and the
+only open part is the interactive smoke it did not cover. The packaged install note
+(`R-INSTALL-NOTE`) is **`FIXED` in `85a7fa3`**. The release pre-flight blocker chain
+(`R-CI-PREFLIGHT`) is **`FIXED`** by `fbf9fda`/`e22a498`/`1a0c186`, with run `34859158012` green
+end to end.
+
+**Blocking risks:** the interactive GUI install smoke is not verified; runtime evidence for
+V01-01…V01-05 is incomplete; manual smoke not run. The final artifacts are no longer a blocker:
+run `34860902181` completed green and §3 records their measured names/sizes/hashes.
+
+**RC1 P2 carry-overs (`R-RC1-P2`):** 25 findings — 24 `OBSOLETE` (targets archived with the React
+frontend), 1 `DEFERRED` (i18n), 20 native carry-over intents `CARRIED_OVER_UNVERIFIED`, none
+promoted to P0/P1; the RC1 programme's P2 gate checkbox remains unchecked. `QA-D1` (saved-query
+rename) is `FIXED` in the shipping code. Do not mass-fix polish; re-verify the carry-overs with the
+native runtime pass.
+
+**Known limitations** (user-facing list in `docs/release/0.1.0-release-notes.md`): state lives in
+the per-user platform data directory unless `<cwd>/.db-pro-data` already exists; a first launch can
+prompt for Keychain access (reproduced and classified `P2`, `providers/22`); no workspace
+persistence; PG query cancellation unsupported; macOS
+x86_64 not built; no installers/auto-update; Linux needs a D-Bus Secret Service;
+`pg_dump`/`pg_restore`/`ssh` must be on `PATH`, and a client/server **major-version skew** makes
+`pg_restore` report failure after a complete restore (`F1`/`P2` — state the version expectation
+before a custom-format restore); CHECK/Unique constraint introspection unqualified;
+row insert narrow for complex types; Windows/Linux unverified.
+
+**Owner decisions still open** (MIT/`HD-001` decided — see
+`docs/release/0.1.0-human-decisions.md`): acceptance of unsigned distribution; the
+Windows/Linux runtime requirement; Agent Preview public inclusion; acceptance of the unqualified
+SSH/backup status; the `F1` version-skew disposition; and the interactive GUI smoke gate itself.
+
+## 7. Install smoke procedure (do this before tagging)
+
+1. Use the three archives from the **final** run `34860902181` (candidate `85a7fa3`), which are
+   already verified (§3). They can be re-downloaded into one directory with
+   `gh run download 34860902181`; place the run's `SHA256SUMS.txt` beside them. Do not use the
+   superseded runs `34845148946` / `34847235273` / `34849517304` / `34851704292` / `34859158012`
+   (the run-`34859158012` archives are for `1a0c186` and ship the pre-fix install note).
+2. Verify checksums: `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux);
+   `Get-FileHash -Algorithm SHA256 <file>` on Windows. Record the output.
+3. macOS: `tar -xzf db-pro-v0.1.0-macos-arm64.tar.gz`, then open the extracted `DB Pro.app`.
+   Expect the Gatekeeper "cannot be verified" flow (right-click → Open, or System Settings →
+   Privacy & Security → Open Anyway). Confirm: window appears, theme renders, no panic; then
+   connect to a scratch SQLite file and run `SELECT 1;`.
+   **Install note (`R-INSTALL-NOTE`, fixed in `85a7fa3`):** the archive's `README-INSTALL.txt`
+   must document the four-step data-directory resolution below — if it instead says state lives in
+   `.db-pro-data` next to the start directory, you have the wrong (pre-fix) archive.
+   **State directory (`R-STATE-DIR`, fixed in `543b526` — verify, do not assume):** the app
+   resolves `DB_PRO_DATA_DIR` → an existing `<cwd>/.db-pro-data` → `<platform data dir>/DB Pro`
+   (macOS `~/Library/Application Support/DB Pro`) → `<cwd>/.db-pro-data`. For a Finder-launched
+   app (`cwd=/`, no `/.db-pro-data`) the expected path is therefore
+   `~/Library/Application Support/DB Pro/`, never `/.db-pro-data`. Launch-after-extract is already
+   verified for this (`12-state-dir-blocker-fix.txt` §5; `14-install-smoke.txt` §1–§5); what
+   remains is the **interactive** part — with a window open, create the SQLite connection, run
+   `SELECT 1;`, quit, relaunch and confirm persistence. If a Keychain authorization prompt
+   appears, answer it (see `12-…txt` §6 and `14-install-smoke.txt` §3: an unattended launch waits
+   there, and the earlier smoke bypassed it with a placeholder key).
+   Reproduce the non-interactive part with
+   `cd / && "$(pwd)/DB Pro.app/Contents/MacOS/db-pro-native"` — it must not exit with
+   `CreateDataDir(...)`.
+4. Windows: extract the `.zip`, run `db-pro-native.exe`, accept SmartScreen's "Run anyway",
+   repeat the SQLite `SELECT 1;` check. Expect state under `%APPDATA%\DB Pro`. **Never run** —
+   no Windows host exists in this project; this step is the only qualification path.
+5. Linux: extract the `.tar.gz`, `./db-pro-native` on a desktop session with X11/Wayland + GL and
+   a running Secret Service (gnome-keyring/KWallet); confirm a connection can be saved
+   (credential write) and re-opened. Expect state under `$XDG_DATA_HOME/db-pro` (or
+   `~/.local/share/db-pro`). **Never run** — no Linux host exists in this project.
+6. Record results in `docs/release/0.1.0-manual-smoke.md` (tick items and fill the sign-off at
+   the SHA actually tested) and update this document's §5 table. Do not tick anything you did not
+   run. The GUI steps are enumerated as `NOT VERIFIED` in `14-install-smoke.txt` §7.7; its §8 is
+   the shorter, packaged-archive-specific runbook. **Use
+   `docs/release/0.1.0-interactive-verification-runbook.md` as the executable form of this
+   procedure** — it carries the exact extraction/launch commands, the disposable SQLite fixture
+   path and rebuild command, the PostgreSQL container start command and `DATABASE_URL` shape, the
+   ordered interaction script with per-step expected observations, and the screenshot filenames to
+   save. Its completion is what converts the `PENDING_HUMAN` items into evidence, filed under
+   `docs/release/evidence/v01-runtime/`.
+
+## 8. Tag / release steps
+
+The workflow is prepared for tagging but **no tag exists**. Everything the build/artifact side
+required is now done — run `34860902181` was green for the candidate SHA and its `SHA256SUMS.txt`
+values were reproduced locally. The recommended sequence, because no prior release qualification
+exists for this project, is **`v0.1.0-rc.1` first, then the host-install smoke (§7), then
+`v0.1.0`**. That recommendation is recorded; the decision is the owner's.
+
+Sequence once §7 and the remaining public-release policy decisions are settled:
+
+1. Confirm the working tree is clean **at the SHA you intend to tag** — the release candidate is
+   `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20` (which includes `543b526`, `1a0c186` and the
+   install-note fix `85a7fa3`): `git status --porcelain -uall` is empty — the worktree is clean,
+   and the planning input `goal-3.md` is tracked at `5190ea6` on `main` (alongside
+   `goal-1.md`/`goal-2.md`). Documentation-only commits made after the
+   candidate (e.g. `33afb23` and this finalization commit) do not change the shipped binary, so
+   tag either the candidate or the docs-final `main` HEAD — but state which, and never tag
+   `fbf9fda` (it ships the `R-STATE-DIR` startup blocker).
+2. Confirm run `34860902181` finished **green for that exact SHA** and that its `SHA256SUMS.txt`
+   values were reproduced locally — both are recorded in §3. For the recommended first tag:
+   `git tag -a v0.1.0-rc.1 $(git rev-parse HEAD) -m "DB Pro 0.1.0-rc.1"`; for the final tag:
+   `git tag -a v0.1.0 $(git rev-parse HEAD) -m "DB Pro 0.1.0"`. The workflow rejects a `v*` tag
+   whose version differs from `crates/native-app/Cargo.toml` (`0.1.0`), so a `-rc.1` suffix is a
+   valid prerelease tag.
+3. Push the tag: `git push origin v0.1.0-rc.1` (or `v0.1.0`) — this triggers `release.yml` (tag
+   push is a supported trigger; the tag is the only thing that should).
+4. Wait for the run to finish; download the archives + `SHA256SUMS.txt` + provenance; verify the
+   checksums with `shasum -a 256 -c SHA256SUMS.txt`.
+5. No values remain to be filled: the artifact names/sizes/hashes for the candidate are recorded
+   in §3 of this document and in `0.1.0-readiness.md` / `risk-register.md` §4. If a *new* run
+   produces new values, record them at the same places before announcing anything.
+6. Publishing a GitHub Release is not implemented in the workflow (`contents: read`); if a
+   Release page is wanted, upload the archives + `SHA256SUMS.txt` manually and state the MIT
+   policy, third-party notice status and unsigned status in the description. **Do not publish
+   publicly until the exact-artifact notice bundle and runtime/public-release gates are resolved.**
+
+## 9. Rollback instructions
+
+- **Before publishing:** nothing is public. Delete the run's artifacts or simply abandon the
+  candidate; no consumer is affected.
+- **If a future final run fails** (the candidate run `34860902181` succeeded): do not cancel or
+  re-dispatch it mid-flight; record the failure, fix forward with a new commit and a new run, and
+  prefer a new candidate over re-tagging. Nothing is released while every blocker row in
+  `0.1.0-readiness.md` is open, so a failed final run costs only time.
+- **After a tag without a Release page:** `git push origin :refs/tags/v0.1.0` (delete the remote
+  tag) and `git tag -d v0.1.0` locally, then remove the Actions artifacts. The workflow creates
+  no Release and pushes no commits, so nothing else needs reverting.
+- **After a manual Release page:** delete the Release first, then the tag/artifacts as above.
+- **Candidate invalidation:** if a defect is found on the candidate SHA, prefer a new candidate
+  (new commit + new run) over re-tagging; record the invalidation in
+  `docs/release/risk-register.md` §4 (candidate invalidation log) instead of silently moving the
+  tag. One event is recorded there — candidate `fbf9fda`, invalidated for artifact purposes and
+  resolved by the green run `34859158012`.
+- **Never** force-push `main` to undo a release commit; add a follow-up commit.

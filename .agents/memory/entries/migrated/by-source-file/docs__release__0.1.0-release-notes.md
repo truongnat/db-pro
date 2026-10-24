@@ -1,0 +1,260 @@
+---
+schema_version: 1
+id: "MEM-SRC-3b019f9cb272d810"
+title: "Source mirror: docs/release/0.1.0-release-notes.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/release/0.1.0-release-notes.md"
+source_sha256: "3b019f9cb272d810e430a0b47ca4ae3043fded0da3a63b44cd61dd208c88c57e"
+mirror_body_sha256: "3b019f9cb272d810e430a0b47ca4ae3043fded0da3a63b44cd61dd208c88c57e"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# DB Pro 0.1.0 — Release Notes
+
+**Release date:** 2026-09-14 (release candidate cut; `v0.1.0` tag **not** created)
+**Candidate SHA:** `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`. The **final release
+run `34860902181`** is green end to end for this SHA — all three archives plus `SHA256SUMS.txt`
+were produced and independently re-hashed on this host.
+**Platforms built for:** macOS ARM64 (`aarch64-apple-darwin`), Windows x86_64 (`x86_64-pc-windows-msvc`), Linux x86_64 (`x86_64-unknown-linux-gnu`)
+**License:** MIT (see [`LICENSE`](../../LICENSE) and "Distribution status" below)
+
+> **Honesty rules applied to this document.** Every capability listed as shipped is in the
+> shipping code today. Anything that is a goal, a roadmap phase, or unverified at runtime is
+> either in "Known limitations" or in "Not included in 0.1.0" — never in "Highlights".
+> Verification statements are labelled `OBSERVED` (measured in a command with a recorded
+> output), `CANDIDATE` (source inspection only) or `NOT VERIFIED`. Evidence:
+> `docs/release/evidence/v01-06/*`.
+
+## Highlights
+
+**A native desktop application.** DB Pro 0.1.0 is a native Rust application (`eframe`/`egui`),
+not a WebView. It ships as a single binary (`db-pro-native`); macOS gets a minimal
+`DB Pro.app` wrapper in the archive. There is no Node.js, pnpm, or browser runtime at launch.
+Fonts are compiled in and SQLite is bundled — the app downloads no assets at startup.
+
+**PostgreSQL and SQLite.** Two providers are implemented end to end: PostgreSQL over `sqlx`
+and SQLite through a bundled `rusqlite` with its own actor thread. Credentials are kept in the
+OS keyring (Keychain / Credential Manager / Secret Service) with an encrypted-file fallback;
+connection metadata and secrets are stored separately, and secrets never enter the metadata
+database. `OBSERVED` (source + tests).
+
+**Connection Explorer.** Create, test, connect, disconnect, reconnect, edit, and delete
+connections; a schema/table/view tree with targeted refresh, preview-on-single-click and
+promote-on-double-click resource tabs, and a Data-first navigation model.
+
+**Query Editor.** A native SQL editor with dialect syntax highlighting, schema-aware
+completion, current-statement / selection / run-all execution through a split Run control,
+multi-statement results as separate `Result 1..N` tabs plus a `Messages` tab, structured
+diagnostics, SQL formatting, query history, and local draft persistence.
+
+**Table Data Editor.** A virtualized grid with filter/sort/pagination, column resize with
+persisted layout, row selection and scoped copy, PK-based staged insert/update/delete,
+Enter-to-stage, a pending-changes review step, and patch-style updates that send only changed
+columns.
+
+**Schema workbench.** Per-table Data / Columns / Indexes / Relations / Triggers / DDL
+inspection, with dialect-accurate reconstructed DDL and FK navigation.
+
+**ER Diagram.** A schema-level ER canvas built on a native graph model (`ErGraph`, spatial
+index, coordinate engine, three-tier level of detail, BFS neighbourhood exploration) with a
+background layout worker that coalesces rebuilds. The automated test suite covers layout
+timing at 20/100/500/1000 tables, LOD transitions, BFS determinism, and worker lifecycle.
+
+**Agent (Preview).** An Ask/Edit/Agent panel that generates SQL as a *reviewable draft*; every
+database-mutating tool call goes through a confirmation gate, and the panel is explicitly
+labelled Preview. It is optional and needs a provider key (`GROQ_API_KEY` or
+`OPENAI_API_KEY`) to do anything; without a key the panel is inert.
+
+**Export and Backup (release subset).** CSV/TSV export from the result grid. SQLite backup via
+`VACUUM INTO`. PostgreSQL backup/restore shells out to `pg_dump`/`pg_restore` (they must be on
+`PATH`).
+
+## Safety
+
+- **Read-only enforcement.** A read-only connection is enforced in the backend mutation
+  services, not only in the UI; tables without a primary key are read-only in the grid.
+- **Destructive confirmations.** Destructive SQL is classified in the canonical action path and
+  requires an explicit confirmation before execution.
+- **Mutation rollback and conflict resolution.** Staged table mutations apply as one
+  transaction per batch: a failure rolls the whole batch back and keeps every staged change
+  visible for retry. Concurrent external edits are detected and resolved through a three-way
+  conflict dialog (Original / Local / DB Current, with Keep Mine / Use Database actions).
+- **Credential hygiene.** Connection passwords live in the OS keyring; the metadata database
+  stores a `secret_ref` indirection, not the secret. Release builds no longer contain the
+  developer connection preset (fixed in `c682552`).
+
+## Known limitations
+
+Taken from the capability registry, with the state of the evidence attached. See
+`docs/notes/PRODUCT_CAPABILITY_MATRIX.md` and `docs/release/known-limitations.md` for the full
+registry.
+
+- **Query cancellation is provider-asymmetric.** SQLite cancellation works by interrupting the
+  running VM (`sqlite/actor.rs`); PostgreSQL cancellation is **not** implemented and is
+  advertised as a capability-gated `Unsupported` (`capabilities.rs`: `postgres.cancel = false`,
+  `sqlite.cancel = true`). Earlier documents stated this the other way round; the code is the
+  authority.
+- **Runtime QA of the 0.1.0 candidate is not complete.** The manual smoke instrument
+  (`docs/release/0.1.0-manual-smoke.md`) has 0 of its 165 items ticked. V01-01, V01-02, V01-04
+  and V01-05 are `EVIDENCE_GAP`, V01-03 is `PARTIAL` (`docs/release/evidence/v01-06/04-...`).
+  What *is* verified: six quality gates green on rustc 1.95.0 and `cargo test --workspace` at
+  **815 passed / 0 failed / 19 ignored** (811/0/19 on the pre-fix candidate) — the 19 are
+  `#[ignore]`d (18 PostgreSQL integration tests needing `DATABASE_URL`, 1 SSH backup test needing
+  nine `DB_PRO_SSH_*` variables) and they are **not** passing. No window has been rendered or
+  interacted with on a packaged build; `docs/release/0.1.0-ui-visual-description.md` is a
+  code-derived description of the surfaces, not a capture, and does not close that gap.
+- **Application state lives in your user profile.** Connections, saved queries, query history,
+  settings and the credential-store fallback are kept in the per-user platform data directory
+  (`~/Library/Application Support/DB Pro` on macOS, `%APPDATA%\DB Pro` on Windows,
+  `$XDG_DATA_HOME/db-pro` or `~/.local/share/db-pro` elsewhere), except for an existing
+  `.db-pro-data` directory next to the app's working directory, which keeps being used;
+  `DB_PRO_DATA_DIR` overrides both. If you ran an earlier build, set `DB_PRO_DATA_DIR` to its
+  `.db-pro-data` to keep working on the same workspace.
+- **The first launch can ask for Keychain/credential-store access.** The build is unsigned, so the
+  OS cannot remember the app; on macOS a Keychain authorization prompt for DB Pro's own stored
+  provider key can appear before the window does, and an unattended launch waits there. Recorded
+  in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt` §6.
+- **Workspace/tab/settings persistence is not implemented** in the native build (eframe
+  persistence is off), so "restore tabs after restart" cannot be claimed.
+- **Linux credential storage needs a D-Bus Secret Service provider** (gnome-keyring/KWallet).
+  On a minimal or headless install, credential writes fail.
+- **PostgreSQL backup/restore and SSH tunnels need external programs** (`pg_dump`,
+  `pg_restore`, `ssh`) on `PATH`; they are not bundled.
+- **A PostgreSQL restore is not atomic.** `psql -f` / `pg_restore` run without a transaction
+  boundary, so a statement that fails mid-script leaves the target database **partially
+  restored** — some objects in place, some not. The app now says exactly that when the restore
+  fails, instead of only showing the subprocess error, and the database should be inspected before
+  it is used. SQLite restore is unaffected (staged copy → `PRAGMA quick_check` → atomic rename).
+  Registry entry: LIM-020.
+- **A running backup or restore cannot be cancelled.** There is no Stop control for a running
+  `pg_dump`/`pg_restore`; it runs to completion or to the query timeout. This is recorded as
+  `NOT SUPPORTED` in `docs/release/provider-capability-matrix.md` rather than left implicit.
+  (Query cancellation is a separate, provider-asymmetric story — see above.)
+- **Export publishes atomically.** A CSV/TSV export is written to a sibling temp file and renamed
+  into place, so a failed export never leaves a truncated file that looks complete, a scratch file
+  does not survive a failure, and an existing path is only replaced after confirmation. When the
+  result grid holds fewer rows than the query matched, the success message says so.
+- **SSH tunnels are not end-to-end qualified** across release targets.
+- **Windows and Linux build and package in CI, but are not runtime-verified.** All three platforms
+  compile and produce their archives successfully in the release pipeline (final run `34860902181`;
+  `BUILD_VERIFIED`), yet no Windows or Linux **host** exists in this project, so nothing has been
+  launched from those archives: they are `RUNTIME_UNVERIFIED`. The two states are deliberately not
+  blurred. Source state: the final run's measured values are in
+  `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md` §3 and `risk-register.md` §4.
+- **macOS x86_64 is not built.** The matrix produces Apple Silicon only.
+- **Row insertion is narrower than a full insert workflow**: complex column types (JSON, array,
+  UUID) do not have complete input widgets (LIM-003).
+- **CHECK/Unique constraint introspection** has no dedicated test and its release disposition
+  is still open in the risk register.
+- **The Agent path is Preview**, verified only by automated tests; no live provider run is
+  recorded in the repository.
+- **The AI features are the app's only network egress beyond your own connections.** With no
+  provider key configured, nothing leaves the machine — the runtime answers "AI provider is not
+  configured" and generates nothing. Once a key is set (entered in the agent panel or supplied as
+  `GROQ_API_KEY`/`OPENAI_API_KEY`), two paths send data to `api.groq.com` or `api.openai.com` over
+  HTTPS: **inline SQL prediction**, which is on by default and sends the SQL around your cursor plus
+  the schema context it references, and **the agent panel**, which sends the conversation and, for
+  agent query tool runs, up to 20 sample result rows (50 columns, 256 characters per cell). A key
+  saved in the OS keychain is reused in later sessions without re-entry. The app opens no other
+  outbound connection apart from the database and SSH connections you configure: no telemetry, no
+  update check, no licence check, no remote assets. Registry entry: LIM-019
+  (`docs/release/known-limitations.md`); source audit: `docs/release/audit-security-boundaries.md`
+  §1 and §5. Turn prediction off, or leave the key unset, to keep the AI path silent.
+
+## Not included in 0.1.0
+
+These are roadmap items, not shipped features. They must not be presented as capabilities of
+0.1.0 (see `docs/notes/PRODUCT_ROADMAP.md`):
+
+- **Monitoring / Administration** (active sessions, running queries, locks, sizes) — Phase D
+- **Data Import** (CSV/JSON/Excel into a table) and the Transfers activity — Phase C
+- **Full Object CRUD** workbench (Create/Alter Table, View CRUD, Index wizard, Trigger editor,
+  Sequences/Types UI) — Phase A
+- **Routine editing** (functions/procedures browse, source, execute-with-arguments) — Phase B
+- **Users / Roles / Permissions UI** — Phase E
+- **Schema Migration** generator (compare, DDL diff, apply) — Phase F
+- **MCP** server/client — deferred
+- **Advanced AI** (slow-query analysis, index suggestion, migration assistant; autonomous
+  execution) — Phase H
+
+Installer formats (`.dmg`, MSI/NSIS, `.deb`/`.rpm`, AppImage) and auto-update are also not part
+of 0.1.0 by decision — see `docs/release/0.1.0-packaging.md`.
+
+## Distribution status
+
+- **Public distribution: NO.** The source has an explicit MIT policy; the existing candidate
+  archives predate it and must be rebuilt. Public release remains blocked by the unverified interactive GUI/runtime evidence, unverified
+  Windows/Linux runtime, and the final exact-artifact third-party notice bundle. See
+  [`LICENSE`](../../LICENSE) and [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md).
+- **Internal / private release-candidate qualification: YES.** The exact-HEAD gates and the
+  final release pipeline run are green; see `docs/release/0.1.0-readiness.md`.
+- **Artifacts are unsigned.** The macOS binary carries only the linker's ad-hoc signature
+  (`Signature=adhoc`, `flags=0x20002(adhoc,linker-signed)`, `TeamIdentifier=not set`), and
+  `spctl -a -vvv -t execute` **rejects** it. A downloaded copy will show Gatekeeper's
+  "developer cannot be verified" flow (right-click → Open), and Windows will show SmartScreen's
+  "Windows protected your PC". No signing or notarization is configured; no secrets are used by
+  the workflows.
+- **Artifact names and checksums:** `db-pro-v0.1.0-macos-arm64.tar.gz` (10,045,965 B, sha256
+  `8141d6b7…2a83a`), `db-pro-v0.1.0-windows-x86_64.zip` (10,076,835 B, sha256 `3b0ba8eb…4580452`)
+  and `db-pro-v0.1.0-linux-x86_64.tar.gz` (15,168,133 B, sha256 `3fecfc17…194970`), plus
+  `SHA256SUMS.txt` (298 bytes), are produced by `.github/workflows/release.yml`. The **final run
+  `34860902181`** (candidate `85a7fa3`) completed fully green and its three archives were
+  independently re-hashed locally; the full values are in `docs/release/0.1.0-readiness.md` and
+  `risk-register.md` §4.
+
+## Post-candidate fixes (2026-09-14)
+
+**`543b526` — state directory.** The first packaged macOS candidate could not start when launched
+the normal way: a LaunchServices/Finder launch runs with `cwd=/`, the app resolved its state
+directory to `/.db-pro-data`, failed with
+`CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })` and
+exited 1 before opening a window. `resolve_data_dir()` now resolves `DB_PRO_DATA_DIR` → an existing
+`<cwd>/.db-pro-data` (so existing installs and the developer checkout are untouched) → the per-user
+platform data directory (`~/Library/Application Support/DB Pro` on macOS, `%APPDATA%\DB Pro` on
+Windows, `$XDG_DATA_HOME/db-pro` or `~/.local/share/db-pro` elsewhere). Reproduced and verified at
+the artifact level in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`; register entry
+`R-STATE-DIR` is `FIXED`. The interactive install smoke (create a SQLite connection, run
+`SELECT 1;`, relaunch persistence) is still not verified.
+
+**`1a0c186` — release pre-flight flaky test.** The ER layout-worker coalescing test asserted that
+the *first* asynchronous layout result was the newest one; on a slow runner the worker legitimately
+emits a superseded result first, so the test failed in CI. The tests (not the worker) were made
+deterministic in `1a0c186`; `13-flaky-er-worker-test.txt` records the reproduction, the negative
+control and the stability runs.
+
+**`85a7fa3` — packaged install note.** `README-INSTALL.txt`, shipped inside every archive, still
+said the workspace state lives "in a `.db-pro-data` directory next to the directory the app is
+started from" — the pre-`543b526` behaviour. It now documents the resolution order above
+(register: `R-INSTALL-NOTE`). The corrected note is in the archives produced by the final run
+`34860902181` and was **verified inside that CI-produced archive**; the archives from run
+`34859158012` predate the fix.
+
+## Verification summary (as shipped, measured)
+
+| Item | Result | Source |
+|---|---|---|
+| Toolchain | `cargo 1.95.0`, `rustc 1.95.0`, pinned in `rust-toolchain.toml` | `docs/release/evidence/v01-06/01-toolchain.txt`, `09-toolchain-pinning.txt` |
+| Quality gates (fmt, check, clippy `-D warnings`, test, release build, perf scan) | 6/6 exit 0 on 1.95.0 (re-run green after the state-directory fix and again after the `1a0c186` test fix) | `02-quality-gates.txt`, `08-post-fix-quality-gates.txt`, `12-state-dir-blocker-fix.txt` §4, `13-flaky-er-worker-test.txt` §8 |
+| Workspace tests | **811 passed / 0 failed / 19 ignored** pre-fix; **815 / 0 / 19** after the `543b526` fix; unchanged by `1a0c186` | `08-post-fix-quality-gates.txt`, `12-state-dir-blocker-fix.txt` §4, `13-flaky-er-worker-test.txt` §8 |
+| Release pipeline (CI) | **Final run `34860902181` green end to end** for the candidate `85a7fa3`: `Resolve release candidate`, `Pre-flight checks`, `Build` ×3, `Package` ×3, `Assemble SHA256SUMS`. Superseded: run `34859158012` (`1a0c186`) | `risk-register.md` §1/§4; `0.1.0-handoff.md` §1 |
+| Release binary | `target/release/db-pro-native`, 23,733,024 bytes (post-fix), launches and idles without crashing | `03-release-binary.txt`, `12-state-dir-blocker-fix.txt` |
+| macOS bundle | minimal `DB Pro.app` produced; after the `543b526` fix an `open`-launched bundle stays alive past 30 s and creates `~/Library/Application Support/DB Pro/meta.db`, and a direct `cwd=/` run no longer exits with `CreateDataDir`. The packaged archive was re-verified: shipped executable byte-identical to the qualified build, `/.db-pro-data` absent, one state store reused across relaunch — and again on the CI-produced artifact of the final run `34860902181`. No window was rendered or interacted with | `12-state-dir-blocker-fix.txt` §5; `14-install-smoke.txt` §1–§5 |
+| Signing | `adhoc` / linker-signed; `spctl` rejects | `03-release-binary.txt` |
+| Cross-platform artifacts | Produced and packaged in CI (final run `34860902181`): three archives + `SHA256SUMS.txt`, sizes and SHA-256 independently re-hashed locally (final values in `0.1.0-readiness.md` / `0.1.0-handoff.md` §3). Windows/Linux `BUILD_VERIFIED`, `RUNTIME_UNVERIFIED` | `risk-register.md` §1/§4, `0.1.0-readiness.md` |
+| Interactive install smoke (SQLite connection, `SELECT 1;`, relaunch persistence, window render) | **NOT VERIFIED** — extraction, launch and file-level state reuse are verified; the GUI was unreachable (four recorded environment blockers) | `14-install-smoke.txt` §7, runbook §8 |
+| Manual desktop smoke | **NOT RUN** (0 / 165 items) | `docs/release/0.1.0-manual-smoke.md` |
+
+## Post-0.1 direction
+
+See `docs/notes/PRODUCT_ROADMAP.md` and `docs/goals/goal-full-product.md`. In short: v0.2 opens
+Phase A (Object CRUD) and Phase B (Routines); v0.3 opens Phase C (Transfer/Import), Phase D
+(Monitoring) and Phase E (Users/Roles); later releases cover Phase F (Compare & Migration),
+Phase G (Productivity) and Phase H (AI).

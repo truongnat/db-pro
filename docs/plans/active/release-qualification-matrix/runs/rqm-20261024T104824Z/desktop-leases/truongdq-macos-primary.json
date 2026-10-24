@@ -1,0 +1,9 @@
+{
+  "desktop_id": "truongdq-macos-primary",
+  "epoch": 1,
+  "owner_lane": null,
+  "status": "released-invalidated-run",
+  "platform": "macos-arm64",
+  "released_at_utc": "2026-10-24T10:55:00Z",
+  "note": "GUI qualification halted; do not continue Orca on disqualified candidate"
+}

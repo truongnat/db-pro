@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "supersedes_wave": "v1-plan-evidence-excerpt-only",
+  "master_inventory": ".agents/memory/KNOWLEDGE_SOURCE_INVENTORY.json",
+  "title": "Phạm vi migration — inventory-driven (không đóng tay)",
+  "updated": "2026-10-24",
+  "completion_rule": "KNOWLEDGE_RECONCILIATION_V2.json scope_complete === true (mirrored_full_verified or APPROVED_EXCLUSIONS; truncated mirrors fail scope)",
+  "pipelines": [
+    ".agents/scripts/build-knowledge-inventory.py",
+    ".agents/scripts/migrate-plans-to-memory.py",
+    ".agents/scripts/migrate-pending-knowledge.py",
+    ".agents/scripts/reconcile-knowledge-sources-v2.py",
+    ".agents/scripts/reconcile-memory-migration.py"
+  ],
+  "mirror_locations": {
+    "v1_plan_units": ".agents/memory/entries/migrated/from-plans/",
+    "v2_by_source_file": ".agents/memory/entries/migrated/by-source-file/",
+    "curated": ".agents/memory/entries/{environment,patterns,workflows}/"
+  },
+  "user_home_policy": "Catalog paths and hashes in inventory; do not bulk-copy ~/.agents/skills into repo. Crosswalk: docs/plans/active/agents-memory-framework/evidence/skills-crosswalk.json"
+}

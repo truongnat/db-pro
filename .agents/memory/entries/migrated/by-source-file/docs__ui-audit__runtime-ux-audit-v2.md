@@ -1,0 +1,151 @@
+---
+schema_version: 1
+id: "MEM-SRC-6fcfc0c7b2412749"
+title: "Source mirror: docs/ui-audit/runtime-ux-audit-v2.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/ui-audit/runtime-ux-audit-v2.md"
+source_sha256: "6fcfc0c7b24127498e6478177c69e53f9ddf03275ca889adc12d9cce967a5831"
+mirror_body_sha256: "6fcfc0c7b24127498e6478177c69e53f9ddf03275ca889adc12d9cce967a5831"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# Runtime UX Audit v2 — PATCH 5.2 Closure
+
+**Date:** 2026-08-08  
+**Viewport:** 1440×900 (target)  
+**Commit baseline:** `6f4db1b`  
+**PATCH 5 commits:** `6f4db1b..753d610` (D1–D9)  
+**PATCH 5.1 commit:** `2001db9` (acceptance gap fixes)  
+**PATCH 5.2 commit:** After `2001db9` (pixel-level runtime corrections)
+
+## PATCH 5.2 — Pixel-level Runtime Corrections
+
+| # | Fix | Files Changed |
+|---|-----|---------------|
+| 1 | **Agent panel** — 330px default, 300-520px range, top-aligned content, 1-column starters 36px, context chips with icons | `agent-panel.tsx`, `shell.store.ts` |
+| 2 | **Explorer** — Indent 14px→10px, table/view icons muted (no primary color) | `explorer-view.tsx` |
+| 3 | **Workspace tabs** — min 120px, stronger active state with font-medium | `workspace-tab-bar.tsx` |
+| 4 | **Query command bar** — 38px height, Run 30px, Explain/Format 28px | `query-command-bar.tsx` |
+| 5 | **Run dropdown** — min-width 220px, rows 30px | `query-command-bar.tsx`, `query-toolbar.tsx` |
+| 6 | **Output IA** — Results\|Explain primary, History/Snippets in More dropdown | `query-tab-content.tsx` |
+| 7 | **Output header** — 34px height, stronger active state | `query-tab-content.tsx` |
+| 8 | **Empty states** — Structured messages with icons and actions | `query-tab-content.tsx` |
+| 9 | **Error strip** — Added status dot, improved visual | `query-status-bar.tsx` |
+| 10 | **Status bar** — Only show metadata when connected; disconnected shows name only | `status-bar.tsx` |
+| 11 | **Activity bar** — Increased inactive contrast, logo text 11px | `activity-bar.tsx` |
+| 12 | **Tab overflow pin** — Replaced 📌 emoji with Lucide PinIcon | `tab-scroll-controls.tsx` |
+
+## PATCH 5.1 — Acceptance Gap Fixes
+
+| # | Fix | Files Changed |
+|---|-----|---------------|
+| 1 | **Output IA** — Split primary (Results, Explain) from secondary (History, Local History, Snippets) with visual separator | `query-tab-content.tsx` |
+| 2 | **Context bar** — Removed duplicate schema display; now single `[schema ▾]` selector | `query-command-bar.tsx` |
+| 3 | **Explorer search** — Converted fake input to Quick Open trigger button | `explorer-view.tsx` |
+| 4 | **Typography** — Removed all `text-[10px]` from PATCH 5 surfaces; enforced ≥11px | `query-command-bar.tsx`, `query-toolbar.tsx`, `explorer-view.tsx`, `agent-panel.tsx`, `tab-scroll-controls.tsx` |
+| 5 | **Agent icons** — Replaced Unicode (▦ ⌘ ↔ ▶) with Lucide (Table2, Code2, Network, Sparkles) | `agent-panel.tsx` |
+| 6 | **Explain tree IDs** — Changed from `nodeType-relation-depth` to path-based identity (`0`, `0.0`, `0.1.2`) | `explain-plan.tsx` |
+
+## Screenshot Inventory
+
+| # | Screen | File | Status |
+|---|--------|------|--------|
+| 01 | Query idle | `before/01-query-idle.png` | Captured (full-screen) |
+| 02 | Query result | `before/02-query-result.png` | Pending manual capture |
+| 03 | Explain | `before/03-query-explain.png` | Pending manual capture |
+| 04 | Query error | `before/04-query-error.png` | Pending manual capture |
+| 05 | DB Object Data | `before/05-db-object-data.png` | Pending manual capture |
+| 06 | Explorer expanded | `before/06-explorer-expanded.png` | Pending manual capture |
+| 07 | Agent open | `before/07-agent-open.png` | Pending manual capture |
+| 08 | Empty workspace | `before/08-empty-workspace.png` | Pending manual capture |
+
+**Note:** Runtime screenshots require manual capture by the user. PATCH 5.1 code changes are complete; visual verification pending golden screen review.
+
+## PATCH 5 Implementation Summary (D1–D9)
+
+| Step | Commit | Description |
+|------|--------|-------------|
+| D1 | `88ba9d7` | Shell geometry: ActivityBar 46px, Explorer 288px, Topbar 32px, StatusBar 22px |
+| D2 | `e1a3e56` | Tab system: kind icons, 110-220px width, surface active state |
+| D3 | `ad516dc` | Query workbench: 36px toolbar, editor surface, 65:35 split, 32px result tabs |
+| D4+D5 | `6fed33c` | Explain redesign: summary + tree + node details split view |
+| D6 | `1041955` | Explorer: 28px search, row density, 14px indent, hierarchy typography |
+| D7 | `3a62755` | DB Object: 40px header breadcrumb, 32px section tabs |
+| D8 | `035a0ec` | Agent: context chips, starter suggestions, ⌘↵ composer |
+
+## Verification
+
+| Check | Result |
+|-------|--------|
+| cargo check | clean (0 errors, 0 warnings) |
+| cargo test | 217 passed, 0 failed |
+| tsc --noEmit | 0 errors |
+
+## Baseline Findings (from user-provided screenshot + spec review)
+
+### P0 — Critical Visual Issues
+
+None. The architecture is sound; issues are visual hierarchy and polish.
+
+### P1 — High-Impact Visual/UX Issues
+
+| ID | Area | Finding | Target |
+|----|------|---------|--------|
+| V1 | **Visual weight** | All layers have equal visual weight; eye doesn't know where to focus | Editor must dominate; Explorer quiet; Output secondary |
+| V2 | **Explorer width** | Object names truncated (`t_workflow_definit...`) | Default 288px, range 240–420px |
+| V3 | **Explorer row density** | Rows too cramped (~18–20px) | Connection 30px, schema 28px, object 25–26px |
+| V4 | **Tab system** | Too many tabs, titles unclear, active state weak, tabs too narrow | Min 110px, ideal 150px, max 220px; clear icon+title+state |
+| V5 | **Query context bar** | Context and actions same visual weight; no hierarchy | Compact context left; Run primary right |
+| V6 | **Editor surface** | Looks like "large dark empty box"; no editor feel | Distinct surface, 13.5–14px font, better padding/gutter |
+| V7 | **Explain panel** | Raw JSON debug tree; 80% whitespace | Summary + Plan Tree + Node Details |
+| V8 | **Result tabs** | 5 peer tabs (Results/Explain/History/Local History/Snippets) | Results/Explain/Messages primary; History/Snippets secondary |
+| V9 | **Typography** | Text feels 9–10px throughout; looks "cheap" | Main UI 13px, editor 13.5–14px, secondary ≥11px |
+| V10 | **Borders** | Border around every layer; visually noisy | Reduce 40–50%; prefer surface contrast + spacing |
+| V11 | **Activity Bar** | Icons too small, inactive too dark, active unclear | 46px width, 18px icons, subtle active bg, 2px indicator |
+| V12 | **Status bar** | Too small, all items same weight | 22–24px, left=context, right=diagnostics |
+| V13 | **Error UI** | Thin red 18px strip; not structured | Structured panel with message, context, actions |
+| V14 | **Color hierarchy** | Too monochrome; no deliberate surface contrast | Layered surfaces: app→nav→workbench→editor→output |
+
+### P2 — Polish Issues
+
+| ID | Area | Finding |
+|----|------|---------|
+| P2-1 | Hover actions | Always-visible icons; should show on hover only |
+| P2-2 | Search input | Too small; should be 180–220px command surface |
+| P2-3 | Tree indentation | Too shallow; hierarchy unclear |
+| P2-4 | Close behavior | Close icon always visible; should be hover-only |
+| P2-5 | Resize handles | Too prominent idle; should be subtle idle, obvious hover/drag |
+
+## Implementation Priority
+
+**D1 — Shell Geometry** (this commit)  
+Addresses: V2, V3, V9, V10, V11, V12
+
+Changes:
+- ActivityBar: 46px width, 18px icons, subtle active state
+- Explorer: default 288px, improved row heights
+- Topbar: 32–36px, compact
+- StatusBar: 22–24px, quiet
+- Typography baseline: 13px main UI
+- Reduce border noise
+
+**Golden screen:** Query + Explain at 1440×900.
+
+## Acceptance Criteria
+
+| Check | Pass Condition |
+|-------|----------------|
+| Explorer | Long object names usable (not truncated at ~12 chars) |
+| Typography | No text below 11px; main UI 13px |
+| Borders | visibly fewer hard borders between panels |
+| Activity Bar | Icons 18px, active state clear |
+| Density | Compact but not microscopic |
+| 1440×900 | Balanced layout, no clipping |

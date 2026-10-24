@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: "MEM-SRC-85611e1faea5f241"
+title: "Source mirror: docs/plans/active/theme-core-token/VERIFICATION.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/theme-core-token/VERIFICATION.md"
+source_sha256: "85611e1faea5f24136751689784961d8a5e332e24d886ea5320ae60158f2771c"
+mirror_body_sha256: "85611e1faea5f24136751689784961d8a5e332e24d886ea5320ae60158f2771c"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# Verification
+
+## Source evidence
+
+- Baseline: `bd787db1e5d75862ecd08c86539e910d4e651ebd` (main).
+- Branch: `feature/theme-core-token` (created successfully this session — this
+  corrects the previous record claiming `.git` was read-only and the branch
+  creation was blocked; `.git` is writable in this environment).
+- Source slice commits: `8a188e84` (core contract) and
+  `f7cf6541bf0462544d8e9c2c041457337b68043e` (state-precedence fix).
+
+## Commands (executed this session, results recorded verbatim)
+
+| Command | Result |
+|---|---|
+| `git status --short --branch` / `git rev-parse HEAD` | PASS — branch `feature/theme-core-token`, source fix HEAD `f7cf6541…` |
+| `cargo fmt --all -- --check` | PASS (exit 0), run after the final edit |
+| `CARGO_TARGET_DIR=/tmp/db-pro-target cargo check --workspace` | PASS (exit 0) — extra guard: no consumer outside `db-pro-ui` uses the moved tokens |
+| `CARGO_TARGET_DIR=/tmp/db-pro-target cargo clippy --workspace --all-targets -- -D warnings` | PASS (exit 0) |
+| `CARGO_TARGET_DIR=/tmp/db-pro-release-target cargo build --release --locked -p db-pro-native` | PASS (exit 0) |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | PASS — 13 ✓ / 3 ⚠ / 0 ✗, exit 0; warnings explained in FINDINGS |
+| `git diff --check` | PASS (exit 0) |
+| `CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=/tmp/db-pro-target cargo test --workspace` | PASS — 928 passed / 0 failed / 0 ignored, exit 0 |
+
+## Static contract checks
+
+| Check | Result |
+|---|---|
+| No new raw color/radius/spacing/stroke in component rendering | PASS — component diffs only replace literals with named roles/consts (`STROKE_THICK`, `border.focus`, `theme.semantic.status.*`); alert's two opacity literals moved to `semantic::STATUS_*` |
+| Every semantic role has light and dark treatment | PASS — `every_role_group_has_light_and_dark_treatment` |
+| State precedence explicit (`disabled → loading → active → focus → hover → default`) | PASS — `component::STATE_PRECEDENCE` + `button::shows_loading` + `input::resolve_chrome`, each pinned by tests |
+| Existing button dimensions and theme values unchanged | PASS — `dimensions_preserve_the_existing_rendered_values`, `light_tokens_follow_warm_minimalism_surface_contract`, `dark_tokens_follow_database_workstation_surface_contract`, `flat_facade_fields_are_built_from_the_semantic_roles` |
+| All imported symbols exist; no dead compatibility alias introduced | PASS — `cargo check --workspace` clean; the `FieldChromeState` re-export in `input/layout.rs` is consumed by password/text/textarea/search |
+
+## Runtime evidence
+
+**NOT VERIFIED** — no UI runtime session (screenshot/screen recording at
+1280×800, 1440×900, 1920×1080) was captured in this slice. Source inspection
+and unit tests are not runtime evidence. The two precedence fixes
+(disabled+loading button, disabled input chrome) are observable in the
+component gallery and must be checked in a runtime pass before this feature
+moves to `RUNTIME_VERIFY`/`COMPLETED`.
+
+## Tổng kết bằng tiếng Việt
+
+Đã xác minh lại toàn bộ bằng chứng cho slice hợp đồng token ba lớp: `.git` có
+thể ghi được nên branch `feature/theme-core-token` đã được tạo (sửa lại ghi chú
+ sai của lần trước), mã nguồn được commit tại `f7cf6541`. Các gate bắt buộc
+đều PASS (fmt, workspace check, clippy, release build, clean-code scan,
+`git diff --check`), và 928 test toàn workspace chạy xanh
+100%. Các kiểm tra tĩnh (không thêm giá trị thô, đủ role light/dark, thứ tự
+state precedence, kích thước button giữ nguyên, không import chết) đều đạt.
+Bằng chứng runtime giao diện vẫn ở trạng thái **NOT VERIFIED** — cần một phiên
+chụp màn hình gallery ở 3 độ phân giải trước khi đưa feature sang `RUNTIME_VERIFY`.

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "approved": [
+    {
+      "pattern": "docs/plans/_template/",
+      "reason": "template skeleton — not durable knowledge"
+    },
+    {
+      "path": "AGENTS.md",
+      "reason": "canonical agent contract — read in place"
+    },
+    {
+      "path": "RULES.md",
+      "reason": "canonical UI rules"
+    },
+    {
+      "path": ".impeccable.md",
+      "reason": "design context"
+    },
+    {
+      "path": "skills-lock.json",
+      "reason": "vendored skill lock"
+    },
+    {
+      "path": "clean-code.config.json",
+      "reason": "scanner config"
+    },
+    {
+      "pattern": ".agents/memory/KNOWLEDGE",
+      "reason": "inventory / reconciliation artifacts (prefix)"
+    },
+    {
+      "pattern": ".agents/memory/MIGRATION",
+      "reason": "migration artifacts (prefix)"
+    },
+    {
+      "pattern": ".agents/memory/SOURCE_SCOPE_MANIFEST.json",
+      "reason": "scope manifest artifact"
+    },
+    {
+      "pattern": ".agents/memory/APPROVED_EXCLUSIONS.json",
+      "reason": "exclusion manifest"
+    },
+    {
+      "pattern": ".agents/memory/entries/",
+      "reason": "curated or structural memory tree (not raw source mirrors)"
+    }
+  ]
+}

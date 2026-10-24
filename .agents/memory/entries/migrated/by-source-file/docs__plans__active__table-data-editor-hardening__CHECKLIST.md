@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: "MEM-SRC-ff46867c92a3b345"
+title: "Source mirror: docs/plans/active/table-data-editor-hardening/CHECKLIST.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/table-data-editor-hardening/CHECKLIST.md"
+source_sha256: "ff46867c92a3b345d5c2c1067f23b132776d1e21b3c757abdc26e9df54e8857b"
+mirror_body_sha256: "ff46867c92a3b345d5c2c1067f23b132776d1e21b3c757abdc26e9df54e8857b"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# Checklist
+
+- [x] Create focused branch and preserve pre-existing worktree changes.
+- [x] Add stable PK identity matching to staged mutations.
+- [x] Allow PK edits while retaining original PK predicate values.
+- [x] Merge one row's edited cells into one update mutation.
+- [x] Disable Apply while a validation error or apply request is active.
+- [x] Add conflict and invariant-violation outcomes for affected-row counts.
+- [x] Preserve staged rows after rollback/conflict and expose recovery actions.
+- [x] Keep conflict reloads staged and support retry after the refreshed result.
+- [x] Normalize mutation error categories and render conflict rows distinctly.
+- [x] Store table-data sorting as ordered clauses with Shift+click support.
+- [x] Persist grid layout state by connection/schema/table and add layout actions.
+- [x] Replace per-cell visible-coordinate scans with prebuilt lookup maps.
+- [x] Gate filter operators by column datatype and validate before DB dispatch.
+- [x] Support multiple AND filters, editable/removable chips, and pagination reset.
+- [x] Support server-side multi-sort cycle, priority display, and sort guards.
+- [x] Persist layout by stable column name, migrate safe legacy layouts, and
+      drop stale schema entries without applying renamed-column state.
+- [x] Add header Add Filter, separator auto-size, expanded cell editor, and value tooltips.
+- [x] Add grouped pending-change review by RowIdentity with old/new diff,
+      Revert Cell/Row, Undo Delete, and temporary insert identity actions.
+- [x] Support known/unknown-total pagination and page-size selection.
+- [x] Add regression tests for single/composite PK, PK edits, ChangeSet
+      transitions, and mutation failure cleanup.
+- [x] Verify PostgreSQL and SQLite independently at runtime.
+- [x] Run Rust quality gates and native release build.
+- [x] Collect native UI evidence at required viewport/state matrix.
+- [x] Expand structure metadata fields and catalog-backed PostgreSQL/SQLite
+      mappings for columns, indexes, and foreign-key actions.
+- [x] Add live PostgreSQL metadata/runtime verification for the expanded fields.
+- [x] Add requested 1k/10k-row, 50-column visual-map benchmark cases.
+- [x] Reload conflict rows by RowIdentity without replacing the whole table result.
+- [x] 3-way conflict resolution UI (Original / Local Staged / Database Current) with Keep Mine, Use Database, Retry, and Discard actions.
+- [x] Composite PK targeted reload tests and insert-delete removal tests.
+- [x] Record remaining P0/P1/P2 and known limitations.
+- [x] Refactor the shared Table component into typed geometry/state, config,
+      UI, and test layers while preserving public exports and interactions.

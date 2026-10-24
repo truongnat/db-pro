@@ -1,0 +1,295 @@
+---
+schema_version: 1
+id: "MEM-SRC-01fa5779cb9d7279"
+title: "Source mirror: docs/plans/active/viewport-select-fit/evidence/capture-manifest.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/viewport-select-fit/evidence/capture-manifest.json"
+source_sha256: "01fa5779cb9d7279a063ad1e9186af038d5bf9cf0eceaf3c8700c9529c8528bb"
+mirror_body_sha256: "565aaafb3b8ad8417cd26ebe49218cdc32ad6d24bd4baf167a574452272353cb"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+[
+  {
+    "name": "appearance-light-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "c1f12ac0f9da6a418d33d089d699177f1d67efe53efdfc986cf85c5facf141e5",
+    "file_size_bytes": 376476
+  },
+  {
+    "name": "query-picker-light-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "180232975a51b999efc2067da358724df9344d4b56f3e244e072a473a1c7ce29",
+    "file_size_bytes": 392803
+  },
+  {
+    "name": "appearance-dark-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "2bc6fd89fa758679cc8ef4322963d8a2a11eefa6700da0ee1f4ca64b222b1d73",
+    "file_size_bytes": 357893
+  },
+  {
+    "name": "query-picker-dark-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "0b49db6844b0115c80a726907401e73ffa0e6fa680abaa74bc5fc9033d3f2def",
+    "file_size_bytes": 422453
+  },
+  {
+    "name": "appearance-light-1440x900",
+    "requested_viewport": "1440x900",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2880,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "28a5dc4e6194277259b74d9f2779d9bb9536997b6da0cd837faf25806b76b429",
+    "file_size_bytes": 390622
+  },
+  {
+    "name": "query-picker-light-1440x900",
+    "requested_viewport": "1440x900",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2880,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "6fdebff532a895ac889a9dae2ae4de43be3188bc3be3f347c5c9264385084672",
+    "file_size_bytes": 406930
+  },
+  {
+    "name": "appearance-dark-1440x900",
+    "requested_viewport": "1440x900",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2880,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "2992586cc6fb25d85b9a4e632d264040236e9969730f68499b8f023abbabcc62",
+    "file_size_bytes": 372027
+  },
+  {
+    "name": "query-picker-dark-1440x900",
+    "requested_viewport": "1440x900",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2880,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1440.0,
+      838.0
+    ],
+    "sha256": "b213a2f6b7adc17b21076ecfbd632034fefba971359d8f2846ac427a8d69a133",
+    "file_size_bytes": 449073
+  },
+  {
+    "name": "appearance-light-1920x1080",
+    "requested_viewport": "1920x1080",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      3840,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "55ca3fc4322bdd0bd9e802db192b0146b7363c8f41429856f9676f640b820f1d",
+    "file_size_bytes": 421961
+  },
+  {
+    "name": "query-picker-light-1920x1080",
+    "requested_viewport": "1920x1080",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      3840,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "e20afbf7c80f587f94162df7cc5f23c157c916a184b6a24576a9cf84e6c6a771",
+    "file_size_bytes": 438211
+  },
+  {
+    "name": "appearance-dark-1920x1080",
+    "requested_viewport": "1920x1080",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      3840,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "b3381e3ff118e6d9278905da32676d64202f9fd6b4802cc0bae110111df0d4a2",
+    "file_size_bytes": 403431
+  },
+  {
+    "name": "query-picker-dark-1920x1080",
+    "requested_viewport": "1920x1080",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      3840,
+      1676
+    ],
+    "logical_rendered_viewport": [
+      1920.0,
+      838.0
+    ],
+    "sha256": "5890a26cc92a3bd2fc20d73c15830d05797725417246b3eddb1ed6da93af8337",
+    "file_size_bytes": 519065
+  },
+  {
+    "name": "picker-dense-light-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "7e7770ec34bfed2eaf10bef0a4fb3a7ac6a057c5c5dce63b815338c4714de1c1",
+    "file_size_bytes": 478839
+  },
+  {
+    "name": "picker-dense-dark-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": 0,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "d053e3fee542cb966237cbaef9ba36fe4731ccc400967c16301330629737c54e",
+    "file_size_bytes": 518587
+  },
+  {
+    "name": "picker-short-light-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": 0,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "ec3dedc83551324f66942ed15b43838d92c89703a3a20956b8ba45bc21803265",
+    "file_size_bytes": 392611
+  },
+  {
+    "name": "explorer-filter-popover-light-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": -6,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "d9bee81ee4a796603c7bc5c1147562913cc41681534eb36430d01b5f1ee3fb1a",
+    "file_size_bytes": 445121
+  },
+  {
+    "name": "explorer-filter-popover-dark-1280x800",
+    "requested_viewport": "1280x800",
+    "exit_code": 0,
+    "screenshot_exists": true,
+    "framebuffer_pixels": [
+      2560,
+      1600
+    ],
+    "logical_rendered_viewport": [
+      1280.0,
+      800.0
+    ],
+    "sha256": "2a3895bc409cc326283c7412430236253686643f18be9ec271182630e4ceb08f",
+    "file_size_bytes": 411864
+  }
+]
+```

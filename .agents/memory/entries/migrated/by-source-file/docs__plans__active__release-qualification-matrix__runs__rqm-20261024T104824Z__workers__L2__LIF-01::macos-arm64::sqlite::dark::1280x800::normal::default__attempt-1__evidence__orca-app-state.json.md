@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: "MEM-SRC-4c53f0f954244864"
+title: "Source mirror: docs/plans/active/release-qualification-matrix/runs/rqm-20261024T104824Z/workers/L2/LIF-01::macos-arm64::sqlite::dark::1280x800::normal::default/attempt-1/evidence/orca-app-state.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/release-qualification-matrix/runs/rqm-20261024T104824Z/workers/L2/LIF-01::macos-arm64::sqlite::dark::1280x800::normal::default/attempt-1/evidence/orca-app-state.json"
+source_sha256: "4c53f0f95424486449b98b98346a907ef3a16a87399e8af6fd5cc6df32e9f034"
+mirror_body_sha256: "c301a01723b7c662b4fcf401b9a0dcc902f48eccc058594257de263ef09cae9f"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+{
+  "id": "14502cc9-319a-4b2d-8814-b853eb21962d",
+  "ok": true,
+  "result": {
+    "screenshot": {
+      "format": "png",
+      "width": 2880,
+      "height": 1740,
+      "scale": 2,
+      "path": "/var/folders/4d/_mty89s14v59s1ry8xj30z8c0000gn/T/orca-computer-use/14502cc9-319a-4b2d-8814-b853eb21962d-screenshot.png",
+      "dataOmitted": true,
+      "expiresAt": "2026-10-25T10:50:19.146Z"
+    },
+    "screenshotStatus": {
+      "metadata": {
+        "engine": "screenCaptureKit",
+        "windowId": 103545
+      },
+      "state": "captured"
+    },
+    "snapshot": {
+      "focusedElementId": null,
+      "elementCount": 57,
+      "truncation": {
+        "truncated": false,
+        "maxDepth": 64,
+        "maxDepthReached": false,
+        "maxNodes": 1200
+      },
+      "app": {
+        "name": "DB Pro",
+        "bundleId": "com.dbpro.app",
+        "pid": 73927
+      },
+      "id": "47A3436C-C231-483D-B031-5C38D8993F90",
+      "treeText": "App=com.dbpro.app (pid 73927)\nWindow: \"DB Pro\", App: DB Pro.\n\n0 standard window DB Pro\n\t1 button Collapse Sidebar (⌘B)\n\t2 button (disabled) Back\n\t3 button (disabled) Forward\n\t4 text │\n\t5 text \n\t6 text Sample E-Commerce (SQ…\n\t7 text SQLite\n\t8 button Command Palette\n\t9 button Open Component Gallery\n\t10 button Open Copilot Assistant\n\t11 button Switch to Dark Theme\n\t12 button Search commands, tables, schemas (⌘P)\n\t13 text \n\t14 text Connected\n\t15 text Sample E-Commerce (SQLite)\n\t16 text SQLite\n\t17 text /tmp/db-pro-qual-rqm-20261024T104824Z/s…\n\t18 text main\n\t19 text Schema loaded · 11 tables · 2 views · 1 triggers · 0 functions\n\t20 button Toggle output panel\n\t21 text UTF-8\n\t22 text Workspace\n\t23 button Database Navigator\n\t24 button SQL Scripts & Projects\n\t25 button Tools & Management Hub\n\t26 button AI Copilot (Agent)\n\t27 button Settings\n\t28 toggle button (settable) Welcome, Value: 1\n\t29 toggle button (settable) Query 1, Value: 0\n\t30 button New Query Tab (⌘N)\n\t31 text \n\t32 text DB Pro\n\t33 text Explore databases, write SQL with AI Copilot, and inspect results.\n\t34 text PostgreSQL  ·  SQLite  ·  MySQL  ·  SQL Server\n\t35 button New Connection — Connect to PostgreSQL, SQLite or remote database\n\t36 button New SQL Query — Open a blank scratchpad with auto-completion\n\t37 button AI Copilot Assistant — Generate queries, explain schema or review SQL\n\t38 button ER Diagram Canvas — Visualize schema tables and relationships\n\t39 button Sample E-Commerce (SQLite) — Command Palette (⌘⇧P)\n\t40 button New Connection (⌘N)\n\t41 button New Query\n\t42 text \n\t43 text field (settable) Filter objects…\n\t44 button Object filter options\n\t45 button Refresh active schema\n\t46 text CONNECTIONS\n\t47 toggle button (settable) Sample E-Commerce (SQLite), Value: 1\n\t48 toggle button (settable) /tmp/db-pro-qual-rqm-20261024T104824Z/sample-ecommerce.sqlite, Value: 0\n\t49 toggle button (settable) main, Value: 0\n\t50 toggle button (settable) Tables, Value: 0\n\t51 toggle button (settable) Views, Value: 0\n\t52 toggle button (settable) Triggers, Value: 0\n\t53 close button\n\t54 full screen button, Secondary Actions: zoom the window\n\t55 minimize button\n\t56 text DB Pro\n\nNo UI element is currently focused.",
+      "window": {
+        "screenIndex": 0,
+        "width": 1440,
+        "x": 0,
+        "height": 870,
+        "isMinimized": false,
+        "platform": {
+          "layer": 0
+        },
+        "id": 103545,
+        "title": "DB Pro",
+        "isOffscreen": false,
+        "y": 30
+      },
+      "coordinateSpace": "window"
+    }
+  },
+  "_meta": {
+    "runtimeId": "cfd582d4-1b42-4ac5-8e47-c1c2716026cb"
+  }
+}
+
+```

@@ -1,0 +1,7 @@
+{
+  "run_id": "rqm-20261024T104824Z",
+  "status": "BLOCKED_HOST",
+  "count": 2442,
+  "reason": "windows-x64/linux-x64 instances require assigned target hosts; not executed on macOS Orca host",
+  "reference": "expected-instances.json host_execution_eligibility"
+}

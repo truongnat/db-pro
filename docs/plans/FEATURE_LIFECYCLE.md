@@ -48,6 +48,15 @@ Every active feature owns exactly one directory under `docs/plans/active/<featur
 
 When and only when the feature reaches `COMPLETED`, move the directory to `docs/plans/completed/<feature-slug>/` and update `docs/plans/STATUS.md` in the same PR.
 
+## Durable memory (`.agents/memory/`)
+
+Plan folders capture **feature lifecycle**; long-lived lessons belong in searchable memory:
+
+1. Before non-trivial work, run `.agents/scripts/search-memory.sh` (project corpus first).
+2. After `COMPLETED` or a verified incident/fix, if memory policy applies (`/.agents/rules/memory-policy.md`), add or update an entry — prefer editing an existing topic over duplicating.
+3. Bulk plan evidence was mirrored into `entries/migrated/from-plans/` — owner plan `docs/plans/active/agents-memory-framework/`. Curate high-value rows to `active` or move out of `migrated/` when verified.
+4. Re-run `python3 .agents/scripts/migrate-plans-to-memory.py` only when refreshing the mirror from `docs/plans/` (see MEMORY_MIGRATION.md).
+
 ## Evidence levels
 
 Do not mix evidence levels.

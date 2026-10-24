@@ -1,0 +1,26 @@
+{
+  "recorded_at": "2026-10-24",
+  "baseline_sha": "dd2bf5e4090e6d509d34c0c8c58ca95015d91640",
+  "required_paths": {
+    ".agents/AGENTS.md": true,
+    ".agents/README.md": true,
+    ".agents/rules/project.md": true,
+    ".agents/rules/memory-policy.md": true,
+    ".agents/scripts/search-memory.sh": true,
+    ".agents/template/memory/memory-entry.md": true,
+    ".agents/memory/INDEX.md": true,
+    ".agents/memory/MIGRATION_MANIFEST.json": true
+  },
+  "search_memory_executable": true,
+  "manifest_entry_count": 196,
+  "migrated_files_on_disk": 196,
+  "curated_entry_files": 9,
+  "skills_lock_count": 41,
+  "skills_readme": true,
+  "search_tests": {
+    "rustc pin": {"exit": 0, "has_hit": true},
+    "release-qualification-matrix": {"exit": 0, "has_hit": true}
+  },
+  "global_memory_dir": true,
+  "global_search_script": true
+}

@@ -1,0 +1,57 @@
+# Skills (năng lực theo tác vụ)
+
+Nguồn chuẩn trong repo: `.agents/skills/`. Kiểm tra frontmatter:
+
+```bash
+.agents/scripts/validate-skills.sh .agents/skills
+```
+
+## Bộ skill gốc vòng đời (blueprint `agents-memory-blueprint 3`)
+
+Skill mô tả **cách làm**; template (`.agents/template/`) mô tả **đầu ra**; rule (`.agents/rules/`) là **bắt buộc**. Không nạp tất cả skill cho mỗi task.
+
+### Điều phối
+
+| Skill | Vai trò |
+|---|---|
+| `software-lifecycle` | Phân loại task, chọn skill/template, cổng chất lượng |
+
+### Bản đồ vòng đời
+
+| Giai đoạn | Skill | Template (gợi ý) |
+|---|---|---|
+| Làm rõ feature | `requirements-discovery` | `template/software/feature-spec.md` |
+| Thiết kế | `solution-design` | `technical-design.md`, `adr.md`, `implementation-plan.md` |
+| Implement | `implementation` | `implementation-plan.md` |
+| Bug | `bug-investigation` | `bug-investigation.md` |
+| Refactor | `refactoring` | `test-plan.md` |
+| Test | `testing-validation` | `test-plan.md` |
+| Review diff | `code-review` | `code-review.md` |
+| Security | `security-review` | (security template trong `template/software/`) |
+| Release | `release-deployment` | `release-checklist.md` |
+| Incident | `incident-response` | `incident-postmortem.md` |
+| Memory | `memory-curation` | `template/memory/memory-entry.md` |
+| Bàn giao | `handoff-retrospective` | `handoff.md`, `retrospective.md` |
+
+**Chuỗi mẫu:** trước code → `memory-curation` (search) → skill giai đoạn → `memory-curation` (đúc kết nếu đáng).
+
+> `code-review` (lifecycle) ≠ `code-review-and-quality` (addyosmani lock) — dùng lifecycle cho diff/review theo template; dùng lock skill cho multi-axis gate merge.
+
+## Vendored / lock (`skills-lock.json`)
+
+| Upstream | Số skill (lock) | Ghi chú |
+|---|---|---|
+| `addyosmani/agent-skills` | 25 | Engineering / process |
+| `truongnat/universal-qa-skills` | 15 | QA / release testing |
+| `mastepanoski/claude-skills` | 1 | `ui-design-review` |
+| Superpowers | 15 | Không trong lock — workflow agent |
+
+## Script-skill nội bộ (ngoài `.agents/skills`)
+
+- `.skills/perf-audit/`, `.skills/clean-code/`, `.skills/ui-consistency-audit/`
+
+## Cursor UI
+
+- `.cursor/skills/frontend-design/`, `theme-factory/` — `AGENTS.md`; không override `DbProTheme`.
+
+Đăng ký với harness (Cursor `skill://`, Orca, …). Thư mục alone không đủ — xem blueprint `skills/README` về adapter/symlink nếu tool dùng path khác.

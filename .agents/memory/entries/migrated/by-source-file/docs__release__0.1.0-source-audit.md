@@ -1,0 +1,135 @@
+---
+schema_version: 1
+id: "MEM-SRC-577edc44c5eef2d5"
+title: "Source mirror: docs/release/0.1.0-source-audit.md"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/release/0.1.0-source-audit.md"
+source_sha256: "577edc44c5eef2d5189d7018e02eb49bdae7e93177a569688289c0f668b0b27f"
+mirror_body_sha256: "577edc44c5eef2d5189d7018e02eb49bdae7e93177a569688289c0f668b0b27f"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+# DB Pro 0.1.0 — Source Audit
+
+**Original exhaustive baseline:** `2a99dfc`  
+**Release-critical delta reviewed through:** `a2ce14c`  
+**Updated:** 2026-08-11
+
+> The original pattern scan below was performed at `2a99dfc`. Wave A/Wave B landed significant frontend changes afterward. Do not interpret the historical `0 P1` source scan as proof that the current release is ready. Current release blockers are tracked in `0.1.0-readiness.md` and `docs/plans/project/07-current-status.md`.
+
+> **Status correction (2026-09-14, release-pipeline pass).** This document is a **Tauri/frontend-era**
+> audit; the React/Vite frontend and the Tauri host were retired on 2026-09-11 and archived under
+> `_archive/frontend/`. Its "Current" rows (frontend suite counts, "release artifacts/runtime smoke
+> IN PROGRESS", "cross-platform build triggered") describe that retired stack and are **historical** —
+> they are retained, not rewritten. The `SOURCE_AUDIT_RELEASE_SIGNOFF: YES` verdict at the bottom
+> records that the scan found no P0 **source** defect; it is **not** a release sign-off and closes no
+> V01 gate. The current measured release state lives in `docs/release/0.1.0-readiness.md`: six gates
+> green on rustc 1.95.0 (815/0/19 after `543b526`), the release pipeline green end to end in run
+> `34859158012` with all three archives + `SHA256SUMS.txt` independently verified, Windows/Linux
+> `BUILD_VERIFIED` / `RUNTIME_UNVERIFIED`, the interactive GUI install smoke `NOT VERIFIED`
+> (`14-install-smoke.txt` §7.7), V01-01…V01-05 runtime evidence gaps open, and `R-LICENSE`
+> **BLOCKING** public distribution.
+
+---
+
+## Historical Pattern Scan (`2a99dfc`)
+
+| Pattern | Historical result | Classification at baseline |
+|---|---|---|
+| `TODO` / `FIXME` / `HACK` | frontend action/sidebar debt | post-release / unavailable actions |
+| `not_implemented` | action definitions | safe when unavailable/hidden |
+| `Coming soon` | Agent/preview surfaces | safe when clearly labeled |
+| `console.log` | none in production scan | clean |
+| password / secret flow | form/DI/backend secret infrastructure | no frontend credential persistence found |
+| noop / empty click handlers | none found | clean at baseline |
+| Rust panic paths | startup fail-fast only; no production `panic!` found | acceptable baseline |
+
+## Credential Security Baseline
+
+### Frontend
+
+- Connection persistence was intentionally restricted; passwords were not persisted in frontend state.
+- Password input flowed through form → Tauri boundary → backend secret handling.
+
+### Backend
+
+- OS keyring is the primary secret store.
+- Encrypted fallback uses Argon2id + AES-256-GCM and controlled file permissions.
+
+**Baseline credential verdict:** SAFE from the inspected source patterns.
+
+---
+
+## Release-critical Delta Review (`2a99dfc` → `669d1fa`)
+
+Recent work concentrated on UX/runtime correctness rather than credentials:
+
+- Action runtime terminal/cancellation invariants
+- session reconnect and Explorer behavior
+- SQLite dialog plugin registration/capability
+- Run split-button / shortcut routing
+- Data Grid selection/copy
+- staged update/delete mutation safety
+- patch-style same-row edits
+- revision-safe partial apply/in-flight mutation handling
+- metadata refresh targeting/cache invalidation
+- portable frontend lockfile
+
+### Current known source state
+
+| Category | Result |
+|---|---|
+| Known P0 source defect | 0 |
+| Known release-blocking data-loss bug from staged edit model | CLOSED in source by patch model + composition fix |
+| Known platform-specific Rollup root dependency | CLOSED in source/lockfile |
+| Known global grid clipboard hijack | CLOSED in source |
+| Known SQLite dialog registration gap | CLOSED in source |
+| Current full frontend suite | GREEN — 106 files, 1324 tests, 0 failures at `a2ce14c` *(historical: React/Vite frontend retired 2026-09-11)* |
+| Current release artifacts/runtime smoke | IN PROGRESS — cross-platform build triggered *(historical: superseded — the release pipeline is green in run `34859158012` for `1a0c186`; the interactive GUI smoke is `NOT VERIFIED`. See `risk-register.md` §4 and `0.1.0-readiness.md`)* |
+
+---
+
+## Current Release P1s Are Verification Gates
+
+The current known P1 blockers are not newly identified credential leaks or destructive source defects. They are release evidence/gate failures:
+
+1. Current frontend suite must be fully green.
+2. `format:check` must pass because release preflight enforces it.
+3. macOS/Windows/Linux release artifacts must be proven.
+4. Manual desktop runtime smoke must be signed off.
+
+See `docs/release/0.1.0-readiness.md` for the authoritative release verdict.
+
+---
+
+## Deferred / Explicitly Unavailable Scope
+
+The following must remain hidden, disabled, or clearly Preview/Coming Soon when not implemented for 0.1.0:
+
+- production Agent execution
+- MCP server
+- advanced schema mutation actions
+- users/roles workbench
+- complete row insertion workflow
+- additional database drivers
+
+---
+
+## Audit Verdict
+
+- **Known P0 source findings:** 0
+- **Known source-level data-safety blocker from Wave B:** closed in source
+- **Release P1 blockers:** 1 remaining (manual smoke); automated verification CLOSED at `a2ce14c`
+- **SOURCE_AUDIT_RELEASE_SIGNOFF:** YES — source is clean; remaining blockers are runtime verification only
+
+> **Annotation (2026-09-14):** the verdict above is scoped to the retired frontend/Tauri stack at
+> `a2ce14c` and to **source** inspection. It is not a release sign-off for the native candidate and
+> it closes no V01 gate. For the native release state, use `docs/release/0.1.0-readiness.md`.

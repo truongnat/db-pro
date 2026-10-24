@@ -1,5 +1,31 @@
 # DB Pro — Agent Instructions
 
+## Agent framework (`.agents/`)
+
+Repo dùng **agents-memory blueprint**: memory có version control, rules, template và hợp đồng làm việc.
+
+| Thành phần | Đường dẫn |
+|---|---|
+| Hợp đồng workflow (tìm memory → làm → kiểm chứng → đúc kết) | `.agents/AGENTS.md` |
+| Bối cảnh db-pro | `.agents/rules/project.md` |
+| Memory policy / ngôn ngữ / bảo mật | `.agents/rules/*.md` |
+| Corpus memory | `.agents/memory/` |
+| Tìm kiếm (project → global) | `.agents/scripts/search-memory.sh` |
+| Skills | `.agents/skills/` + `skills-lock.json`; **lifecycle gốc** (blueprint 3): `software-lifecycle`, `memory-curation`, … — xem `.agents/skills/README.md`; `validate-skills.sh` |
+| Template tài liệu | `.agents/template/` |
+
+**Trước bug/feature/refactor không tầm thường:** chạy memory search và đọc entry `active` trước khi đổi code:
+
+```bash
+.agents/scripts/search-memory.sh "subsystem hoặc exact error"
+```
+
+Chi tiết đầy đủ vẫn ở các mục dưới (product, UI, tests, release). Memory **không** ghi đè chỉ dẫn người dùng hoặc `AGENTS.md` hiện tại.
+
+**Agents memory:** Inventory master `.agents/memory/KNOWLEDGE_SOURCE_INVENTORY.json` — rebuild: `python3 .agents/scripts/build-knowledge-inventory.py`. Status: `docs/plans/active/agents-memory-framework/KNOWLEDGE_MIGRATION_STATUS.md`. Search: `.agents/scripts/search-memory.sh`.
+
+---
+
 ## Product
 
 DB Pro is a desktop Database IDE / Agent IDE.

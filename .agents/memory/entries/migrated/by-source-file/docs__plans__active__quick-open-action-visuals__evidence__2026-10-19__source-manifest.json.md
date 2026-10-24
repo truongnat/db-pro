@@ -1,0 +1,42 @@
+---
+schema_version: 1
+id: "MEM-SRC-3f7841170854bed9"
+title: "Source mirror: docs/plans/active/quick-open-action-visuals/evidence/2026-10-19/source-manifest.json"
+type: pattern
+scope: project
+status: needs-review
+mirror_kind: full-file
+mirror_wave: v2-by-source-file
+source_path: "docs/plans/active/quick-open-action-visuals/evidence/2026-10-19/source-manifest.json"
+source_sha256: "3f7841170854bed9e533fedc288c277eb41a3f90b9b7ca0928b0b1d257b2f08f"
+mirror_body_sha256: "86f09b64cb74adddacf511107d6c1c0ea9b9a7fbd0e8ca05f55b7e92f5f68d2c"
+truncated: false
+created: "2026-10-24"
+updated: "2026-10-24"
+verified_on: unknown
+confidence: low
+tags: [migrated, by-source-file]
+---
+```json
+{
+  "baseline_sha": "95de1c9d172e565e5378b9f1cc72fdcadd69b2f8",
+  "candidate": "uncommitted patch; no candidate commit SHA",
+  "files": {
+    "crates/ui/src/components/input/search.rs": "27c4202fef4828e29053df1a038c12dcbfdf0036ad38d472a24432d8dd2248ad",
+    "crates/ui/src/components/input/tests/search_tests.rs": "4642ddd25795b0542b2e847114a854c5ffcf4c8b52eb96dba395c9019b1b2cd8",
+    "crates/ui/src/theme/mod.rs": "bbd5bebdeb508c6227e29df18a9c7fbfdefa83fa15032643067d73db793f48ee",
+    "crates/ui/src/theme/tests/mod_tests.rs": "dc108a85e9259ee8f7621a543097b2fbaea57a223919170b041d8cef39e2365a",
+    "crates/app/src/shell/chrome/shell_topbar_view.rs": "1bc85da2cfa16701601467de948d9c86c27ca7fd4024ffdcf6d089ca8e51cfd8",
+    "crates/app/src/shell/chrome/shell_statusbar_view.rs": "cc7fe576c32774f11ac2e5e360abec944c2f634078e95f2ea1dd8183d38e29e4",
+    "crates/app/src/shell/chrome/shell_chrome_view.rs": "889365452fefff0790922d9aea6787b6abf063e634bee8a0498af4f06d95c3ea",
+    "crates/app/src/agent/agent_surface_view.rs": "9315718780b3efb7fe488fb2896a90499f66aa3a635376fbc52fc0a7b57b0feb",
+    "crates/app/src/settings/settings_appearance_view.rs": "368e547c19cc69078d44f3977cdf0db9f2e79073e1c6852e9d5f010acc0ed08c",
+    "crates/app/src/component_gallery/component_gallery_view.rs": "3bc55d3b439d3f8099e083b00afce6d37882ff756ef9a12f2b27b4dc13e45168",
+    "crates/app/src/app/app_lifecycle.rs": "510435448f0d9ae94e2b10ef2b9e96b1f079b4513ff9c2e08ba3aeff9331fdfb",
+    "crates/app/src/app/tests/app_lifecycle_tests.rs": "da021046ab3a8340ff6b1c75a869a825369bcf9c92ab2aeb2ecf3b06c3ba4702",
+    "crates/app/src/palette/palette_surface_view.rs": "8e3d25d0c300e710dbe59f1471f9449ae9d733ae8c0071da72c9d066ca549fa1",
+    "crates/app/src/palette/tests/palette_surface_view_tests.rs": "7473d151819138f182bd32ff771e896b4a5041842136559a8422c1282f6ffb43",
+    "crates/app/src/workspace/workspace_actions.rs": "3e2eadf62dc998c7a2b7c0b964675ed149b7a6c440e98e4033a5ffb633ad223a"
+  }
+}
+```
