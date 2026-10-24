@@ -160,6 +160,12 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
     let rest = &source[start..];
     let end = rest.find("\n    async fn introspect(").expect("introspect follows");
     let body = &rest[..end];
+    let checkout = body
+        .find("crate::transaction_session::checkout_if_held")
+        .expect("checkout_if_held is checked for existing session");
+    let joined = body
+        .find("execute_parameterized_transaction_joined")
+        .expect("delegates to execute_parameterized_transaction_joined when leased");
     let hold = body
         .find("let _active_backend")
         .expect("guard is held for the parameterized transaction");
@@ -173,7 +179,22 @@ fn owned_execute_parameterized_transaction_publishes_backend_and_sets_search_pat
     let statements = body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow search path setup");
-    assert!(hold < pid && pid < track && track < search_path && search_path < statements);
+    assert!(
+        checkout < joined
+            && joined < hold
+            && hold < pid
+            && pid < track
+            && track < search_path
+            && search_path < statements
+    );
+
+    let joined_start = source
+        .find("async fn execute_parameterized_transaction_joined(")
+        .expect("joined function exists");
+    let joined_body = &source[joined_start..start];
+    assert!(joined_body.contains("SAVEPOINT dbpro_parameterized_tx"));
+    assert!(joined_body.contains("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx"));
+    assert!(joined_body.contains("RELEASE SAVEPOINT dbpro_parameterized_tx"));
 }
 
 #[tokio::test]

@@ -56,12 +56,29 @@ fn execute_parameterized_transaction_publishes_connection_id_before_statements()
         .find("async fn execute_parameterized_transaction(")
         .expect("execute_parameterized_transaction");
     let body = &source[param_at..];
+    let checkout = body
+        .find("crate::transaction_session::checkout_if_held")
+        .expect("checkout_if_held is checked for existing session");
+    let joined = body
+        .find("execute_parameterized_transaction_joined")
+        .expect("delegates to execute_parameterized_transaction_joined when leased");
+    let begin = body
+        .find("pool.begin()")
+        .expect("pool transaction begin follows checkout");
     let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
     let track = body.find("self.track_guard(").expect("id is published for Stop");
     let statements = body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow the publish");
-    assert!(id < track && track < statements);
+    assert!(checkout < joined && joined < begin && begin < id && id < track && track < statements);
+
+    let joined_at = source
+        .find("async fn execute_parameterized_transaction_joined(")
+        .expect("execute_parameterized_transaction_joined exists");
+    let joined_body = &source[joined_at..param_at];
+    assert!(joined_body.contains("SAVEPOINT dbpro_parameterized_tx"));
+    assert!(joined_body.contains("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx"));
+    assert!(joined_body.contains("RELEASE SAVEPOINT dbpro_parameterized_tx"));
 }
 
 #[tokio::test]
