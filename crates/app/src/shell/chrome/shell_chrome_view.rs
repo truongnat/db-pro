@@ -120,8 +120,28 @@ impl DbProApp {
     pub(super) fn draw_statusbar(&mut self, ui: &mut egui::Ui) {
         let (icon, color, label) = self.statusbar_state();
         let runtime_status = self.runtime_status();
-        let database = self.active_connection().map(|connection| connection.database.clone());
-        let schema = self.active_connection().map(|_| self.active_schema().to_owned());
+        // UAT-6: a query document binds its own connection/schema — show that
+        // binding when it exists so the status bar describes what Run would hit,
+        // not whichever connection happens to be globally active.
+        let doc_connection = self
+            .query
+            .session
+            .active_connection_id()
+            .and_then(|id| self.connection.catalog.find(id));
+        let shown_connection = doc_connection.or_else(|| self.active_connection());
+        let database = shown_connection.map(|connection| connection.database.clone());
+        let schema = if doc_connection.is_some() {
+            self.query.session.active_schema().map(|s| s.to_owned())
+        } else {
+            self.active_connection()
+                .map(|_| self.active_schema().to_owned())
+        };
+        let shown_name: &str = doc_connection
+            .map(|c| c.name.as_str())
+            .unwrap_or_else(|| self.active_connection_name());
+        let shown_driver: &str = doc_connection
+            .map(|c| c.driver.as_str())
+            .unwrap_or_else(|| self.active_driver());
         let duration_ms = self
             .query
             .session
@@ -135,8 +155,8 @@ impl DbProApp {
             label,
             runtime_status,
             connected: self.connection.lifecycle.is_connected(),
-            connection_name: self.active_connection_name(),
-            driver: self.active_driver(),
+            connection_name: shown_name,
+            driver: shown_driver,
             database: database.as_deref(),
             schema: schema.as_deref(),
             duration_ms,
