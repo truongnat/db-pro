@@ -144,6 +144,12 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
             value = default_port_for_driver(self.dialog.draft.driver)
         );
         let show_port_error = !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.port);
+        // Empty reads "required"; a filled-but-bad value keeps the range hint.
+        let port_error_key: &'static str = if self.dialog.draft.port.trim().is_empty() {
+            "connection.validation_port_required"
+        } else {
+            "connection.validation_port_invalid"
+        };
         let show_host_error = !self.dialog.error.is_empty() && self.dialog.draft.host.trim().is_empty();
         form_row(
             ui,
@@ -173,7 +179,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                         .width(widths[1])
                         .leading_icon(Icon::Hash);
                     if show_port_error {
-                        port_input = port_input.error_text(t!("connection.validation_port_invalid"));
+                        port_input = port_input.error_text(t!(port_error_key));
                     }
                     port_input.show(ui);
                 }),

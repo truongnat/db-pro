@@ -26,6 +26,9 @@ pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String
         if draft.username.trim().is_empty() {
             return Err(t!("connection.validation_username_required").to_string());
         }
+        if draft.port.trim().is_empty() {
+            return Err(t!("connection.validation_port_required").to_string());
+        }
         if !is_valid_port(&draft.port) {
             return Err(t!("connection.validation_port_invalid").to_string());
         }
@@ -39,6 +42,9 @@ pub fn validate_connection_draft(draft: &UiConnectionDraft) -> Result<(), String
         }
         if draft.ssh_private_key.trim().is_empty() {
             return Err(t!("connection.validation_ssh_key_required").to_string());
+        }
+        if draft.ssh_port.trim().is_empty() {
+            return Err(t!("connection.validation_ssh_port_required").to_string());
         }
         if !is_valid_port(&draft.ssh_port) {
             return Err(t!("connection.validation_ssh_port_invalid").to_string());

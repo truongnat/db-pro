@@ -62,6 +62,20 @@ fn sqlite_draft_is_exempt_from_host_and_username() {
 }
 
 #[test]
+fn empty_port_reports_required_not_range_error() {
+    // UAT-10: a blank port used to surface the range message, which reads as
+    // "you typed a bad number" when nothing was typed at all.
+    let mut draft = valid_network_draft();
+    draft.port = String::new();
+    let message = validate_connection_draft(&draft).expect_err("empty port must fail");
+    assert_eq!(message, t!("connection.validation_port_required"));
+
+    draft.port = "70000".to_owned();
+    let message = validate_connection_draft(&draft).expect_err("out-of-range port must fail");
+    assert_eq!(message, t!("connection.validation_port_invalid"));
+}
+
+#[test]
 fn connect_command_keeps_connection_identity_explicit() {
     assert!(matches!(
         build_connect_command(RequestId(7), "conn-1".to_owned()),

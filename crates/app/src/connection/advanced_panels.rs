@@ -226,6 +226,11 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                     !self.dialog.error.is_empty() && self.dialog.draft.ssh_host.trim().is_empty();
                 let show_ssh_port_error =
                     !self.dialog.error.is_empty() && !super::logic::is_valid_port(&self.dialog.draft.ssh_port);
+                let ssh_port_error_key: &'static str = if self.dialog.draft.ssh_port.trim().is_empty() {
+                    "connection.validation_ssh_port_required"
+                } else {
+                    "connection.validation_ssh_port_invalid"
+                };
                 let show_ssh_user_error =
                     !self.dialog.error.is_empty() && self.dialog.draft.ssh_user.trim().is_empty();
                 let show_ssh_key_error = !self.dialog.error.is_empty()
@@ -256,8 +261,7 @@ impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
                                 .width(widths[1])
                                 .leading_icon(Icon::Hash);
                             if show_ssh_port_error {
-                                ssh_port =
-                                    ssh_port.error_text(t!("connection.validation_ssh_port_invalid"));
+                                ssh_port = ssh_port.error_text(t!(ssh_port_error_key));
                             }
                             ssh_port.show(ui);
                         }),
