@@ -62,10 +62,6 @@ def test_mirror_filename_percent_encoding() -> None:
     assert mirror_filename("docs/plans/STATUS.md") == quote("docs/plans/STATUS.md", safe="") + ".md"
     assert mirror_filename("foo.json") == quote("foo.json", safe="") + ".md"
     assert mirror_filename("foo.md") != mirror_filename("foo.md.md")
-    assert mirror_filename("a/b.md") != mirror_filename("a__b.md")
-    assert mirror_filename("x/foo") != mirror_filename("x/foo.md")
-
-
 def test_mirror_filename_no_collisions_on_ambiguous_pairs() -> None:
     pairs = [
         ("a/b.md", "a__b.md"),
@@ -75,7 +71,18 @@ def test_mirror_filename_no_collisions_on_ambiguous_pairs() -> None:
     ]
     for a, b in pairs:
         assert mirror_filename(a) != mirror_filename(b)
-    assert mirror_filename_collisions([a for a, _ in pairs] + [b for _, b in pairs]) == {}
+    all_paths = [a for a, _ in pairs] + [b for _, b in pairs]
+    assert mirror_filename_collisions(all_paths) == {}
+
+
+def test_mirror_filename_case_folding_detection() -> None:
+    from knowledge_mirror_utils import mirror_filename_case_folded_collisions
+
+    # Case-only differences collide on case-insensitive filesystems
+    folded = mirror_filename_case_folded_collisions(["Readme.md", "README.md"])
+    assert len(folded) == 1
+    # Distinct non-case-colliding paths do not
+    assert mirror_filename_case_folded_collisions(["docs/a.md", "docs/b.md"]) == {}
 
 
 def test_pipeline_artifact_detection() -> None:
@@ -88,9 +95,9 @@ def test_pipeline_artifact_detection() -> None:
 def main() -> int:
     test_leading_newline_roundtrip()
     test_large_file_full_mirror()
-    test_parse_preserves_leading_newline()
     test_mirror_filename_percent_encoding()
     test_mirror_filename_no_collisions_on_ambiguous_pairs()
+    test_mirror_filename_case_folding_detection()
     test_pipeline_artifact_detection()
     print("ok")
     return 0

@@ -58,25 +58,36 @@ def sha256_text(text: str) -> str:
 def mirror_filename(rel: str) -> str:
     """Mirror basename: percent-encode repo-relative path, then `.md` (one mirror file per source path)."""
     return quote(rel, safe="") + ".md"
-
-
 def mirror_filename_collisions(repo_rels: list[str]) -> dict[str, list[str]]:
-    """Return mirror_filename → [source paths] when two or more sources share one mirror name."""
+    """Return mirror_filename → [source paths] when two or more sources share one mirror name (exact string)."""
     buckets: dict[str, list[str]] = {}
     for rel in repo_rels:
         buckets.setdefault(mirror_filename(rel), []).append(rel)
     return {name: paths for name, paths in buckets.items() if len(paths) > 1}
 
 
+def mirror_filename_case_folded_collisions(repo_rels: list[str]) -> dict[str, list[str]]:
+    """Return lowercased mirror_filename → [source paths] for case-insensitive filesystems (e.g. APFS/macOS)."""
+    buckets: dict[str, list[str]] = {}
+    for rel in repo_rels:
+        buckets.setdefault(mirror_filename(rel).lower(), []).append(rel)
+    return {name: paths for name, paths in buckets.items() if len(paths) > 1}
+
+
 def assert_mirror_filename_unique(repo_rels: list[str]) -> None:
-    """Abort migrate/bootstrap if any two sources would share a mirror file."""
+    """Abort migrate/bootstrap if any two sources share an exact or case-folded mirror filename."""
     col = mirror_filename_collisions(repo_rels)
     if col:
         raise SystemExit(
-            "mirror_filename collision (two sources → same mirror file):\n"
+            "mirror_filename exact collision (two sources → same mirror file):\n"
             + json.dumps(col, indent=2)
         )
-
+    folded_col = mirror_filename_case_folded_collisions(repo_rels)
+    if folded_col:
+        raise SystemExit(
+            "mirror_filename case-folded collision (collides on case-insensitive filesystems):\n"
+            + json.dumps(folded_col, indent=2)
+        )
 
 def encode_mirror_body(rel: str, raw: bytes) -> tuple[str, bool, str]:
     """Return (body_text, truncated, source_sha256)."""
