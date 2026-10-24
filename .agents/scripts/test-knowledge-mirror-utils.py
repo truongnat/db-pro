@@ -61,6 +61,9 @@ def test_mirror_filename_encoding() -> None:
     assert mirror_filename("foo.json") == "foo.json.md"
     assert mirror_filename("weird.md") == "weird.md"
     assert mirror_filename("weird.md.md") == "weird.md.md"
+    assert mirror_filename("foo.md") != mirror_filename("foo.md.md")
+    assert mirror_filename("foo.md") == "foo.md"
+    assert mirror_filename("foo.md.md") == "foo.md.md"
     assert mirror_filename("weird.md") != mirror_filename("weird.md.md")
 
 
