@@ -167,7 +167,6 @@ fn draw_resize_handle(
     painter.vline(line_x, panel.y_range, resize_stroke(context.theme, hovering, dragging));
     width
 }
-
 fn resize_stroke(theme: DbProTheme, hovering: bool, dragging: bool) -> Stroke {
     if dragging {
         Stroke::new(STROKE_FOCUS, theme.accent)

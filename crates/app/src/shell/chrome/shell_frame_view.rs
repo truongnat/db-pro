@@ -13,7 +13,10 @@ pub(super) fn draw_central_panel<F>(ui: &mut egui::Ui, context: &ShellFrameConte
 where
     F: FnOnce(&mut egui::Ui),
 {
-    let surface = if context.settings_mode { ShellSurface::App } else { ShellSurface::Panel };
+    // CentralPanel renders the active workspace (Welcome, Query, Table, Diagrams).
+    // Use ShellSurface::App so the workspace canvas steps down from the chrome panels
+    // (Sidebar, Statusbar, Output Dock) instead of reusing the exact same fill.
+    let surface = ShellSurface::App;
     // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
     // `pad_right` so the body lines up with the navigator across the divider.
     let split_inset = if context.settings_mode { 0 } else { SHELL_SPLIT_INSET as i8 };

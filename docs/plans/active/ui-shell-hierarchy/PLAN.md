@@ -10,6 +10,7 @@ Harden the native shell, top bar, activity bar, and sidebar hierarchy so that DB
 - Activity Bar layout, spacing, tooltips, active states, and keyboard/mouse ergonomics.
 - Sidebar header (workspace/connection dropdown, new connection, palette search, new query button).
 - Sidebar resize grip, min/max limits, smooth divider lines, and clean integration with the CentralPanel.
+- Shell region contrast & elevation hierarchy: distinct visual separation between navigation rails (Sidebar/Activity Rail), CentralPanel workspace, and secondary docks (Output Dock / Statusbar) via semantic borders and surface differentiation (per user feedback on flat Light Mode).
 - Ensure all components use canonical tokens (`DbProTheme`, `tokens.rs`, `Button`, `Badge`).
 
 ## Non-goals

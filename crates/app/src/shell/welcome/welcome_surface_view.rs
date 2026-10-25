@@ -202,7 +202,6 @@ fn draw_card_item(
     let keyboard_activated =
         response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
     let hovered = response.hovered();
-
     let bg = if hovered {
         theme.surface_hover
     } else {
@@ -211,10 +210,9 @@ fn draw_card_item(
     let stroke_color = if hovered {
         theme.border_strong
     } else {
-        theme.border_subtle
+        theme.border_default
     };
     let corner_radius = egui::CornerRadius::same(RADIUS_MD as u8);
-
     ui.painter().rect_filled(rect, corner_radius, bg);
     ui.painter().rect_stroke(
         rect,
