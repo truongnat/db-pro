@@ -84,7 +84,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 > **Full workspace audit & release gap assessment — 2026-10-25 (HEAD `af8c678d`).**
 > Comprehensive audit across architecture, code quality, security/secrets, UI/design system,
-> and release engineering. Measured gates: `cargo +1.95.0 check` PASS, `cargo clippy` 0 warnings,
+> and release engineering. Measured gates: `cargo check --workspace` PASS, `cargo clippy` 0 warnings,
 > `cargo test --workspace -- --test-threads=4` **2,315 passed / 0 failed / 65 ignored**, fmt and
 > `scripts/check-ui-architecture.sh` PASS. Clean-code diff-ratchet PASS (0 fail/warn on working tree);
 > full-repo `cc-scan` 23 errors under empty baseline. Release blockers and readiness gaps identified
