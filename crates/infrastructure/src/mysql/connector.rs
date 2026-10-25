@@ -65,6 +65,120 @@ impl MySqlConnector {
         }
     }
 
+    async fn execute_parameterized_transaction_joined(
+        &self,
+        handle: &ConnectionHandle,
+        mut lease: crate::transaction_session::SessionLease<sqlx::pool::PoolConnection<sqlx::MySql>>,
+        statements: &[db_pro_core::ports::ParameterizedTransactionStatement],
+    ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
+        use db_pro_core::ports::{
+            TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+        };
+
+        let result = {
+            let conn = std::ops::DerefMut::deref_mut(lease.conn());
+            let connection_id = match sqlx::query_scalar::<_, u64>("SELECT CONNECTION_ID()")
+                .fetch_one(&mut *conn)
+                .await
+            {
+                Ok(connection_id) => connection_id,
+                Err(error) => {
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: 0,
+                        outcome: TransactionFailureOutcome::LeftOpen,
+                        results: Vec::new(),
+                        error: DbError::QueryFailed(format!("MySQL connection id failed: {error}")),
+                    });
+                }
+            };
+            let _active = self.track_guard(handle.0, connection_id);
+            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::LeftOpen,
+                    results: Vec::new(),
+                    error: DbError::QueryFailed(format!("MySQL savepoint failed: {error}")),
+                });
+            }
+            let mut results = Vec::with_capacity(statements.len());
+            let mut failure = None;
+            for (index, statement) in statements.iter().enumerate() {
+                let mut args = sqlx::mysql::MySqlArguments::default();
+                if let Err(error) = super::query_mapper::bind_params(&statement.params, &mut args) {
+                    failure = Some(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome: TransactionFailureOutcome::LeftOpen,
+                        results: std::mem::take(&mut results),
+                        error,
+                    });
+                    break;
+                }
+                let affected = match sqlx::query_with(&statement.sql, args).execute(&mut *conn).await {
+                    Ok(result) => result.rows_affected(),
+                    Err(e) => {
+                        let error = DbError::QueryFailed(format!("MySQL statement {index} failed: {e}"));
+                        failure = Some(TransactionFailure {
+                            phase: TransactionFailurePhase::Statement,
+                            statement_index: index,
+                            outcome: TransactionFailureOutcome::LeftOpen,
+                            results: std::mem::take(&mut results),
+                            error,
+                        });
+                        break;
+                    }
+                };
+                if statement.expect_affected_rows && affected == 0 {
+                    let error = DbError::Conflict("table mutation affected no rows".into());
+                    failure = Some(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome: TransactionFailureOutcome::LeftOpen,
+                        results: std::mem::take(&mut results),
+                        error,
+                    });
+                    break;
+                }
+                if statement.max_affected_rows.is_some_and(|maximum| affected > maximum) {
+                    let error = DbError::Internal(format!(
+                        "table mutation affected {affected} rows; expected at most {}",
+                        statement.max_affected_rows.unwrap_or_default()
+                    ));
+                    failure = Some(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome: TransactionFailureOutcome::LeftOpen,
+                        results: std::mem::take(&mut results),
+                        error,
+                    });
+                    break;
+                }
+                results.push(TransactionStatementResult::Affected {
+                    row_count: affected,
+                    duration_ms: 0,
+                });
+            }
+            if let Some(failure) = failure {
+                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await;
+                return Err(failure);
+            }
+            if let Err(error) = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: statements.len(),
+                    outcome: TransactionFailureOutcome::LeftOpen,
+                    results,
+                    error: DbError::QueryFailed(format!("MySQL release savepoint failed: {error}")),
+                });
+            }
+            Ok(results)
+        };
+        lease.succeed();
+        result
+    }
+
     async fn execute_transaction_joined(
         &self,
         handle: &ConnectionHandle,
@@ -555,13 +669,43 @@ impl DbConnector for MySqlConnector {
             TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
         };
 
-        let pool = self.get_pool(handle).await.ok_or_else(|| TransactionFailure {
-            phase: TransactionFailurePhase::Validation,
-            statement_index: 0,
-            outcome: TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error: DbError::ConnectionFailed("no MySQL pool for handle".into()),
-        })?;
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
+            .ok_or_else(|| db_pro_core::ports::TransactionFailure {
+                phase: db_pro_core::ports::TransactionFailurePhase::Validation,
+                statement_index: 0,
+                outcome: db_pro_core::ports::TransactionFailureOutcome::NotStarted,
+                results: Vec::new(),
+                error: DbError::ConnectionFailed("no MySQL pool for handle".into()),
+            })?;
+        let pool = entry.pool.clone();
+        let session = entry.open_session.clone();
+        drop(pools);
+
+        let joined = match crate::transaction_session::checkout_if_held(session, || async {
+            pool.acquire()
+                .await
+                .map_err(|error| DbError::ConnectionFailed(format!("MySQL acquire failed: {error}")))
+        })
+        .await
+        {
+            Ok(joined) => joined,
+            Err(error) => {
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                });
+            }
+        };
+        if let Some(lease) = joined {
+            return self
+                .execute_parameterized_transaction_joined(handle, lease, statements)
+                .await;
+        }
 
         let mut tx = pool.begin().await.map_err(|e| TransactionFailure {
             phase: TransactionFailurePhase::Begin,
