@@ -220,3 +220,38 @@ fn owned_cancel_reads_pg_cancel_backend_result() {
     assert!(scalar < fetch && fetch < refused);
     assert!(!body.contains(".execute(&pool)"), "execute() hides a false result");
 }
+
+#[tokio::test]
+async fn postgres_execute_parameterized_transaction_unconnected_handle_fails_validation() {
+    let connector = PostgresConnector::new();
+    let failure = connector
+        .execute_parameterized_transaction(&ConnectionHandle::new(99), &[])
+        .await
+        .expect_err("unconnected handle must return failure");
+
+    assert_eq!(failure.phase, db_pro_core::ports::TransactionFailurePhase::Validation);
+    assert_eq!(failure.statement_index, 0);
+    assert_eq!(
+        failure.outcome,
+        db_pro_core::ports::TransactionFailureOutcome::NotStarted
+    );
+}
+
+#[test]
+fn owned_execute_parameterized_transaction_checks_session_lease() {
+    let source = include_str!("../connector.rs");
+    let start = source
+        .find("async fn execute_parameterized_transaction(")
+        .expect("owned execute_parameterized_transaction");
+    let rest = &source[start..];
+    let end = rest.find("\n    async fn introspect(").expect("introspect follows");
+    let body = &rest[..end];
+    assert!(
+        body.contains("checkout_if_held"),
+        "execute_parameterized_transaction must check for an open session transaction lease"
+    );
+    assert!(
+        body.contains("execute_parameterized_transaction_joined"),
+        "execute_parameterized_transaction must dispatch to execute_parameterized_transaction_joined when lease is held"
+    );
+}
