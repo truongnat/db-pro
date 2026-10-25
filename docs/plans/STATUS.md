@@ -82,6 +82,16 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 > live **PG 37/37 · MySQL 12/12 · SQL Server 9/9 · conformance 13/13×3**, routine-workbench
 > captures 1280×800 dark+light (`/tmp/pr252_invoke_*.png`).
 
+> **Full workspace audit & release gap assessment — 2026-10-25 (HEAD `af8c678d`).**
+> Comprehensive audit across architecture, code quality, security/secrets, UI/design system,
+> and release engineering. Measured gates: `cargo +1.95.0 check` PASS, `cargo clippy` 0 warnings,
+> `cargo test --workspace -- --test-threads=4` **2,315 passed / 0 failed / 65 ignored**, fmt and
+> `scripts/check-ui-architecture.sh` PASS. Clean-code diff-ratchet PASS (0 fail/warn on working tree);
+> full-repo `cc-scan` 23 errors under empty baseline. Release blockers and readiness gaps identified
+> and recorded in `docs/release/2026-10-25-v0.1.0-audit-and-release-gap.md`: macOS shutdown crash (R-01),
+> missing third-party licenses/notices in package (R-02), Gatekeeper/notarization trust policy,
+> SSH tunnel CLI option injection risk, and visual requalification required for UI canvas changes in `af8c678d`.
+
 > **Status correction — 2026-09-14 (V01-06 evidence audit).** The V01-01…V01-05 closure
 > claims recorded on 2026-09-14 by `53e89f5` are **not** backed by retrievable evidence and
 > are downgraded here to what the evidence supports:
