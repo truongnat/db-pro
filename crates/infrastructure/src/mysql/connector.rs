@@ -93,7 +93,10 @@ impl MySqlConnector {
                 }
             };
             let _active = self.track_guard(handle.0, connection_id);
-            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await {
+            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx")
+                .execute(&mut *conn)
+                .await
+            {
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Statement,
                     statement_index: 0,
@@ -161,10 +164,15 @@ impl MySqlConnector {
                 });
             }
             if let Some(failure) = failure {
-                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await;
+                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                    .execute(&mut *conn)
+                    .await;
                 return Err(failure);
             }
-            if let Err(error) = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await {
+            if let Err(error) = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx")
+                .execute(&mut *conn)
+                .await
+            {
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Statement,
                     statement_index: statements.len(),

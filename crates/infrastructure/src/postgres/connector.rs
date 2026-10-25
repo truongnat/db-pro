@@ -279,7 +279,10 @@ impl PostgresConnector {
                 Ok(previous) => previous,
                 Err(error) => return Err(left_open(0, Vec::new(), error)),
             };
-            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await {
+            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx")
+                .execute(&mut *conn)
+                .await
+            {
                 let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
                 return Err(left_open(0, Vec::new(), crate::error::from_sqlx(error)));
             }
@@ -345,11 +348,16 @@ impl PostgresConnector {
                 });
             }
             if let Some(failure) = failure {
-                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await;
+                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+                    .execute(&mut *conn)
+                    .await;
                 let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
                 return Err(failure);
             }
-            if let Err(error) = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx").execute(&mut *conn).await {
+            if let Err(error) = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx")
+                .execute(&mut *conn)
+                .await
+            {
                 let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
                 return Err(left_open(statements.len(), results, crate::error::from_sqlx(error)));
             }
