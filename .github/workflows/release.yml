@@ -11,9 +11,9 @@ name: Release Build
 # see docs/release/0.1.0-packaging.md and docs/release/evidence/v01-06/.
 #
 # Release artifacts (exact names, produced by the package + checksums jobs):
-#   db-pro-v<version>-macos-arm64.tar.gz    -> "DB Pro.app" + README-INSTALL.txt
-#   db-pro-v<version>-windows-x86_64.zip    -> db-pro-native.exe + README-INSTALL.txt
-#   db-pro-v<version>-linux-x86_64.tar.gz   -> db-pro-native + README-INSTALL.txt
+#   db-pro-v<version>-macos-arm64.tar.gz    -> "DB Pro.app" + README-INSTALL.txt + LICENSE + THIRD_PARTY_NOTICES.md
+#   db-pro-v<version>-windows-x86_64.zip    -> db-pro-native.exe + README-INSTALL.txt + LICENSE + THIRD_PARTY_NOTICES.md
+#   db-pro-v<version>-linux-x86_64.tar.gz   -> db-pro-native + README-INSTALL.txt + LICENSE + THIRD_PARTY_NOTICES.md
 #   SHA256SUMS.txt                          -> SHA-256 of those three archives
 #
 # This workflow builds and packages only. It runs with `contents: read`, uses no

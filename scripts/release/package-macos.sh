@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Builds the v0.1 macOS release archive: a minimal "DB Pro.app" bundle plus the
-# shared install note, wrapped in db-pro-v<version>-macos-arm64.tar.gz.
+# Builds the v0.1 macOS release archive: a minimal "DB Pro.app" bundle, the
+# shared install note and the license/notices files, wrapped in
+# db-pro-v<version>-macos-arm64.tar.gz.
 #
 # Usage: package-macos.sh <version> <binary-path> <output-dir>
 #
@@ -10,6 +11,8 @@
 #   DB Pro.app/Contents/MacOS/db-pro-native
 #   DB Pro.app/Contents/Info.plist
 #   README-INSTALL.txt
+#   LICENSE
+#   THIRD_PARTY_NOTICES.md
 #
 # macOS-only by design (plutil, otool, bsdtar's --no-mac-metadata). The archive
 # is unsigned and not notarized: signing is deliberately out of the v0.1
@@ -34,6 +37,9 @@ output_dir="$3"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 install_note="${script_dir}/README-INSTALL.txt"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
+license_file="${repo_root}/LICENSE"
+notices_file="${repo_root}/THIRD_PARTY_NOTICES.md"
 
 if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$ ]]; then
     echo "::error::invalid version '${version}'" >&2
@@ -45,6 +51,14 @@ if [[ ! -f "${binary}" ]]; then
 fi
 if [[ ! -f "${install_note}" ]]; then
     echo "::error::install note not found: ${install_note}" >&2
+    exit 1
+fi
+if [[ ! -f "${license_file}" ]]; then
+    echo "::error::license file not found: ${license_file}" >&2
+    exit 1
+fi
+if [[ ! -f "${notices_file}" ]]; then
+    echo "::error::third-party notices not found: ${notices_file}" >&2
     exit 1
 fi
 
@@ -99,6 +113,8 @@ PLIST
 plutil -lint "${app}/Contents/Info.plist" >&2
 
 cp "${install_note}" "${staging}/README-INSTALL.txt"
+cp "${license_file}" "${staging}/LICENSE"
+cp "${notices_file}" "${staging}/THIRD_PARTY_NOTICES.md"
 
 mkdir -p "${output_dir}"
 output_dir="$(cd "${output_dir}" && pwd)"
@@ -110,16 +126,19 @@ rm -f "${archive}"
 # being stored as pax headers inside the release archive.
 (
     cd "${staging}"
-    COPYFILE_DISABLE=1 tar --no-xattrs -czf "${archive}" "DB Pro.app" "README-INSTALL.txt"
+    COPYFILE_DISABLE=1 tar --no-xattrs -czf "${archive}" \
+        "DB Pro.app" "README-INSTALL.txt" "LICENSE" "THIRD_PARTY_NOTICES.md"
 )
 
 # The archive must contain exactly the contract layout and nothing else: no
-# LICENSE (the project has no license decision yet), no user state, no build
-# output.
+# build output, no user state, no extra license text beyond LICENSE and
+# THIRD_PARTY_NOTICES.md.
 listing="$(tar -tzf "${archive}")"
 while IFS= read -r entry; do
     case "${entry}" in
         "README-INSTALL.txt" \
+        | "LICENSE" \
+        | "THIRD_PARTY_NOTICES.md" \
         | "DB Pro.app/" \
         | "DB Pro.app/Contents/" \
         | "DB Pro.app/Contents/Info.plist" \
@@ -136,7 +155,9 @@ done <<< "${listing}"
 for required in \
     "DB Pro.app/Contents/Info.plist" \
     "DB Pro.app/Contents/MacOS/db-pro-native" \
-    "README-INSTALL.txt"
+    "README-INSTALL.txt" \
+    "LICENSE" \
+    "THIRD_PARTY_NOTICES.md"
 do
     if ! grep -qx -F "${required}" <<< "${listing}"; then
         echo "::error::archive entry is missing: ${required}" >&2

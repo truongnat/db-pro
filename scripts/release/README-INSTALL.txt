@@ -10,6 +10,8 @@ macOS   : "DB Pro.app" - run it from this folder or drag it to Applications.
 Windows : db-pro-native.exe
 Linux   : db-pro-native
 
+Every archive also contains LICENSE and THIRD_PARTY_NOTICES.md at its root.
+
 Running it
 ----------
 macOS   : open "DB Pro.app". The build is unsigned and not notarized, so
@@ -44,11 +46,13 @@ PostgreSQL backup and restore shell out to "pg_dump" and "pg_restore", and SSH
 tunnels use the system "ssh" client. Install them separately if you need those
 features.
 
-Character encoding
-------------------
-The bundled interface font uses the SIL Open Font License; the text of that
-license ships inside the application binary. The DB Pro project itself has no
-public license yet, so this build is not licensed for redistribution.
+Licensing
+---------
+DB Pro is licensed under the MIT License; the full text is in LICENSE next to
+this note. Third-party material (including the bundled Inter interface font,
+which is under the SIL Open Font License 1.1) is recorded in
+THIRD_PARTY_NOTICES.md. The "DB Pro" name and logos are not covered by the MIT
+grant.
 
 Verification
 ------------

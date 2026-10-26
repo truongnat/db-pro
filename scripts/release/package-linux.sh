@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Builds the v0.1 Linux release archive: the native binary plus the shared
-# install note, wrapped in db-pro-v<version>-linux-x86_64.tar.gz.
+# Builds the v0.1 Linux release archive: the native binary, the shared install
+# note and the license/notices files, wrapped in
+# db-pro-v<version>-linux-x86_64.tar.gz.
 #
 # Usage: package-linux.sh <version> <binary-path> <output-dir>
 #
@@ -9,6 +10,8 @@
 #
 #   db-pro-native
 #   README-INSTALL.txt
+#   LICENSE
+#   THIRD_PARTY_NOTICES.md
 #
 # The artifact is a portable tar.gz: no .deb/.rpm/AppImage is part of the v0.1
 # contract, and the archive is unsigned.
@@ -32,6 +35,9 @@ output_dir="$3"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 install_note="${script_dir}/README-INSTALL.txt"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
+license_file="${repo_root}/LICENSE"
+notices_file="${repo_root}/THIRD_PARTY_NOTICES.md"
 
 if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$ ]]; then
     echo "::error::invalid version '${version}'" >&2
@@ -45,6 +51,14 @@ if [[ ! -f "${install_note}" ]]; then
     echo "::error::install note not found: ${install_note}" >&2
     exit 1
 fi
+if [[ ! -f "${license_file}" ]]; then
+    echo "::error::license file not found: ${license_file}" >&2
+    exit 1
+fi
+if [[ ! -f "${notices_file}" ]]; then
+    echo "::error::third-party notices not found: ${notices_file}" >&2
+    exit 1
+fi
 
 staging="$(mktemp -d "${TMPDIR:-/tmp}/db-pro-package.XXXXXX")"
 cleanup() {
@@ -55,31 +69,37 @@ trap cleanup EXIT
 cp "${binary}" "${staging}/db-pro-native"
 chmod 755 "${staging}/db-pro-native"
 cp "${install_note}" "${staging}/README-INSTALL.txt"
+cp "${license_file}" "${staging}/LICENSE"
+cp "${notices_file}" "${staging}/THIRD_PARTY_NOTICES.md"
 
 mkdir -p "${output_dir}"
 output_dir="$(cd "${output_dir}" && pwd)"
 archive="${output_dir}/db-pro-v${version}-linux-x86_64.tar.gz"
 rm -f "${archive}"
 
+members="db-pro-native README-INSTALL.txt LICENSE THIRD_PARTY_NOTICES.md"
+
 # GNU tar can produce a deterministic member order/metadata; bsdtar (used when
 # this script is exercised on macOS for layout testing) cannot, so fall back to
 # the plain invocation there. Both invocations are functional.
 if tar --version 2>/dev/null | head -n 1 | grep -q "GNU tar"; then
+    # shellcheck disable=SC2086  # member list is a deliberate word-split table
     tar -czf "${archive}" \
         --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 \
-        -C "${staging}" db-pro-native README-INSTALL.txt
+        -C "${staging}" ${members}
 else
     echo "NOTE: GNU tar not detected, writing a non-canonical archive" >&2
-    tar -czf "${archive}" -C "${staging}" db-pro-native README-INSTALL.txt
+    # shellcheck disable=SC2086  # member list is a deliberate word-split table
+    tar -czf "${archive}" -C "${staging}" ${members}
 fi
 
 # The archive must contain exactly the contract layout and nothing else: no
-# LICENSE (the project has no license decision yet), no user state, no build
-# output.
+# build output, no user state, no extra license text beyond LICENSE and
+# THIRD_PARTY_NOTICES.md.
 listing="$(tar -tzf "${archive}")"
 while IFS= read -r entry; do
     case "${entry}" in
-        "db-pro-native" | "README-INSTALL.txt")
+        "db-pro-native" | "README-INSTALL.txt" | "LICENSE" | "THIRD_PARTY_NOTICES.md")
             ;;
         *)
             echo "::error::unexpected archive entry: ${entry}" >&2
@@ -88,7 +108,12 @@ while IFS= read -r entry; do
     esac
 done <<< "${listing}"
 
-for required in "db-pro-native" "README-INSTALL.txt"; do
+for required in \
+    "db-pro-native" \
+    "README-INSTALL.txt" \
+    "LICENSE" \
+    "THIRD_PARTY_NOTICES.md"
+do
     if ! grep -qx -F "${required}" <<< "${listing}"; then
         echo "::error::archive entry is missing: ${required}" >&2
         exit 1
