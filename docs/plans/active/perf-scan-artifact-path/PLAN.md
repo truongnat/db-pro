@@ -24,7 +24,7 @@ looked for the binary at a path it guessed.
 
   The build had in fact produced a binary — at `/data/cargo-target/release/db-pro-native`.
 - Cause: the script hard-coded `$PROJECT_ROOT/target/release/db-pro-native`
-  (pre-fix `perf-scan.sh:173`). The relocation on this machine comes from `build.target-dir`
+  (`git show a31a2bec:` of the script, line 173). The relocation on this machine comes from `build.target-dir`
   in the **user-level** `~/.cargo/config.toml` (`target_directory` resolves to
   `/data/cargo-target`). `.cargo/config.toml:5`'s `build.build-dir = "target-build"` is
   **not** the cause — it moves intermediates only and leaves final binaries in `target/`,
@@ -61,13 +61,16 @@ looked for the binary at a path it guessed.
   default layout; if that ever gains a `target-dir` override it is the same class of bug, and
   is recorded as a follow-up rather than folded into this PR.
 - Release docs that quote historical `target/release/…` paths as captured evidence stay as
-  captured.
+  captured. Two strings are *not* historical and are deliberately not touched here:
+  `docs/release/0.1.0-packaging.md:165` (binding packaging rule) and `0.1.0-handoff.md:125`
+  (local packaging command). Both assume the default layout; editing a binding release rule is
+  the release owner's call, so they are recorded as follow-up (see `FINDINGS.md`).
 
 ## Acceptance criteria
 
-1. `perf-scan.sh native` on this host reports a size and sha256 for the path cargo named,
+1. `bash .skills/perf-audit/scripts/perf-scan.sh native` on this host reports a size and sha256 for the path cargo named,
    and exits 0.
-2. `perf-scan.sh --self-test` passes, including the artifact-extraction assertions.
+2. `bash .skills/perf-audit/scripts/perf-scan.sh --self-test` passes, including the artifact-extraction assertions.
 3. Nothing is measured when cargo names no executable: an artifact-less build output (e.g. a
    lib-only `compiler-artifact` message, whose `executable` is `null`) must produce a FAIL
    naming the empty result, never a path found by guessing. This is covered by the canned-JSON

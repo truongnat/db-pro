@@ -1,11 +1,12 @@
 # Findings — perf-scan artifact-path resolution
 
 Measured at `a31a2bec` (base) and at the fix SHA on this host. Every row below is a command
-that was run, not a inference from reading code.
+that was run, not an inference from reading code.
 
 ## F-1 — size budget unmeasurable on a relocated target dir (P2, tooling, fixed here)
 
-`perf-scan.sh:173` (pre-fix) hard-coded `$PROJECT_ROOT/target/release/db-pro-native` after a
+`git show a31a2bec:.skills/perf-audit/scripts/perf-scan.sh` line 173 hard-coded
+`$PROJECT_ROOT/target/release/db-pro-native` after a
 successful `cargo build --release --locked`. On this machine the user-level
 `~/.cargo/config.toml` sets `build.target-dir = "/data/cargo-target"`, and
 `cargo metadata` confirms `target_directory = /data/cargo-target`.

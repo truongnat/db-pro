@@ -28,8 +28,8 @@ Branch `fix/perf-scan-artifact-path`, base `a31a2bec`.
 
 ## Verification
 - [x] `bash -n` on the script → 0.
-- [x] `perf-scan.sh --self-test` → SELF-TEST PASS, exit 0, 20 assertions ✓ / 0 ✗.
-- [x] `perf-scan.sh native` → size **and** sha256 of `/data/cargo-target/release/db-pro-native`,
+- [x] `bash .skills/perf-audit/scripts/perf-scan.sh --self-test` → SELF-TEST PASS, exit 0, 20 assertions ✓ / 0 ✗.
+- [x] `bash .skills/perf-audit/scripts/perf-scan.sh native` → size **and** sha256 of `/data/cargo-target/release/db-pro-native`,
       exit 0 (was FAIL / "not measured" at base).
 - [x] Negative proof, no host state needed: canned NDJSON whose only artifact is lib-only
       (`"executable":null`) and a canned log naming another package's bin both extract to the
