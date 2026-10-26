@@ -177,6 +177,19 @@ where
     }
 }
 
+/// Savepoint for one joined run inside the tab's already-open transaction.
+///
+/// The name is generated here and never derived from user input, so it is safe to interpolate
+/// into the `SAVEPOINT`/`ROLLBACK TO`/`RELEASE` statements. It is unique per run because a savepoint
+/// is named, not numbered: reusing one name makes `RELEASE` at the end of a run drop an
+/// already-open savepoint that shares it — a nested run's, or one the caller created — instead of
+/// the run that just finished. PostgreSQL hides that behind name shadowing, MySQL does not.
+pub(crate) fn savepoint_name() -> String {
+    static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let seq = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("dbpro_tx_{seq}")
+}
+
 #[cfg(test)]
 #[path = "tests/transaction_session_tests.rs"]
 mod tests;
