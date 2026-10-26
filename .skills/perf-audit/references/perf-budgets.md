@@ -15,7 +15,7 @@ number is only quotable together with the artifact digest and source revision it
 
 | Category | Target | Critical | Measurement |
 |----------|--------|----------|-------------|
-| `db-pro-native` (release) | < 50 MB | > 100 MB | `ls -l "$(cargo metadata --format-version 1 --no-deps \| sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')/release/db-pro-native"` — the path is cargo's target dir, not `./target`; `perf-scan.sh` prints the size **and** the sha256 of the binary it measured |
+| `db-pro-native` (release) | < 50 MB | > 100 MB | the `executable` path from cargo's own `--message-format=json` build output (not `target/release/`, which a `target-dir`/`build.target`/Windows config can move) — `perf-scan.sh` prints the size **and** the sha256 of the binary it measured |
 | Stripped distribution binary | < 30 MB | > 60 MB | **not a v0.1 step** — no workflow or packaging script strips the binary, so this is a potential future saving, not a property of the shipped artifact |
 
 ### Runtime Performance (criterion: `crates/ui/benches/result_grid_benchmarks.rs`)
