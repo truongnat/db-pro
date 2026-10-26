@@ -1,5 +1,6 @@
-# Builds the v0.1 Windows release archive: the native binary plus the shared
-# install note, wrapped in db-pro-v<version>-windows-x86_64.zip.
+# Builds the v0.1 Windows release archive: the native binary, the shared install
+# note and the license/notices files, wrapped in
+# db-pro-v<version>-windows-x86_64.zip.
 #
 # Usage: package-windows.ps1 -Version <version> -BinaryPath <exe> -OutputDir <dir>
 #
@@ -7,6 +8,8 @@
 #
 #   db-pro-native.exe
 #   README-INSTALL.txt
+#   LICENSE
+#   THIRD_PARTY_NOTICES.md
 #
 # The artifact is a portable zip: no .msi/NSIS installer is part of the v0.1
 # contract, and the archive is unsigned. Files are added at the archive root
@@ -38,14 +41,27 @@ $installNote = Join-Path $scriptDir 'README-INSTALL.txt'
 if (-not (Test-Path -LiteralPath $installNote -PathType Leaf)) {
     throw "install note not found: $installNote"
 }
+$repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
+$licenseFile = Join-Path $repoRoot 'LICENSE'
+if (-not (Test-Path -LiteralPath $licenseFile -PathType Leaf)) {
+    throw "license file not found: $licenseFile"
+}
+$noticesFile = Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md'
+if (-not (Test-Path -LiteralPath $noticesFile -PathType Leaf)) {
+    throw "third-party notices not found: $noticesFile"
+}
 
 $staging = Join-Path ([System.IO.Path]::GetTempPath()) ('db-pro-package-' + [System.Guid]::NewGuid().ToString('N'))
 try {
     New-Item -ItemType Directory -Path $staging -Force | Out-Null
     $stagedBinary = Join-Path $staging 'db-pro-native.exe'
     $stagedNote = Join-Path $staging 'README-INSTALL.txt'
+    $stagedLicense = Join-Path $staging 'LICENSE'
+    $stagedNotices = Join-Path $staging 'THIRD_PARTY_NOTICES.md'
     Copy-Item -LiteralPath $BinaryPath -Destination $stagedBinary -Force
     Copy-Item -LiteralPath $installNote -Destination $stagedNote -Force
+    Copy-Item -LiteralPath $licenseFile -Destination $stagedLicense -Force
+    Copy-Item -LiteralPath $noticesFile -Destination $stagedNotices -Force
 
     if (-not (Test-Path -LiteralPath $OutputDir -PathType Container)) {
         New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
@@ -56,13 +72,14 @@ try {
         Remove-Item -LiteralPath $archive -Force
     }
 
-    Compress-Archive -LiteralPath @($stagedBinary, $stagedNote) -DestinationPath $archive -CompressionLevel Optimal
+    Compress-Archive -LiteralPath @($stagedBinary, $stagedNote, $stagedLicense, $stagedNotices) `
+        -DestinationPath $archive -CompressionLevel Optimal
 
     # The archive must contain exactly the contract layout and nothing else: no
-    # LICENSE (the project has no license decision yet), no user state, no
-    # build output.
+    # build output, no user state, no extra license text beyond LICENSE and
+    # THIRD_PARTY_NOTICES.md.
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $allowed = @('db-pro-native.exe', 'README-INSTALL.txt')
+    $allowed = @('db-pro-native.exe', 'README-INSTALL.txt', 'LICENSE', 'THIRD_PARTY_NOTICES.md')
     $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
     try {
         foreach ($entry in $zip.Entries) {

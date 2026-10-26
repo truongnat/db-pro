@@ -103,7 +103,7 @@ impl SettingsSystemContext<'_> {
             ui.add_space(10.0);
             Checkbox::new(
                 &mut self.preferences.settings.security.redact_secrets_in_logs,
-                "Redact secrets in diagnostics and logs",
+                "Redact secrets in diagnostics, logs and saved query history",
                 self.theme,
             )
             .show(ui);

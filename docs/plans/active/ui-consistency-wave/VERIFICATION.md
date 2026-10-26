@@ -193,3 +193,74 @@ Runtime-verified: connection form (2 sizes), palette (rejected with evidence).
 Pinned without a runtime capture — no fixture opens them yet: insert row, pending table
 changes, row conflict, cell inspector. The pin path is one shared implementation, so the
 mechanism is covered; the per-dialog *value* (560) is not screenshot-verified.
+
+## Wave 6 — Query picker: id-clash overlay and popup shape (UI-33 / UI-34)
+
+Reported as "the schema/db select in Query shows red", then "hết lỗi rồi nhưng nó quá dài
+và xấu". Two independent defects, one egui mechanism behind both.
+
+### UI-33 — the red is egui's debug overlay, not a layout bug
+
+`query_context_picker_view.rs` had two sibling `ScrollArea`s with no `id_salt`. egui
+derives an unsalted area id as `ui.make_persistent_id(IdSalt::new("scroll_area"))`
+(`scroll_area.rs:733`), so both lists resolved to one id and `Context::check_for_id_clash`
+(`context.rs:1163`) painted a 1px `error_fg_color` border plus `🔥 Nth use of ScrollArea
+ID …` over the popup. Sharing an id also meant the two lists shared scroll position, which
+is the real defect under the paint. `DbProTheme` maps `visuals.error_fg_color = danger`,
+which is why the overlay reads (239,68,68) rather than pure red — the scanner keys on that
+band.
+
+### UI-34 — the shape
+
+`paint_option` claims `ui.available_width()`, so inside a bare `egui::Area` the popup
+stretched to every pixel the editor had left: 598 × 398 px for labels that need 280, with a
+~120 px band under three connections.
+
+The height is the part worth remembering. `ScrollArea::begin` sizes from
+`ui.available_rect_before_wrap()`, and an `Area` gives its inner ui `max_rect = state.rect()`
+— the rect the popup had **last frame** (`area.rs:612`). With `auto_shrink.y` the result is
+`min(offered, content)`, so the offer can only shrink: capping the list with `max_height`
+plus `auto_shrink` walked the schema list from 4 reachable rows to 2 and left it there,
+silently, because the shared `ScrollArea` hides its bars (UI-31). A popup list must have its
+viewport *allocated* from the row count.
+
+### What landed where
+
+The picker itself was fixed upstream in `9e72de50` (`list_viewport_height` allocates each
+list's region; width clamped to a 300–360 px band) while the same defect was being
+diagnosed here, so this wave ships only what that commit does not have:
+
+- `crates/native-app/src/main.rs` — `Options::warn_on_id_clash = cfg!(debug_assertions)`.
+  The flag defaults on, so any future clash paints debug text over a user's screen; debug
+  builds keep the developer signal (and the capture harness still sees it), a shipped
+  binary cannot.
+- `.skills/ui-consistency-audit/scripts/id_clash_scan.py` — counts themed error-coloured
+  pixels per capture. A candidate list, not a verdict: sweeping the existing 17-surface
+  matrix flagged 4 captures (`connection-error`, `edit-connection`, `history`,
+  `new-connection`) and all four turned out to be legitimate red UI (required-field
+  markers, the plaintext-TLS warning, a failed statement).
+
+### Measurement
+
+`DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER` on a private Xvfb display, 120 settle frames, on the
+pulled build:
+
+| capture | clash-coloured pixels | popup rect | schema rows visible |
+|---|---|---|---|
+| before (unsalted, uncapped) | 1306 | 598 × 398 | 4 of 5 |
+| after `9e72de50` (this run) | 0 | 316 × 371 | 5, rest scroll |
+
+Identical geometry at 1280×800, 1440×900 and 1920×1080, dark and light (`/data/tmp/cap/v3/`).
+
+### Gates
+
+| Command | Result |
+|---|---|
+| `cargo +nightly fmt --all -- --check` | pass |
+| `cargo clippy -p db-pro-native --all-targets -- -D warnings` | pass |
+| `cargo test --workspace` | pass, 27 result lines, 0 failures |
+| `cargo build --release --locked -p db-pro-native` | pass, exit 0 |
+| `bash scripts/check-ui-architecture.sh` | `UI architecture boundary: PASS` |
+| `clean-code-scan.sh rust --diff --ratchet --ci` | 16 pass / 0 warn / 0 fail |
+| `cargo build -p db-pro-native --features capture` | pass (debug — the clash overlay is still armed, so the scan is meaningful) |
+| `python3 .skills/ui-consistency-audit/scripts/id_clash_scan.py --dir /data/tmp/cap/v3` | 6 captures, 0 flagged |

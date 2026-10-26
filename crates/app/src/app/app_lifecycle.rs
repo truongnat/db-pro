@@ -73,9 +73,7 @@ impl DbProApp {
         if let Ok(documents) = serde_json::to_string(&self.query.session.documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
-        if let Ok(history) = serde_json::to_string(&self.query.editor.query_history_entries) {
-            storage.set_string("dbpro.native.query-history-v1", history);
-        }
+        self.persist_query_history(storage);
         if let Ok(pinned) = serde_json::to_string(&self.schema.explorer.pinned_tables) {
             storage.set_string("dbpro.native.pinned-tables-v1", pinned);
         }
@@ -84,6 +82,25 @@ impl DbProApp {
         }
         if let Ok(layouts) = serde_json::to_string(&self.schema.diagram.saved_layouts) {
             storage.set_string(crate::diagram::ER_LAYOUTS_STORAGE_KEY, layouts);
+        }
+    }
+
+    /// Writes query history to the workspace store.
+    ///
+    /// Statements such as `CREATE ROLE … PASSWORD '…'` are kept verbatim in the
+    /// session (a DB IDE replays what the user typed) but would otherwise be
+    /// written to disk in clear text. With the security setting on — the
+    /// default — the credential literals are masked in the persisted copy only,
+    /// so a secret never reaches the storage file.
+    fn persist_query_history(&self, storage: &mut dyn eframe::Storage) {
+        let mut entries = self.query.editor.query_history_entries.clone();
+        if self.preferences.settings.security.redact_secrets_in_logs {
+            for entry in &mut entries {
+                entry.sql = db_pro_core::domain::audit::redact_secrets(&entry.sql).0;
+            }
+        }
+        if let Ok(history) = serde_json::to_string(&entries) {
+            storage.set_string("dbpro.native.query-history-v1", history);
         }
     }
 

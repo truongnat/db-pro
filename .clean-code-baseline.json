@@ -1,4 +1,33 @@
 {
   "version": "1.0.1",
-  "counts": {}
+  "counts": {
+    "HARD_COMPLEXITY": {
+      "crates/app/src/app/app_lifecycle.rs": 1,
+      "crates/app/src/app/app_types.rs": 1,
+      "crates/core/src/application/object_mutation_builders.rs": 1,
+      "crates/core/src/domain/explain_plan.rs": 1,
+      "crates/core/src/domain/saved_task.rs": 1,
+      "crates/native-app/src/capture.rs": 1,
+      "crates/native-app/src/main.rs": 1
+    },
+    "HARD_PARAMS": {
+      "crates/app/src/query_workbench/query_context_view.rs": 1
+    },
+    "HUGE_FUNCTION": {
+      "crates/app/src/explorer/explorer_toolbar_view.rs": 1,
+      "crates/app/src/query_workbench/query_dialogs_view.rs": 1,
+      "crates/app/src/schema/schema_workbench.rs": 1,
+      "crates/app/src/security/security_rls_view.rs": 1,
+      "crates/app/src/security/security_role_details_view.rs": 1,
+      "crates/app/src/table/table_insert_row_view.rs": 1,
+      "crates/app/src/visual_query_builder/visual_query_builder_surface_view.rs": 1,
+      "crates/app/src/workspace/data_cleanup_capture.rs": 1,
+      "crates/core/src/application/object_mutation_builders.rs": 1,
+      "crates/core/src/domain/explain_plan.rs": 1,
+      "crates/infrastructure/src/backup/pg_dump.rs": 1,
+      "crates/infrastructure/src/postgres/connector.rs": 1,
+      "crates/ui/src/diagram/design_mode.rs": 1,
+      "crates/ui/src/theme/tokens/semantic.rs": 2
+    }
+  }
 }

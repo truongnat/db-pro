@@ -83,6 +83,10 @@ impl SshTunnel {
             &format!("{local_port}:{remote_host}:{remote_port}"),
             "-p",
             &config.port.to_string(),
+            // `--` ends option parsing: user/host come from user-authored
+            // connection config, and without it a value like
+            // `-oProxyCommand=...` would be parsed by ssh as an option.
+            "--",
             &format!("{}@{}", config.user, config.host),
         ]);
         command
@@ -126,7 +130,7 @@ impl SshTunnel {
         if !config.private_key_path.is_empty() {
             cmd.args(["-i", &config.private_key_path]);
         }
-        cmd.args(["-p", &config.port.to_string(), &ssh_target, "echo", "ok"]);
+        cmd.args(["-p", &config.port.to_string(), "--", &ssh_target, "echo", "ok"]);
         cmd
     }
 

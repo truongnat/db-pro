@@ -122,6 +122,14 @@ jobs:
       - name: Clean code scan
         run: bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci
 
+      - name: Clean code ratchet (repo-wide)
+        # --diff only sees changed files and --ratchet demotes pre-existing size
+        # debt in those files to warnings, so a legacy function that grows past
+        # the hard limit inside a touched file passes above. This step scans the
+        # whole repo and fails on any error not frozen in
+        # .clean-code-baseline.json (legacy debt accepted 2026-10-26).
+        run: python3 tools/cc-scan.py . --fail-on error
+
       - name: Native UI architecture boundary
         run: bash scripts/check-ui-architecture.sh
 

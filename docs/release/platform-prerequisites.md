@@ -21,9 +21,9 @@
 | Item | Value | Source |
 |---|---|---|
 | Binary | `db-pro-native` (native eframe/egui; no WebView, no Node) | `crates/native-app`, `README.md:4,159` |
-| macOS artifact | `db-pro-v0.1.0-macos-arm64.tar.gz` → `DB Pro.app` + `README-INSTALL.txt` | `package-macos.sh`, `release.yml:14` |
-| Windows artifact | `db-pro-v0.1.0-windows-x86_64.zip` → `db-pro-native.exe` + `README-INSTALL.txt` | `package-windows.ps1`, `release.yml:15` |
-| Linux artifact | `db-pro-v0.1.0-linux-x86_64.tar.gz` → `db-pro-native` + `README-INSTALL.txt` | `package-linux.sh`, `release.yml:16` |
+| macOS artifact | `db-pro-v0.1.0-macos-arm64.tar.gz` → `DB Pro.app` + `README-INSTALL.txt` + `LICENSE` + `THIRD_PARTY_NOTICES.md` | `package-macos.sh`, `release.yml:14` |
+| Windows artifact | `db-pro-v0.1.0-windows-x86_64.zip` → `db-pro-native.exe` + `README-INSTALL.txt` + `LICENSE` + `THIRD_PARTY_NOTICES.md` | `package-windows.ps1`, `release.yml:15` |
+| Linux artifact | `db-pro-v0.1.0-linux-x86_64.tar.gz` → `db-pro-native` + `README-INSTALL.txt` + `LICENSE` + `THIRD_PARTY_NOTICES.md` | `package-linux.sh`, `release.yml:16` |
 | Installers | none (no `.dmg`/MSI/NSIS/`.deb`/`.rpm`/AppImage) | `risk-register.md:110` (R-PKG-DEFER), LIM-017 |
 | Updater | none | `0.1.0-versioning-updater-persistence.md` §2 (#127) |
 | Signing / notarization | none (unsigned archives) | LIM-017, #118 |

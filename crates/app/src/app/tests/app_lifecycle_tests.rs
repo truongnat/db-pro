@@ -386,6 +386,48 @@ mod scheduler_repaint_cadence_tests {
     }
 }
 
+#[test]
+fn query_history_is_redacted_on_disk_but_keeps_the_session_text() {
+    use db_pro_ui::UiQueryHistoryStatus;
+
+    let mut app = DbProApp::default();
+    app.query.editor.query_history_entries.push(UiQueryHistoryEntry {
+        id: "h1".into(),
+        sql: "CREATE ROLE bob PASSWORD 'hunter2' LOGIN;".into(),
+        connection_id: None,
+        schema: None,
+        started_at: "2026-01-01T00:00:00Z".into(),
+        duration_ms: 1,
+        status: UiQueryHistoryStatus::Success,
+        row_count: None,
+        affected_rows: None,
+        error_code: None,
+        error_summary: None,
+    });
+
+    let mut storage = MemoryStorage::default();
+    eframe::App::save(&mut app, &mut storage);
+    let persisted = storage
+        .0
+        .get("dbpro.native.query-history-v1")
+        .expect("query history must be persisted");
+    assert!(!persisted.contains("hunter2"), "{persisted}");
+    assert!(persisted.contains("***"), "{persisted}");
+    assert!(
+        app.query.editor.query_history_entries[0].sql.contains("hunter2"),
+        "the live session must keep the statement the user ran"
+    );
+
+    app.preferences.settings.security.redact_secrets_in_logs = false;
+    let mut verbatim = MemoryStorage::default();
+    eframe::App::save(&mut app, &mut verbatim);
+    let persisted = verbatim
+        .0
+        .get("dbpro.native.query-history-v1")
+        .expect("query history must be persisted");
+    assert!(persisted.contains("hunter2"), "opt-out stores verbatim: {persisted}");
+}
+
 /// The frame-level cursor reset must run *before* widgets draw. When it ran
 /// after, it overwrote every `on_hover_cursor` in the app and hover cursors
 /// disappeared everywhere — the audit's "cursor does not match behaviour".

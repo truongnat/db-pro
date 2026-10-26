@@ -210,6 +210,44 @@ fn validate_ssh_tunnel_empty_fields() {
 }
 
 #[test]
+fn validate_ssh_tunnel_rejects_option_like_host_and_user() {
+    let mut config = valid_config();
+    config.ssh_tunnel = Some(SshTunnelConfig {
+        host: "-oProxyCommand=touch /tmp/pwned".into(),
+        port: 22,
+        user: "-bacon".into(),
+        private_key_path: "/tmp/key".into(),
+        password: None,
+    });
+    let errors = config.validate().unwrap_err();
+    let messages: Vec<&str> = errors
+        .iter()
+        .filter(|e| e.field.starts_with("ssh_tunnel."))
+        .map(|e| e.message.as_str())
+        .collect();
+    assert_eq!(
+        messages,
+        vec![
+            "SSH tunnel host must not start with '-'",
+            "SSH tunnel user must not start with '-'"
+        ]
+    );
+}
+
+#[test]
+fn validate_ssh_tunnel_accepts_a_normal_host_and_user() {
+    let mut config = valid_config();
+    config.ssh_tunnel = Some(SshTunnelConfig {
+        host: "bastion.example".into(),
+        port: 22,
+        user: "deploy".into(),
+        private_key_path: "/tmp/key".into(),
+        password: None,
+    });
+    assert!(config.validate().is_ok());
+}
+
+#[test]
 fn ssh_password_is_not_serialized_or_debugged() {
     let config = SshTunnelConfig {
         host: "bastion.example".into(),

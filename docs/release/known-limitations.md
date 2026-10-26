@@ -19,6 +19,7 @@
 > No entry was deleted.
 > Further addition (2026-09-15, #244): **LIM-020 added** — PostgreSQL restore is not transactional and backup/restore cannot be cancelled. No entry was deleted or rewritten.
 > Further addition (2026-09-15, #242): **LIM-019 added** — the AI features are the app's only egress and the in-app/release disclosure for it. No entry was deleted or rewritten.
+> Further addition (2026-10-26, release-gap close-out): **LIM-021 added** — the macOS shutdown crash (R-01), root-caused to `accesskit_macos` and recorded as **Fix before v0.1**, the first non-zero entry in that status; **LIM-022 added** — the 838 logical-px capture cap is a macOS host constraint, not product behaviour (Linux/Xvfb returns 1440×900 and 1920×1080 exactly). Closed items from the same wave are deliberately **not** entered here: the SSH-tunnel option-injection fix (`754980dc`), the query-history credential masking (`0a2418d9`) and the missing LICENSE/notices in the macOS archive (`ef2197b4`) are fixed, not limitations. No entry was deleted or rewritten.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
 
@@ -328,14 +329,42 @@ enabled UI driver card, and the service-level features that remain PostgreSQL-on
 | Must not contradict | `0.1.0-release-notes.md` (§Export and Backup, §Known limitations), `provider-capability-matrix.md` (Backup / Restore / CSV-TSV export / Backup-restore cancellation rows), `docs/release/audit-data-integrity.md` (E-1/E-2/E-3), `crates/ui/src/query_view.rs` (export dialog), `crates/infrastructure/src/backup/pg_dump.rs` (restore) |
 | Evidence | `docs/release/audit-data-integrity.md` §2 (findings E-1/E-2/E-3) and §3 (partial-failure table); `crates/ui/src/query_view.rs` (`write_file_atomically`, `export_result_to_disk`); `crates/infrastructure/src/backup/pg_dump.rs` (`restore_command`); `docs/release/evidence/v01-runtime/providers/56-export-atomicity-and-restore-state.md` |
 
+## LIM-021: Closing the window on macOS aborts instead of exiting cleanly
+
+| Field | Value |
+|---|---|
+| Category | platform |
+| Actual behavior | On macOS, closing the DB Pro window — red close button, `Cmd+W`/`Cmd+Q`, or any `ViewportCommand::Close` including the capture harness — tears the window down and then raises an uncaught `NSRangeException` (`removeObserver:forKeyPath:context:` from `___NSTouchBarFinderSetNeedsUpdateOnMain_block_invoke_2` inside `NSDisplayCycleFlush`), aborting the process with `-6` / `SIGABRT`. The cause is not DB Pro code: `accesskit_macos`'s `SubclassingAdapter` re-classes `WinitView` back to its superclass on drop, removing the KVO registration AppKit's `NSTouchBarFinder` had made against that subclass, and the deferred invalidation then deregisters an observer it no longer owns. The pinned stack cannot receive the upstream fix: eframe `0.36.2` → egui-winit `0.36.2` → `accesskit_winit ^0.32.0` → `accesskit_macos ^0.26.0` (locked `0.26.3`), while AccessKit/accesskit#835 (commit `451885c1`, 2026-10-23) shipped in `accesskit_macos 0.27.2`, reachable only through eframe `0.37`. Because `eframe::App::save` runs on loop exit and the abort happens one display cycle later, **the crash also discloses persisted state** — the 2026-10-24 readiness run recorded the dark-theme key gone after an aborting quit. |
+| User-visible impact | A clean-looking quit ends in a macOS crash report every time on hardware that carries (or emulates) a Touch Bar; anything the user expected the app to have saved on quit may not be on disk. Exit status is non-zero, so the deterministic capture gate reports failing cells for captures that rendered fine. |
+| Reason | The fix is an upstream dependency upgrade (`eframe 0.36 → 0.37`) that no code in this repository can substitute for; the interim mitigation (`-[NSApp terminate:]` on the close path, hardware-verified 0/11 crashes on the identical stack) is Objective-C gated behind `#[cfg(target_os = "macos")]`, which this Linux host cannot compile and `ci.yml` never builds (no macOS job). Landing it blind would ship unverifiable unsafe code. |
+| Status | Fix before v0.1 |
+| Target issue | R-01 in `docs/release/2026-10-25-v0.1.0-audit-and-release-gap.md`; plan `docs/plans/active/macos-shutdown-crash/` (state `BLOCKED` — needs a macOS host with Touch-Bar-class hardware and a macOS compile gate) |
+| Safe release-note wording | "On macOS, closing the window can show a system crash dialog after the app has already quit, and the last session's saved state may not be written. Known issue; the fix depends on an accessibility-library update landing in a future eframe release." |
+| Must not contradict | `docs/release/2026-10-25-v0.1.0-audit-and-release-gap.md` §1.4 (R-01), `docs/plans/STATUS.md` (R-01 row), `docs/plans/active/macos-shutdown-crash/{PLAN,FINDINGS,VERIFICATION}.md`, `0.1.0-readiness.md` (public gate) |
+| Evidence | `docs/release/evidence/readiness-2026-10-24/packaged-runtime.log:11-51` (throw `NSRangeException` … `not registered as an observer`, AppKit frames `:19-20`, `libc++abi: terminating due to uncaught exception` `:51`); `observations.json:37` (`window_close`: `process_exit -6`, `SIGABRT`) and `:38` (after the abnormal close the previous dark-theme selection was gone); `docs/plans/STATUS.md:196` ("6/12 latest release capture processes ended in AppKit NSTouchBar SIGABRT after rendering"), `:135` ("`exit=-6` cells are the post-capture macOS TouchBar crash"); upstream AccessKit/accesskit#835 and `adapters/macos/CHANGELOG.md` 0.27.2; dependency ranges verified from the crates.io sparse index on 2026-10-26 |
+
+## LIM-022: The macOS qualification host cannot produce exact 1440×900 / 1920×1080 captures
+
+| Field | Value |
+|---|---|
+| Category | platform |
+| Actual behavior | `AGENTS.md` requires runtime captures at 1280×800, 1440×900 and 1920×1080. The deterministic harness pins the viewport from `DB_PRO_WINDOW_SIZE`, but on the macOS host used for the 2026-10-13 / 2026-10-24 qualification runs, requests for 1440×900 and 1920×1080 both render at **838 logical px of height** — measured from the surviving artifacts: 154 files at `2880×1676` (= 1440×838 @2x) and 135 at `3840×1676` (= 1920×838 @2x), many named `*-host-capped*` / `*-clamped*`. The same harness on Linux/Xvfb returns the requested size exactly: 29 files at `1440×900` and 13 at `1920×1080` (`docs/plans/active/qa-keyboard-correctness-wave/captures/`, setup at `VERIFICATION.md:50-52`). So this is a host display constraint, **not** application behaviour; the exact mechanism (menu bar vs Dock vs screen bounds) is still unproven, and 900→838 / 1080→838 is not a constant delta. |
+| User-visible impact | None in the product. The impact is on evidence quality: the 1440/1920 rows of the visual acceptance matrix are host-capped on macOS, so they do not prove layout at those sizes. |
+| Reason | Closing it is an infrastructure decision (run the capture matrix on a Linux job), not a code change; a fresh Linux capture run at HEAD also showed the harness needs the app-state directory reset first, because a re-attached saved live connection kept the settle loop from finishing. |
+| Status | Accepted v0.1 |
+| Target issue | Nhóm 3 of `docs/release/2026-10-25-v0.1.0-audit-and-release-gap.md` (capture matrix on a Linux runner) |
+| Safe release-note wording | n/a — evidence-pipeline constraint, not a product behaviour. |
+| Must not contradict | `docs/10-egui-native-migration-plan.md` (visual acceptance gate), `docs/plans/STATUS.md` (rows "Native UI Regressions…", "Viewport Select, Complex Picker and Light Chrome Fit"), `docs/release/2026-10-25-v0.1.0-audit-and-release-gap.md` §1.2, `docs/plans/active/macos-shutdown-crash/FINDINGS.md` (F-4) |
+| Evidence | PNG IHDR scan of all 665 repository evidence images, 2026-10-26; `docs/plans/_audit-2026-10-13/CAPTURE-EVIDENCE.md` ("1440/1920 effective height still capped at 838"); `docs/plans/active/qa-keyboard-correctness-wave/VERIFICATION.md:50-52` |
+
 ## Summary by status
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 14 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-011, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019, LIM-020 |
+| Accepted v0.1 | 15 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-011, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019, LIM-020, LIM-022 |
 | Blocked decision | 3 | LIM-001, LIM-009, LIM-010 |
 | Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
-| Fix before v0.1 | 0 | — |
+| Fix before v0.1 | 1 | LIM-021 |
 
 ## Rules
 

@@ -603,6 +603,12 @@ fn run_native_app(
                     .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
             }
             DbProTheme::install_fonts(&creation_context.egui_ctx);
+            // egui paints a red "Nth use of ScrollArea ID …" overlay wherever two
+            // widgets claim the same id. That is a developer signal, so it stays on
+            // in debug builds; a shipped binary must never paint it over the UI.
+            creation_context.egui_ctx.options_mut(|opts| {
+                opts.warn_on_id_clash = cfg!(debug_assertions);
+            });
             creation_context.egui_ctx.enable_accesskit();
             let mut app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
             app.set_table_copy_connector(table_copy);
