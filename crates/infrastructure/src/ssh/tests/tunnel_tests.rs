@@ -115,3 +115,35 @@ fn key_tunnel_preserves_identity_and_forward_target() {
         .windows(2)
         .any(|pair| pair == [OsStr::new("-L"), OsStr::new("13306:database.internal:3306")]));
 }
+
+#[test]
+fn start_command_terminates_options_before_the_ssh_target() {
+    let config = SshTunnelConfig {
+        host: "bastion.example".into(),
+        port: 2222,
+        user: "deploy".into(),
+        private_key_path: String::new(),
+        password: None,
+    };
+    let command = SshTunnel::build_start_command(&config, "database.internal", 3306, 13306);
+    let args: Vec<_> = command.as_std().get_args().collect();
+    assert!(args
+        .windows(2)
+        .any(|pair| pair == [OsStr::new("--"), OsStr::new("deploy@bastion.example")]));
+}
+
+#[test]
+fn test_command_terminates_options_before_the_ssh_target() {
+    let config = SshTunnelConfig {
+        host: "bastion.example".into(),
+        port: 22,
+        user: "deploy".into(),
+        private_key_path: String::new(),
+        password: None,
+    };
+    let command = SshTunnel::build_test_command(&config);
+    let args: Vec<_> = command.as_std().get_args().collect();
+    assert!(args
+        .windows(2)
+        .any(|pair| pair == [OsStr::new("--"), OsStr::new("deploy@bastion.example")]));
+}

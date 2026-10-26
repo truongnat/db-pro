@@ -253,6 +253,12 @@ fn default_max_rows() -> u64 {
 const MAX_CONNECTION_NAME_LEN: usize = 128;
 const MAX_MAX_ROWS: u64 = 100_000;
 
+/// True when a value would be parsed as a CLI option (`-oProxyCommand=…`) if it
+/// reached `ssh` as the positional `user@host` argument.
+fn is_option_like(value: &str) -> bool {
+    value.trim_start().starts_with('-')
+}
+
 impl ConnectionConfig {
     pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
         let mut errors = Vec::new();
@@ -355,6 +361,11 @@ impl ConnectionConfig {
                 field: "ssh_tunnel.host".into(),
                 message: "SSH tunnel host is required".into(),
             });
+        } else if is_option_like(&ssh.host) {
+            errors.push(ValidationError {
+                field: "ssh_tunnel.host".into(),
+                message: "SSH tunnel host must not start with '-'".into(),
+            });
         }
         if ssh.port == 0 {
             errors.push(ValidationError {
@@ -366,6 +377,11 @@ impl ConnectionConfig {
             errors.push(ValidationError {
                 field: "ssh_tunnel.user".into(),
                 message: "SSH tunnel user is required".into(),
+            });
+        } else if is_option_like(&ssh.user) {
+            errors.push(ValidationError {
+                field: "ssh_tunnel.user".into(),
+                message: "SSH tunnel user must not start with '-'".into(),
             });
         }
         if ssh.private_key_path.trim().is_empty() {
