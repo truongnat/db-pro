@@ -61,7 +61,12 @@ against the live fixture, then reverted. Full table in FINDINGS F-4.
 | `execute_transaction_joined` preflight phase | P3 | open — follow-up, pre-existing path untouched by this PR |
 | MySQL prepared-protocol capability gap | P2 (new) | open — follow-up |
 
-Open P0: 0. Open P1: 0. P2: 0 (all fixed or moot with evidence). P3: 3, each recorded as a follow-up.
+Open P0: 0. Open P1: 0. **Open P2: 1** — the MySQL prepared-protocol capability gap (FINDINGS F-5),
+carried as a follow-up; it is not a defect in this diff, since the MySQL files are identical to
+`main`, and this PR ships no MySQL behaviour. Open P3: 2 — the duplicated statement loop and the
+pre-existing `execute_transaction_joined` preflight phase. Every P1 and P2 that describes code this
+PR changed is fixed or moot with evidence above; the merge does not depend on the three follow-ups.
+No P0/P1 is open, which is the merge gate (`AGENTS.md` — a PR must not be marked ready with P0/P1 open).
 
 ## UI / runtime evidence
 
