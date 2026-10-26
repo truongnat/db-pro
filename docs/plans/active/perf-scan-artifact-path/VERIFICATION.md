@@ -1,9 +1,9 @@
 # Verification — perf-scan artifact-path resolution
 
-Base SHA (failure reproduced): `a31a2bec2aa09067dea31a480108d2b3526cacd5`
-All commands below were executed on this host (`linux x86_64`, cargo 1.96.1) with the
-working tree at that base + this diff. Exit codes are the command's own, measured without
-a pipe (`$?` after a pipe measures the last pipe element).
+Base SHA (defect reproduced): `a31a2bec2aa09067dea31a480108d2b3526cacd5`
+All commands were executed on this host (`linux x86_64`, cargo 1.96.1, user-level
+`build.target-dir = /data/cargo-target`). Exit codes are the command's own, taken without a
+pipe (`$?` after a pipe measures the last pipe element).
 
 ## 1. Defect reproduced before the fix
 
@@ -14,65 +14,71 @@ a pipe (`$?` after a pipe measures the last pipe element).
   ✓ cargo build -p db-pro-native: release build succeeded
   ✗ Binary artifact: target/release/db-pro-native not found
 ...
+  Source revision: a31a2bec2aa09067dea31a480108d2b3526cacd5
   Measured artifact: not measured in this run
   Passed: 3 / Warnings: 0 / Failed: 1
   Status: FAIL — 1 failed, 3 passed
 ```
 
 The artifact existed: `find /data/cargo-target -name db-pro-native -type f` →
-`/data/cargo-target/release/db-pro-native`. `cargo metadata --format-version 1` →
-`"target_directory":"/data/cargo-target"`. So the failure was the script's path guess,
-not a missing build.
+`/data/cargo-target/release/db-pro-native`. So the failure was the script's path guess, not
+a missing build.
 
 ## 2. Fix measured green after the change
 
-`bash .skills/perf-audit/scripts/perf-scan.sh native`:
+`bash .skills/perf-audit/scripts/perf-scan.sh native`, exit code **0**, verbatim lines 4, 8-9
+and 29-37 of `/tmp/ps_native.log`:
 
 ```text
+  Source revision: 425dc9b8496c46dc08944b960c11c70c154f5e2b+dirty(1)
+  Building db-pro-native (release)...
+  ✓ cargo build -p db-pro-native: release build succeeded
+...
+  Source revision: 425dc9b8496c46dc08944b960c11c70c154f5e2b+dirty(1)
   Measured artifact: /data/cargo-target/release/db-pro-native sha256
-  0698c5bfad1f3c2378994f0683d2626b8ada6df28902aa4c9444c0e0458802b7 (45.0MB)
+    0698c5bfad1f3c2378994f0683d2626b8ada6df28902aa4c9444c0e0458802b7 (45.0MB)
 
   Passed: 3
   Warnings: 0
   Failed: 0
   Not executed: 0
-  Status: PASS — 3 executed check(s) passed
+  Status: PASS — 3 executed check(s) passed [source 425dc9b8…+dirty(1): working tree not committed]
 ```
 
-Exit code 0. The size line is a real measurement against the documented budget
-(`db-pro-native` target < 50 MB, critical > 100 MB —
-`.skills/perf-audit/references/perf-budgets.md:18`), and the run prints the digest the
-provenance rule requires.
+The size line is a real measurement against the documented budget (`< 50 MB` target, `> 100 MB`
+critical — `.skills/perf-audit/references/perf-budgets.md:18`), reported with the digest and
+revision the provenance rule requires. `+dirty(1)` is the uncommitted docs of this plan; no
+measured source file was dirty.
 
-## 3. Contract self-test (`--self-test`), no build involved
+## 3. Contract self-test — hermetic, no build, no host state
 
-`bash .skills/perf-audit/scripts/perf-scan.sh --self-test` → exit 0,
-19 assertions ✓, 0 ✗, including the 5 added for path resolution:
+`bash .skills/perf-audit/scripts/perf-scan.sh --self-test` → exit **0**, 20 assertions ✓, 0 ✗.
+The 6 added for artifact resolution run against canned cargo NDJSON, so they cannot be
+influenced by the machine's cargo config or environment:
 
 ```text
-  ✓ a full miss returns the first candidate so the error names it
-  ✓ resolution falls back to target/release
-  ✓ CARGO_TARGET_DIR wins over target/release
-  ✓ cargo's target dir wins over CARGO_TARGET_DIR
-  ✓ the cargo target dir is used verbatim, not guessed from the project path
+  ✓ a lib-only artifact yields no path (nothing stale gets measured)
+  ✓ the plain release artifact is extracted
+  ✓ a target-triple / .exe layout is extracted (last artifact wins)
+  ✓ another package's artifact is never measured as ours
+  ✓ an empty build log yields no path
+  ✓ a JSON-escaped Windows path is unescaped before the filesystem check
 ```
 
-They run in a `mktemp -d` sandbox with `PERF_SCAN_TARGET_DIR` stubbing the cargo query, so
-they assert precedence without depending on the host's cargo config, and they do not touch
-the real target dir.
+## 4. Gate is live, not decorative (negative tests)
 
-## 4. The gate is still live, not decorative (negative test)
+Two independent proofs, neither dependent on host state:
 
-`PERF_SCAN_TARGET_DIR=/nonexistent-box perf-scan.sh native` → exit **1**:
-
-```text
-  ✗ Binary artifact: no db-pro-native at /nonexistent-box/release/db-pro-native
-     (cargo target dir '/nonexistent-box', CARGO_TARGET_DIR=unset, /data/dev/work/db-pro/target/release/)
-  Status: FAIL — 1 failed, 2 passed
-```
-
-The fix had to keep a miss loud: resolving a path could easily have degraded into
-"silently measure nothing". The message now names every location it tried.
+- **Canned output**: a `compiler-artifact` line with `"executable":null` (a lib) and one
+  naming a *different* package's bin both extract to the empty string. `audit_native_binary`
+  then hits `check "Binary artifact" "fail" "cargo's build output named no db-pro-native
+  executable to measure (reported path: <none>)"` and returns — it has no fallback path left
+  to guess, which is what makes a stale measurement impossible rather than merely unlikely.
+- **Real failing build**: `cargo build --release --locked -p nope-not-a-package` with the same
+  redirection captured `error: package ID specification 'nope-not-a-package' did not match any
+  packages` into the diagnostics variable and left the JSON file at **0 bytes**, confirming the
+  build-failure branch (`no binary size reported — the artifact of this run was not produced`)
+  still sees its error text and cannot measure anything.
 
 ## 5. Static gates
 
@@ -80,40 +86,40 @@ The fix had to keep a miss loud: resolving a path could easily have degraded int
 |---|---|
 | `bash -n .skills/perf-audit/scripts/perf-scan.sh` | exit 0 |
 | `python3 tools/cc-scan.py .skills/perf-audit/scripts/perf-scan.sh --no-baseline` | `100.0/100 (grade A) · error=0 warning=0 info=0` |
-| `python3 tools/cc-scan.py . --fail-on error` | exit 0 (repo-wide ratchet, baseline count unchanged) |
+| `python3 tools/cc-scan.py . --fail-on error` | exit 0 (repo-wide ratchet, baseline unchanged) |
 | `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | exit 0 |
 | `cargo +nightly fmt --all -- --check` | exit 0 |
 | `cargo clippy --workspace --all-targets -- -D warnings` | exit 0 |
-| `cargo test --workspace -- --test-threads=4` | exit 0 — **2320 passed / 0 failed / 65 ignored** across 27 suites (unchanged from the base SHA; no `.rs` file is in this diff) |
+| `cargo test --workspace -- --test-threads=4` | exit 0 — **2320 passed / 0 failed / 65 ignored**, 27 suites |
 | `bash scripts/check-ui-architecture.sh` | n/a — no `crates/ui` file touched |
 
-`git diff --stat`: `.skills/perf-audit/SKILL.md`, `.skills/perf-audit/references/perf-budgets.md`,
-`.skills/perf-audit/scripts/perf-scan.sh` only (plus this plan directory). No `.rs` file,
-no `Cargo.toml`, no threshold, no baseline entry.
+Files changed: `.skills/perf-audit/scripts/perf-scan.sh`, `.skills/perf-audit/SKILL.md`,
+`.skills/perf-audit/references/perf-budgets.md`, `README.md` (build-output comment), and this
+plan directory. No `.rs` file, no `Cargo.toml`, no threshold, no baseline entry.
 
 ## 6. Evidence gaps / not tested
 
-- **No Rust behaviour changed**, so the test suite is a no-op regression check here rather
-  than coverage of this fix. Its value is proving the tooling change broke nothing.
-- The new path-resolution assertions are covered by `--self-test`, not by `cargo test`:
-  the code under test is a shell function, and the script's own self-test section is the
-  harness the repo already uses for its result contract.
-- `perf-scan.sh` sections `er`, `db`, `rust` were **not executed** (need a window server /
-  live DB connection). The script counts them as `Not executed`; this PR does not claim them.
-- The `native` section also ran the criterion suites and printed 8 timing lines
-  (all completed, none failed), but the tail-captured output does not carry the benchmark
-  ids, so this run does **not** map those times to individual budget rows. Any budget
-  comparison must be quoted from a run that prints the ids.
-- Only one host's cargo configuration was exercised for the redirect case
-  (`build.target-dir` at user level). The `build-dir` case is covered by the sandboxed
-  precedence assertions, not by a second real machine.
+- **No Rust behaviour changed**; the suite is a no-regression check here, not coverage of this
+  fix. The fix's own coverage is the `--self-test` section, which is the harness this script
+  already uses for its result contract.
+- **End-to-end triple/`.exe` run not performed.** Only `x86_64-unknown-linux-gnu` is installed
+  here, and building for it under `--target` means a full from-scratch rebuild into a new
+  directory. The triple and `.exe` cases are therefore covered by canned cargo NDJSON
+  assertions plus the fact that cargo names the path, not by a second real build.
+- `perf-scan.sh` sections `er`, `db`, `rust` were **not executed** (window server / live DB).
+  The script counts them as `Not executed`; this PR does not claim them.
+- The `native` run also executed the criterion suites and printed 8 timing lines, all
+  completed, none failed. `perf-scan.sh` prints only `time:` lines without benchmark ids, so
+  this run does **not** map those times to individual budget rows; quoting a budget comparison
+  needs a run that prints ids.
 
 ## Tổng kết (Vietnamese)
 
-Cổng audit binary-size báo FAIL oan và in "not measured in this run" trên mọi máy có
-`target-dir`/`build-dir` chuyển hướng, vì script đoán đường dẫn `target/release/`.
-Sau sửa, cùng lệnh đo thật: 45.0MB kèm sha256 của artifact mà cargo đã tạo, exit 0.
-Thứ tự phân giải là cargo target dir → `CARGO_TARGET_DIR` → `target/`, có 5 assertion
-chạy trong sandbox `mktemp -d` và một phép thử âm tính chứng minh cổng vẫn FAIL (exit 1)
-khi không tìm thấy binary, kèm message liệt kê đủ các chỗ đã thử. Ba tài liệu hướng dẫn
-đường dẫn sai cũng đã được sửa; không thay đổi ngưỡng budget hay code Rust nào.
+Lỗi là script tự đoán đường dẫn binary; trên máy có `build.target-dir` chuyển hướng, build
+thành công mà cổng size vẫn FAIL và in "not measured in this run". Fix bỏ hẳn việc đoán: đọc
+trường `executable` từ JSON output của chính lần build, nên mọi layout (target-dir đổi chỗ,
+triple `build.target`, `.exe` Windows) đều đúng và không còn khả năng đo nhầm binary cũ — khi
+cargo không tên executable, cổng FAIL rõ ràng chứ không fallback. Trước sửa exit 1; sau sửa
+exit 0, đo 45.0MB kèm sha256 và revision. `--self-test` 20 assertion xanh (6 assertion mới
+chạy trên NDJSON dựng sẵn, không phụ thuộc máy), test âm tính với build thất bại chứng minh
+cổng vẫn chặn. fmt/clippy/cc-scan/test đều xanh, không đổi ngưỡng hay chạm code Rust.
