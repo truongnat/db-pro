@@ -107,7 +107,10 @@ Driver notes shown in the UI:
 
 ### 1.9 Security
 
-- **Redact secrets in diagnostics and logs** (on by default).
+- **Redact secrets in diagnostics, logs and saved query history** (on by
+  default). Query history keeps the exact statement for the current session;
+  only the copy written to the workspace store has credential literals such as
+  `PASSWORD '…'` masked. Turning this off stores statements verbatim on disk.
 - **Block secret export by default** (on by default).
 
 ### 1.10 Advanced

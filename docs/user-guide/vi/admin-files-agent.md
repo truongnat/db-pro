@@ -107,7 +107,11 @@ Ghi chú theo driver (hiển thị ngay trong UI):
 
 ### 1.9 Security
 
-- **Redact secrets in diagnostics and logs** — che secret trong log/chẩn đoán (mặc định bật).
+- **Redact secrets in diagnostics, logs and saved query history** — che secret
+  trong log/chẩn đoán và bản sao lịch sử truy vấn ghi ra đĩa (mặc định bật). Câu
+  lệnh trong phiên hiện tại vẫn giữ nguyên văn; chỉ bản sao lưu vào workspace
+  store được che các literal credential như `PASSWORD '…'`. Tắt tuỳ chọn này nghĩa
+  là lưu nguyên văn ra đĩa.
 - **Block secret export by default** — chặn export secret (mặc định bật).
 
 ### 1.10 Advanced

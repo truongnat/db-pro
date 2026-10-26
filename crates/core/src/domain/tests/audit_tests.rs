@@ -12,6 +12,42 @@ fn redact_password_and_uri() {
 }
 
 #[test]
+fn redact_sql_credential_literals() {
+    let (out, changed) = redact_secrets("CREATE ROLE bob PASSWORD 'hunter2' LOGIN;");
+    assert!(changed);
+    assert_eq!(out, "CREATE ROLE bob PASSWORD '***' LOGIN;");
+
+    let (out, changed) = redact_secrets(r#"ALTER USER app IDENTIFIED BY "s3cr3t" WITH VALID UNTIL '2030-01-01';"#);
+    assert!(changed, "double-quoted literal must be redacted: {out}");
+    assert_eq!(
+        out,
+        r#"ALTER USER app IDENTIFIED BY "***" WITH VALID UNTIL '2030-01-01';"#
+    );
+}
+
+#[test]
+fn redact_sql_credential_literals_redacts_every_occurrence() {
+    let (out, changed) = redact_secrets("CREATE USER a PASSWORD 'one1'; CREATE USER b PASSWORD 'two2';");
+    assert!(changed);
+    assert_eq!(out.matches("***").count(), 2, "{out}");
+    assert!(!out.contains("one1") && !out.contains("two2"), "{out}");
+}
+
+#[test]
+fn redact_sql_credential_literals_keeps_ordinary_sql_alone() {
+    for statement in [
+        "SELECT password_hash FROM users WHERE name = 'bob'",
+        "CREATE TABLE my_password_store (value text)",
+        "SELECT 'password is a word' AS note",
+        "ALTER ROLE bob PASSWORD ''",
+    ] {
+        let (out, changed) = redact_secrets(statement);
+        assert!(!changed, "{statement} must be left alone, got {out}");
+        assert_eq!(out, statement);
+    }
+}
+
+#[test]
 fn parse_csv_quoted_commas() {
     let cols = parse_csv_line(
             // cc-scan:allow LINE_TOO_LONG — literal must not wrap

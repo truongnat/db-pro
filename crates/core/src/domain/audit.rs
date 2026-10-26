@@ -184,7 +184,78 @@ pub fn redact_secrets(input: &str) -> (String, bool) {
             }
         }
     }
+    redact_sql_credential_literals(&mut out, &mut changed);
     (out, changed)
+}
+
+/// Redact SQL credential literals — `PASSWORD 'p'`, `IDENTIFIED BY "p"` — the
+/// forms an administrative statement carries once it reaches query history or a
+/// logged statement. Every occurrence is redacted, not just the first, because
+/// a batch routinely sets more than one password.
+fn redact_sql_credential_literals(out: &mut String, changed: &mut bool) {
+    const KEYWORDS: [&str; 2] = ["password", "identified by"];
+    // `to_ascii_lowercase` only touches ASCII bytes, so indices stay aligned
+    // with `out` and an ASCII quote byte can never occur inside a multi-byte
+    // character.
+    let lower = out.to_ascii_lowercase();
+    let bytes = lower.as_bytes();
+    let mut starts: Vec<usize> = Vec::new();
+    for keyword in KEYWORDS {
+        let mut from = 0;
+        while let Some(rel) = lower[from..].find(keyword) {
+            let start = from + rel;
+            from = start + keyword.len();
+            let joined_to_a_word =
+                start > 0 && matches!(bytes[start - 1], b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_');
+            if !joined_to_a_word {
+                starts.push(start);
+            }
+        }
+    }
+    starts.sort_unstable();
+
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    let mut consumed_until = 0;
+    for start in starts {
+        if start < consumed_until {
+            continue;
+        }
+        let Some(keyword) = KEYWORDS.iter().find(|k| lower[start..].starts_with(*k)) else {
+            continue;
+        };
+        let mut at = start + keyword.len();
+        while bytes.get(at).is_some_and(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r')) {
+            at += 1;
+        }
+        let Some(&quote @ (b'\'' | b'"')) = bytes.get(at) else {
+            continue;
+        };
+        let content = at + 1;
+        let mut cursor = content;
+        let end = loop {
+            match bytes.get(cursor) {
+                // Unterminated literal: take everything that is left.
+                None => break bytes.len(),
+                Some(&b) if b == quote => {
+                    if bytes.get(cursor + 1) == Some(&quote) {
+                        cursor += 2;
+                        continue;
+                    }
+                    break cursor;
+                }
+                Some(_) => cursor += 1,
+            }
+        };
+        if end > content {
+            ranges.push((content, end));
+        }
+        consumed_until = end + 1;
+    }
+
+    for (from, to) in ranges.into_iter().rev() {
+        out.replace_range(from..to, "***");
+        *changed = true;
+    }
 }
 
 fn find_ci(haystack: &str, needle: &str) -> Option<usize> {
