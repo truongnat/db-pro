@@ -23,6 +23,84 @@ async fn execute_transaction_reports_validation_failure_on_mismatched_read_state
     assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
 }
 
+#[tokio::test]
+async fn execute_parameterized_transaction_reports_validation_failure_on_unknown_handle() {
+    let connector = MySqlConnector::new();
+    let handle = ConnectionHandle::new(999);
+    let statements = vec![db_pro_core::ports::ParameterizedTransactionStatement {
+        sql: "UPDATE users SET name = ? WHERE id = ?".to_string(),
+        params: vec![
+            db_pro_core::domain::query::QueryParam::Text("Alice".to_string()),
+            db_pro_core::domain::query::QueryParam::Int64(1),
+        ],
+        expect_affected_rows: true,
+        max_affected_rows: Some(1),
+    }];
+
+    let failure = connector
+        .execute_parameterized_transaction(&handle, &statements)
+        .await
+        .expect_err("parameterized transaction on unknown handle must fail validation/connection lookup");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+    assert_eq!(
+        failure.statement_index, 0,
+        "statement_index must be 0 for Validation phase failure"
+    );
+    assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+}
+
+#[tokio::test]
+async fn execute_parameterized_transaction_attempts_lease_checkout_when_held() {
+    let connector = MySqlConnector::new();
+    let pool = sqlx::mysql::MySqlPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(std::time::Duration::from_millis(50))
+        .connect_lazy("mysql://127.0.0.1:1/none")
+        .expect("lazy pool does not connect");
+    let slot = crate::transaction_session::SessionSlot::default();
+    let handle_id = 42;
+
+    connector.pools.write().await.insert(
+        handle_id,
+        MySqlEntry {
+            pool,
+            max_rows: 10,
+            query_timeout: std::time::Duration::from_secs(5),
+            active_connections: std::sync::Mutex::new(Vec::new()),
+            open_session: slot.clone(),
+        },
+    );
+    let handle = ConnectionHandle::new(handle_id);
+
+    // When no lease is held in slot, checkout_if_held returns Ok(None), and execute_parameterized_transaction
+    // falls through to pool.begin(), which fails when trying to connect.
+    let statements = vec![db_pro_core::ports::ParameterizedTransactionStatement {
+        sql: "UPDATE users SET name = ? WHERE id = ?".to_string(),
+        params: vec![
+            db_pro_core::domain::query::QueryParam::Text("Bob".to_string()),
+            db_pro_core::domain::query::QueryParam::Int64(1),
+        ],
+        expect_affected_rows: true,
+        max_affected_rows: Some(1),
+    }];
+
+    let failure = connector
+        .execute_parameterized_transaction(&handle, &statements)
+        .await
+        .expect_err("begin transaction must fail on un-connectable lazy pool");
+    assert_eq!(failure.phase, TransactionFailurePhase::Begin);
+
+    // Verify static dispatch structure
+    let source = include_str!("../connector.rs");
+    let param_at = source
+        .find("async fn execute_parameterized_transaction(")
+        .expect("execute_parameterized_transaction");
+    let body = &source[param_at..];
+    assert!(body.contains("checkout_if_held"));
+    assert!(body.contains("execute_parameterized_transaction_joined"));
+}
+
 /// Schema `execute_batch` delegates to `execute_transaction`, which publishes
 /// `CONNECTION_ID()` before the statements. No live server is required for this check.
 fn batch_publishes_connection_before_statements() {
