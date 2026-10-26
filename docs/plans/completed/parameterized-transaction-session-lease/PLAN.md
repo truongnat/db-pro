@@ -2,7 +2,7 @@
 
 ## State
 
-`REVIEW`
+`COMPLETED`
 
 ## Goal
 

@@ -1,6 +1,6 @@
 # perf-scan Artifact-Path Resolution — Plan
 
-State: REVIEW
+State: COMPLETED
 Branch: `fix/perf-scan-artifact-path` (base `main` at `a31a2bec2aa09067dea31a480108d2b3526cacd5`)
 
 ## Goal
