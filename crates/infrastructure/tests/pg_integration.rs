@@ -13,9 +13,12 @@
 use db_pro_core::application::query_service::QueryService;
 use db_pro_core::application::registry::ConnectionRegistry;
 use db_pro_core::application::sql_builder::{build_count, FilterOp, TableFilter};
+use db_pro_core::application::with_query_session;
 use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, DriverType, SslMode};
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
-use db_pro_core::ports::{ConnectionRepository, DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
+use db_pro_core::ports::{
+    ConnectionRepository, DbConnector, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+};
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
 use db_pro_infrastructure::postgres::connector::PostgresConnector;
 use std::sync::Arc;
@@ -164,6 +167,221 @@ async fn pg_parameterized_transaction_failure_rolls_back_replace_delete() {
         .execute(&handle, &format!("DROP TABLE {qualified_table}"), &[])
         .await
         .expect("drop isolated copy target");
+    connector.disconnect(&handle).await.expect("disconnect fixture");
+}
+
+/// The joined run must undo only its own statements. A failed statement inside it is
+/// rolled back to the run's savepoint, which is what keeps the tab's already-open
+/// transaction usable; without that undo the connection sits in PostgreSQL's
+/// aborted-transaction state and the next statement fails with 25P02. The tab's own
+/// uncommitted work has to survive both.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_joined_parameterized_transaction_rolls_back_only_its_own_statements() {
+    let (connector, handle) = setup().await;
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    let table = format!("public.dbpro_join_tx_{}_{}", std::process::id(), suffix);
+
+    connector
+        .execute(
+            &handle,
+            &format!("CREATE TABLE {table} (id TEXT PRIMARY KEY, name TEXT NOT NULL)"),
+            &[],
+        )
+        .await
+        .expect("create joined-run fixture");
+
+    let ids = |rows: &QueryResult| -> Vec<String> {
+        rows.rows
+            .iter()
+            .map(|row| match &row.0[0] {
+                CellValue::Text(value) => value.clone(),
+                other => panic!("unexpected id cell: {other:?}"),
+            })
+            .collect()
+    };
+
+    with_query_session(Some("pg-join-tab"), async {
+        connector
+            .execute(&handle, "BEGIN", &[])
+            .await
+            .expect("BEGIN opens the tab transaction");
+        connector
+            .execute(
+                &handle,
+                &format!("INSERT INTO {table} (id, name) VALUES ($1, $2)"),
+                &[QueryParam::Text("tab".into()), QueryParam::Text("Tab work".into())],
+            )
+            .await
+            .expect("tab statement inside its own transaction");
+
+        let failure = connector
+            .execute_parameterized_transaction(
+                &handle,
+                &[
+                    db_pro_core::ports::ParameterizedTransactionStatement {
+                        sql: format!("INSERT INTO {table} (id, name) VALUES ($1, $2)"),
+                        params: vec![QueryParam::Text("joined".into()), QueryParam::Text("Joined".into())],
+                        expect_affected_rows: true,
+                        max_affected_rows: Some(1),
+                    },
+                    db_pro_core::ports::ParameterizedTransactionStatement {
+                        sql: "THIS IS NOT VALID SQL".into(),
+                        params: Vec::new(),
+                        expect_affected_rows: false,
+                        max_affected_rows: None,
+                    },
+                ],
+            )
+            .await
+            .expect_err("the invalid statement must fail the joined run");
+
+        assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+        assert_eq!(failure.statement_index, 1);
+        assert_eq!(failure.results.len(), 1, "the statement before the failure did run");
+        assert_eq!(
+            failure.outcome,
+            TransactionFailureOutcome::LeftOpen,
+            "a confirmed savepoint undo leaves the tab's transaction open"
+        );
+
+        let inside = connector
+            .query(&handle, &format!("SELECT id FROM {table} ORDER BY id"), &[])
+            .await
+            .expect("the tab transaction must still accept statements after the joined failure");
+        assert_eq!(
+            ids(&inside),
+            vec!["tab".to_string()],
+            "the joined write must be undone while the tab's own work is kept"
+        );
+
+        connector
+            .execute(&handle, "COMMIT", &[])
+            .await
+            .expect("commit the tab transaction");
+    })
+    .await;
+
+    let after = connector
+        .query(&handle, &format!("SELECT id FROM {table} ORDER BY id"), &[])
+        .await
+        .expect("read after commit");
+    assert_eq!(
+        ids(&after),
+        vec!["tab".to_string()],
+        "the joined run's write must not survive the tab's commit"
+    );
+
+    connector
+        .execute(&handle, &format!("DROP TABLE {table}"), &[])
+        .await
+        .expect("drop joined-run fixture");
+    connector.disconnect(&handle).await.expect("disconnect fixture");
+}
+
+/// A run staged while the tab holds `BEGIN` belongs to the tab's transaction, not to its own:
+/// the tab's `ROLLBACK` must undo the run's writes. On a separate pool connection the run would
+/// commit alone and survive the tab's rollback.
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL integration fixture"]
+async fn pg_joined_parameterized_transaction_rolls_back_with_the_tab() {
+    let (connector, handle) = setup().await;
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    let table = format!("public.dbpro_join_tx_{}_{}", std::process::id(), suffix);
+
+    connector
+        .execute(
+            &handle,
+            &format!("CREATE TABLE {table} (id TEXT PRIMARY KEY, name TEXT NOT NULL)"),
+            &[],
+        )
+        .await
+        .expect("create joined fixture");
+
+    let ids = |rows: &QueryResult| -> Vec<String> {
+        rows.rows
+            .iter()
+            .map(|row| match &row.0[0] {
+                CellValue::Text(value) => value.clone(),
+                other => panic!("unexpected id cell: {other:?}"),
+            })
+            .collect()
+    };
+
+    with_query_session(Some("pg-join-tab"), async {
+        connector
+            .execute(&handle, "BEGIN", &[])
+            .await
+            .expect("BEGIN opens the tab transaction");
+        connector
+            .execute(
+                &handle,
+                &format!("INSERT INTO {table} (id, name) VALUES ($1, $2)"),
+                &[QueryParam::Text("tab".into()), QueryParam::Text("Tab work".into())],
+            )
+            .await
+            .expect("tab statement inside its own transaction");
+
+        let results = connector
+            .execute_parameterized_transaction(
+                &handle,
+                &[db_pro_core::ports::ParameterizedTransactionStatement {
+                    sql: format!("INSERT INTO {table} (id, name) VALUES ($1, $2)"),
+                    params: vec![QueryParam::Text("joined".into()), QueryParam::Text("Joined".into())],
+                    expect_affected_rows: true,
+                    max_affected_rows: Some(1),
+                }],
+            )
+            .await
+            .expect("the joined run succeeds");
+        assert!(
+            matches!(
+                results.as_slice(),
+                [TransactionStatementResult::Affected {
+                    row_count: 1,
+                    duration_ms: _
+                }]
+            ),
+            "the run reports its own affected row, got {results:?}"
+        );
+
+        let inside = connector
+            .query(&handle, &format!("SELECT id FROM {table} ORDER BY id"), &[])
+            .await
+            .expect("read inside the tab transaction");
+        assert_eq!(
+            ids(&inside),
+            vec!["joined".to_string(), "tab".to_string()],
+            "the run's write must be visible to the tab that owns the transaction"
+        );
+
+        connector
+            .execute(&handle, "ROLLBACK", &[])
+            .await
+            .expect("rollback the tab transaction");
+    })
+    .await;
+
+    let after = connector
+        .query(&handle, &format!("SELECT id FROM {table} ORDER BY id"), &[])
+        .await
+        .expect("read after rollback");
+    assert!(
+        ids(&after).is_empty(),
+        "the tab's rollback must undo the joined write too, got {:?}",
+        ids(&after)
+    );
+
+    connector
+        .execute(&handle, &format!("DROP TABLE {table}"), &[])
+        .await
+        .expect("drop joined fixture");
     connector.disconnect(&handle).await.expect("disconnect fixture");
 }
 

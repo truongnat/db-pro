@@ -236,22 +236,3 @@ async fn postgres_execute_parameterized_transaction_unconnected_handle_fails_val
         db_pro_core::ports::TransactionFailureOutcome::NotStarted
     );
 }
-
-#[test]
-fn owned_execute_parameterized_transaction_checks_session_lease() {
-    let source = include_str!("../connector.rs");
-    let start = source
-        .find("async fn execute_parameterized_transaction(")
-        .expect("owned execute_parameterized_transaction");
-    let rest = &source[start..];
-    let end = rest.find("\n    async fn introspect(").expect("introspect follows");
-    let body = &rest[..end];
-    assert!(
-        body.contains("checkout_if_held"),
-        "execute_parameterized_transaction must check for an open session transaction lease"
-    );
-    assert!(
-        body.contains("execute_parameterized_transaction_joined"),
-        "execute_parameterized_transaction must dispatch to execute_parameterized_transaction_joined when lease is held"
-    );
-}

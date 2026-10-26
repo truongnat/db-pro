@@ -272,19 +272,17 @@ impl PostgresConnector {
                 .await
             {
                 Ok(pid) => pid,
-                Err(error) => return Err(left_open(0, Vec::new(), crate::error::from_sqlx(error))),
+                Err(error) => return Err(boundary_left_open(crate::error::from_sqlx(error))),
             };
             let _active = self.track_backend(handle.0, backend_pid);
             let previous = match super::search_path::push_session_search_path(conn, in_transaction).await {
                 Ok(previous) => previous,
-                Err(error) => return Err(left_open(0, Vec::new(), error)),
+                Err(error) => return Err(boundary_left_open(error)),
             };
-            if let Err(error) = sqlx::query("SAVEPOINT dbpro_parameterized_tx")
-                .execute(&mut *conn)
-                .await
-            {
+            let savepoint = crate::transaction_session::savepoint_name();
+            if let Err(error) = sqlx::query(&format!("SAVEPOINT {savepoint}")).execute(&mut *conn).await {
                 let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
-                return Err(left_open(0, Vec::new(), crate::error::from_sqlx(error)));
+                return Err(boundary_left_open(crate::error::from_sqlx(error)));
             }
             let deadline = std::time::Instant::now() + timeout;
             let mut results = Vec::with_capacity(statements.len());
@@ -347,14 +345,28 @@ impl PostgresConnector {
                     duration_ms: 0,
                 });
             }
-            if let Some(failure) = failure {
-                let _ = sqlx::query("ROLLBACK TO SAVEPOINT dbpro_parameterized_tx")
+            if let Some(mut failure) = failure {
+                let rollback = sqlx::query(&format!("ROLLBACK TO SAVEPOINT {savepoint}"))
                     .execute(&mut *conn)
-                    .await;
+                    .await
+                    .map_err(crate::error::from_sqlx);
                 let _ = super::search_path::pop_session_search_path(conn, previous, in_transaction).await;
+                if let Err(rollback_error) = rollback {
+                    // Undoing the savepoint is the only thing that keeps the caller's
+                    // outer transaction usable after a failed statement. When that undo
+                    // cannot be confirmed, neither outcome may be claimed and the
+                    // connection must not stay in the tab's slot as if it could.
+                    failure.outcome = TransactionFailureOutcome::Unknown;
+                    failure.error = DbError::Internal(format!(
+                        "{}; savepoint rollback failed: {rollback_error}",
+                        failure.error
+                    ));
+                    lease.discard_if_abandoned();
+                    return Err(failure);
+                }
                 return Err(failure);
             }
-            if let Err(error) = sqlx::query("RELEASE SAVEPOINT dbpro_parameterized_tx")
+            if let Err(error) = sqlx::query(&format!("RELEASE SAVEPOINT {savepoint}"))
                 .execute(&mut *conn)
                 .await
             {
@@ -1251,6 +1263,18 @@ fn left_open(statement_index: usize, results: Vec<TransactionStatementResult>, e
         statement_index,
         outcome: TransactionFailureOutcome::LeftOpen,
         results,
+        error,
+    }
+}
+
+/// A joined run that failed before its first statement. `TableMutationExecution` rewrites a
+/// `Statement` index onto the grid row it came from, so boundary failures must not claim one.
+fn boundary_left_open(error: DbError) -> TransactionFailure {
+    TransactionFailure {
+        phase: TransactionFailurePhase::Begin,
+        statement_index: 0,
+        outcome: TransactionFailureOutcome::LeftOpen,
+        results: Vec::new(),
         error,
     }
 }

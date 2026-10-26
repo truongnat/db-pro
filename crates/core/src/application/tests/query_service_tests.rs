@@ -846,3 +846,16 @@ async fn execute_multi_commit_failure_reports_unknown_outcome() {
     assert!(!message.message.contains("rolled back"));
     assert_eq!(result.results.len(), 1);
 }
+
+#[test]
+fn boundary_failure_with_open_transaction_is_not_reported_as_unknown() {
+    // A joined run whose setup failed before its first statement leaves the caller's
+    // transaction open; the message must say so instead of claiming an unknown outcome.
+    let message = format_transaction_failure(
+        TransactionFailurePhase::Begin,
+        TransactionFailureOutcome::LeftOpen,
+        &DbError::ConnectionFailed("search_path rejected".into()),
+    );
+    assert!(message.contains("the open transaction is still held"), "{message}");
+    assert!(!message.contains("unknown"), "{message}");
+}

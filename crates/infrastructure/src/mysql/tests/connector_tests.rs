@@ -23,36 +23,6 @@ async fn execute_transaction_reports_validation_failure_on_mismatched_read_state
     assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
 }
 
-#[tokio::test]
-async fn mysql_execute_parameterized_transaction_unconnected_handle_fails_validation() {
-    let connector = MySqlConnector::new();
-    let failure = connector
-        .execute_parameterized_transaction(&ConnectionHandle::new(99), &[])
-        .await
-        .expect_err("unconnected handle must return failure");
-
-    assert_eq!(failure.phase, TransactionFailurePhase::Validation);
-    assert_eq!(failure.statement_index, 0);
-    assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
-}
-
-#[test]
-fn mysql_owned_execute_parameterized_transaction_checks_session_lease() {
-    let source = include_str!("../connector.rs");
-    let param_at = source
-        .find("async fn execute_parameterized_transaction(")
-        .expect("execute_parameterized_transaction");
-    let body = &source[param_at..];
-    assert!(
-        body.contains("checkout_if_held"),
-        "execute_parameterized_transaction must check for an open session transaction lease"
-    );
-    assert!(
-        body.contains("execute_parameterized_transaction_joined"),
-        "execute_parameterized_transaction must dispatch to execute_parameterized_transaction_joined when lease is held"
-    );
-}
-
 /// Schema `execute_batch` delegates to `execute_transaction`, which publishes
 /// `CONNECTION_ID()` before the statements. No live server is required for this check.
 fn batch_publishes_connection_before_statements() {

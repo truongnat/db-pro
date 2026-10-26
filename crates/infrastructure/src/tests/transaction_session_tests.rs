@@ -183,3 +183,14 @@ async fn two_tabs_do_not_share_a_connection() {
     })
     .await;
 }
+
+#[test]
+fn savepoint_names_are_unique_per_run() {
+    // Two joined runs can be nested through one tab transaction, and a caller can hold its own
+    // savepoint open across a run. Releasing a name that was reused would drop the outer, still
+    // open savepoint instead of the finished run.
+    let first = super::savepoint_name();
+    let second = super::savepoint_name();
+    assert_ne!(first, second);
+    assert!(first.starts_with("dbpro_tx_"), "generated, never derived from input");
+}

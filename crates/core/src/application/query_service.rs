@@ -433,6 +433,9 @@ fn format_transaction_failure(
         (TransactionFailurePhase::Statement, TransactionFailureOutcome::LeftOpen) => {
             format!("statement failed; the open transaction is still held: {error}")
         }
+        (TransactionFailurePhase::Begin, TransactionFailureOutcome::LeftOpen) => {
+            format!("nothing ran; the open transaction is still held: {error}")
+        }
         (_, TransactionFailureOutcome::NotStarted) => format!("transaction did not start: {error}"),
         _ => format!("transaction failed; final outcome is unknown: {error}"),
     }
