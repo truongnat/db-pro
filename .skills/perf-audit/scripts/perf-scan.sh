@@ -116,6 +116,38 @@ get_file_size() {
   fi
 }
 
+# The release artifact does NOT necessarily live under $PROJECT_ROOT/target: this repo
+# sets build.build-dir, and a machine may set build.target-dir in the user cargo config.
+# Ask cargo instead of guessing — `cargo metadata --no-deps` only resolves the graph
+# (~20 ms here), it does not build or touch the target cache. PERF_SCAN_TARGET_DIR lets
+# the self-test exercise resolution without a workspace.
+cargo_target_dir() {
+  if [ -n "${PERF_SCAN_TARGET_DIR+x}" ]; then
+    echo "$PERF_SCAN_TARGET_DIR"
+    return 0
+  fi
+  (cd "$PROJECT_ROOT" && cargo metadata --format-version 1 --no-deps --locked 2>/dev/null) |
+    sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p' | head -1
+}
+
+resolve_release_binary() {
+  local name="$1"
+  local candidates=() td
+  td="$(cargo_target_dir)"
+  [ -n "$td" ] && candidates+=("$td/release/$name")
+  [ -n "${CARGO_TARGET_DIR:-}" ] && candidates+=("$CARGO_TARGET_DIR/release/$name")
+  candidates+=("$PROJECT_ROOT/target/release/$name")
+  local c
+  for c in "${candidates[@]}"; do
+    if [ -f "$c" ]; then
+      echo "$c"
+      return 0
+    fi
+  done
+  # Nothing on disk: return the first candidate so the caller can name a real path.
+  echo "${candidates[0]}"
+}
+
 # ─── Result contract (shared by print_summary and --self-test) ─────
 
 status_line() {
@@ -170,9 +202,10 @@ audit_native_binary() {
     return
   fi
 
-  local bin="$PROJECT_ROOT/target/release/db-pro-native"
+  local bin
+  bin="$(resolve_release_binary db-pro-native)"
   if [ ! -f "$bin" ]; then
-    check "Binary artifact" "fail" "target/release/db-pro-native not found"
+    check "Binary artifact" "fail" "no db-pro-native at $bin (cargo target dir '$(cargo_target_dir)', CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-unset}, $PROJECT_ROOT/target/release/)"
     return
   fi
 
@@ -182,7 +215,7 @@ audit_native_binary() {
   mb=$(awk "BEGIN {printf \"%.1f\", $bytes / 1024 / 1024}")
 
   BINARY_DIGEST="$(sha256_of "$bin")"
-  MEASURED_ARTIFACT="target/release/db-pro-native sha256 ${BINARY_DIGEST} (${mb}MB)"
+  MEASURED_ARTIFACT="$bin sha256 ${BINARY_DIGEST} (${mb}MB)"
 
   if [ "$bytes" -lt 52428800 ]; then
     check "Binary size" "pass" "${mb}MB (target < 50MB) sha256 ${BINARY_DIGEST:0:16}…"
@@ -342,6 +375,43 @@ run_self_test() {
     assert_eq 64 "${#actual}" "sha256_of returns a 64-character digest"
   fi
   rm -f "$tmp"
+
+  # Artifact-path resolution: cargo's own target dir must win, then CARGO_TARGET_DIR,
+  # then $PROJECT_ROOT/target; a full miss returns the first candidate so the error
+  # can name a real path. PERF_SCAN_TARGET_DIR stubs the cargo query for the sandbox.
+  local saved_root="$PROJECT_ROOT"
+  local sandbox env_bin root_bin meta_bin
+  sandbox="$(mktemp -d)"
+  mkdir -p "$sandbox/meta/release" "$sandbox/env/release" "$sandbox/root/target/release"
+  meta_bin="$sandbox/meta/release/db-pro-native"
+  env_bin="$sandbox/env/release/db-pro-native"
+  root_bin="$sandbox/root/target/release/db-pro-native"
+  PROJECT_ROOT="$sandbox/root"
+
+  assert_eq "$sandbox/env/release/db-pro-native" \
+    "$(PERF_SCAN_TARGET_DIR="" CARGO_TARGET_DIR="$sandbox/env" resolve_release_binary db-pro-native)" \
+    "a full miss returns the first candidate so the error names it"
+
+  printf 'x\n' > "$root_bin"
+  assert_eq "$root_bin" \
+    "$(PERF_SCAN_TARGET_DIR="" resolve_release_binary db-pro-native)" \
+    "resolution falls back to target/release"
+
+  printf 'x\n' > "$env_bin"
+  assert_eq "$env_bin" \
+    "$(PERF_SCAN_TARGET_DIR="" CARGO_TARGET_DIR="$sandbox/env" resolve_release_binary db-pro-native)" \
+    "CARGO_TARGET_DIR wins over target/release"
+
+  printf 'x\n' > "$meta_bin"
+  assert_eq "$meta_bin" \
+    "$(PERF_SCAN_TARGET_DIR="$sandbox/meta" CARGO_TARGET_DIR="$sandbox/env" resolve_release_binary db-pro-native)" \
+    "cargo's target dir wins over CARGO_TARGET_DIR"
+  assert_eq "$sandbox/absent/release/never-built" \
+    "$(PERF_SCAN_TARGET_DIR="$sandbox/absent" resolve_release_binary never-built)" \
+    "the cargo target dir is used verbatim, not guessed from the project path"
+
+  rm -rf "$sandbox"
+  PROJECT_ROOT="$saved_root"
 
   PASS=$saved_pass; WARN=$saved_warn; FAIL=$saved_fail
   SKIPPED=$saved_skipped; SKIPPED_LABELS="$saved_labels"; SOURCE_IS_DIRTY=$saved_dirty

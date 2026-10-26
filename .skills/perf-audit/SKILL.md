@@ -28,7 +28,10 @@ Or run individual audits by category below.
 
 ```bash
 cargo build --release --locked -p db-pro-native
-ls -lh target/release/db-pro-native
+# The artifact path is cargo's target dir, NOT necessarily ./target: this repo sets
+# build.build-dir and a machine may set build.target-dir in the user cargo config.
+ls -lh "$(cargo metadata --format-version 1 --no-deps |
+  sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')/release/db-pro-native"
 ```
 
 ### Budget targets
@@ -246,7 +249,7 @@ A run whose working tree is not committed is qualified in the status line with
 recorded commit. Every run also prints, in the header and again in the summary:
 
 - `Source revision: <sha>[+dirty(N)]`
-- `Measured artifact: target/release/db-pro-native sha256 <digest> (<size>MB)`
+- `Measured artifact: <cargo target dir>/release/db-pro-native sha256 <digest> (<size>MB)`
 
 Provenance rule: **a budget number is only quotable together with the artifact digest and the source
 revision it was measured at.** The size check reads the binary produced by the `cargo build` in the same
