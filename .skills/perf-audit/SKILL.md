@@ -27,11 +27,13 @@ Or run individual audits by category below.
 ### Build and size check
 
 ```bash
-cargo build --release --locked -p db-pro-native
-# The artifact path is cargo's target dir, NOT necessarily ./target: this repo sets
-# build.build-dir and a machine may set build.target-dir in the user cargo config.
-ls -lh "$(cargo metadata --format-version 1 --no-deps |
-  sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')/release/db-pro-native"
+cargo build --release --locked -p db-pro-native --message-format=json-render-diagnostics \
+  2>/dev/null |
+  sed -n 's/.*"name":"db-pro-native".*"executable":"\([^"]*\)".*/\1/p' | tail -1
+# That path is the artifact cargo just wrote. Do NOT assume target/release/: a
+# `build.target-dir` setting relocates it, `build.target` nests it under the target
+# triple, and Windows names it db-pro-native.exe. (`build.build-dir`, which this repo
+# sets, moves intermediates only — final binaries stay in target/.)
 ```
 
 ### Budget targets
@@ -249,7 +251,7 @@ A run whose working tree is not committed is qualified in the status line with
 recorded commit. Every run also prints, in the header and again in the summary:
 
 - `Source revision: <sha>[+dirty(N)]`
-- `Measured artifact: <cargo target dir>/release/db-pro-native sha256 <digest> (<size>MB)`
+- `Measured artifact: <executable path cargo reported for this build> sha256 <digest> (<size>MB)`
 
 Provenance rule: **a budget number is only quotable together with the artifact digest and the source
 revision it was measured at.** The size check reads the binary produced by the `cargo build` in the same
@@ -264,7 +266,11 @@ bash .skills/perf-audit/scripts/perf-scan.sh --self-test
 The self-test covers: a clean full pass reads as an unqualified `PASS` and exits 0; an uncommitted tree
 is named and does not fail; a warning reads as `WARN` and exits 2; a failure reads as `FAIL` and exits
 1; a skipped section makes the pass partial and is named; `skip()` accounts and records the section; and
-`sha256_of` agrees with `openssl dgst -sha256` on a known file.
+`sha256_of` agrees with `openssl dgst -sha256` on a known file. It also covers the artifact lookup:
+cargo's JSON output is parsed for the `db-pro-native` executable only, so a lib-only artifact, an empty
+build log, or another package's artifact all yield no path (nothing stale gets measured); a
+`<target-triple>/release/` layout, a `.exe` name and a JSON-escaped Windows path all resolve correctly,
+with the last matching artifact winning.
 
 ## Resources
 

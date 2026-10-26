@@ -116,36 +116,19 @@ get_file_size() {
   fi
 }
 
-# The release artifact does NOT necessarily live under $PROJECT_ROOT/target: this repo
-# sets build.build-dir, and a machine may set build.target-dir in the user cargo config.
-# Ask cargo instead of guessing — `cargo metadata --no-deps` only resolves the graph
-# (~20 ms here), it does not build or touch the target cache. PERF_SCAN_TARGET_DIR lets
-# the self-test exercise resolution without a workspace.
-cargo_target_dir() {
-  if [ -n "${PERF_SCAN_TARGET_DIR+x}" ]; then
-    echo "$PERF_SCAN_TARGET_DIR"
-    return 0
-  fi
-  (cd "$PROJECT_ROOT" && cargo metadata --format-version 1 --no-deps --locked 2>/dev/null) |
-    sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p' | head -1
-}
-
-resolve_release_binary() {
-  local name="$1"
-  local candidates=() td
-  td="$(cargo_target_dir)"
-  [ -n "$td" ] && candidates+=("$td/release/$name")
-  [ -n "${CARGO_TARGET_DIR:-}" ] && candidates+=("$CARGO_TARGET_DIR/release/$name")
-  candidates+=("$PROJECT_ROOT/target/release/$name")
-  local c
-  for c in "${candidates[@]}"; do
-    if [ -f "$c" ]; then
-      echo "$c"
-      return 0
-    fi
-  done
-  # Nothing on disk: return the first candidate so the caller can name a real path.
-  echo "${candidates[0]}"
+# Where is the binary THIS build just produced? Do not reconstruct the path: a
+# machine-level `build.target-dir` relocates final binaries, `build.target` /
+# `CARGO_BUILD_TARGET` nests them under the target triple, and Windows names them `.exe`
+# (`build.build-dir`, which this repo sets, moves intermediates only — it is not the
+# cause). A guessed path that happens to exist can also point at a STALE artifact, and
+# measuring one is exactly what the provenance rule at the top of this file forbids.
+# cargo's JSON output names the executable it wrote for this profile and config, so the
+# size gate can only measure the artifact of this run.
+#
+# Usage: cargo_executable_from_json <bin-name> <ndjson-file>   (empty output = not found)
+cargo_executable_from_json() {
+  sed -n 's/.*"name":"'"$1"'".*"executable":"\([^"]*\)".*/\1/p' "$2" |
+    tail -1 | sed 's/\\\\/\\/g'
 }
 
 # ─── Result contract (shared by print_summary and --self-test) ─────
@@ -188,11 +171,17 @@ audit_native_binary() {
   fi
 
   echo "  Building db-pro-native (release)..."
-  local output
-  if output=$(cd "$PROJECT_ROOT" && cargo build --release --locked -p db-pro-native 2>&1); then
+  # stdout = cargo's JSON artifact messages (where the binary landed), stderr = the
+  # human diagnostics we print on failure. Redirection order matters: `2>&1` first binds
+  # stderr to the captured pipe, then `>` moves stdout into the file.
+  local output build_json
+  build_json="$(mktemp)"
+  if output=$(cd "$PROJECT_ROOT" && cargo build --release --locked -p db-pro-native \
+      --message-format=json-render-diagnostics 2>&1 >"$build_json"); then
     check "cargo build -p db-pro-native" "pass" "release build succeeded"
   else
     check "cargo build -p db-pro-native" "fail" "release build failed"
+    rm -f "$build_json"
     echo "$output" | tail -5 | while read -r line; do
       echo "    $line"
     done
@@ -202,10 +191,13 @@ audit_native_binary() {
     return
   fi
 
-  local bin
-  bin="$(resolve_release_binary db-pro-native)"
-  if [ ! -f "$bin" ]; then
-    check "Binary artifact" "fail" "no db-pro-native at $bin (cargo target dir '$(cargo_target_dir)', CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-unset}, $PROJECT_ROOT/target/release/)"
+  local bin=""
+  if [ -s "$build_json" ]; then
+    bin="$(cargo_executable_from_json db-pro-native "$build_json")"
+  fi
+  rm -f "$build_json"
+  if [ -z "$bin" ] || [ ! -f "$bin" ]; then
+    check "Binary artifact" "fail" "cargo's build output named no db-pro-native executable to measure (reported path: ${bin:-<none>}); the size gate cannot fall back to a guessed location"
     return
   fi
 
@@ -376,42 +368,53 @@ run_self_test() {
   fi
   rm -f "$tmp"
 
-  # Artifact-path resolution: cargo's own target dir must win, then CARGO_TARGET_DIR,
-  # then $PROJECT_ROOT/target; a full miss returns the first candidate so the error
-  # can name a real path. PERF_SCAN_TARGET_DIR stubs the cargo query for the sandbox.
-  local saved_root="$PROJECT_ROOT"
-  local sandbox env_bin root_bin meta_bin
-  sandbox="$(mktemp -d)"
-  mkdir -p "$sandbox/meta/release" "$sandbox/env/release" "$sandbox/root/target/release"
-  meta_bin="$sandbox/meta/release/db-pro-native"
-  env_bin="$sandbox/env/release/db-pro-native"
-  root_bin="$sandbox/root/target/release/db-pro-native"
-  PROJECT_ROOT="$sandbox/root"
+  # Artifact-path extraction: the executable must come from cargo's own build output.
+  # A guessed path is unsafe in two directions — it can miss a relocated/triple/.exe
+  # artifact, and it can hit a STALE binary from an older config and report that as a
+  # measurement. These fixtures cover the layouts cargo actually emits.
+  local fixture artifact
+  fixture="$(mktemp)"
+  artifact="$(mktemp)"
+  printf 'x\n' > "$artifact"
 
-  assert_eq "$sandbox/env/release/db-pro-native" \
-    "$(PERF_SCAN_TARGET_DIR="" CARGO_TARGET_DIR="$sandbox/env" resolve_release_binary db-pro-native)" \
-    "a full miss returns the first candidate so the error names it"
+  printf '%s\n' \
+    '{"reason":"compiler-artifact","package_id":"db-pro-native","manifest_path":"/p/Cargo.toml","target":{"kind":["lib"],"crate_types":["lib"],"name":"db-pro-native"},"profile":{"opt_level":"3"},"features":[],"executable":null,"fresh":true}' \
+    > "$fixture"
+  assert_eq "" "$(cargo_executable_from_json db-pro-native "$fixture")" \
+    "a lib-only artifact yields no path (nothing stale gets measured)"
 
-  printf 'x\n' > "$root_bin"
-  assert_eq "$root_bin" \
-    "$(PERF_SCAN_TARGET_DIR="" resolve_release_binary db-pro-native)" \
-    "resolution falls back to target/release"
+  printf '%s\n' \
+    '{"reason":"compiler-artifact","target":{"kind":["bin"],"name":"db-pro-native"},"executable":"/data/cargo-target/release/db-pro-native","fresh":true}' \
+    > "$fixture"
+  assert_eq "/data/cargo-target/release/db-pro-native" \
+    "$(cargo_executable_from_json db-pro-native "$fixture")" \
+    "the plain release artifact is extracted"
 
-  printf 'x\n' > "$env_bin"
-  assert_eq "$env_bin" \
-    "$(PERF_SCAN_TARGET_DIR="" CARGO_TARGET_DIR="$sandbox/env" resolve_release_binary db-pro-native)" \
-    "CARGO_TARGET_DIR wins over target/release"
+  printf '%s\n' \
+    '{"reason":"compiler-artifact","target":{"kind":["bin"],"name":"db-pro-native"},"executable":"/x/aarch64-apple-darwin/release/db-pro-native","fresh":true}' \
+    '{"reason":"compiler-artifact","target":{"kind":["bin"],"name":"db-pro-native"},"executable":"/x/aarch64-pc-windows-msvc/release/db-pro-native.exe","fresh":true}' \
+    > "$fixture"
+  assert_eq "/x/aarch64-pc-windows-msvc/release/db-pro-native.exe" \
+    "$(cargo_executable_from_json db-pro-native "$fixture")" \
+    "a target-triple / .exe layout is extracted (last artifact wins)"
 
-  printf 'x\n' > "$meta_bin"
-  assert_eq "$meta_bin" \
-    "$(PERF_SCAN_TARGET_DIR="$sandbox/meta" CARGO_TARGET_DIR="$sandbox/env" resolve_release_binary db-pro-native)" \
-    "cargo's target dir wins over CARGO_TARGET_DIR"
-  assert_eq "$sandbox/absent/release/never-built" \
-    "$(PERF_SCAN_TARGET_DIR="$sandbox/absent" resolve_release_binary never-built)" \
-    "the cargo target dir is used verbatim, not guessed from the project path"
+  printf '%s\n' \
+    '{"reason":"compiler-artifact","target":{"kind":["bin"],"name":"other-bin"},"executable":"/x/release/other-bin"}' \
+    > "$fixture"
+  assert_eq "" "$(cargo_executable_from_json db-pro-native "$fixture")" \
+    "another package's artifact is never measured as ours"
 
-  rm -rf "$sandbox"
-  PROJECT_ROOT="$saved_root"
+  assert_eq "" "$(cargo_executable_from_json db-pro-native /dev/null)" \
+    "an empty build log yields no path"
+
+  printf '%s\n' \
+    '{"reason":"compiler-artifact","target":{"kind":["bin"],"name":"db-pro-native"},"executable":"C:\\target\\release\\db-pro-native.exe"}' \
+    > "$fixture"
+  assert_eq 'C:\target\release\db-pro-native.exe' \
+    "$(cargo_executable_from_json db-pro-native "$fixture")" \
+    "a JSON-escaped Windows path is unescaped before the filesystem check"
+
+  rm -f "$fixture"
 
   PASS=$saved_pass; WARN=$saved_warn; FAIL=$saved_fail
   SKIPPED=$saved_skipped; SKIPPED_LABELS="$saved_labels"; SOURCE_IS_DIRTY=$saved_dirty
