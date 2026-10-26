@@ -74,3 +74,19 @@
 - [x] Palette pinned then reverted on evidence (dead space with few results)
 - [x] 3 new unit tests (clamp, centering precedence, body cap floor)
 - [ ] Sweep the remaining long dialogs with capture fixtures for insert row / inspector
+
+## Wave 6 — Query picker clash overlay + popup shape
+- [x] UI-33 root-caused to two unsalted sibling `ScrollArea`s sharing egui's default id;
+      the red was the debug overlay, and the shared scroll state was the real defect
+- [x] UI-34 measured 598 × 398 px with a ~120 px dead band; `auto_shrink` regression
+      reproduced (4 → 2 reachable schema rows) and explained by `Area`'s previous-frame
+      `max_rect`
+- [x] Picker fix landed upstream in `9e72de50` (allocated list viewports, width band) +
+      a compact-bounds unit test; the local duplicate was dropped rather than re-applied
+- [x] `warn_on_id_clash` is now debug-only, so a release build cannot paint debug text
+      over the UI
+- [x] `id_clash_scan.py` gate added; before 1306 px → after 0 px across 3 sizes × 2 themes
+- [x] 17-surface matrix swept: 0 further clashes (4 flagged captures inspected, all
+      legitimate red UI)
+- [ ] Re-sweep the matrix with the scanner in CI (needs a debug capture build job)
+- [ ] Re-check UI-30 against the same `Area`/viewport mechanism

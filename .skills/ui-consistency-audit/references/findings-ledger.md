@@ -12,6 +12,15 @@ Wave 4 (2026-10-22): Select width + workspace spacing rhythm landed in `faac1c75
 of `f984385a`; re-verified over 108 PNG + 102 inspector dumps in `/tmp/ui-audit/png/` and
 `/tmp/ui-audit/final/`.
 
+Wave 6 (2026-10-26): Query picker clash + shape (UI-33/UI-34). The picker code landed
+upstream in `9e72de50` while the same defect was being diagnosed here; what this wave adds
+on top is the `id_clash_scan.py` gate and the release-build guard that stops egui painting
+its id-clash overlay over a user's screen. Reusable fact for future popup work: inside an
+auto-sized `egui::Area`, a `ScrollArea` is offered the popup's rect from the previous
+frame, so `auto_shrink` alone can only shrink a list — allocate the viewport from the row
+count (or floor it with `min_scrolled_height`) instead. UI-30 is the same failure mode
+outside a popup and should be re-checked against it.
+
 | ID | Sev | Finding | Anchor | Evidence | Status |
 |---|---|---|---|---|---|
 | UI-01 | P1 | Explorer Refresh Schema and Filter buttons occupy the same slot; refresh hitbox 88% covered | `crates/app/src/explorer/explorer_toolbar_view.rs:21-53` | 14 WID dumps, `/tmp/ov_crop.png`; fix: `wave2/png/explorer-filter-*` | fixed 0e370498 |
@@ -45,6 +54,9 @@ of `f984385a`; re-verified over 108 PNG + 102 inspector dumps in `/tmp/ui-audit/
 | UI-29 | P2 | Gallery paints a stray 13×24 vertical stub: `Separator::vertical` after a full-height column gets no height | `component_gallery_view.rs:235` | before `/tmp/g1.png`; after `/tmp/g2.png` | fixed faac1c75 |
 | UI-30 | P1 | Schema Compare diff list unreachable: the body `ScrollArea` viewport collapses to ~17 px, so everything below the first card header is laid out but never painted | `schema_compare_view.rs:175` | `/tmp/c1.png` (wave-4 build) and `/tmp/c0.png` (A/B rebuild at `f984385a` minus the shell change → pre-existing); WID dump shows content at y=215-762 | open (pre-existing, out of wave-4 scope) |
 | UI-31 | P2 | Shared `ScrollArea` always hides its scroll bar, so any overflowing area is unreachable without a wheel | `crates/ui/src/components/scroll_area/ui.rs:77` | source; is the mechanism behind UI-30 | open |
+| UI-32 | P2 | Dialog height follows content and centers on last frame's measurement, so a form grows and slides upward every time async content arrives (connection form crept 434 → 899 px, top 281 → 91) | `dialog/frame.rs` (`auto_shrink([false, true])`), `common/layout.rs` (`measured_height`), `dialog/ui.rs` (`prev_height`) | `DB_PRO_CAPTURE_SETTLE_FRAMES` 4/6/8/12/20 PNG series at 1920×1080; after `Dialog::body_height`: card bottom identical at frames 6/8/12/20/60, 1280×800 fits with the footer pinned | fixed 3e71fd3d |
+| UI-33 | P1 | Two sibling `ScrollArea`s in the Query context picker shared egui's default id, so egui painted its red "🔥 Nth use of ScrollArea ID" overlay over the popup and the two lists shared scroll state | `query_context_picker_view.rs`, egui `scroll_area.rs:733` + `context.rs:1163` (`check_for_id_clash`) | new `DB_PRO_CAPTURE_QUERY_CONTEXT_PICKER` fixture; `id_clash_scan.py` on 1280×800 / 1440×900 / 1920×1080 × dark+light: 1306 flagged px before → 0 after; the existing 17-surface matrix swept clean (4 flagged captures inspected, all legitimate red UI) | fixed 9e72de50 (salted lists) + this commit (debug-only overlay) |
+| UI-34 | P2 | Query context picker shaped by nothing: 598 × 398 px popup for ~280 px of labels, a dead band under three connections, and the 5th schema unreachable — `auto_shrink` made it worse (4 → 2 rows), because an `egui::Area` offers its inner ui the rect it had on the *previous* frame, so a shrinking scroller can only ever shrink | `query_context_picker_view.rs` (`list_viewport_height`), egui `area.rs:612`, `scroll_area.rs:1184` | `/data/tmp/cap/v3/`: 316 × 371 px, 5 schema rows visible at all 3 sizes × dark + light; unit test `query_context_picker_has_compact_bounds_for_short_lists` | fixed 9e72de50 |
 
 ## Rejected / false positives
 
@@ -69,4 +81,4 @@ of `f984385a`; re-verified over 108 PNG + 102 inspector dumps in `/tmp/ui-audit/
 - No screen-reader session for the new accessible names; plumbing only.
 - Residual designer-form width literals (120/140/180/220/260) are a P3 follow-up, not
   shared-component drift.
-| UI-32 | P2 | Dialog height follows content and centers on last frame's measurement, so a form grows and slides upward every time async content arrives (connection form crept 434 → 899 px, top 281 → 91) | `dialog/frame.rs` (`auto_shrink([false, true])`), `common/layout.rs` (`measured_height`), `dialog/ui.rs` (`prev_height`) | `DB_PRO_CAPTURE_SETTLE_FRAMES` 4/6/8/12/20 PNG series at 1920×1080; after `Dialog::body_height`: card bottom identical at frames 6/8/12/20/60, 1280×800 fits with the footer pinned | fixed 3e71fd3d |
+
