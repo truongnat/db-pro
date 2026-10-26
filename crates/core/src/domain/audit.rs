@@ -193,14 +193,53 @@ pub fn redact_secrets(input: &str) -> (String, bool) {
 /// logged statement. Every occurrence is redacted, not just the first, because
 /// a batch routinely sets more than one password.
 fn redact_sql_credential_literals(out: &mut String, changed: &mut bool) {
-    const KEYWORDS: [&str; 2] = ["password", "identified by"];
     // `to_ascii_lowercase` only touches ASCII bytes, so indices stay aligned
     // with `out` and an ASCII quote byte can never occur inside a multi-byte
     // character.
     let lower = out.to_ascii_lowercase();
+    for (from, to) in credential_literal_ranges(&lower).into_iter().rev() {
+        out.replace_range(from..to, "***");
+        *changed = true;
+    }
+}
+
+/// Keywords that introduce a credential literal, lowercase and ASCII-only.
+const CREDENTIAL_KEYWORDS: [&str; 2] = ["password", "identified by"];
+
+/// Byte ranges of every quoted literal that follows a credential keyword.
+fn credential_literal_ranges(lower: &str) -> Vec<(usize, usize)> {
+    let bytes = lower.as_bytes();
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    let mut consumed_until = 0;
+    for start in credential_keyword_starts(lower) {
+        if start < consumed_until {
+            continue;
+        }
+        let Some(keyword) = CREDENTIAL_KEYWORDS
+            .iter()
+            .find(|keyword| lower[start..].starts_with(*keyword))
+        else {
+            continue;
+        };
+        let quote_at = skip_inline_whitespace(bytes, start + keyword.len());
+        let Some(&quote @ (b'\'' | b'"')) = bytes.get(quote_at) else {
+            continue;
+        };
+        let content = quote_at + 1;
+        let end = quoted_literal_end(bytes, content, quote);
+        if end > content {
+            ranges.push((content, end));
+        }
+        consumed_until = end + 1;
+    }
+    ranges
+}
+
+/// Offset of each credential keyword that starts a word, ascending.
+fn credential_keyword_starts(lower: &str) -> Vec<usize> {
     let bytes = lower.as_bytes();
     let mut starts: Vec<usize> = Vec::new();
-    for keyword in KEYWORDS {
+    for keyword in CREDENTIAL_KEYWORDS {
         let mut from = 0;
         while let Some(rel) = lower[from..].find(keyword) {
             let start = from + rel;
@@ -213,48 +252,32 @@ fn redact_sql_credential_literals(out: &mut String, changed: &mut bool) {
         }
     }
     starts.sort_unstable();
+    starts
+}
 
-    let mut ranges: Vec<(usize, usize)> = Vec::new();
-    let mut consumed_until = 0;
-    for start in starts {
-        if start < consumed_until {
-            continue;
-        }
-        let Some(keyword) = KEYWORDS.iter().find(|k| lower[start..].starts_with(*k)) else {
-            continue;
-        };
-        let mut at = start + keyword.len();
-        while bytes.get(at).is_some_and(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r')) {
-            at += 1;
-        }
-        let Some(&quote @ (b'\'' | b'"')) = bytes.get(at) else {
-            continue;
-        };
-        let content = at + 1;
-        let mut cursor = content;
-        let end = loop {
-            match bytes.get(cursor) {
-                // Unterminated literal: take everything that is left.
-                None => break bytes.len(),
-                Some(&b) if b == quote => {
-                    if bytes.get(cursor + 1) == Some(&quote) {
-                        cursor += 2;
-                        continue;
-                    }
-                    break cursor;
-                }
-                Some(_) => cursor += 1,
-            }
-        };
-        if end > content {
-            ranges.push((content, end));
-        }
-        consumed_until = end + 1;
+fn skip_inline_whitespace(bytes: &[u8], mut at: usize) -> usize {
+    while matches!(bytes.get(at), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+        at += 1;
     }
+    at
+}
 
-    for (from, to) in ranges.into_iter().rev() {
-        out.replace_range(from..to, "***");
-        *changed = true;
+/// Index of the closing quote of the literal whose content starts at `content`,
+/// honouring doubled quotes; an unterminated literal runs to the end.
+fn quoted_literal_end(bytes: &[u8], content: usize, quote: u8) -> usize {
+    let mut cursor = content;
+    loop {
+        match bytes.get(cursor) {
+            None => break bytes.len(),
+            Some(&b) if b == quote => {
+                if bytes.get(cursor + 1) == Some(&quote) {
+                    cursor += 2;
+                    continue;
+                }
+                break cursor;
+            }
+            Some(_) => cursor += 1,
+        }
     }
 }
 
