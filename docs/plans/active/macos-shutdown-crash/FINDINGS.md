@@ -83,8 +83,19 @@ Long-standing, not new to the 2026-10-24 run. Two earlier rows in `docs/plans/ST
 Consequence: `AGENTS.md`'s mandatory runtime-capture gate is unreliable on macOS — a capture
 that renders its PNG and then aborts reports a non-zero exit, which is how "exit=-6 cells"
 entered those capture matrices. The 838 logical-height cap noted in the same two rows is a
-*macOS host display* constraint and does not reproduce on Linux/Xvfb (measured here: exact
-1440×900 and 1920×1080 PNGs), so the two symptoms must not be conflated in the release docs.
+*macOS host display* constraint and does not reproduce on Linux/Xvfb. Evidence is the surviving
+in-repo artifacts, measured from PNG IHDR headers on 2026-10-26 (665 PNGs scanned):
+the hidden-Xvfb matrix in `docs/plans/active/qa-keyboard-correctness-wave/captures/` holds
+**29 files at exactly 1440×900 and 13 at exactly 1920×1080**, while the macOS-host matrices hold
+**154 files at 2880×1676 (= 1440×838 @2x) and 135 at 3840×1676 (= 1920×838 @2x)**, many named
+`*-host-capped*` / `*-clamped*`. The Xvfb setup is recorded at
+`docs/plans/active/qa-keyboard-correctness-wave/VERIFICATION.md:50-52`. A *fresh* capture re-run
+at HEAD on this Linux host did **not** complete (both sizes exit 124 after 120 s, no PNG; the app
+re-attached the saved PostgreSQL connection and introspected 1,108 tables, so the settle loop never
+finished) — the conclusion rests on the retained artifacts, not on that run. The exact macOS
+mechanism (menu bar vs Dock vs screen bounds) is still unproven, and 900→838 / 1080→838 is not a
+constant delta, so the two symptoms must not be conflated in the release docs but neither may the
+cap be attributed to application code.
 
 ## P2
 

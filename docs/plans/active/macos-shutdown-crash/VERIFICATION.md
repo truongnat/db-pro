@@ -82,6 +82,25 @@ search pattern `runs-on|macos|matrix` over .github/workflows/ci.yml, release.yml
 → ci.yml:16 runs-on: ubuntu-latest (no macOS job); release.yml:305 and :443 use macos-14
 ```
 
+```text
+python3 IHDR scan of every *.png under the repo (665 files), 2026-10-26
+→ exactly 1440x900: 29 files; exactly 1920x1080: 13 files  (qa-keyboard-correctness-wave/captures/,
+   new-connection-secret-and-input, query-workspace-zed-shell, sidebar-content-full-width)
+→ 2880x1676 (=1440x838 @2x): 154 files; 3840x1676 (=1920x838 @2x): 135 files  (macOS-host matrices,
+   _audit-2026-10-13/captures/ plus files named *-host-capped* / *-clamped* / *-capped*)
+→ the 838 logical-height cap is host-bound, not application behaviour (FINDINGS F-4)
+```
+
+```text
+DB_PRO_DISABLE_KEYRING=1 DB_PRO_WINDOW_SIZE=1440x900 DB_PRO_CAPTURE_TO=/data/tmp/vp_1440x900.png \
+  timeout 120 xvfb-run -a -s "-screen 0 2560x1600x24" \
+  target-build/release/deps/db_pro_native-45722a521abcba0b        (same for 1920x1080)
+→ FAILED: both exit 124 (timeout), no PNG written. Log stops after
+   "schema introspection completed tables=1108" — the re-attached saved PostgreSQL
+   connection keeps the capture loop from reaching its settle frame budget.
+   Not retried: the F-4 conclusion above rests on the retained artifacts instead.
+```
+
 ## Provider matrix
 
 | Provider | Automated | Live/runtime | Notes |
@@ -107,6 +126,10 @@ the last arrow, from the 2026-10-24 readiness run.
 
 - No repro on Linux/Xvfb: the throwing frames are AppKit-internal; the crash needs a
   Touch Bar or a running `TouchBarServer`.
+- The Linux capture harness is not provably robust either: with a saved live connection in
+  the persisted store, a pinned-size run never reached its settle budget (exit 124). A Linux
+  capture runner — the thing Nhóm 3 of the gap report asks for — must first reset or
+  sandbox the app state directory, or the evidence it produces will be flaky.
 - No baseline re-measure of exit status and DiagnosticReports on a current macOS build.
 - No compile check of any macOS-gated fix code: `cargo check` on this host does not
   evaluate `#[cfg(target_os = "macos")]` blocks, and `ci.yml` has no macOS job. Landing
