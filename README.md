@@ -194,7 +194,8 @@ with `cargo test -p db-pro-infrastructure --test pg_integration -- --ignored`.
 
 ```bash
 cargo build --release --locked -p db-pro-native
-# -> target/release/db-pro-native
+# -> target/release/db-pro-native (default layout; a cargo `target-dir`/`build.target`
+#    setting or a Windows build moves it — tooling should read the path cargo reports)
 ```
 
 Release archives are produced by `.github/workflows/release.yml` (or locally with
