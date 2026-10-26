@@ -2,7 +2,9 @@
 
 Every result below is from a command that was run, at the SHAs named. `n/a` marks what was not run.
 
-## Gates at `44f2d9d2` (merged with `origin/main @ a31a2bec`)
+## Gates at `d1dfa396` (merged with `origin/main`, which by then carried #554)
+
+Measured first at `44f2d9d2`; every row below was re-run at `d1dfa396` and gave the same result.
 
 | Command | Exit | Measured result |
 |---|---|---|
