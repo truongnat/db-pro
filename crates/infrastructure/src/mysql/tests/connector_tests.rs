@@ -23,6 +23,40 @@ async fn execute_transaction_reports_validation_failure_on_mismatched_read_state
     assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
 }
 
+#[test]
+fn execute_parameterized_transaction_checks_out_held_session() {
+    let source = include_str!("../connector.rs");
+    let param_at = source
+        .find("async fn execute_parameterized_transaction(")
+        .expect("execute_parameterized_transaction");
+    let body = &source[param_at..];
+    let checkout = body
+        .find("checkout_if_held(session,")
+        .expect("checks out open session lease if held");
+    let begin = body
+        .find("pool.begin().await")
+        .expect("opens new pool transaction if not held");
+    assert!(
+        checkout < begin,
+        "must check out held session lease before pool.begin()"
+    );
+}
+
+#[tokio::test]
+async fn mysql_execute_parameterized_transaction_unconnected_handle_fails_validation() {
+    let connector = MySqlConnector::new();
+    let handle = ConnectionHandle::new(999);
+
+    let failure = connector
+        .execute_parameterized_transaction(&handle, &[])
+        .await
+        .expect_err("unconnected handle must fail validation");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+    assert_eq!(failure.statement_index, 0);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+}
+
 /// Schema `execute_batch` delegates to `execute_transaction`, which publishes
 /// `CONNECTION_ID()` before the statements. No live server is required for this check.
 fn batch_publishes_connection_before_statements() {
