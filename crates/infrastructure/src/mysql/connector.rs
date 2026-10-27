@@ -188,10 +188,7 @@ impl MySqlConnector {
             };
             let _active = self.track_guard(handle.0, connection_id);
             let savepoint = crate::transaction_session::savepoint_name();
-            if let Err(error) = sqlx::query(&format!("SAVEPOINT {savepoint}"))
-                .execute(&mut *conn)
-                .await
-            {
+            if let Err(error) = sqlx::query(&format!("SAVEPOINT {savepoint}")).execute(&mut *conn).await {
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Begin,
                     statement_index: 0,
