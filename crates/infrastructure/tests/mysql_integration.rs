@@ -747,6 +747,159 @@ async fn mysql_reserved_fields_still_reject_wrong_password() {
 }
 
 #[tokio::test]
+#[ignore] // Requires DATABASE_URL=mysql://...
+async fn mysql_joined_parameterized_transaction_rolls_back_with_the_tab() {
+    use db_pro_core::domain::query::{CellValue, QueryParam};
+    use db_pro_core::ports::ParameterizedTransactionStatement;
+
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_joined_param_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE mysql_joined_param_probe (id INT PRIMARY KEY, name VARCHAR(100))",
+            &[],
+        )
+        .await
+        .expect("create");
+
+    // Open transaction in the query tab session
+    connector
+        .execute(&handle, "BEGIN", &[])
+        .await
+        .expect("begin tab transaction");
+
+    // Parameterized mutation joins open session
+    connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[ParameterizedTransactionStatement {
+                sql: "INSERT INTO mysql_joined_param_probe VALUES (?, ?)".to_string(),
+                params: vec![QueryParam::Int64(100), QueryParam::Text("joined".into())],
+                expect_affected_rows: true,
+                max_affected_rows: Some(1),
+            }],
+        )
+        .await
+        .expect("joined parameterized transaction succeeds");
+
+    // Mutation is visible inside open transaction
+    let query_in_tx = connector
+        .query(&handle, "SELECT name FROM mysql_joined_param_probe WHERE id = 100", &[])
+        .await
+        .expect("select in tx");
+    assert_eq!(query_in_tx.row_count, 1);
+    assert!(matches!(&query_in_tx.rows[0].0[0], CellValue::Text(text) if text == "joined"));
+
+    // Rollback tab transaction
+    connector
+        .execute(&handle, "ROLLBACK", &[])
+        .await
+        .expect("rollback tab transaction");
+
+    // Mutation rolled back with the tab
+    let query_after_rollback = connector
+        .query(&handle, "SELECT count(*) FROM mysql_joined_param_probe", &[])
+        .await
+        .expect("select after rollback");
+    assert!(matches!(query_after_rollback.rows[0].0[0], CellValue::Int64(0)));
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_joined_param_probe", &[])
+        .await
+        .ok();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL=mysql://...
+async fn mysql_joined_parameterized_transaction_rolls_back_only_its_own_statements() {
+    use db_pro_core::domain::query::{CellValue, QueryParam};
+    use db_pro_core::ports::{ParameterizedTransactionStatement, TransactionFailureOutcome, TransactionFailurePhase};
+
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_joined_fail_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE mysql_joined_fail_probe (id INT PRIMARY KEY)",
+            &[],
+        )
+        .await
+        .expect("create");
+
+    // Insert base row
+    connector
+        .execute(&handle, "INSERT INTO mysql_joined_fail_probe VALUES (1)", &[])
+        .await
+        .expect("insert base row");
+
+    // Open transaction in the query tab session
+    connector
+        .execute(&handle, "BEGIN", &[])
+        .await
+        .expect("begin tab transaction");
+
+    // Joined parameterized transaction with duplicate PK failure
+    let failure = connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[
+                ParameterizedTransactionStatement {
+                    sql: "INSERT INTO mysql_joined_fail_probe VALUES (?)".to_string(),
+                    params: vec![QueryParam::Int64(2)],
+                    expect_affected_rows: true,
+                    max_affected_rows: Some(1),
+                },
+                ParameterizedTransactionStatement {
+                    sql: "INSERT INTO mysql_joined_fail_probe VALUES (?)".to_string(),
+                    params: vec![QueryParam::Int64(1)], // Duplicate PK error
+                    expect_affected_rows: true,
+                    max_affected_rows: Some(1),
+                },
+            ],
+        )
+        .await
+        .expect_err("duplicate key must fail statement");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.statement_index, 1);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::LeftOpen);
+
+    // Outer transaction remains open and row 2 was undone by savepoint rollback
+    let count = connector
+        .query(&handle, "SELECT count(*) FROM mysql_joined_fail_probe", &[])
+        .await
+        .expect("count in open tx");
+    assert!(matches!(count.rows[0].0[0], CellValue::Int64(1)));
+
+    connector
+        .execute(&handle, "ROLLBACK", &[])
+        .await
+        .expect("rollback outer tx");
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_joined_fail_probe", &[])
+        .await
+        .ok();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
 #[ignore] // Requires the reserved-fields fixture on MySQL started with --tls-version=.
 async fn mysql_strict_ssl_modes_reject_a_server_without_tls() {
     use db_pro_core::domain::error::DbError;
