@@ -53,8 +53,8 @@ fn batch_publishes_connection_before_statements() {
 fn execute_parameterized_transaction_publishes_connection_id_before_statements() {
     let source = include_str!("../connector.rs");
     let param_at = source
-        .find("async fn execute_parameterized_transaction(")
-        .expect("execute_parameterized_transaction");
+        .find("async fn execute_parameterized_transaction_joined(")
+        .expect("execute_parameterized_transaction_joined");
     let body = &source[param_at..];
     let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
     let track = body.find("self.track_guard(").expect("id is published for Stop");
@@ -62,6 +62,25 @@ fn execute_parameterized_transaction_publishes_connection_id_before_statements()
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow the publish");
     assert!(id < track && track < statements);
+}
+
+#[test]
+fn execute_parameterized_transaction_checks_open_session_lease() {
+    let source = include_str!("../connector.rs");
+    let param_at = source
+        .find("async fn execute_parameterized_transaction(")
+        .expect("execute_parameterized_transaction");
+    let body = &source[param_at..];
+    let checkout = body
+        .find("crate::transaction_session::checkout_if_held(")
+        .expect("execute_parameterized_transaction must check open_session lease");
+    let joined = body
+        .find("execute_parameterized_transaction_joined(")
+        .expect("execute_parameterized_transaction must delegate to joined execution when lease held");
+    assert!(
+        checkout < joined,
+        "lease checkout must precede joined execution dispatch"
+    );
 }
 
 #[tokio::test]
