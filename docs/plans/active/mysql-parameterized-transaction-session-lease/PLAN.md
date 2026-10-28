@@ -1,19 +1,15 @@
-# Plan: MySQL Parameterized Transaction Session Lease Joining & Savepoint Cleanup
+# Plan: MySQL Parameterized Transaction Session Lease Alignment
 
 ## Problem Statement
-In `crates/infrastructure/src/mysql/connector.rs`, `MySqlConnector::execute_parameterized_transaction` opens a new connection and pool transaction (`pool.begin().await`) for parameterized table row mutations without checking if the active query tab has an open session transaction (via `checkout_if_held`). As a result, table row mutations (such as Data Grid edits executed via `TableMutationExecution`) run on a separate connection outside the transaction opened in the query tab.
+`MySqlConnector::execute_parameterized_transaction` previously called `pool.begin().await` directly without invoking `checkout_if_held(session, ...)`. This created a provider capability mismatch with `PostgresConnector::execute_parameterized_transaction`, which checks `checkout_if_held` to join an open session lease whenever a task context carries `active_query_session()`.
 
-Furthermore, when rolling back to a savepoint (`ROLLBACK TO SAVEPOINT`) upon statement or invariant failure in MySQL, MySQL retains the savepoint identifier in memory (unlike PostgreSQL). Without an explicit `RELEASE SAVEPOINT` call after rolling back, repeated failed mutations accumulate savepoints on long-lived session transactions.
+In addition, when executing parameterized transactions within an open session lease, statement or invariant failure rolls back to savepoint (`ROLLBACK TO SAVEPOINT dbpro_tx_<seq>`). In MySQL, `ROLLBACK TO SAVEPOINT` does NOT automatically release the savepoint identifier (unlike PostgreSQL), so an explicit `RELEASE SAVEPOINT dbpro_tx_<seq>` is required after rollback to prevent savepoint identifier accumulation on open outer transactions.
+
+## Transaction Scope Design Clarification
+As documented in `crates/core/src/application/query_session.rs`, Data Grid table mutations dispatched via `RuntimeCommand::ApplyTableChanges` run as standalone atomic transactions without joining a query tab's open transaction (`session_id: None`). When a task scope sets `with_query_session`, parameterized transactions join the open session lease.
 
 ## Severity
-**P1**: Broken transaction semantics / database mutation correctness / provider capability mismatch.
-
-## Failure Scenario
-1. A user opens a query tab and executes `BEGIN;`.
-2. The user edits row values in the Table Data Editor / Data Grid, which calls `execute_parameterized_transaction`.
-3. The mutation runs on a separate connection from the pool and immediately commits when `execute_parameterized_transaction` finishes.
-4. If the user executes `ROLLBACK;` in the query tab, the table data edits are NOT rolled back because they were committed on a separate connection outside the open transaction.
-5. In addition, if a statement within a joined transaction fails, `ROLLBACK TO SAVEPOINT` rolls back the changes to that savepoint but leaves the savepoint defined in MySQL, accumulating server resources if not released.
+**P1**: Provider implementation mismatch / broken transaction semantics for session-scoped parameterized operations.
 
 ## Implementation Strategy
 1. In `crates/infrastructure/src/mysql/connector.rs`:
@@ -22,7 +18,7 @@ Furthermore, when rolling back to a savepoint (`ROLLBACK TO SAVEPOINT`) upon sta
      - Issue `SAVEPOINT dbpro_tx_<seq>` via `crate::transaction_session::savepoint_name()`.
      - Bind parameters and execute statements sequentially.
      - Check `expect_affected_rows` and `max_affected_rows` invariants for each statement.
-     - On failure, issue `ROLLBACK TO SAVEPOINT dbpro_tx_<seq>` and then `RELEASE SAVEPOINT dbpro_tx_<seq>` so savepoints do not accumulate on open transactions.
+     - On failure, issue `ROLLBACK TO SAVEPOINT dbpro_tx_<seq>` and `RELEASE SAVEPOINT dbpro_tx_<seq>` so savepoints do not accumulate on open outer transactions.
      - On success, issue `RELEASE SAVEPOINT dbpro_tx_<seq>`.
    - Update `execute_parameterized_transaction`:
      - Call `checkout_if_held(session, ...)` before calling `pool.begin()`.

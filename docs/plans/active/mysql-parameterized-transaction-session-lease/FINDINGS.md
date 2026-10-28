@@ -1,10 +1,10 @@
-# Findings: MySQL Parameterized Transaction Session Lease Joining & Savepoint Cleanup
+# Findings: MySQL Parameterized Transaction Session Lease Alignment
 
 ## Root Cause Analysis
-1. `MySqlConnector::execute_parameterized_transaction` directly calls `pool.begin().await` to acquire a connection and start a new transaction without checking `open_session` via `checkout_if_held`.
-2. In `execute_parameterized_transaction_joined`, rolling back to a savepoint via `ROLLBACK TO SAVEPOINT dbpro_tx_<seq>` restores the state to the savepoint but does not remove the savepoint in MySQL (unlike PostgreSQL). If an outer transaction remains open, savepoint identifiers accumulate unless `RELEASE SAVEPOINT` is issued after `ROLLBACK TO SAVEPOINT`.
+1. `MySqlConnector::execute_parameterized_transaction` directly called `pool.begin().await` without invoking `checkout_if_held`. This differed from `PostgresConnector::execute_parameterized_transaction`, which checks `checkout_if_held` when executing parameterized statements within a session context.
+2. In `execute_parameterized_transaction_joined`, MySQL retains savepoint identifiers after `ROLLBACK TO SAVEPOINT dbpro_tx_<seq>`. Explicitly calling `RELEASE SAVEPOINT dbpro_tx_<seq>` after `ROLLBACK TO SAVEPOINT` cleans up server savepoint memory when an outer session transaction stays open (`LeftOpen`).
 
-## Architectural Verification
-- `ApplyTableChanges` command in UI / worker runs mutations via `TableDataService::apply_mutations_detailed`, which executes `connector.execute_parameterized_transaction`.
-- When `with_query_session` is active in the worker task, `checkout_if_held` resolves `SessionSlot` using `active_query_session()`.
-- Joining active session transactions via `checkout_if_held` ensures Data Grid mutations execute inside the user's active transaction when `BEGIN;` was run in the active query tab.
+## Transaction Scope Architecture
+- `crates/core/src/application/query_session.rs` defines query session boundaries.
+- Data Grid mutations (`RuntimeCommand::ApplyTableChanges`) run without a `session_id`, executing as standalone atomic batch transactions.
+- Parameterized operations running under `with_query_session` (e.g. session-scoped tasks or tab operations) check out open leases and execute inside savepoints.
