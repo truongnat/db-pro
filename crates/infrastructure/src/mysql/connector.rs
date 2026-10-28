@@ -168,6 +168,7 @@ impl MySqlConnector {
         use db_pro_core::ports::{
             TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
         };
+        use sqlx::Executor as _;
 
         let result = {
             let conn = std::ops::DerefMut::deref_mut(lease.conn());
@@ -188,7 +189,8 @@ impl MySqlConnector {
             };
             let _active = self.track_guard(handle.0, connection_id);
             let savepoint = crate::transaction_session::savepoint_name();
-            if let Err(error) = sqlx::query(&format!("SAVEPOINT {savepoint}")).execute(&mut *conn).await {
+            let savepoint_sql = format!("SAVEPOINT {savepoint}");
+            if let Err(error) = conn.execute(&*savepoint_sql).await {
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Begin,
                     statement_index: 0,
@@ -240,9 +242,8 @@ impl MySqlConnector {
             }
 
             if let Some((index, failed_results, cause)) = failure {
-                let rollback = sqlx::query(&format!("ROLLBACK TO SAVEPOINT {savepoint}"))
-                    .execute(&mut *conn)
-                    .await;
+                let rollback_sql = format!("ROLLBACK TO SAVEPOINT {savepoint}");
+                let rollback = conn.execute(&*rollback_sql).await;
                 if let Err(rollback_error) = rollback {
                     lease.discard_if_abandoned();
                     return Err(TransactionFailure {
@@ -256,16 +257,14 @@ impl MySqlConnector {
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Statement,
                     statement_index: index,
-                    outcome: TransactionFailureOutcome::LeftOpen,
+                    outcome: TransactionFailureOutcome::RolledBack,
                     results: failed_results,
                     error: cause,
                 });
             }
 
-            if let Err(error) = sqlx::query(&format!("RELEASE SAVEPOINT {savepoint}"))
-                .execute(&mut *conn)
-                .await
-            {
+            let release_sql = format!("RELEASE SAVEPOINT {savepoint}");
+            if let Err(error) = conn.execute(&*release_sql).await {
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Statement,
                     statement_index: statements.len(),
