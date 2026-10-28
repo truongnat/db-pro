@@ -1,7 +1,9 @@
-# Plan: MySQL Parameterized Transaction Session Lease Joining
+# Plan: MySQL Parameterized Transaction Session Lease Joining & Savepoint Cleanup
 
 ## Problem Statement
 In `crates/infrastructure/src/mysql/connector.rs`, `MySqlConnector::execute_parameterized_transaction` opens a new connection and pool transaction (`pool.begin().await`) for parameterized table row mutations without checking if the active query tab has an open session transaction (via `checkout_if_held`). As a result, table row mutations (such as Data Grid edits executed via `TableMutationExecution`) run on a separate connection outside the transaction opened in the query tab.
+
+Furthermore, when rolling back to a savepoint (`ROLLBACK TO SAVEPOINT`) upon statement or invariant failure in MySQL, MySQL retains the savepoint identifier in memory (unlike PostgreSQL). Without an explicit `RELEASE SAVEPOINT` call after rolling back, repeated failed mutations accumulate savepoints on long-lived session transactions.
 
 ## Severity
 **P1**: Broken transaction semantics / database mutation correctness / provider capability mismatch.
@@ -11,6 +13,7 @@ In `crates/infrastructure/src/mysql/connector.rs`, `MySqlConnector::execute_para
 2. The user edits row values in the Table Data Editor / Data Grid, which calls `execute_parameterized_transaction`.
 3. The mutation runs on a separate connection from the pool and immediately commits when `execute_parameterized_transaction` finishes.
 4. If the user executes `ROLLBACK;` in the query tab, the table data edits are NOT rolled back because they were committed on a separate connection outside the open transaction.
+5. In addition, if a statement within a joined transaction fails, `ROLLBACK TO SAVEPOINT` rolls back the changes to that savepoint but leaves the savepoint defined in MySQL, accumulating server resources if not released.
 
 ## Implementation Strategy
 1. In `crates/infrastructure/src/mysql/connector.rs`:
@@ -19,7 +22,7 @@ In `crates/infrastructure/src/mysql/connector.rs`, `MySqlConnector::execute_para
      - Issue `SAVEPOINT dbpro_tx_<seq>` via `crate::transaction_session::savepoint_name()`.
      - Bind parameters and execute statements sequentially.
      - Check `expect_affected_rows` and `max_affected_rows` invariants for each statement.
-     - On failure, issue `ROLLBACK TO SAVEPOINT dbpro_tx_<seq>` and return `TransactionFailure` with `outcome: TransactionFailureOutcome::LeftOpen` (handling rollback failure if `ROLLBACK TO SAVEPOINT` fails).
+     - On failure, issue `ROLLBACK TO SAVEPOINT dbpro_tx_<seq>` and then `RELEASE SAVEPOINT dbpro_tx_<seq>` so savepoints do not accumulate on open transactions.
      - On success, issue `RELEASE SAVEPOINT dbpro_tx_<seq>`.
    - Update `execute_parameterized_transaction`:
      - Call `checkout_if_held(session, ...)` before calling `pool.begin()`.

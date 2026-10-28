@@ -273,6 +273,12 @@ impl MySqlConnector {
                         failure.error
                     ));
                     lease.discard_if_abandoned();
+                } else {
+                    // In MySQL, ROLLBACK TO SAVEPOINT does NOT release the savepoint itself.
+                    // Release it explicitly so savepoint identifiers do not accumulate on open outer transactions.
+                    let _ = sqlx::query(&format!("RELEASE SAVEPOINT {savepoint}"))
+                        .execute(&mut *conn)
+                        .await;
                 }
                 Err(failure)
             } else if let Err(error) = sqlx::query(&format!("RELEASE SAVEPOINT {savepoint}"))
