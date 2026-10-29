@@ -268,7 +268,8 @@ impl MySqlConnector {
                 if rollback.is_err() || release.is_err() {
                     failure.outcome = TransactionFailureOutcome::Unknown;
                     if let Err(err) = rollback {
-                        failure.error = DbError::Internal(format!("{}; rollback to savepoint failed: {err}", failure.error));
+                        failure.error =
+                            DbError::Internal(format!("{}; rollback to savepoint failed: {err}", failure.error));
                     }
                     lease.discard_if_abandoned();
                     return Err(failure);
@@ -277,7 +278,10 @@ impl MySqlConnector {
                 return Err(failure);
             }
 
-            if let Err(error) = sqlx::query(&format!("RELEASE SAVEPOINT {savepoint}")).execute(&mut *conn).await {
+            if let Err(error) = sqlx::query(&format!("RELEASE SAVEPOINT {savepoint}"))
+                .execute(&mut *conn)
+                .await
+            {
                 lease.succeed();
                 return Err(TransactionFailure {
                     phase: TransactionFailurePhase::Statement,
