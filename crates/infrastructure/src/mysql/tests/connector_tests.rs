@@ -56,9 +56,19 @@ fn execute_parameterized_transaction_publishes_connection_id_before_statements()
         .find("async fn execute_parameterized_transaction(")
         .expect("execute_parameterized_transaction");
     let body = &source[param_at..];
-    let id = body.find("SELECT CONNECTION_ID()").expect("connection id is read");
-    let track = body.find("self.track_guard(").expect("id is published for Stop");
-    let statements = body
+    assert!(
+        body.contains("checkout_if_held"),
+        "execute_parameterized_transaction must check open session lease"
+    );
+    let joined_at = source
+        .find("async fn execute_parameterized_transaction_joined(")
+        .expect("execute_parameterized_transaction_joined");
+    let joined_body = &source[joined_at..];
+    let id = joined_body
+        .find("SELECT CONNECTION_ID()")
+        .expect("connection id is read");
+    let track = joined_body.find("self.track_guard(").expect("id is published for Stop");
+    let statements = joined_body
         .find("for (index, statement) in statements.iter().enumerate()")
         .expect("statements follow the publish");
     assert!(id < track && track < statements);
